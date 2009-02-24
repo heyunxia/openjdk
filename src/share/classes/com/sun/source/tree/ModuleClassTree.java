@@ -1,10 +1,12 @@
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.
+ * published by the Free Software Foundation.  Sun designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Sun in the LICENSE file that accompanied this code.
  *
  * This code is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -21,29 +23,12 @@
  * have any questions.
  */
 
-/*
- * @test
- * @bug 6232928
- * @summary Interface package-info should be marked abstract and synthetic
- * @author Wei Tao
- * @compile T6232928.java
- * @compile -doe T6232928/package-info.java
- * @run main T6232928
- */
+package com.sun.source.tree;
 
-import java.io.*;
-import java.lang.reflect.Modifier;
+import java.util.List;
+import javax.lang.model.element.Name;
 
-public class T6232928 {
-  public static void main(String... args) throws Exception {
-    Class pkginfo_cls = Class.forName("T6232928.package-info");
-    int mod = pkginfo_cls.getModifiers();
-    if (Modifier.isAbstract(mod) && Modifier.isInterface(mod)) {
-      if ((mod & 0x1000) == 0) {
-        throw new AssertionError("Test failed: interface package-info should be synthetic.");
-      }
-    } else {
-      throw new AssertionError("Test failed: interface package-info should be abstract.");
-    }
-  }
+public interface ModuleClassTree extends Tree {
+    List<? extends Name> getFlags();
+    Tree getClassName();
 }

@@ -189,7 +189,7 @@
         <javadoc-tool name="javac" includes="${javac.includes}" options="${javadoc.jls3.option}"/>
     </target>
     
-    <target name="jtreg-javac" depends="build-javac,-def-jtreg">
+    <target name="jtreg-javac" depends="build-javac,build-javap,-def-jtreg">
         <jtreg-tool name="javac" samevm="true" tests="${javac.tests}"/>
     </target>
     

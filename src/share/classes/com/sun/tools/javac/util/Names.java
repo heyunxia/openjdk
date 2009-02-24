@@ -73,6 +73,7 @@ public class Names {
     public final Name java_io_Serializable;
     public final Name serialVersionUID;
     public final Name java_lang_Enum;
+    public final Name module_info;
     public final Name package_info;
     public final Name ConstantValue;
     public final Name LineNumberTable;
@@ -141,6 +142,15 @@ public class Names {
     public final Name getDeclaringClass;
     public final Name ex;
     public final Name finalize;
+    public final Name module;
+    public final Name Module;
+    public final Name requires;
+    public final Name provides;
+    public final Name permits;
+    public final Name ModuleClass;
+    public final Name ModulePermits;
+    public final Name ModuleProvides;
+    public final Name ModuleRequires;
 
     public final Name.Table table;
 
@@ -175,6 +185,7 @@ public class Names {
         java_lang_Cloneable = fromString("java.lang.Cloneable");
         java_io_Serializable = fromString("java.io.Serializable");
         java_lang_Enum = fromString("java.lang.Enum");
+        module_info = fromString("module-info");
         package_info = fromString("package-info");
         serialVersionUID = fromString("serialVersionUID");
         ConstantValue = fromString("ConstantValue");
@@ -249,6 +260,15 @@ public class Names {
         getDeclaringClass = fromString("getDeclaringClass");
         ex = fromString("ex");
         finalize = fromString("finalize");
+        module = fromString("module");
+        Module = fromString("Module");
+        requires = fromString("requires");
+        provides = fromString("provides");
+        permits = fromString("permits");
+        ModuleClass = fromString("ModuleClass");
+        ModulePermits = fromString("ModulePermits");
+        ModuleProvides = fromString("ModuleProvides");
+        ModuleRequires = fromString("ModuleRequires");
     }
 
     protected Name.Table createTable(Options options) {

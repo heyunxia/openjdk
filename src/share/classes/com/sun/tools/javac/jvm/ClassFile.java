@@ -79,6 +79,7 @@ public class ClassFile {
     public final static int CONSTANT_Methodref = 10;
     public final static int CONSTANT_InterfaceMethodref = 11;
     public final static int CONSTANT_NameandType = 12;
+    public final static int CONSTANT_ModuleId = 13;
 
     public final static int MAX_PARAMETERS = 0xff;
     public final static int MAX_DIMENSIONS = 0xff;
@@ -155,6 +156,34 @@ public class ClassFile {
 
         public int hashCode() {
             return name.hashCode() * type.hashCode();
+        }
+    }
+
+    public static class ModuleId {
+        Name name;
+        Name version;
+
+        public ModuleId(Name name, Name version) {
+            this.name = name;
+            this.version = version;
+        }
+
+        public boolean equals(Object other) {
+            return
+                other instanceof ModuleId &&
+                name == ((ModuleId) other).name &&
+                version.equals(((ModuleId) other).version);
+        }
+
+        public int hashCode() {
+            if (version == null)
+                return name.hashCode();
+            else
+                return name.hashCode() * version.hashCode();
+        }
+
+        public String toString() {
+            return "ModuleId[" + name + (version == null ? "" : "@" + version) + "]";
         }
     }
 }

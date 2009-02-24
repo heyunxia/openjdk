@@ -25,6 +25,7 @@
 
 package com.sun.tools.javac.code;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.lang.model.element.*;
@@ -37,12 +38,14 @@ import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.jvm.*;
+import com.sun.tools.javac.jvm.ClassFile.ModuleId;
 import com.sun.tools.javac.model.*;
 import com.sun.tools.javac.tree.JCTree;
 
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.Flags.MODULE; // disambiguate
 
 /** Root class for Java symbols. It contains subclasses
  *  for specific sorts of symbols, such as variables, methods and operators,
@@ -293,6 +296,13 @@ public abstract class Symbol implements Element {
         return (PackageSymbol) sym;
     }
 
+    /** The module which indirectly owns this symbol.
+     */
+    public ModuleSymbol modle() {
+        ClassSymbol c = outermostClass();
+        return c == null ? null : c.modle;
+    }
+
     /** Is this symbol a subclass of `base'? Only defined for ClassSymbols.
      */
     public boolean isSubClass(Symbol base, Types types) {
@@ -371,6 +381,20 @@ public abstract class Symbol implements Element {
                     return false;
             }
             return (clazz.flags() & INTERFACE) == 0;
+        case MODULE:
+            ModuleSymbol thisModule = this.modle();
+            for (Symbol sup = clazz;
+                 sup != null && sup != this.owner;
+                 sup = types.supertype(sup.type).tsym) {
+                if (sup.type.isErroneous())
+                    return true; // error recovery
+                if ((sup.flags() & COMPOUND) != 0)
+                    continue;
+                if (sup.modle() != thisModule)
+                    return false;
+            }
+            return true;
+
         }
     }
 
@@ -600,6 +624,43 @@ public abstract class Symbol implements Element {
         }
     }
 
+    /** A class for module symbols.
+     */
+    public static class ModuleSymbol extends TypeSymbol // JIGSAW need TypeSymbol?
+            /*implements ModuleElement*/ {
+        public Name fullname;
+        public Name version;
+
+        public ClassSymbol module_info;
+
+        public Name className;
+        public List<Name> classFlags;
+        public ListBuffer<Name> permits;
+        public ListBuffer<ModuleId> provides;
+        public Map<ModuleId,List<Name>> requires;
+
+        public ModuleSymbol(Name name, Symbol owner) {
+            super(0, name, null, owner);
+            this.kind = MDL;
+            this.type = new ModuleType(this);
+            this.fullname = formFullName(name, owner);
+        }
+
+        @Override
+        public String toString() {
+            return fullname.toString();
+        }
+
+        @Override
+        public Name getQualifiedName() {
+            return fullname;
+        }
+
+        public boolean isUnnamed() {
+            return name.isEmpty() && owner != null;
+        }
+    }
+
     /** A class for package symbols
      */
     public static class PackageSymbol extends TypeSymbol
@@ -676,6 +737,10 @@ public abstract class Symbol implements Element {
     /** A class for class symbols
      */
     public static class ClassSymbol extends TypeSymbol implements TypeElement {
+        /**
+         * The module for the class.
+         */
+        public ModuleSymbol modle;
 
         /** a scope for all class members; variables, methods and inner classes
          *  type parameters are not part of this scope

@@ -29,6 +29,7 @@ import com.sun.source.tree.*;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
+import com.sun.tools.javac.util.Name;
 
 /**
  * Creates a copy of a tree, using a given TreeMaker.
@@ -316,10 +317,8 @@ public class TreeCopier<P> implements TreeVisitor<JCTree,P> {
 
     public JCTree visitCompilationUnit(CompilationUnitTree node, P p) {
         JCCompilationUnit t = (JCCompilationUnit) node;
-        List<JCAnnotation> packageAnnotations = copy(t.packageAnnotations, p);
-        JCExpression pid = copy(t.pid, p);
         List<JCTree> defs = copy(t.defs, p);
-        return M.at(t.pos).TopLevel(packageAnnotations, pid, defs);
+        return M.at(t.pos).TopLevel(defs);
     }
 
     public JCTree visitTry(TryTree node, P p) {
@@ -394,6 +393,48 @@ public class TreeCopier<P> implements TreeVisitor<JCTree,P> {
         TypeBoundKind kind = M.at(t.kind.pos).TypeBoundKind(t.kind.kind);
         JCTree inner = copy(t.inner, p);
         return M.at(t.pos).Wildcard(kind, inner);
+    }
+
+    public JCTree visitModule(ModuleTree node, P p) {
+        JCModuleDecl t = (JCModuleDecl) node;
+        List<JCAnnotation> annots = copy(t.annots, p);
+        JCModuleId moduleId = copy(t.id);
+        List<JCModuleId> provides = copy(t.provides);
+        List<JCModuleMetadata> metadataList = copy(t.metadata, p);
+        return M.at(t.pos).Module(annots, moduleId, provides, metadataList);
+    }
+
+    public JCModuleClass visitModuleClass(ModuleClassTree node, P p) {
+        JCModuleClass t = (JCModuleClass) node;
+        JCTree qualId = copy(t.qualId, p);
+        return M.at(t.pos).ModuleClass(t.flags, qualId);
+    }
+
+    public JCTree visitModuleId(ModuleIdTree node, P p) {
+        JCModuleId t = (JCModuleId) node;
+        JCTree qualId = copy(t.qualId, p);
+        Name version = t.version;
+        return M.at(t.pos).ModuleId(qualId, version);
+    }
+
+    public JCModulePermits visitModulePermits(ModulePermitsTree node, P p) {
+        JCModulePermits t = (JCModulePermits) node;
+        List<JCExpression> moduleNames = copy(t.moduleNames, p);
+        return M.at(t.pos).ModulePermits(moduleNames);
+    }
+
+    public JCModuleRequires visitModuleRequires(ModuleRequiresTree node, P p) {
+        JCModuleRequires t = (JCModuleRequires) node;
+        List<Name> flags = t.flags;
+        List<JCModuleId> moduleIds = copy(t.moduleIds, p);
+        return M.at(t.pos).ModuleRequires(flags, moduleIds);
+    }
+
+    public JCTree visitPackage(PackageTree node, P p) {
+        JCPackageDecl t = (JCPackageDecl) node;
+        List<JCAnnotation> annots = copy(t.annots, p);
+        JCExpression packageId = copy(t.packageId);
+        return M.at(t.pos).Package(annots, packageId);
     }
 
     public JCTree visitOther(Tree node, P p) {

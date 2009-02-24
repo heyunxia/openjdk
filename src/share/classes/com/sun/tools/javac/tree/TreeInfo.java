@@ -34,6 +34,7 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.tree.JCTree.*;
 
+import javax.tools.JavaFileObject;
 import static com.sun.tools.javac.code.Flags.*;
 
 /** Utility class containing inspector methods for trees.
@@ -858,5 +859,42 @@ public class TreeInfo {
         default:
             return null;
         }
+    }
+
+    public static boolean isModuleInfo(JCCompilationUnit tree) {
+        return tree.sourcefile.isNameCompatible("module-info", JavaFileObject.Kind.SOURCE);
+    }
+
+    public static JCModuleDecl getModule(JCCompilationUnit t) {
+        for (JCTree def: t.defs) {
+            switch (def.getTag()) {
+                case JCTree.IMPORT:
+                    continue;
+                case JCTree.MODULE:
+                    return (JCModuleDecl) def;
+                default:
+                    break;
+            }
+        }
+        return null;
+    }
+
+    public static boolean isPackageInfo(JCCompilationUnit tree) {
+        return tree.sourcefile.isNameCompatible("package-info", JavaFileObject.Kind.SOURCE);
+    }
+
+    public static JCPackageDecl getPackage(JCCompilationUnit t) {
+        for (JCTree def: t.defs) {
+            switch (def.getTag()) {
+                case JCTree.IMPORT:
+                case JCTree.MODULE:
+                    continue;
+                case JCTree.PACKAGE:
+                    return (JCPackageDecl) def;
+                default:
+                    break;
+            }
+        }
+        return null;
     }
 }

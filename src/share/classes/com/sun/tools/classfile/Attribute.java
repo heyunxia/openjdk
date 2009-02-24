@@ -62,10 +62,12 @@ public abstract class Attribute {
     public static final String StackMapTable            = "StackMapTable";
     public static final String Synthetic                = "Synthetic";
 
-    // JSR 277/294
+    // JSR 294
     public static final String Module                   = "Module";
-    public static final String ModuleExportTable        = "ModuleExportTable";
-    public static final String ModuleMemberTable        = "ModuleMemberTable";
+    public static final String ModuleClass              = "ModuleClass";
+    public static final String ModulePermits            = "ModulePermits";
+    public static final String ModuleProvides           = "ModuleProvides";
+    public static final String ModuleRequires           = "ModuleRequires";
 
     public static class Factory {
         public Factory() {
@@ -74,10 +76,6 @@ public abstract class Attribute {
 
         public void setCompat(boolean compat) {
             this.compat = compat;
-        }
-
-        public void setJSR277(boolean jsr277) {
-            this.jsr277 = jsr277;
         }
 
         public Attribute createAttribute(ClassReader cr, int name_index, byte[] data)
@@ -119,11 +117,11 @@ public abstract class Attribute {
             standardAttributes.put(LocalVariableTable, LocalVariableTable_attribute.class);
             standardAttributes.put(LocalVariableTypeTable, LocalVariableTypeTable_attribute.class);
 
-            if (jsr277) {
-                standardAttributes.put(Module,            Module_attribute.class);
-                standardAttributes.put(ModuleExportTable, ModuleExportTable_attribute.class);
-                standardAttributes.put(ModuleMemberTable, ModuleMemberTable_attribute.class);
-            }
+            standardAttributes.put(Module,            Module_attribute.class);
+            standardAttributes.put(ModuleClass,       ModuleClass_attribute.class);
+            standardAttributes.put(ModulePermits,     ModulePermits_attribute.class);
+            standardAttributes.put(ModuleProvides,    ModuleProvides_attribute.class);
+            standardAttributes.put(ModuleRequires,    ModuleRequires_attribute.class);
 
             if (!compat) { // old javap does not recognize recent attributes
                 standardAttributes.put(CompilationID, CompilationID_attribute.class);
@@ -144,7 +142,6 @@ public abstract class Attribute {
 
         private Map<String,Class<? extends Attribute>> standardAttributes;
         private boolean compat; // don't support recent attrs in compatibility mode
-        private boolean jsr277; // support new jsr277 attrs
     }
 
     public static Attribute read(ClassReader cr) throws IOException {
@@ -193,7 +190,9 @@ public abstract class Attribute {
         R visitSynthetic(Synthetic_attribute attr, P p);
 
         R visitModule(Module_attribute attr, P p);
-        R visitModuleExportTable(ModuleExportTable_attribute attr, P p);
-        R visitModuleMemberTable(ModuleMemberTable_attribute attr, P p);
+        R visitModuleClass(ModuleClass_attribute attr, P p);
+        R visitModulePermits(ModulePermits_attribute attr, P p);
+        R visitModuleProvides(ModuleProvides_attribute attr, P p);
+        R visitModuleRequires(ModuleRequires_attribute attr, P p);
     }
 }

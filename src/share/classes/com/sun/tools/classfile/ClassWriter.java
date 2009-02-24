@@ -276,14 +276,20 @@ public class ClassWriter {
             return 2;
         }
 
+        public Integer visitMethodref(CONSTANT_Methodref_info info, ClassOutputStream out) {
+            return writeRef(info, out);
+        }
+
+        public Integer visitModuleId(CONSTANT_ModuleId_info info, ClassOutputStream out) {
+            out.writeShort(info.name_index);
+            out.writeShort(info.version_index);
+            return 1;
+        }
+
         public Integer visitNameAndType(CONSTANT_NameAndType_info info, ClassOutputStream out) {
             out.writeShort(info.name_index);
             out.writeShort(info.type_index);
             return 1;
-        }
-
-        public Integer visitMethodref(CONSTANT_Methodref_info info, ClassOutputStream out) {
-            return writeRef(info, out);
         }
 
         public Integer visitString(CONSTANT_String_info info, ClassOutputStream out) {
@@ -454,21 +460,42 @@ public class ClassWriter {
         }
 
         public Void visitModule(Module_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.module_name);
+            out.writeShort(attr.module_id_index);
             return null;
         }
 
-        public Void visitModuleExportTable(ModuleExportTable_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.export_type_table.length);
-            for (int i: attr.export_type_table)
+        public Void visitModuleClass(ModuleClass_attribute attr, ClassOutputStream out) {
+            out.writeShort(attr.class_index);
+            out.writeShort(attr.attributes.length);
+            for (int index: attr.attributes) {
+                out.writeShort(index);
+            }
+            return null;
+        }
+
+        public Void visitModulePermits(ModulePermits_attribute attr, ClassOutputStream out) {
+            out.writeShort(attr.permits_table.length);
+            for (int i: attr.permits_table)
                 out.writeShort(i);
             return null;
         }
 
-        public Void visitModuleMemberTable(ModuleMemberTable_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.package_member_table.length);
-            for (int i: attr.package_member_table)
+        public Void visitModuleProvides(ModuleProvides_attribute attr, ClassOutputStream out) {
+            out.writeShort(attr.provides_table.length);
+            for (int i: attr.provides_table)
                 out.writeShort(i);
+            return null;
+        }
+
+        public Void visitModuleRequires(ModuleRequires_attribute attr, ClassOutputStream out) {
+            out.writeShort(attr.requires_table.length);
+            for (ModuleRequires_attribute.Entry e: attr.requires_table) {
+                out.writeShort(e.requires_index);
+                out.writeShort(e.attributes.length);
+                for (int i = 0; i < e.attributes_length; i++) {
+                    out.writeShort(e.attributes[i]);
+                }
+            }
             return null;
         }
 

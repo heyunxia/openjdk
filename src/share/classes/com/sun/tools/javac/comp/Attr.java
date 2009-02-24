@@ -592,6 +592,9 @@ public class Attr extends JCTree.Visitor {
             // JLS ???
             chk.checkOverride(tree, m);
 
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), m);
+
             // Create a new environment with local scope
             // for attributing the method.
             Env<AttrContext> localEnv = memberEnter.methodEnv(tree, env);
@@ -715,6 +718,8 @@ public class Attr extends JCTree.Visitor {
 
         try {
             chk.checkDeprecatedAnnotation(tree.pos(), v);
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), v);
 
             if (tree.init != null) {
                 if ((v.flags_field & FINAL) != 0 && tree.init.getTag() != JCTree.NEWCLASS) {
@@ -2714,6 +2719,9 @@ public class Attr extends JCTree.Visitor {
         chk.validate(tree.typarams, env);
         chk.validate(tree.extending, env);
         chk.validate(tree.implementing, env);
+
+        // Module modifier may not be used in unnamed module
+        chk.checkModuleModifier(tree.pos(), c);
 
         // If this is a non-abstract class, check that it has no abstract
         // methods or unimplemented methods of an implemented interface.

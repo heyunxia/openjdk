@@ -91,14 +91,19 @@ public class ConstantWriter extends BasicWriter {
                 return 2;
             }
 
-            public Integer visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
-                String tab = (options.compat ? "" : "\t"); // BUG 6622232 javap gets whitespace confused
-                println("#" + info.name_index + ":#" + info.type_index + ";" + tab + "//  " + stringValue(info));
+            public Integer visitMethodref(CONSTANT_Methodref_info info, Void p) {
+                println("#" + info.class_index + ".#" + info.name_and_type_index + ";\t//  " + stringValue(info));
                 return 1;
             }
 
-            public Integer visitMethodref(CONSTANT_Methodref_info info, Void p) {
-                println("#" + info.class_index + ".#" + info.name_and_type_index + ";\t//  " + stringValue(info));
+            public Integer visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+                println("#" + info.name_index + ":#" + info.version_index + ";\t//  " + stringValue(info));
+                return 1;
+            }
+
+            public Integer visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
+                String tab = (options.compat ? "" : "\t"); // BUG 6622232 javap gets whitespace confused
+                println("#" + info.name_index + ":#" + info.type_index + ";" + tab + "//  " + stringValue(info));
                 return 1;
             }
 
@@ -183,6 +188,8 @@ public class ConstantWriter extends BasicWriter {
                 return "InterfaceMethod";
             case CONSTANT_NameAndType:
                 return "NameAndType";
+            case CONSTANT_ModuleId:
+                return "ModuleId";
             default:
                 return "unknown tag";
         }
@@ -195,6 +202,16 @@ public class ConstantWriter extends BasicWriter {
         } catch (ConstantPool.InvalidIndex e) {
             return report(e);
         }
+    }
+
+    String stringValues(int[] constant_pool_indices, String sep) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < constant_pool_indices.length; i++) {
+            if (i > 0)
+                sb.append(sep);
+            sb.append(stringValue(constant_pool_indices[i]));
+        }
+        return sb.toString();
     }
 
     String stringValue(CPInfo cpInfo) {
@@ -244,6 +261,33 @@ public class ConstantWriter extends BasicWriter {
             return info.value + "l";
         }
 
+        public String visitMethodref(CONSTANT_Methodref_info info, Void p) {
+            return visitRef(info, p);
+        }
+
+        public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+            if (info.version_index == 0)
+                return getCheckedName(info);
+            else
+                return getCheckedName(info) + "@" + getCheckedVersion(info);
+        }
+
+        String getCheckedName(CONSTANT_ModuleId_info info) {
+            try {
+                return checkName(info.getName());
+            } catch (ConstantPoolException e) {
+                return report(e);
+            }
+        }
+
+        String getCheckedVersion(CONSTANT_ModuleId_info info) {
+            try {
+                return info.getVersion();
+            } catch (ConstantPoolException e) {
+                return report(e);
+            }
+        }
+
         public String visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
             return getCheckedName(info) + ":" + getType(info);
         }
@@ -262,10 +306,6 @@ public class ConstantWriter extends BasicWriter {
             } catch (ConstantPoolException e) {
                 return report(e);
             }
-        }
-
-        public String visitMethodref(CONSTANT_Methodref_info info, Void p) {
-            return visitRef(info, p);
         }
 
         public String visitString(CONSTANT_String_info info, Void p) {

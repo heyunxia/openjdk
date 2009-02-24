@@ -25,6 +25,7 @@
 
 package com.sun.tools.javap;
 
+import java.util.Arrays;
 import java.util.Formatter;
 
 import com.sun.tools.classfile.AccessFlags;
@@ -46,8 +47,10 @@ import com.sun.tools.classfile.InnerClasses_attribute;
 import com.sun.tools.classfile.LineNumberTable_attribute;
 import com.sun.tools.classfile.LocalVariableTable_attribute;
 import com.sun.tools.classfile.LocalVariableTypeTable_attribute;
-import com.sun.tools.classfile.ModuleExportTable_attribute;
-import com.sun.tools.classfile.ModuleMemberTable_attribute;
+import com.sun.tools.classfile.ModuleClass_attribute;
+import com.sun.tools.classfile.ModulePermits_attribute;
+import com.sun.tools.classfile.ModuleProvides_attribute;
+import com.sun.tools.classfile.ModuleRequires_attribute;
 import com.sun.tools.classfile.Module_attribute;
 import com.sun.tools.classfile.RuntimeInvisibleAnnotations_attribute;
 import com.sun.tools.classfile.RuntimeInvisibleParameterAnnotations_attribute;
@@ -185,9 +188,6 @@ public class AttributeWriter extends BasicWriter
                 print(", branch-true");
             if ((e.flags & CharacterRangeTable_attribute.CRT_BRANCH_FALSE) != 0)
                 print(", branch-false");
-
-
-
         }
         return null;
     }
@@ -368,7 +368,7 @@ public class AttributeWriter extends BasicWriter
     }
 
     public Void visitModule(Module_attribute attr, Void ignore) {
-        println("  Module: #" + attr.module_name + "\t// " + getModuleName(attr));
+        println("  Module: " + constantWriter.stringValue(attr.module_id_index));
         return null;
     }
 
@@ -380,38 +380,40 @@ public class AttributeWriter extends BasicWriter
         }
     }
 
-    public Void visitModuleExportTable(ModuleExportTable_attribute attr, Void ignore) {
-        println("  ModuleExportTable:");
-        println("    Types: (" + attr.export_type_table.length + ")");
-        for (int i = 0; i < attr.export_type_table.length; i++) {
-            println("      #" + attr.export_type_table[i] + "\t// " + getExportTypeName(attr, i));
+    public Void visitModuleClass(ModuleClass_attribute attr, Void ignore) {
+        println("  ModuleClass: ");
+        println("  #" + attr.class_index + "," + Arrays.toString(attr.attributes)
+                + "\t// " + constantWriter.stringValues(attr.attributes, " ")
+                + " " + constantWriter.stringValue(attr.class_index));
+        return null;
+    }
+
+    public Void visitModulePermits(ModulePermits_attribute attr, Void ignore) {
+        println("  ModulePermits: ");
+        for (int i = 0; i < attr.permits_table.length; i++) {
+            int permits_index = attr.permits_table[i];
+            println("  #" + permits_index + "\t// " + constantWriter.stringValue(permits_index));
         }
         return null;
     }
 
-    String getExportTypeName(ModuleExportTable_attribute attr, int index) {
-        try {
-            return attr.getExportTypeName(index, constant_pool);
-        } catch (ConstantPoolException e) {
-            return report(e);
-        }
-    }
-
-    public Void visitModuleMemberTable(ModuleMemberTable_attribute attr, Void ignore) {
-        println("  ModuleMemberTable:");
-        println("    Packages: (" + attr.package_member_table.length + ")");
-        for (int i = 0; i < attr.package_member_table.length; i++) {
-            println("      #" + attr.package_member_table[i] + "\t// " + getPackageMemberName(attr, i));
+    public Void visitModuleProvides(ModuleProvides_attribute attr, Void ignore) {
+        println("  ModuleProvides: ");
+        for (int i = 0; i < attr.provides_table.length; i++) {
+            int provides_index = attr.provides_table[i];
+            println("  #" + provides_index + "\t// " + constantWriter.stringValue(provides_index));
         }
         return null;
     }
 
-    String getPackageMemberName(ModuleMemberTable_attribute attr, int index) {
-        try {
-            return attr.getPackageMemberName(index, constant_pool);
-        } catch (ConstantPoolException e) {
-            return report(e);
+    public Void visitModuleRequires(ModuleRequires_attribute attr, Void ignore) {
+        println("  ModuleRequires: ");
+        for (ModuleRequires_attribute.Entry e: attr.requires_table) {
+            println("  #" + e.requires_index + "," + Arrays.toString(e.attributes)
+                    + "\t// " + constantWriter.stringValues(e.attributes, " ")
+                    + " " + constantWriter.stringValue(e.requires_index));
         }
+        return null;
     }
 
     public Void visitRuntimeVisibleAnnotations(RuntimeVisibleAnnotations_attribute attr, Void ignore) {

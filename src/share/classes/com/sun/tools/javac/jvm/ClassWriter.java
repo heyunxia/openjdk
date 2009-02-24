@@ -39,6 +39,7 @@ import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.List;
 
+import java.util.Map;
 import static com.sun.tools.javac.code.BoundKind.*;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
@@ -524,8 +525,18 @@ public class ClassWriter extends ClassFile {
                 if (type.tag == CLASS) enterInner((ClassSymbol)type.tsym);
                 poolbuf.appendByte(CONSTANT_Class);
                 poolbuf.appendChar(pool.put(xClassName(type)));
+            } else if (value instanceof ModuleSymbol) {
+                ModuleSymbol sym = (ModuleSymbol) value;
+                poolbuf.appendByte(CONSTANT_ModuleId);
+                poolbuf.appendChar(pool.put(names.fromUtf(externalize(sym.flatName()))));
+                poolbuf.appendChar(sym.version == null ? 0 : pool.put(sym.version));
+            } else if (value instanceof ModuleId) {
+                ModuleId mid = (ModuleId)value;
+                poolbuf.appendByte(CONSTANT_ModuleId);
+                poolbuf.appendChar(pool.put(mid.name));
+                poolbuf.appendChar(mid.version == null ? 0 : pool.put(mid.version));
             } else {
-                assert false : "writePool " + value;
+                throw new AssertionError("writePool " + value);
             }
             i++;
         }
@@ -860,6 +871,76 @@ public class ClassWriter extends ClassFile {
             databuf.appendChar(pool.put(p.fst.name));
             p.snd.accept(awriter);
         }
+    }
+
+/**********************************************************************
+ * Writing module attributes
+ **********************************************************************/
+
+    /** Write the Module attribute if needed.
+     *  Returns the number of attributes written (0 or 1).
+     */
+    int writeModuleAttribute(ClassSymbol c) {
+        if (c.modle == null)
+            return 0;
+
+        int alenIdx = writeAttr(names.Module);
+        databuf.appendChar(pool.put(c.modle));
+        endAttr(alenIdx);
+        return 1;
+    }
+
+    int writeModuleMetadata(ModuleSymbol sym) {
+        int n = 0;
+
+        if (sym.provides.size() > 0) {
+            int alenIdx = writeAttr(names.ModuleProvides);
+            databuf.appendChar(sym.provides.size());
+            for (List<ModuleId> l = sym.provides.elems; l.nonEmpty(); l = l.tail) {
+                databuf.appendChar(pool.put(l.head));
+            }
+            endAttr(alenIdx);
+            n++;
+        }
+
+        if (sym.requires.size() > 0) {
+            int alenIdx = writeAttr(names.ModuleRequires);
+            databuf.appendChar(sym.requires.size());
+            for (Map.Entry<ModuleId,List<Name>> e: sym.requires.entrySet()) {
+                ModuleId m = e.getKey();
+                List<Name> flags = e.getValue();
+                databuf.appendChar(pool.put(m));
+                databuf.appendChar(flags.size());
+                for (List<Name> l = flags; l.nonEmpty(); l = l.tail) {
+                    databuf.appendChar(pool.put(l.head));
+                }
+            }
+            endAttr(alenIdx);
+            n++;
+        }
+
+        if (sym.permits.size() > 0) {
+            int alenIdx = writeAttr(names.ModulePermits);
+            databuf.appendChar(sym.permits.size());
+            for (Name name: sym.permits) {
+                databuf.appendChar(pool.put(name));
+            }
+            endAttr(alenIdx);
+            n++;
+        }
+
+        if (sym.className != null) {
+            int alenIdx = writeAttr(names.ModuleClass);
+            databuf.appendChar(pool.put(sym.className));
+            databuf.appendChar(sym.classFlags.size());
+            for (Name name: sym.classFlags) {
+                databuf.appendChar(pool.put(name));
+            }
+            endAttr(alenIdx);
+            n++;
+        }
+
+        return n;
     }
 
 /**********************************************************************
@@ -1570,6 +1651,12 @@ public class ClassWriter extends ClassFile {
         acount += writeFlagAttrs(c.flags());
         acount += writeJavaAnnotations(c.getAnnotationMirrors());
         acount += writeEnclosingMethodAttribute(c);
+        if (target.useModules()) {
+            acount += writeModuleAttribute(c);
+            if (c.name == names.module_info) {
+                acount += writeModuleMetadata(c.modle);
+            }
+        }
 
         poolbuf.appendInt(JAVA_MAGIC);
         poolbuf.appendChar(target.minorVersion);

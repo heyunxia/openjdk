@@ -552,8 +552,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
      */
     protected JCCompilationUnit parse(JavaFileObject filename, CharSequence content) {
         long msec = now();
-        JCCompilationUnit tree = make.TopLevel(List.<JCTree.JCAnnotation>nil(),
-                                      null, List.<JCTree>nil());
+        JCCompilationUnit tree = make.TopLevel(List.<JCTree>nil());
         if (content != null) {
             if (verbose) {
                 printVerbose("parsing.started", filename);
@@ -626,8 +625,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
                 tree = (tree == null) ? make.Ident(names.fromString(s))
                                       : make.Select(tree, names.fromString(s));
             }
-            JCCompilationUnit toplevel =
-                make.TopLevel(List.<JCTree.JCAnnotation>nil(), null, List.<JCTree>nil());
+            JCCompilationUnit toplevel = make.TopLevel(List.<JCTree>nil());
             toplevel.packge = syms.unnamedPackage;
             return attr.attribIdent(tree, toplevel);
         } finally {
@@ -689,7 +687,6 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
      *  @param f          An input stream that reads the source file.
      */
     public void complete(ClassSymbol c) throws CompletionFailure {
-//      System.err.println("completing " + c);//DEBUG
         if (completionFailureName == c.fullname) {
             throw new CompletionFailure(c, "user-selected completion failure by class name");
         }
@@ -701,7 +698,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
             tree = parse(filename, filename.getCharContent(false));
         } catch (IOException e) {
             log.error("error.reading.file", filename, e);
-            tree = make.TopLevel(List.<JCTree.JCAnnotation>nil(), null, List.<JCTree>nil());
+            tree = make.TopLevel(List.<JCTree>nil());
         } finally {
             log.useSource(prev);
         }
@@ -719,17 +716,28 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
         }
 
         if (enter.getEnv(c) == null) {
-            boolean isPkgInfo =
+            boolean isPackageInfo =
                 tree.sourcefile.isNameCompatible("package-info",
                                                  JavaFileObject.Kind.SOURCE);
-            if (isPkgInfo) {
+            boolean isModuleInfo =
+                tree.sourcefile.isNameCompatible("module-info",
+                                                 JavaFileObject.Kind.SOURCE);
+            if (isPackageInfo) {
                 if (enter.getEnv(tree.packge) == null) {
                     JCDiagnostic diag =
                         diagFactory.fragment("file.does.not.contain.package",
                                                  c.location());
                     throw reader.new BadClassFile(c, filename, diag);
                 }
-            } else {
+            } else if (isModuleInfo) {
+                if (enter.getEnv(tree.modle) == null) {
+                    JCDiagnostic diag =
+                        diagFactory.fragment("file.does.not.contain.module",
+                                                 c.location());
+                    throw reader.new BadClassFile(c, filename, diag);
+                }
+            }
+            else {
                 JCDiagnostic diag =
                         diagFactory.fragment("file.doesnt.contain.class",
                                             c.getQualifiedName());

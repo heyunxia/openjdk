@@ -112,7 +112,10 @@ public class Flags {
      *  classfile v49.0. */
     public static final int ENUM         = 1<<14;
 
-    public static final int StandardFlags = 0x0fff;
+    /** Module access, added in classfile v51.0. */
+    public static final int MODULE       = 1<<15;
+
+    public static final int StandardFlags = 0x8fff;
 
     // Because the following access flags are overloaded with other
     // bit positions, we translate them when reading and writing class
@@ -232,15 +235,15 @@ public class Flags {
     /** Modifier masks.
      */
     public static final int
-        AccessFlags           = PUBLIC | PROTECTED | PRIVATE,
+        AccessFlags           = PUBLIC | PROTECTED | PRIVATE | MODULE,
         LocalClassFlags       = FINAL | ABSTRACT | STRICTFP | ENUM | SYNTHETIC,
         MemberClassFlags      = LocalClassFlags | INTERFACE | AccessFlags,
-        ClassFlags            = LocalClassFlags | INTERFACE | PUBLIC | ANNOTATION,
-        InterfaceVarFlags     = FINAL | STATIC | PUBLIC,
+        ClassFlags            = LocalClassFlags | INTERFACE | PUBLIC | MODULE | ANNOTATION,
+        InterfaceVarFlags     = FINAL | STATIC | PUBLIC | MODULE,
         VarFlags              = AccessFlags | FINAL | STATIC |
                                 VOLATILE | TRANSIENT | ENUM,
         ConstructorFlags      = AccessFlags,
-        InterfaceMethodFlags  = ABSTRACT | PUBLIC,
+        InterfaceMethodFlags  = ABSTRACT | PUBLIC | MODULE,
         MethodFlags           = AccessFlags | ABSTRACT | STATIC | NATIVE |
                                 SYNCHRONIZED | FINAL | STRICTFP;
     public static final long
@@ -253,6 +256,7 @@ public class Flags {
             if (0 != (flags & PUBLIC))    modifiers.add(Modifier.PUBLIC);
             if (0 != (flags & PROTECTED)) modifiers.add(Modifier.PROTECTED);
             if (0 != (flags & PRIVATE))   modifiers.add(Modifier.PRIVATE);
+            if (0 != (flags & MODULE))    modifiers.add(Modifier.MODULE);
             if (0 != (flags & ABSTRACT))  modifiers.add(Modifier.ABSTRACT);
             if (0 != (flags & STATIC))    modifiers.add(Modifier.STATIC);
             if (0 != (flags & FINAL))     modifiers.add(Modifier.FINAL);
@@ -284,6 +288,10 @@ public class Flags {
         return symbol.getConstValue() != null;
     }
 
+    public static boolean isModuleAccess(Symbol symbol) {
+        return (symbol.flags() & MODULE) != 0;
+    }
+
     public enum Flag {
 
         PUBLIC("public"),
@@ -303,6 +311,7 @@ public class Flags {
         DEPRECATED("deprecated"),
         HASINIT("hasinit"),
         ENUM("enum"),
+        MODULE("module"),
         IPROXY("iproxy"),
         NOOUTERTHIS("noouterthis"),
         EXISTS("exists"),

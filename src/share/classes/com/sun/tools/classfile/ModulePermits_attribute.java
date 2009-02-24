@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,43 +28,42 @@ package com.sun.tools.classfile;
 import java.io.IOException;
 
 /**
- * See JSR 277.
+ * See JSR294.
  *
  *  <p><b>This is NOT part of any API supported by Sun Microsystems.  If
  *  you write code that depends on this, you do so at your own risk.
  *  This code and its internal interfaces are subject to change or
  *  deletion without notice.</b>
  */
-public class ModuleExportTable_attribute extends Attribute {
-    ModuleExportTable_attribute(ClassReader cr, int name_index, int length) throws IOException {
+public class ModulePermits_attribute extends Attribute {
+    ModulePermits_attribute(ClassReader cr, int name_index, int length) throws IOException {
         super(name_index, length);
-        int export_type_length = cr.readUnsignedShort();
-        export_type_table = new int[export_type_length];
-        for (int i = 0; i < export_type_table.length; i++)
-            export_type_table[i] = cr.readUnsignedShort();
+        permits_length = cr.readUnsignedShort();
+        permits_table = new int[permits_length];
+        for (int i = 0; i < permits_length; i++)
+            permits_table[i] = cr.readUnsignedShort();
     }
 
-    public ModuleExportTable_attribute(ConstantPool cp, int[] export_type_table)
+    public ModulePermits_attribute(ConstantPool constant_pool, int[] provides_table)
             throws ConstantPoolException {
-        this(cp.getUTF8Index(Attribute.ModuleExportTable), export_type_table);
+        this(constant_pool.getUTF8Index(Attribute.ModulePermits), provides_table);
     }
 
-    public ModuleExportTable_attribute(int name_index, int[] export_type_table) {
-        super(name_index, 2 * export_type_table.length);
-        this.export_type_table = export_type_table;
+    public ModulePermits_attribute(int name_index, int[] permits_table) {
+        super(name_index, 2 + 2 * permits_table.length);
+        this.permits_length = permits_table.length;
+        this.permits_table = permits_table;
     }
 
-    public int getExportTypeCount() {
-        return export_type_table.length;
+    public String getPermits(int index, ConstantPool constant_pool) throws ConstantPoolException {
+        int permits_index = permits_table[index];
+        return constant_pool.getUTF8Value(permits_index);
     }
 
-    public String getExportTypeName(int index, ConstantPool constant_pool) throws ConstantPoolException {
-        return constant_pool.getUTF8Value(export_type_table[index]);
+    public <R, D> R accept(Visitor<R, D> visitor, D data) {
+        return visitor.visitModulePermits(this, data);
     }
 
-    public <R, P> R accept(Visitor<R, P> visitor, P p) {
-        return visitor.visitModuleExportTable(this, p);
-    }
-
-    public final int[] export_type_table;
+    public final int permits_length;
+    public final int[] permits_table;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,48 +22,49 @@
  * CA 95054 USA or visit www.sun.com if you need additional information or
  * have any questions.
  */
+
 package com.sun.tools.classfile;
 
 import java.io.IOException;
+import com.sun.tools.classfile.ConstantPool.CONSTANT_ModuleId_info;
 
 /**
- * See JSR 277.
+ * See JSR294.
  *
  *  <p><b>This is NOT part of any API supported by Sun Microsystems.  If
  *  you write code that depends on this, you do so at your own risk.
  *  This code and its internal interfaces are subject to change or
  *  deletion without notice.</b>
  */
-public class ModuleMemberTable_attribute extends Attribute {
-    ModuleMemberTable_attribute(ClassReader cr, int name_index, int length) throws IOException {
+public class ModuleProvides_attribute extends Attribute {
+    ModuleProvides_attribute(ClassReader cr, int name_index, int length) throws IOException {
         super(name_index, length);
-        int package_member_length = cr.readUnsignedShort();
-        package_member_table = new int[package_member_length];
-        for (int i = 0; i < package_member_table.length; i++)
-            package_member_table[i] = cr.readUnsignedShort();
+        provides_length = cr.readUnsignedShort();
+        provides_table = new int[provides_length];
+        for (int i = 0; i < provides_length; i++)
+            provides_table[i] = cr.readUnsignedShort();
     }
 
-    public ModuleMemberTable_attribute(ConstantPool cp, int[] package_member_table)
+    public ModuleProvides_attribute(ConstantPool constant_pool, int[] provides_table)
             throws ConstantPoolException {
-        this(cp.getUTF8Index(Attribute.ModuleMemberTable), package_member_table);
+        this(constant_pool.getUTF8Index(Attribute.ModuleProvides), provides_table);
     }
 
-    public ModuleMemberTable_attribute(int name_index, int[] package_member_table) {
-        super(name_index, 2 * package_member_table.length);
-        this.package_member_table = package_member_table;
+    public ModuleProvides_attribute(int name_index, int[] provides_table) {
+        super(name_index, 2 + 2 * provides_table.length);
+        this.provides_length = provides_table.length;
+        this.provides_table = provides_table;
     }
 
-    public int getPackageMemberCount() {
-        return package_member_table.length;
+    public CONSTANT_ModuleId_info getProvides(int index, ConstantPool constant_pool) throws ConstantPoolException {
+        int provides_index = provides_table[index];
+        return constant_pool.getModuleIdInfo(provides_index);
     }
 
-    public String getPackageMemberName(int index, ConstantPool constant_pool) throws ConstantPoolException {
-        return constant_pool.getUTF8Value(package_member_table[index]);
+    public <R, D> R accept(Visitor<R, D> visitor, D data) {
+        return visitor.visitModuleProvides(this, data);
     }
 
-    public <R, P> R accept(Visitor<R, P> visitor, P p) {
-        return visitor.visitModuleMemberTable(this, p);
-    }
-
-    public final int[] package_member_table;
+    public final int provides_length;
+    public final int[] provides_table;
 }

@@ -229,12 +229,6 @@ public class JavapTask implements DisassemblerTool.DisassemblerTask {
             }
         },
 
-        new Option(false, "-XDjsr277") {
-            void process(JavapTask task, String opt, String arg) {
-                task.options.jsr277 = true;
-            }
-        },
-
         new Option(false, "-XDignore.symbol.file") {
             void process(JavapTask task, String opt, String arg) {
                 task.options.ignoreSymbolFile = true;
@@ -503,7 +497,6 @@ public class JavapTask implements DisassemblerTool.DisassemblerTask {
                 }
                 Attribute.Factory attributeFactory = new Attribute.Factory();
                 attributeFactory.setCompat(options.compat);
-                attributeFactory.setJSR277(options.jsr277);
 
                 InputStream in = fo.openInputStream();
                 SizeInputStream sizeIn = null;

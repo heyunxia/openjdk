@@ -917,6 +917,34 @@ public class Type implements PrimitiveType {
         }
     }
 
+    public static class ModuleType extends Type implements NoType {
+
+        ModuleType(TypeSymbol tsym) {
+            super(TypeTags.MODULE, tsym);
+        }
+
+        @Override
+        public <R,S> R accept(Type.Visitor<R,S> v, S s) {
+            return v.visitModuleType(this, s);
+        }
+
+        @Override
+        public String toString() {
+            return tsym.getQualifiedName().toString();
+        }
+
+        @Override
+        public TypeKind getKind() {
+            return TypeKind.MODULE;
+        }
+
+        @Override
+        public <R, P> R accept(TypeVisitor<R, P> v, P p) {
+            return v.visitNoType(this, p);
+        }
+    }
+
+
     public static class TypeVar extends Type implements TypeVariable {
 
         /** The bound of this type variable; set from outside.
@@ -1251,6 +1279,7 @@ public class Type implements PrimitiveType {
         R visitArrayType(ArrayType t, S s);
         R visitMethodType(MethodType t, S s);
         R visitPackageType(PackageType t, S s);
+        R visitModuleType(ModuleType t, S s);
         R visitTypeVar(TypeVar t, S s);
         R visitCapturedType(CapturedType t, S s);
         R visitForAll(ForAll t, S s);

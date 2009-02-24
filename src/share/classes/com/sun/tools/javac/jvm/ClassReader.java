@@ -30,6 +30,7 @@ import java.net.URI;
 import java.nio.CharBuffer;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.SourceVersion;
@@ -97,6 +98,10 @@ public class ClassReader extends ClassFile implements Completer {
      */
     boolean allowAnnotations;
 
+    /** Switch: allow modules
+     */
+    boolean allowModules;
+
     /** Switch: preserve parameter names from the variable table.
      */
     public boolean saveParameterNames;
@@ -151,6 +156,10 @@ public class ClassReader extends ClassFile implements Completer {
      */
     private Map<Name, PackageSymbol> packages;
 
+    /** A hashtable containing the encountered modules.
+     */
+    private Map<Name, ModuleSymbol> modules;
+
     /** The current scope where type variables are entered.
      */
     protected Scope typevars;
@@ -200,14 +209,21 @@ public class ClassReader extends ClassFile implements Completer {
         if (classes != null) return;
 
         if (definitive) {
+            assert modules == null || modules == syms.modules;
+            modules = syms.modules;
             assert packages == null || packages == syms.packages;
             packages = syms.packages;
             assert classes == null || classes == syms.classes;
             classes = syms.classes;
         } else {
+            modules = new HashMap<Name, ModuleSymbol>();
             packages = new HashMap<Name, PackageSymbol>();
             classes = new HashMap<Name, ClassSymbol>();
         }
+
+        modules.put(names.empty, syms.rootModule);
+        syms.rootModule.completer = this;
+        syms.unnamedModule.completer = this;
 
         packages.put(names.empty, syms.rootPackage);
         syms.rootPackage.completer = this;
@@ -239,6 +255,7 @@ public class ClassReader extends ClassFile implements Completer {
         allowGenerics    = source.allowGenerics();
         allowVarargs     = source.allowVarargs();
         allowAnnotations = source.allowAnnotations();
+        allowModules     = source.allowModules();
         saveParameterNames = options.get("save-parameter-names") != null;
         cacheCompletionFailure = options.get("dev") == null;
         preferSource = "source".equals(options.get("-Xprefer"));
@@ -388,6 +405,7 @@ public class ClassReader extends ClassFile implements Completer {
             case CONSTANT_NameandType:
             case CONSTANT_Integer:
             case CONSTANT_Float:
+            case CONSTANT_ModuleId:
                 bp = bp + 4;
                 break;
             case CONSTANT_Long:
@@ -456,6 +474,11 @@ public class ClassReader extends ClassFile implements Completer {
         case CONSTANT_Double:
             poolObj[i] = new Double(getDouble(index + 1));
             break;
+        case CONSTANT_ModuleId:
+            poolObj[i] = new ModuleId(
+                readName(getChar(index + 1)),
+                readName(getChar(index + 3)));
+            break;
         default:
             throw badClassFile("bad.const.pool.tag", Byte.toString(tag));
         }
@@ -502,6 +525,12 @@ public class ClassReader extends ClassFile implements Completer {
      */
     Name readName(int i) {
         return (Name) (readPool(i));
+    }
+
+    /** Read module id.
+     */
+    ModuleId readModuleId(int i) {
+        return (ModuleId) (readPool(i));
     }
 
 /************************************************************************
@@ -1058,6 +1087,18 @@ public class ClassReader extends ClassFile implements Completer {
             } finally {
                 readingClassAttr = false;
             }
+        } else if (allowModules && attrName == names.Module) {
+            ModuleId mid = readModuleId(nextChar());
+            c.modle = enterModule(mid.name);
+            if (c.name == names.module_info)
+                c.modle.version = mid.version;
+        } else if (allowModules && c.name == names.module_info &&
+                (attrName == names.ModuleProvides
+                || attrName == names.ModulePermits
+                || attrName == names.ModuleRequires)) {
+            if (c.modle == null)
+                c.modle = enterModule(c.packge().flatName());
+            readModuleAttribute(c.modle, attrName, attrLen);
         } else {
             readMemberAttr(c, attrName, attrLen);
         }
@@ -1088,6 +1129,38 @@ public class ClassReader extends ClassFile implements Completer {
         bp += exception_table_length * 8;
         readMemberAttrs(owner);
         return null;
+    }
+
+    /** Read module attributes */
+
+    void readModuleAttribute(ModuleSymbol m, Name attrName, int attrLen) {
+        if (attrName == names.ModuleProvides) {
+            m.provides = new ListBuffer<ModuleId>();
+            int num = nextChar();
+            for (int i = 0; i < num; i++)
+                m.provides.append(readModuleId(nextChar()));
+        } else if (attrName == names.ModuleRequires) {
+            Map<ModuleId,List<Name>> requires = new LinkedHashMap<ModuleId,List<Name>>();
+            int numRequires = nextChar();
+            for (int r = 0; r < numRequires; r++) {
+                ModuleId id = readModuleId(nextChar());
+                ListBuffer<Name> flags = new ListBuffer<Name>();
+                int numFlags = nextChar();
+                for (int f = 0; f < numFlags; f++) {
+                    flags.append(readName(nextChar()));
+                }
+                requires.put(id, flags.toList());
+            }
+            m.requires = requires;
+        } else if (attrName == names.ModulePermits) {
+            m.permits = new ListBuffer<Name>();
+            int num = nextChar();
+            for (int i = 0; i < num; i++)
+                m.permits.append(readName(nextChar()));
+        } else {
+            unrecognized(attrName);
+            bp = bp + attrLen;
+        }
     }
 
 /************************************************************************
@@ -1791,6 +1864,11 @@ public class ClassReader extends ClassFile implements Completer {
             } catch (IOException ex) {
                 throw new CompletionFailure(sym, ex.getLocalizedMessage()).initCause(ex);
             }
+        } else if (sym.kind == MDL) {
+            ModuleSymbol m = (ModuleSymbol) sym;
+            enterPackage(m.flatName()).complete();
+            if (m.module_info != null)
+                m.module_info.complete();
         }
         if (!filling && !suppressFlush)
             annotate.flush(); // finish attaching annotations
@@ -2002,28 +2080,33 @@ public class ClassReader extends ClassFile implements Completer {
      *         (2) we have one of the other kind, and the given class file
      *             is older.
      */
-    protected void includeClassFile(PackageSymbol p, JavaFileObject file) {
-        if ((p.flags_field & EXISTS) == 0)
-            for (Symbol q = p; q != null && q.kind == PCK; q = q.owner)
-                q.flags_field |= EXISTS;
+    protected void includeClassFile(PackageSymbol p, JavaFileObject file, Name simpleName) {
+        boolean isModuleInfo = simpleName == names.module_info;
+        boolean isPackageInfo = simpleName == names.package_info;
+        ModuleSymbol m = isModuleInfo ? enterModule(p.flatName()) : null;
+
+        if (!isModuleInfo) {
+            if ((p.flags_field & EXISTS) == 0)
+                for (Symbol q = p; q != null && q.kind == PCK; q = q.owner)
+                    q.flags_field |= EXISTS;
+        }
         JavaFileObject.Kind kind = file.getKind();
         int seen;
         if (kind == JavaFileObject.Kind.CLASS)
             seen = CLASS_SEEN;
         else
             seen = SOURCE_SEEN;
-        String binaryName = fileManager.inferBinaryName(currentLoc, file);
-        int lastDot = binaryName.lastIndexOf(".");
-        Name classname = names.fromString(binaryName.substring(lastDot + 1));
-        boolean isPkgInfo = classname == names.package_info;
-        ClassSymbol c = isPkgInfo
-            ? p.package_info
-            : (ClassSymbol) p.members_field.lookup(classname).sym;
+        ClassSymbol c =
+              isModuleInfo ? m.module_info
+            : isPackageInfo ? p.package_info
+            : (ClassSymbol) p.members_field.lookup(simpleName).sym;
         if (c == null) {
-            c = enterClass(classname, p);
+            c = enterClass(simpleName, p);
             if (c.classfile == null) // only update the file if's it's newly created
                 c.classfile = file;
-            if (isPkgInfo) {
+            if (isModuleInfo) {
+                m.module_info = c;
+            } else if (isPackageInfo) {
                 p.package_info = c;
             } else {
                 if (c.owner == p)  // it might be an inner class
@@ -2160,12 +2243,13 @@ public class ClassReader extends ClassFile implements Completer {
                 switch (fo.getKind()) {
                 case CLASS:
                 case SOURCE: {
-                    // TODO pass binaryName to includeClassFile
                     String binaryName = fileManager.inferBinaryName(currentLoc, fo);
                     String simpleName = binaryName.substring(binaryName.lastIndexOf(".") + 1);
                     if (SourceVersion.isIdentifier(simpleName) ||
-                        simpleName.equals("package-info"))
-                        includeClassFile(p, fo);
+                        simpleName.contentEquals(names.package_info) ||
+                        simpleName.contentEquals(names.module_info)) {
+                        includeClassFile(p, fo, names.fromString(simpleName));
+                    }
                     break;
                 }
                 default:
@@ -2173,6 +2257,21 @@ public class ClassReader extends ClassFile implements Completer {
                 }
             }
         }
+
+    /** Make a module, given its fully qualified name.
+     */
+    public ModuleSymbol enterModule(Name fullname) {
+        ModuleSymbol m = modules.get(fullname);
+        if (m == null) {
+            assert !fullname.isEmpty() : "rootModule missing!";
+            m = new ModuleSymbol(
+                Convert.shortName(fullname),
+                enterModule(Convert.packagePart(fullname)));
+            m.completer = this;
+            modules.put(fullname, m);
+        }
+        return m;
+    }
 
     /** Output for "-verbose" option.
      *  @param key The key to look up the correct internationalized string.

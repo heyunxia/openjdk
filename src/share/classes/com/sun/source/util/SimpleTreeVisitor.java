@@ -248,6 +248,30 @@ public class SimpleTreeVisitor <R,P> implements TreeVisitor<R,P> {
         return defaultAction(node, p);
     }
 
+    public R visitModule(ModuleTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModuleClass(ModuleClassTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModuleId(ModuleIdTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModulePermits(ModulePermitsTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModuleRequires(ModuleRequiresTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitPackage(PackageTree node, P p) {
+        return defaultAction(node, p);
+    }
+
     public R visitOther(Tree node, P p) {
         return defaultAction(node, p);
     }
