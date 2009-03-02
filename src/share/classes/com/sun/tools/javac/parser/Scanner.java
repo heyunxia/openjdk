@@ -805,6 +805,19 @@ public class Scanner implements Lexer {
         } while(true);
     }
 
+    /** Return true if ch can be part of an operator.
+     */
+    private boolean isModuleStart(char ch) {
+        switch (ch) {
+        case '0': case '1': case '2': case '3': case '4':
+        case '5': case '6': case '7': case '8': case '9':
+        case '(': case '[': case '<': case '=': case '>':
+            return true;
+        default:
+            return false;
+        }
+    }
+
     /** The value of a literal token, recorded as a string.
      *  For integers, leading 0x and 'l' suffixes are suppressed.
      */
@@ -1009,7 +1022,9 @@ public class Scanner implements Lexer {
                     }
                     return;
                 default:
-                    if (isSpecial(ch)) {
+                    if (token == MONKEYS_AT && isModuleStart(ch)) {
+                        scanModuleVersion();
+                    } else if (isSpecial(ch)) {
                         scanOperator();
                     } else {
                         boolean isJavaIdentifierStart;
