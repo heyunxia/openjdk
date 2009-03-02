@@ -62,6 +62,7 @@ $(call make-launcher, apt, com.sun.tools.apt.Main, , )
 $(call make-launcher, extcheck, com.sun.tools.extcheck.Main, , )
 $(call make-launcher, idlj, com.sun.tools.corba.se.idl.toJavaPortable.Compile, , )
 $(call make-launcher, jar, sun.tools.jar.Main, , )
+$(call make-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, , )
 $(call make-launcher, jarsigner, sun.security.tools.JarSigner, , )
 $(call make-launcher, javac, com.sun.tools.javac.Main, , )
 $(call make-launcher, javadoc, com.sun.tools.javadoc.Main, , )
@@ -117,4 +118,3 @@ clean clobber::
 	$(make-platform-specific-launchers)
 
 include $(BUILDDIR)/common/Rules.gmk
-

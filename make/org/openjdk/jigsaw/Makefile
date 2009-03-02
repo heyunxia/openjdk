@@ -1,5 +1,5 @@
 #
-# Copyright 1997-2009 Sun Microsystems, Inc.  All Rights Reserved.
+# Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -23,15 +23,20 @@
 # have any questions.
 #
 
-#
-# Makefile for building all of java
-#
+# Makefile for building non-core packages under org.openjdk.jigsaw
+# 
+# Classes that are part of the core module system, in org.openjdk.jigsaw
+# itself, are built as part of the core system.  This makefile is for the
+# CLI tools and related code.
 
-BUILDDIR = ..
-PRODUCT = org
+BUILDDIR = ../../..
+PACKAGE = org.openjdk.jigsaw
+PRODUCT = jigsaw
 include $(BUILDDIR)/common/Defs.gmk
 
-SUBDIRS = ietf jcp openjdk
+# Files to compile
+AUTO_FILES_JAVA_DIRS \
+  = org/openjdk/jigsaw/cli org/openjdk/internal/joptsimple
 
-all build clean clobber::
-	$(SUBDIRS-loop)
+# Rules
+include $(BUILDDIR)/common/Classes.gmk

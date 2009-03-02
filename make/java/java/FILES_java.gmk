@@ -1,5 +1,5 @@
 #
-# Copyright 1996-2008 Sun Microsystems, Inc.  All Rights Reserved.
+# Copyright 1996-2009 Sun Microsystems, Inc.  All Rights Reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -453,4 +453,20 @@ JAVA_JAVA_java = \
     sun/misc/JavaIOFileDescriptorAccess.java \
     sun/misc/JavaNioAccess.java
 
-FILES_java = $(JAVA_JAVA_java)
+JAVA_JAVA_jigsaw = \
+    java/lang/module/Dependence.java \
+    java/lang/module/ModuleId.java \
+    java/lang/module/ModuleIdQuery.java \
+    java/lang/module/ModuleInfo.java \
+    java/lang/module/ModuleInfoReader.java \
+    java/lang/module/ModuleSystem.java \
+    java/lang/module/Version.java \
+    java/lang/module/VersionQuery.java \
+    org/openjdk/jigsaw/JigsawModuleSystem.java \
+    org/openjdk/jigsaw/JigsawVersion.java \
+    org/openjdk/jigsaw/JigsawVersionQuery.java \
+    org/openjdk/jigsaw/FileConstants.java \
+    org/openjdk/jigsaw/Files.java \
+    org/openjdk/jigsaw/Library.java
+
+FILES_java = $(JAVA_JAVA_java) $(JAVA_JAVA_jigsaw)
