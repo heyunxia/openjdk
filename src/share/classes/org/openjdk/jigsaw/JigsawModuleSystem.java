@@ -48,7 +48,7 @@ public final class JigsawModuleSystem
 
     private static JigsawModuleSystem instance = new JigsawModuleSystem();
 
-    public static ModuleSystem instance() {
+    public static JigsawModuleSystem instance() {
 	return instance;
     }
 

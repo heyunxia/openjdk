@@ -28,7 +28,8 @@
 
 set -e
 
-BIN=${TESTJAVA:-../../../../../build}/bin
+BIN=${TESTJAVA:-../../../../build}/bin
+SRC=${TESTSRC:-.}
 
 mk() {
   d=$(dirname $1)
@@ -36,24 +37,21 @@ mk() {
   cat - >$1
 }
 
-rm -rf z.src
+rm -rf z.*
 
 mk z.src/com.foo.bar/module-info.java <<EOF
-module com.foo.bar @ 1.2.3_01-4a
-    provides baz @ 2.0, biz @ 3.4a
+module com.foo.bar @ 1.2.3_04-5a
+    provides com.foo.baz @ 2.0, com.foo.bez @ 3.4a-9
 {
-    requires optional org.tim.buz @ ">=1.1";
-    requires private local edu.mit.bez @ ">=2.2";
-    permits com.foo.top, com.foo.bottom;
+    requires private local edu.mit.biz @ >=1.1;
+    requires optional org.tim.boz @ >=2.2-2;
+    permits com.foo.buz, com.oof.byz;
     class com.foo.bar.Main;
 }
 EOF
 
-mk z.src/com.foo.byz/module-info.java <<EOF
-module com.foo.byz @ 0.11-42 { }
-EOF
-
-mk z.src/com.foo.bar/com/foo/bar/Main.java <<EOF
+mk z.src/com.foo.bar/Main.java <<EOF
+module com.foo.bar;
 package com.foo.bar;
 public class Main {
     public static void main(String[] args) {
@@ -62,16 +60,19 @@ public class Main {
 }
 EOF
 
-rm -rf z.classes && mkdir z.classes
-$BIN/javac -source 7 -d z.classes $(find z.src -name '*.java')
+mkdir z.classes
 
-rm -rf z.lib
-export JAVA_MODULES=z.lib
-$BIN/jmod create
-$BIN/jmod id
-$BIN/jmod install z.classes com.foo.bar
-$BIN/jmod install z.classes com.foo.byz
-$BIN/jmod list
-$BIN/jmod list -v
-$BIN/jmod dump com.foo.bar@1.2.3_01-4a com.foo.bar.Main >z
-cmp z z.classes/com/foo/bar/Main.class
+$BIN/javac -source 7 -d z.classes \
+  $SRC/_Library.java $(find z.src -name '*.java')
+
+for v in 1 1.2 2 3; do
+  m=org.multi@$v
+  mk z.src/$m/module-info.java <<EOF
+module org.multi @ $v { }
+EOF
+  cl=z.classes/module-classes/$m
+  mkdir -p $cl
+  $BIN/javac -source 7 -d $cl z.src/$m/*.java
+done
+
+$BIN/java -cp z.classes _Library

@@ -35,21 +35,8 @@ public final class ModuleId {
     private String name;
     private Version version;
 
-    // Module names must be legal Java identifiers
     /* package */ ModuleId(String nm, Version v) {
-	if (nm == null)
-	    throw new IllegalArgumentException();
-	int n = nm.length();
-	if (n == 0 || !Character.isJavaIdentifierStart(nm.charAt(0)))
-	    throw new IllegalArgumentException();
-	for (int i = 1; i < n; i++) {
-	    char c = nm.charAt(i);
-	    if (!Character.isJavaIdentifierPart(c) && (c != '.'))
-		throw new IllegalArgumentException(nm
-						   + ": Illegal character"
-						   + " at index " + i);
-	}
-	name = nm;
+	name = ModuleSystem.checkModuleName(nm);
 	version = v;
     }
 
@@ -109,7 +96,7 @@ public final class ModuleId {
 
     @Override
     public String toString() {
-	return (version == null ? name : name + " @ " + version);
+	return (version == null ? name : name + "@" + version);
     }
 
 }

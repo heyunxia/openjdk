@@ -61,6 +61,10 @@ import org.openjdk.internal.joptsimple.OptionSet;
 
     protected abstract void go(C context) throws Command.Exception;
 
+    protected boolean hasArg() {
+	return !args.isEmpty();
+    }
+
     protected String takeArg()
 	throws Command.Exception
     {

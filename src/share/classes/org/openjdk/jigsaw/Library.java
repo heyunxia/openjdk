@@ -113,16 +113,20 @@ public final class Library {
     }
 
     private final File root;
+    private final File canonicalRoot;
     private final MetaData md;
 
     public File path() { return root; }
     public int majorVersion() { return md.majorVersion; }
     public int minorVersion() { return md.minorVersion; }
 
+    /**
+     * Return a string describing this module library.
+     */
     @Override
     public String toString() {
 	return (this.getClass().getName()
-		+ "[" + root
+		+ "[" + canonicalRoot
 		+ ", v" + md.majorVersion + "." + md.minorVersion + "]");
     }
 
@@ -130,6 +134,7 @@ public final class Library {
 	throws IOException
     {
 	root = path;
+	canonicalRoot = root.getCanonicalFile();
 	if (root.exists()) {
 	    if (!root.isDirectory())
 		throw new IOException(root + ": Exists but is not a directory");
@@ -150,6 +155,9 @@ public final class Library {
 	return new Library(path, create);
     }
 
+    private static final JigsawModuleSystem jms
+	= JigsawModuleSystem.instance();
+
     // Library layout
     //
     //   $LIB/=jigsaw-library
@@ -165,7 +173,7 @@ public final class Library {
 	String path = moduleName.replace('.', '/');
 	File src = new File(classes, path);
 	byte[] bs =  Files.load(new File(src, "module-info.class"));
-	ModuleInfo mi = JigsawModuleSystem.instance().parseModuleInfo(bs);
+	ModuleInfo mi = jms.parseModuleInfo(bs);
 	String m = mi.id().name();
 	JigsawVersion v = (JigsawVersion)mi.id().version();
 	String vs = (v == null) ? "default" : v.toString();
@@ -194,15 +202,161 @@ public final class Library {
     public void visitModules(ModuleVisitor mv)
 	throws IOException
     {
-	for (File mf : root.listFiles()) {
-	    if (mf.getName().startsWith(FileConstants.META_PREFIX))
+	File[] mnds = root.listFiles();
+	Arrays.sort(mnds);
+	for (File mnd : mnds) {
+	    if (mnd.getName().startsWith(FileConstants.META_PREFIX))
 		continue;
-	    for (File vf : mf.listFiles()) {
-		byte[] bs = Files.load(new File(vf, "info"));
-		ModuleInfo mi = JigsawModuleSystem.instance().parseModuleInfo(bs);
+	    File[] mds = mnd.listFiles();
+	    Arrays.sort(mds);
+	    for (File md : mds) {
+		byte[] bs = Files.load(new File(md, "info"));
+		ModuleInfo mi = jms.parseModuleInfo(bs);
 		mv.accept(mi);
 	    }
 	}
+    }
+
+    /**
+     * Find all modules with the given name in this library.
+     *
+     * @param   moduleName
+     *          The name of the modules being sought
+     *
+     * @return  An unordered set containing the module identifiers of the found
+     *          modules; if no modules were found then the set will be empty
+     */
+    public Set<ModuleId> findModuleIds(String moduleName)
+	throws IOException
+    {
+	ModuleSystem.checkModuleName(moduleName);
+	File mnd = new File(root, moduleName);
+	if (!mnd.exists())
+	    return Collections.emptySet();
+	if (!mnd.isDirectory())
+	    throw new IOException(mnd + ": Not a directory");
+	if (!mnd.canRead())
+	    throw new IOException(md + ": Not readable");
+	Set<ModuleId> ans = new HashSet<ModuleId>();
+	for (String v : mnd.list()) {
+	    // ## Need a MS.parseModuleId(String, Version) method
+	    ans.add(jms.parseModuleId(mnd.getName() + "@" + v));
+	}
+	return ans;
+    }
+
+    /**
+     * Find all modules matching the given query in this library.
+     *
+     * @param   moduleIdQuery
+     *          The query to match against
+     *
+     * @return  An unordered set containing the module identifiers of the found
+     *          modules; if no modules were found then the set will be empty
+     */
+    public Set<ModuleId> findModuleIds(ModuleIdQuery midq)
+	throws IOException
+    {
+	Set<ModuleId> ans = findModuleIds(midq.name());
+	if (ans.isEmpty() || midq.versionQuery() == null)
+	    return ans;
+	for (Iterator<ModuleId> i = ans.iterator(); i.hasNext();) {
+	    ModuleId mid = i.next();
+	    if (!midq.matches(mid))
+		i.remove();
+	}
+	return ans;
+    }
+
+    private void checkModuleId(ModuleId mid) {
+	Version v = mid.version();
+	if (v == null)
+	    return;
+	if (!(v instanceof JigsawVersion))
+	    throw new IllegalArgumentException(mid + ": Not a Jigsaw module id");
+    }
+
+    private File moduleDir(ModuleId mid) {
+	Version v = mid.version();
+	String vs = (v != null) ? v.toString() : "default";
+	return new File(new File(root, mid.name()), vs);
+    }
+
+    private void checkModuleDir(File md)
+	throws IOException
+    {
+	if (!md.isDirectory())
+	    throw new IOException(md + ": Not a directory");
+	if (!md.canRead())
+	    throw new IOException(md + ": Not readable");
+    }
+
+    private File findModuleDir(ModuleId mid)
+	throws IOException
+    {
+	File md = moduleDir(mid);
+	if (!md.exists())
+	    return null;
+	checkModuleDir(md);
+	return md;
+    }
+
+    /**
+     * Find the {@link java.lang.module.ModuleInfo ModuleInfo} object for the
+     * module with the given identifier.
+     *
+     * @param   mid
+     *          The identifier of the module being sought
+     *
+     * @return  The requested {@link java.lang.module.ModuleInfo ModuleInfo},
+     *          or {@code null} if no such module is present in this library
+     *
+     * @throws  IllegalArgumentException
+     *          If the given module identifier is not a Jigsaw module
+     *          identifier
+     */
+    public ModuleInfo findModuleInfo(ModuleId mid)
+	throws IOException
+    {
+	checkModuleId(mid);
+	File md = findModuleDir(mid);
+	if (md == null)
+	    return null;
+	return jms.parseModuleInfo(Files.load(new File(md, "info")));
+    }
+
+    /**
+     * Read the class bytes of the given class within the given module.
+     *
+     * @param   mid
+     *          The module's identifier
+     *
+     * @param   className
+     *          The binary name of the requested class
+     *
+     * @return  The requested bytes, or {@code null} if the named module does
+     *          not define such a class
+     *
+     * @throws  IllegalArgumentException
+     *          If the given module identifier is not a Jigsaw module
+     *          identifier
+     *
+     * @throws  IllegalArgumentException
+     *          If the named module does not exist in this library
+     */
+    public byte[] findClass(ModuleId mid, String className)
+	throws IOException
+    {
+	checkModuleId(mid);
+	File md = findModuleDir(mid);
+	if (md == null)
+	    throw new IllegalArgumentException(mid +
+					       ": No such module in library");
+	File cf = new File(new File(md, "classes"),
+			   className.replace('.', '/') + ".class");
+	if (!cf.exists())
+	    return null;
+	return Files.load(cf);
     }
 
 }

@@ -28,6 +28,7 @@ package org.openjdk.jigsaw.cli;
 import java.lang.module.*;
 import java.io.*;
 import java.util.*;
+import java.util.regex.*;
 
 import static java.lang.System.out;
 import static java.lang.System.err;
@@ -37,6 +38,9 @@ import org.openjdk.internal.joptsimple.*;
 
 
 public class Librarian {
+
+    private static JigsawModuleSystem jms
+	= JigsawModuleSystem.instance();
 
     private static void formatCommaList(PrintStream out,
 					String prefix, Collection<?> list)
@@ -57,7 +61,44 @@ public class Librarian {
     }
 
     public static class Create extends Command<Library> {
-	protected void go(Library lib) { }
+	protected void go(Library lib)
+	    throws Command.Exception
+	{
+	    finishArgs();
+	}
+    }
+
+    public static class Dump extends Command<Library> {
+	protected void go(Library lib)
+	    throws Command.Exception
+	{
+	    String mids = takeArg();
+	    ModuleId mid = null;
+	    try {
+		mid = jms.parseModuleId(mids);
+	    } catch (IllegalArgumentException x) {
+		throw new Command.Exception(x.getMessage());
+	    }
+	    String cn = takeArg();
+	    finishArgs();
+	    byte[] bs = null;
+	    try {
+		bs = lib.findClass(mid, cn);
+	    } catch (IllegalArgumentException x) {
+		throw new Command.Exception(x.getMessage());
+	    } catch (IOException x) {
+		throw new Command.Exception(x);
+	    }
+	    if (bs == null)
+		throw new Command.Exception("%s: No such class in module %s",
+					    cn, mid);
+	    int n = bs.length;
+	    for (int i = 0; i < n;) {
+		int d = Math.min(n - i, 8192);
+		out.write(bs, i, d);
+		i += d;
+	    }
+	}
     }
 
     public static class Identify extends Command<Library> {
@@ -90,15 +131,36 @@ public class Librarian {
 	}
     }
 
+    private static Pattern MIDQ_PATTERN
+	= Pattern.compile("([a-zA-Z0-9_\\.]+)(@(.*))?");
+
+    private static ModuleIdQuery parseModuleIdQuery(String s)
+	throws Command.Exception
+    {
+	Matcher m = MIDQ_PATTERN.matcher(s);
+	if (!m.matches())
+	    throw new Command.Exception("%s: Malformed module-id query", s);
+	String vq = (m.group(3) != null) ? m.group(3) : null;
+	return new ModuleIdQuery(m.group(1),
+				 jms.parseVersionQuery(vq));
+    }
+
     public static class List extends Command<Library> {
 	protected void go(Library lib)
 	    throws Command.Exception
 	{
-	    final int[] n = new int[1];
+	    final ModuleIdQuery midq;
+	    if (hasArg())
+		midq = parseModuleIdQuery(takeArg());
+	    else
+		midq = null;
 	    finishArgs();
+	    final int[] n = new int[1];
 	    try {
 		lib.visitModules(new Library.ModuleVisitor() {
 			public void accept(ModuleInfo mi) {
+			    if (midq != null && !midq.matches(mi.id()))
+				return;
 			    if (verbose)
 				out.format("%n");
 			    out.format("%s%n", mi.id());
@@ -125,6 +187,7 @@ public class Librarian {
 
     static {
 	commands.put("create", Create.class);
+	commands.put("dump", Dump.class);
 	commands.put("id", Identify.class);
 	commands.put("identify", Identify.class);
 	commands.put("install", Install.class);
@@ -137,9 +200,11 @@ public class Librarian {
 
     private void usage() {
 	out.format("%n");
-	out.format("usage: jlib [-L <path>] create%n");
-	out.format("       jlib [-L <path>] install <classes> <module-id>%n");
-	out.format("       jlib [-L <path>] list [-v]%n");
+	out.format("usage: jmod [-L <path>] create%n");
+	out.format("       jmod [-L <path>] dump <module-id> <class-name>%n");
+	out.format("       jmod [-L <path>] identify%n");
+	out.format("       jmod [-L <path>] install <classes-dir> <module-name>%n");
+	out.format("       jmod [-L <path>] list [-v] [<module-id-query>]%n");
 	out.format("%n");
 	try {
 	    parser.printHelpOn(out);

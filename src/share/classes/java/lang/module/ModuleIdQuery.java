@@ -32,13 +32,23 @@ public final class ModuleIdQuery {
     private VersionQuery versionQuery;
 
     public ModuleIdQuery(String name, VersionQuery versionQuery) {
-	this.name = name;
+	this.name = ModuleSystem.checkModuleName(name);
 	this.versionQuery = versionQuery;
     }
 
     public String name() { return name; }
 
     public VersionQuery versionQuery() { return versionQuery; }
+
+    public boolean matches(ModuleId mid) {
+	if (!name.equals(mid.name()))
+	    return false;
+	if (versionQuery == null)
+	    return true;
+	if (mid.version() == null)
+	    return false;
+	return versionQuery.matches(mid.version());
+    }
 
     @Override
     public boolean equals(Object ob) {
@@ -56,7 +66,7 @@ public final class ModuleIdQuery {
 
     @Override
     public String toString() {
-	return (versionQuery == null ? name : name + " @ " + versionQuery);
+	return (versionQuery == null ? name : name + "@" + versionQuery);
     }
 
 }
