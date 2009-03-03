@@ -25,7 +25,7 @@
 
 /* @test
  * @summary java.lang.module.ModuleInfoReader unit test
- * @compile -source 7 module-info.java
+ * @compile -source 7 module-info.java Main.java
  * @run main _ModuleInfoReader
  */
 

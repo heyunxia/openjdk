@@ -65,6 +65,9 @@ import java.util.Set;
     private Set<String> permits = new LinkedHashSet<String>();
     private String mainClass;
 
+    // ## Not surfaced in ModuleInfo interface; should probably be removed
+    private Set<String> mainClassModifiers = new LinkedHashSet<String>();
+
     private ModuleInfoReader(ModuleSystem ms, byte[] data) {
 
 	this.ms = ms;
@@ -114,7 +117,7 @@ import java.util.Set;
     private static final String MODULE_PROVIDES = "ModuleProvides";
     private static final String MODULE_REQUIRES = "ModuleRequires";
     private static final String MODULE_PERMITS = "ModulePermits";
-    private static final String MODULE_MAIN = "ModuleMain";
+    private static final String MODULE_CLASS = "ModuleClass";
 
     private void readAttributes() throws IOException {
         int count = in.readUnsignedShort();
@@ -130,8 +133,8 @@ import java.util.Set;
                 readModuleRequires();
             else if (name.equals(MODULE_PERMITS))
                 readModulePermits();
-            else if (name.equals(MODULE_MAIN))
-                readModuleMain();
+            else if (name.equals(MODULE_CLASS))
+                readModuleClass();
             else {
                 in.skip(length);
             }
@@ -171,9 +174,13 @@ import java.util.Set;
         }
     }
 
-    private void readModuleMain() throws IOException {
+    private void readModuleClass() throws IOException {
         int index = in.readUnsignedShort();
-        mainClass = cpool.getClassName(index);
+        mainClass = cpool.getClassName(index).replace('/', '.');
+	int count = in.readUnsignedShort();
+	for (int i = 0; i < count; i++) {
+	    mainClassModifiers.add(cpool.getUtf8(in.readUnsignedShort()));
+	}
     }
 
     private static class ModuleInfoImpl
