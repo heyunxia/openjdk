@@ -27,6 +27,8 @@ package com.sun.tools.classfile;
 
 import java.io.IOException;
 
+import com.sun.tools.classfile.ConstantPool.*;
+
 /**
  * See JSR294.
  *
@@ -55,6 +57,25 @@ public class ModuleClass_attribute extends Attribute {
         this.class_index = class_index;
         this.attributes_length = attributes.length;
         this.attributes = attributes;
+    }
+    
+    public CONSTANT_Class_info getClassInfo(ConstantPool constant_pool) throws ConstantPoolException {
+        if (class_index == 0)
+            return null;
+        return constant_pool.getClassInfo(class_index);
+    }
+    
+    public String getClassName(ConstantPool constant_pool) throws ConstantPoolException {
+        if (class_index == 0)
+            return null;
+        return constant_pool.getClassInfo(class_index).getName();
+    }
+    
+    public String[] getClassAttributes(ConstantPool constant_pool) throws ConstantPoolException {
+        String[] attrs = new String[attributes.length];
+        for (int i = 0; i < attrs.length; i++)
+            attrs[i] = constant_pool.getUTF8Value(attributes[i]);
+        return attrs;
     }
 
     public <R, D> R accept(Visitor<R, D> visitor, D data) {

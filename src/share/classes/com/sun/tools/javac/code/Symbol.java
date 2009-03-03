@@ -633,7 +633,7 @@ public abstract class Symbol implements Element {
 
         public ClassSymbol module_info;
 
-        public Name className;
+        public ClassSymbol className;
         public List<Name> classFlags;
         public ListBuffer<Name> permits;
         public ListBuffer<ModuleId> provides;

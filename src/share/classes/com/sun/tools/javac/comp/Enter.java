@@ -529,7 +529,7 @@ public class Enter extends JCTree.Visitor {
         ModuleSymbol sym = env.toplevel.modle;
         Name className = TreeInfo.fullName(tree.qualId);
         // JIGSAW TODO check conflicts
-        sym.className = className;
+        sym.className = reader.enterClass(className);
         sym.classFlags = tree.flags;
     }
 
