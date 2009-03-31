@@ -624,6 +624,7 @@ class Klass : public Klass_vtbl {
   void set_access_flags(AccessFlags flags) { _access_flags = flags; }
 
   bool is_public() const                { return _access_flags.is_public(); }
+  bool is_module() const                { return _access_flags.is_module(); }
   bool is_final() const                 { return _access_flags.is_final(); }
   bool is_interface() const             { return _access_flags.is_interface(); }
   bool is_abstract() const              { return _access_flags.is_abstract(); }

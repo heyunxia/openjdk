@@ -228,9 +228,10 @@ public:
                                Handle class_loader,
                                Handle protection_domain,
                                ClassFileStream* st,
+                               symbolHandle module_name,
                                TRAPS) {
     KlassHandle nullHandle;
-    return parse_stream(class_name, class_loader, protection_domain, st, nullHandle, NULL, THREAD);
+    return parse_stream(class_name, class_loader, protection_domain, st, nullHandle, NULL, module_name, THREAD);
   }
   static klassOop parse_stream(symbolHandle class_name,
                                Handle class_loader,
@@ -238,10 +239,11 @@ public:
                                ClassFileStream* st,
                                KlassHandle host_klass,
                                GrowableArray<Handle>* cp_patches,
+                               symbolHandle module_name,
                                TRAPS);
 
   // Resolve from stream (called by jni_DefineClass and JVM_DefineClass)
-  static klassOop resolve_from_stream(symbolHandle class_name, Handle class_loader, Handle protection_domain, ClassFileStream* st, TRAPS);
+  static klassOop resolve_from_stream(symbolHandle class_name, Handle class_loader, Handle protection_domain, ClassFileStream* st, symbolHandle module_name, TRAPS);
 
   // Lookup an already loaded class. If not found NULL is returned.
   static klassOop find(symbolHandle class_name, Handle class_loader, Handle protection_domain, TRAPS);

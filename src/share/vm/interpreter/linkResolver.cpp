@@ -788,8 +788,9 @@ void LinkResolver::runtime_resolve_interface_method(CallInfo& result, methodHand
                                                       resolved_method->name(),
                                                       resolved_method->signature()));
   }
-  // check if public
-  if (!sel_method->is_public()) {
+  // check if public or module acess
+  if (!sel_method->is_public() &&
+     (!sel_method->is_module() && instanceKlass::cast(recv_klass())->is_same_class_module(resolved_klass()))) {
     ResourceMark rm(THREAD);
     THROW_MSG(vmSymbols::java_lang_IllegalAccessError(),
               methodOopDesc::name_and_sig_as_C_string(Klass::cast(recv_klass()),

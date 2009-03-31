@@ -1859,6 +1859,76 @@ bool instanceKlass::is_same_class_package(oop class_loader1, symbolOop class_nam
   }
 }
 
+// different verisons of is_same_class_module
+bool instanceKlass::is_same_class_module(klassOop class2) {
+  klassOop class1 = as_klassOop();
+  oop classloader1 = instanceKlass::cast(class1)->class_loader();
+  symbolOop modulename1 = instanceKlass::cast(class1)->module_name();
+
+  if (Klass::cast(class2)->oop_is_objArray()) {
+    class2 = objArrayKlass::cast(class2)->bottom_klass();
+  }
+  oop classloader2;
+  if (Klass::cast(class2)->oop_is_instance()) {
+    classloader2 = instanceKlass::cast(class2)->class_loader();
+  } else {
+    assert(Klass::cast(class2)->oop_is_typeArray(), "should be type array");
+    classloader2 = NULL;
+  }
+  symbolOop modulename2 = instanceKlass::cast(class2)->module_name();
+
+  return instanceKlass::is_same_class_module(classloader1, modulename1,
+                                             classloader2, modulename2);
+}
+
+
+bool instanceKlass::is_same_class_module(oop classloader2, symbolOop classname2) {
+  klassOop class1 = as_klassOop();
+  oop classloader1 = instanceKlass::cast(class1)->class_loader();
+  symbolOop classname1 = Klass::cast(class1)->name();
+
+  return instanceKlass::is_same_class_module(classloader1, classname1,
+                                              classloader2, classname2);
+}
+
+// return true if two classes are in the same module, classloader
+// and module name information is enough to determine a class's module equivalence
+// Cleanest way to disable module access checking is to always return yes to same module request
+bool instanceKlass::is_same_class_module(oop class_loader1, symbolOop module_name1,
+                                          oop class_loader2, symbolOop module_name2) {
+  if (DisableModuleAccessChecks) {
+    return true;
+  }
+  if (class_loader1 != class_loader2) {
+    return false;
+  }
+  if ((module_name1 == NULL) || (module_name2 == NULL)) {
+      // One of the two is in the unnamed module. Only return true
+      // if the other one also is in the unnamed module
+      return module_name1 == module_name2;
+  }
+  return UTF8::equal(module_name1->base(), module_name1->utf8_length(), module_name2->base(), module_name2->utf8_length());
+}
+
+// Returns true iff super_method can be overridden by a method in targetclassname
+// See JSL 3rd edition 8.4.6.1
+// Assumes name-signature match
+// "this" is instanceKlass of super_method which must exist
+// note that the instanceKlass of the method in the targetclassname has not always been created yet
+bool instanceKlass::is_override(methodHandle super_method, Handle targetclassloader, symbolHandle targetclassname, TRAPS) {
+   // Private methods can not be overridden
+   if (super_method->is_private()) {
+     return false;
+   }
+   // If super method is accessible, then override
+   if ((super_method->is_protected()) ||
+       (super_method->is_public())) {
+     return true;
+   }
+   // Package-private methods are not inherited outside of package
+   assert(super_method->is_package_private(), "must be package private");
+   return(is_same_class_package(targetclassloader(), targetclassname()));
+}
 
 jint instanceKlass::compute_modifier_flags(TRAPS) const {
   klassOop k = as_klassOop();
@@ -1917,7 +1987,7 @@ methodOop instanceKlass::method_at_itable(klassOop holder, int index, TRAPS) {
                        / itableOffsetEntry::size();
 
   for (int cnt = 0 ; ; cnt ++, ioe ++) {
-    // If the interface isn't implemented by the reciever class,
+    // If the interface isn't implemented by the receiver class,
     // the VM should throw IncompatibleClassChangeError.
     if (cnt >= nof_interfaces) {
       THROW_OOP_0(vmSymbols::java_lang_IncompatibleClassChangeError());

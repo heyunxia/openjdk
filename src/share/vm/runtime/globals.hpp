@@ -851,6 +851,9 @@ class CommandLineFlags {
   product(bool, MustCallLoadClassInternal, false,                           \
           "Call loadClassInternal() rather than loadClass().Default false") \
                                                                             \
+  product(bool, DisableModuleAccessChecks, false,                           \
+          "Do not check module-private access")                             \
+                                                                            \
   product_pd(bool, DontYieldALot,                                           \
           "Throw away obvious excess yield calls (for SOLARIS only)")       \
                                                                             \

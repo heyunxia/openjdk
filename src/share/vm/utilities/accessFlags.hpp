@@ -31,7 +31,8 @@ enum {
   // HotSpot-specific access flags
 
   // flags actually put in .class file
-  JVM_ACC_WRITTEN_FLAGS           = 0x00007FFF,
+  JVM_ACC_WRITTEN_FLAGS           = 0x0000FFFF,
+
 
   // methodOop flags
   JVM_ACC_MONITOR_MATCH           = 0x10000000,     // True if we know that monitorenter/monitorexit bytecodes match
@@ -67,11 +68,14 @@ enum {
   // These bits must not conflict with any other field-related access flags
   // (e.g., ACC_ENUM).
   // Note that the class-related ACC_ANNOTATION bit conflicts with these flags.
+  // Note that the method-related ACC_STRICT bit conflicts with FIELD_MODIFATION_WATCHED
   JVM_ACC_FIELD_ACCESS_WATCHED       = 0x00002000,  // field access is watched by JVMTI
-  JVM_ACC_FIELD_MODIFICATION_WATCHED = 0x00008000,  // field modification is watched by JVMTI
+  JVM_ACC_FIELD_MODIFICATION_WATCHED = 0x00000800,  // field modification is watched by JVMTI
 
                                                     // flags accepted by set_field_flags()
-  JVM_ACC_FIELD_FLAGS                = 0x00008000 | JVM_ACC_WRITTEN_FLAGS
+                                                    // Used to be different and may need
+                                                    // to move again, so leave infrastructure
+  JVM_ACC_FIELD_FLAGS                = JVM_ACC_WRITTEN_FLAGS
 };
 
 
@@ -83,8 +87,11 @@ class AccessFlags VALUE_OBJ_CLASS_SPEC {
  public:
   // Java access flags
   bool is_public      () const         { return (_flags & JVM_ACC_PUBLIC      ) != 0; }
+  bool is_module      () const         { return (_flags & JVM_ACC_MODULE      ) != 0; }
   bool is_private     () const         { return (_flags & JVM_ACC_PRIVATE     ) != 0; }
   bool is_protected   () const         { return (_flags & JVM_ACC_PROTECTED   ) != 0; }
+  bool is_package_private () const
+   { return (_flags & (JVM_ACC_PUBLIC | JVM_ACC_MODULE | JVM_ACC_PRIVATE | JVM_ACC_PROTECTED)) == 0; }
   bool is_static      () const         { return (_flags & JVM_ACC_STATIC      ) != 0; }
   bool is_final       () const         { return (_flags & JVM_ACC_FINAL       ) != 0; }
   bool is_synchronized() const         { return (_flags & JVM_ACC_SYNCHRONIZED) != 0; }

@@ -364,6 +364,10 @@ void constantPoolKlass::oop_print_on(oop obj, outputStream* st) {
         st->print("name_index=%d", cp->name_ref_index_at(index));
         st->print(" signature_index=%d", cp->signature_ref_index_at(index));
         break;
+      case JVM_CONSTANT_ModuleId_info :
+        st->print("module_name_index=%d", cp->module_name_ref_index_at(index));
+        st->print(" module_version_index=%d", cp->module_version_ref_index_at(index));
+        break;
       case JVM_CONSTANT_Utf8 :
         cp->symbol_at(index)->print_value_on(st);
         break;

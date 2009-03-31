@@ -422,6 +422,13 @@ JVM_DefineClassWithSource(JNIEnv *env, const char *name, jobject loader,
                           const jbyte *buf, jsize len, jobject pd,
                           const char *source);
 
+/* Define a class with a source and module name (added in JDK1.7) */
+JNIEXPORT jclass JNICALL
+JVM_DefineClassWithModule(JNIEnv *env, const char *name, jobject loader,
+                          const jbyte *buf, jsize len, jobject pd,
+                          const char *source,
+                          const char *module);
+
 /* Define a class with a source (MLVM) */
 JNIEXPORT jclass JNICALL
 JVM_DefineClassWithCP(JNIEnv *env, const char *name, jobject loader,
@@ -1005,6 +1012,7 @@ JVM_IsSameClassPackage(JNIEnv *env, jclass class1, jclass class2);
 #define JVM_ACC_SYNTHETIC     0x1000  /* compiler-generated class, method or field */
 #define JVM_ACC_ANNOTATION    0x2000  /* annotation type */
 #define JVM_ACC_ENUM          0x4000  /* field is declared as element of enum */
+#define JVM_ACC_MODULE        0x8000  /* access only within module: JDK7, classfile >= 51 */
 
 #define JVM_ACC_PUBLIC_BIT        0
 #define JVM_ACC_PRIVATE_BIT       1
@@ -1024,8 +1032,9 @@ JVM_IsSameClassPackage(JNIEnv *env, jclass class1, jclass class2);
 #define JVM_ACC_SYNTHETIC_BIT     12
 #define JVM_ACC_ANNOTATION_BIT    13
 #define JVM_ACC_ENUM_BIT          14
+#define JVM_ACC_MODULE_BIT        15
 
-// NOTE: replicated in SA in vm/agent/sun/jvm/hotspot/utilities/ConstantTag.java
+// NOTE: replicated in SA in agent/src/share/classes/sun/jvm/hotspot/utilities/ConstantTag.java
 enum {
     JVM_CONSTANT_Utf8 = 1,
     JVM_CONSTANT_Unicode,               /* unused */
@@ -1038,7 +1047,8 @@ enum {
     JVM_CONSTANT_Fieldref,
     JVM_CONSTANT_Methodref,
     JVM_CONSTANT_InterfaceMethodref,
-    JVM_CONSTANT_NameAndType
+    JVM_CONSTANT_NameAndType,
+    JVM_CONSTANT_ModuleId_info
 };
 
 /* Used in the newarray instruction. */
@@ -1136,6 +1146,7 @@ typedef jint (*check_format_fn_t)(char *class_name,
                                   jboolean check_relaxed);
 
 #define JVM_RECOGNIZED_CLASS_MODIFIERS (JVM_ACC_PUBLIC | \
+                                        JVM_ACC_MODULE | \
                                         JVM_ACC_FINAL | \
                                         JVM_ACC_SUPER | \
                                         JVM_ACC_INTERFACE | \
@@ -1145,6 +1156,7 @@ typedef jint (*check_format_fn_t)(char *class_name,
                                         JVM_ACC_SYNTHETIC)
 
 #define JVM_RECOGNIZED_FIELD_MODIFIERS (JVM_ACC_PUBLIC | \
+                                        JVM_ACC_MODULE | \
                                         JVM_ACC_PRIVATE | \
                                         JVM_ACC_PROTECTED | \
                                         JVM_ACC_STATIC | \
@@ -1155,6 +1167,7 @@ typedef jint (*check_format_fn_t)(char *class_name,
                                         JVM_ACC_SYNTHETIC)
 
 #define JVM_RECOGNIZED_METHOD_MODIFIERS (JVM_ACC_PUBLIC | \
+                                        JVM_ACC_MODULE | \
                                          JVM_ACC_PRIVATE | \
                                          JVM_ACC_PROTECTED | \
                                          JVM_ACC_STATIC | \

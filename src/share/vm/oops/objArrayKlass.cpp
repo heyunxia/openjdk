@@ -473,12 +473,12 @@ jint objArrayKlass::compute_modifier_flags(TRAPS) const {
   // The modifier for an objectArray is the same as its element
   if (element_klass() == NULL) {
     assert(Universe::is_bootstrapping(), "partial objArray only at startup");
-    return JVM_ACC_ABSTRACT | JVM_ACC_FINAL | JVM_ACC_PUBLIC;
+    return JVM_ACC_ABSTRACT | JVM_ACC_FINAL | JVM_ACC_PUBLIC | JVM_ACC_MODULE;
   }
   // Return the flags of the bottom element type.
   jint element_flags = Klass::cast(bottom_klass())->compute_modifier_flags(CHECK_0);
 
-  return (element_flags & (JVM_ACC_PUBLIC | JVM_ACC_PRIVATE | JVM_ACC_PROTECTED))
+  return (element_flags & (JVM_ACC_PUBLIC | JVM_ACC_MODULE | JVM_ACC_PRIVATE | JVM_ACC_PROTECTED))
                         | (JVM_ACC_ABSTRACT | JVM_ACC_FINAL);
 }
 

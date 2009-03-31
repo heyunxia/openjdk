@@ -857,10 +857,12 @@ jvmtiError VM_RedefineClasses::load_new_class_versions(TRAPS) {
     // load hook event.
     state->set_class_being_redefined(&the_class, _class_load_kind);
 
+    symbolHandle module_name;
     klassOop k = SystemDictionary::parse_stream(the_class_sym,
                                                 the_class_loader,
                                                 protection_domain,
                                                 &st,
+                                                module_name,
                                                 THREAD);
     // Clear class_being_redefined just to be sure.
     state->clear_class_being_redefined();

@@ -47,6 +47,26 @@
 // - also used as the max version when running in jdk6
 #define JAVA_6_VERSION                    50
 
+// Used for module support added in JKD7 (version 51)
+#define JAVA_7_VERSION                    51
+
+#define JVM_RECOGNIZED_CLASS_MODIFIERS_PRE_JDK7 (JVM_ACC_PUBLIC | JVM_ACC_FINAL | \
+                                        JVM_ACC_SUPER | JVM_ACC_INTERFACE | \
+                                        JVM_ACC_ABSTRACT |  JVM_ACC_ANNOTATION | \
+                                        JVM_ACC_ENUM |  JVM_ACC_SYNTHETIC)
+
+#define JVM_RECOGNIZED_FIELD_MODIFIERS_PRE_JDK7 (JVM_ACC_PUBLIC |  JVM_ACC_PRIVATE | \
+                                        JVM_ACC_PROTECTED |  JVM_ACC_STATIC | \
+                                        JVM_ACC_FINAL |  JVM_ACC_VOLATILE | \
+                                        JVM_ACC_TRANSIENT |  JVM_ACC_ENUM | \
+                                        JVM_ACC_SYNTHETIC)
+
+#define JVM_RECOGNIZED_METHOD_MODIFIERS_PRE_JDK7 (JVM_ACC_PUBLIC |  JVM_ACC_PRIVATE | \
+                                         JVM_ACC_PROTECTED |  JVM_ACC_STATIC | \
+                                         JVM_ACC_FINAL |  JVM_ACC_SYNCHRONIZED | \
+                                         JVM_ACC_BRIDGE |  JVM_ACC_VARARGS | \
+                                         JVM_ACC_NATIVE |  JVM_ACC_ABSTRACT | \
+                                         JVM_ACC_STRICT |  JVM_ACC_SYNTHETIC)
 
 void ClassFileParser::parse_constant_pool_entries(constantPoolHandle cp, int length, TRAPS) {
   // Use a local copy of ClassFileStream. It helps the C++ compiler to optimize
@@ -201,6 +221,14 @@ void ClassFileParser::parse_constant_pool_entries(constantPoolHandle cp, int len
           }
         }
         break;
+      case JVM_CONSTANT_ModuleId_info :
+        {
+          cfs->guarantee_more(4, CHECK);  // name_index, version_index
+           u2 module_name_index = cfs->get_u2_fast();
+           u2 module_version_index = cfs->get_u2_fast();
+           cp->module_info_at_put(index, module_name_index, module_version_index);
+         }
+         break;
       default:
         classfile_parse_error(
           "Unknown constant tag %u in class file %s", tag, CHECK);
@@ -333,6 +361,23 @@ constantPoolHandle ClassFileParser::parse_constant_pool(TRAPS) {
           cp->unresolved_string_at_put(index, sym);
         }
         break;
+      case JVM_CONSTANT_ModuleId_info :
+        {
+          if (!_need_verify) break;
+          int module_name_ref_index = cp->module_name_ref_index_at(index);
+          int module_version_ref_index = cp->module_version_ref_index_at(index);
+          check_property(
+            valid_cp_range(module_name_ref_index, length) &&
+            cp->tag_at(module_name_ref_index).is_utf8(),
+            "Invalid constant pool index %u in class file %s",
+            module_name_ref_index, CHECK_(nullHandle));
+          check_property(
+            valid_cp_range(module_version_ref_index, length) &&
+            cp->tag_at(module_version_ref_index).is_utf8(),
+            "Invalid constant pool index %u in class file %s",
+            module_version_ref_index, CHECK_(nullHandle));
+         }   
+         break;
       default:
         fatal1("bad constant pool tag value %u", cp->tag_at(index).value());
         ShouldNotReachHere();
@@ -782,6 +827,7 @@ struct FieldAllocationCount {
 };
 
 typeArrayHandle ClassFileParser::parse_fields(constantPoolHandle cp, bool is_interface,
+                                              bool* acc_module_seen_adr,
                                               struct FieldAllocationCount *fac,
                                               objArrayHandle* fields_annotations, TRAPS) {
   ClassFileStream* cfs = stream();
@@ -799,7 +845,14 @@ typeArrayHandle ClassFileParser::parse_fields(constantPoolHandle cp, bool is_int
 
     AccessFlags access_flags;
     jint flags = cfs->get_u2_fast() & JVM_RECOGNIZED_FIELD_MODIFIERS;
+    // backward compat: did not read other field modifiers
+    if (_major_version < JAVA_7_VERSION) {
+      flags &= JVM_RECOGNIZED_FIELD_MODIFIERS_PRE_JDK7;
+    }
     verify_legal_field_modifiers(flags, is_interface, CHECK_(nullHandle));
+    if (flags & JVM_ACC_MODULE) {
+      *acc_module_seen_adr = true;
+    }
     access_flags.set_flags(flags);
 
     u2 name_index = cfs->get_u2_fast();
@@ -1331,6 +1384,7 @@ u2* ClassFileParser::parse_checked_exceptions(u2* checked_exceptions_length,
 
 methodHandle ClassFileParser::parse_method(constantPoolHandle cp, bool is_interface,
                                            AccessFlags *promoted_flags,
+                                           bool *acc_module_seen_adr,
                                            typeArrayHandle* method_annotations,
                                            typeArrayHandle* method_parameter_annotations,
                                            typeArrayHandle* method_default_annotations,
@@ -1341,7 +1395,14 @@ methodHandle ClassFileParser::parse_method(constantPoolHandle cp, bool is_interf
   // Parse fixed parts
   cfs->guarantee_more(8, CHECK_(nullHandle)); // access_flags, name_index, descriptor_index, attributes_count
 
-  int flags = cfs->get_u2_fast();
+  int flags = cfs->get_u2_fast() & JVM_RECOGNIZED_METHOD_MODIFIERS;
+  // backward compat: used to read all bits, but ignore extras
+  if (_major_version < JAVA_7_VERSION) {
+    flags &= JVM_RECOGNIZED_METHOD_MODIFIERS_PRE_JDK7;
+  }
+  if (flags & JVM_ACC_MODULE) {
+    *acc_module_seen_adr = true;
+  }
   u2 name_index = cfs->get_u2_fast();
   int cp_size = cp->length();
   check_property(
@@ -1377,7 +1438,7 @@ methodHandle ClassFileParser::parse_method(constantPoolHandle cp, bool is_interf
     }
   }
 
-  access_flags.set_flags(flags & JVM_RECOGNIZED_METHOD_MODIFIERS);
+  access_flags.set_flags(flags); 
 
   // Default values for code and exceptions attribute elements
   u2 max_stack = 0;
@@ -1853,6 +1914,7 @@ methodHandle ClassFileParser::parse_method(constantPoolHandle cp, bool is_interf
 objArrayHandle ClassFileParser::parse_methods(constantPoolHandle cp, bool is_interface,
                                               AccessFlags* promoted_flags,
                                               bool* has_final_method,
+                                              bool* acc_module_seen_adr,
                                               objArrayOop* methods_annotations_oop,
                                               objArrayOop* methods_parameter_annotations_oop,
                                               objArrayOop* methods_default_annotations_oop,
@@ -1876,6 +1938,7 @@ objArrayHandle ClassFileParser::parse_methods(constantPoolHandle cp, bool is_int
     for (int index = 0; index < length; index++) {
       methodHandle method = parse_method(cp, is_interface,
                                          promoted_flags,
+                                         acc_module_seen_adr,
                                          &method_annotations,
                                          &method_parameter_annotations,
                                          &method_default_annotations,
@@ -2018,9 +2081,10 @@ void ClassFileParser::parse_classfile_source_debug_extension_attribute(constantP
 
 // Inner classes can be static, private or protected (classic VM does this)
 #define RECOGNIZED_INNER_CLASS_MODIFIERS (JVM_RECOGNIZED_CLASS_MODIFIERS | JVM_ACC_PRIVATE | JVM_ACC_PROTECTED | JVM_ACC_STATIC)
+#define RECOGNIZED_INNER_CLASS_MODIFIERS_PRE_JDK7 (JVM_RECOGNIZED_CLASS_MODIFIERS_PRE_JDK7 | JVM_ACC_PRIVATE | JVM_ACC_PROTECTED | JVM_ACC_STATIC)
 
 // Return number of classes in the inner classes attribute table
-u2 ClassFileParser::parse_classfile_inner_classes_attribute(constantPoolHandle cp, instanceKlassHandle k, TRAPS) {
+u2 ClassFileParser::parse_classfile_inner_classes_attribute(constantPoolHandle cp, instanceKlassHandle k, bool* acc_module_seen_adr, TRAPS) {
   ClassFileStream* cfs = stream();
   cfs->guarantee_more(2, CHECK_0);  // length
   u2 length = cfs->get_u2_fast();
@@ -2062,11 +2126,18 @@ u2 ClassFileParser::parse_classfile_inner_classes_attribute(constantPoolHandle c
     // Access flags
     AccessFlags inner_access_flags;
     jint flags = cfs->get_u2_fast() & RECOGNIZED_INNER_CLASS_MODIFIERS;
+    // backward compat: did not read other inner class modifiers
+    if (_major_version < JAVA_7_VERSION) {
+      flags &= RECOGNIZED_INNER_CLASS_MODIFIERS_PRE_JDK7;
+    }
     if ((flags & JVM_ACC_INTERFACE) && _major_version < JAVA_6_VERSION) {
       // Set abstract bit for old class files for backward compatibility
       flags |= JVM_ACC_ABSTRACT;
     }
     verify_legal_class_modifiers(flags, CHECK_0);
+    if (flags & JVM_ACC_MODULE) {
+      *acc_module_seen_adr = true;
+    }
     inner_access_flags.set_flags(flags);
 
     inner_classes->short_at_put(index++, inner_class_info_index);
@@ -2109,7 +2180,20 @@ void ClassFileParser::parse_classfile_signature_attribute(constantPoolHandle cp,
   k->set_generic_signature(cp->symbol_at(signature_index));
 }
 
-void ClassFileParser::parse_classfile_attributes(constantPoolHandle cp, instanceKlassHandle k, TRAPS) {
+void ClassFileParser::parse_classfile_module_attribute(constantPoolHandle cp, instanceKlassHandle k, symbolHandle defineclass_module_name, TRAPS) {
+  ClassFileStream* cfs = stream();
+  u2 moduleId_index = cfs->get_u2(CHECK);
+  check_property(
+    valid_cp_range(moduleId_index, cp->length()) &&
+      cp->tag_at(moduleId_index).is_moduleId_info(), 
+    "Invalid constant pool index %u in Module attribute in class file %s", 
+    moduleId_index, CHECK);    
+
+  // TODO: Throw what exception if defineClass passed in module_name does not equal classfile module_name?
+  k->set_module_name(cp->symbol_at(cp->module_name_at(moduleId_index)));
+}
+
+void ClassFileParser::parse_classfile_attributes(constantPoolHandle cp, instanceKlassHandle k, symbolHandle module_name, bool* acc_module_seen_adr, TRAPS) {
   ClassFileStream* cfs = stream();
   // Set inner classes attribute to default sentinel
   k->set_inner_classes(Universe::the_empty_short_array());
@@ -2154,7 +2238,7 @@ void ClassFileParser::parse_classfile_attributes(constantPoolHandle cp, instance
       } else {
         parsed_innerclasses_attribute = true;
       }
-      u2 num_of_classes = parse_classfile_inner_classes_attribute(cp, k, CHECK);
+      u2 num_of_classes = parse_classfile_inner_classes_attribute(cp, k, acc_module_seen_adr, CHECK);
       if (_need_verify && _major_version >= JAVA_1_5_VERSION) {
         guarantee_property(attribute_length == sizeof(num_of_classes) + 4 * sizeof(u2) * num_of_classes,
                           "Wrong InnerClasses attribute length in class file %s", CHECK);
@@ -2216,6 +2300,15 @@ void ClassFileParser::parse_classfile_attributes(constantPoolHandle cp, instance
           classfile_parse_error("Invalid or out-of-bounds method index in EnclosingMethod attribute in class file %s", CHECK);
         }
         k->set_enclosing_method_indices(class_index, method_index);
+      } else if (_major_version >= JAVA_7_VERSION) {
+        if (tag == vmSymbols::tag_module()) {
+          if (attribute_length != 2) {
+            classfile_parse_error(
+            "Wrong Module attribute length %u in class file %s",
+            attribute_length, CHECK);
+          }
+        }
+        parse_classfile_module_attribute(cp, k, module_name, CHECK);
       } else {
         // Unknown attribute
         cfs->skip_u1(attribute_length, CHECK);
@@ -2225,6 +2318,17 @@ void ClassFileParser::parse_classfile_attributes(constantPoolHandle cp, instance
       cfs->skip_u1(attribute_length, CHECK);
     }
   }
+  // Check module attribute after all attributes are parsed
+  if (*acc_module_seen_adr) {
+    verify_legal_class_module_modifier(k, THREAD);
+  }
+  // TODO - assume defineclass passed in module_name sets a null value
+  // TODO - should it also override a non-null?
+  if (k->module_name() == NULL) {
+    k->set_module_name(module_name());
+  }
+
+  // Check for all fields and methods
   typeArrayHandle annotations = assemble_annotations(runtime_visible_annotations,
                                                      runtime_visible_annotations_length,
                                                      runtime_invisible_annotations,
@@ -2403,7 +2507,7 @@ void ClassFileParser::java_lang_ref_Reference_fix_pre(typeArrayHandle* fields_pt
     short flags;
     flags =
       fields_with_fix->ushort_at(i + instanceKlass::access_flags_offset);
-    assert(!(flags & JVM_RECOGNIZED_FIELD_MODIFIERS), "Unexpected access flags set");
+    assert(!(flags & JVM_RECOGNIZED_FIELD_MODIFIERS_PRE_JDK7), "Unexpected access flags set");
     flags = flags & (~JVM_ACC_PUBLIC);
     flags = flags | JVM_ACC_PRIVATE;
     AccessFlags access_flags;
@@ -2469,6 +2573,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(symbolHandle name,
                                                     Handle class_loader,
                                                     Handle protection_domain,
                                                     GrowableArray<Handle>* cp_patches,
+                                                    symbolHandle module_name,
                                                     symbolHandle& parsed_name,
                                                     TRAPS) {
   // So that JVMTI can cache class file in the state before retransformable agents
@@ -2562,13 +2667,21 @@ instanceKlassHandle ClassFileParser::parseClassFile(symbolHandle name,
 
   // Access flags
   AccessFlags access_flags;
+  bool acc_module_seen = false;
   jint flags = cfs->get_u2_fast() & JVM_RECOGNIZED_CLASS_MODIFIERS;
+  // backward compat: did not read other class modifiers
+  if (_major_version < JAVA_7_VERSION) {
+    flags &= JVM_RECOGNIZED_CLASS_MODIFIERS_PRE_JDK7;
+  }
 
   if ((flags & JVM_ACC_INTERFACE) && _major_version < JAVA_6_VERSION) {
     // Set abstract bit for old class files for backward compatibility
     flags |= JVM_ACC_ABSTRACT;
   }
   verify_legal_class_modifiers(flags, CHECK_(nullHandle));
+  if (flags & JVM_ACC_MODULE) {
+    acc_module_seen = true;
+  }
   access_flags.set_flags(flags);
 
   // This class and superclass
@@ -2663,7 +2776,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(symbolHandle name,
     // Fields (offsets are filled in later)
     struct FieldAllocationCount fac = {0,0,0,0,0,0,0,0,0,0};
     objArrayHandle fields_annotations;
-    typeArrayHandle fields = parse_fields(cp, access_flags.is_interface(), &fac, &fields_annotations, CHECK_(nullHandle));
+    typeArrayHandle fields = parse_fields(cp, access_flags.is_interface(), &acc_module_seen, &fac, &fields_annotations, CHECK_(nullHandle));
     // Methods
     bool has_final_method = false;
     AccessFlags promoted_flags;
@@ -2676,6 +2789,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(symbolHandle name,
     objArrayHandle methods = parse_methods(cp, access_flags.is_interface(),
                                            &promoted_flags,
                                            &has_final_method,
+                                           &acc_module_seen,
                                            &methods_annotations_oop,
                                            &methods_parameter_annotations_oop,
                                            &methods_default_annotations_oop,
@@ -2747,9 +2861,10 @@ instanceKlassHandle ClassFileParser::parseClassFile(symbolHandle name,
                                                       super_klass(),
                                                       methods(),
                                                       access_flags,
-                                                      class_loader(),
-                                                      class_name(),
-                                                      local_interfaces());
+                                                      class_loader,
+                                                      class_name,
+                                                      local_interfaces(),
+                                                      THREAD);
 
     // Size of Java itable (in words)
     itable_size = access_flags.is_interface() ? 0 : klassItable::compute_itable_size(transitive_interfaces);
@@ -3160,7 +3275,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(symbolHandle name,
     }
 
     // Additional attributes
-    parse_classfile_attributes(cp, this_klass, CHECK_(nullHandle));
+    parse_classfile_attributes(cp, this_klass, module_name, &acc_module_seen, CHECK_(nullHandle));
 
     // Make sure this is the end of class file stream
     guarantee_property(cfs->at_eos(), "Extra bytes at the end of class file %s", CHECK_(nullHandle));
@@ -3615,12 +3730,20 @@ void ClassFileParser::verify_legal_class_modifiers(jint flags, TRAPS) {
   const bool is_super      = (flags & JVM_ACC_SUPER)      != 0;
   const bool is_enum       = (flags & JVM_ACC_ENUM)       != 0;
   const bool is_annotation = (flags & JVM_ACC_ANNOTATION) != 0;
+  const bool is_public     = (flags & JVM_ACC_PUBLIC)     != 0;
+  const bool is_module     = (flags & JVM_ACC_MODULE)     != 0;
   const bool major_gte_15  = _major_version >= JAVA_1_5_VERSION;
+  const bool major_gte_7   = _major_version >= JAVA_7_VERSION;
 
+  // JAVA_7_VERSION
+  // JLS3 6.6.1/JVMS 4.1 At most one of the ACC_MODULE and ACC_PUBLIC
+  // flags may be set
+  // < JAVA_7_VERSION: ACC_MODULE bit masked out on read for classes or inner classes
   if ((is_abstract && is_final) ||
       (is_interface && !is_abstract) ||
       (is_interface && major_gte_15 && (is_super || is_enum)) ||
-      (!is_interface && major_gte_15 && is_annotation)) {
+      (!is_interface && major_gte_15 && is_annotation) ||
+      (is_public && is_module)) {
     ResourceMark rm(THREAD);
     Exceptions::fthrow(
       THREAD_AND_LOCATION,
@@ -3632,14 +3755,15 @@ void ClassFileParser::verify_legal_class_modifiers(jint flags, TRAPS) {
   }
 }
 
+// Don't allow setting more than one visibility flag for fields or methods
 bool ClassFileParser::has_illegal_visibility(jint flags) {
-  const bool is_public    = (flags & JVM_ACC_PUBLIC)    != 0;
-  const bool is_protected = (flags & JVM_ACC_PROTECTED) != 0;
-  const bool is_private   = (flags & JVM_ACC_PRIVATE)   != 0;
-
-  return ((is_public && is_protected) ||
-          (is_public && is_private) ||
-          (is_protected && is_private));
+  int visibilityflags = flags & (JVM_ACC_PUBLIC | JVM_ACC_MODULE | JVM_ACC_PROTECTED | JVM_ACC_PRIVATE);
+  if (visibilityflags == JVM_ACC_PUBLIC || visibilityflags == JVM_ACC_MODULE ||
+      visibilityflags == JVM_ACC_PROTECTED || visibilityflags == JVM_ACC_PRIVATE ||
+      visibilityflags == 0) {
+    return false;
+  }
+  return true;
 }
 
 bool ClassFileParser::is_supported_version(u2 major, u2 minor) {
@@ -3651,11 +3775,34 @@ bool ClassFileParser::is_supported_version(u2 major, u2 minor) {
           (minor <= JAVA_MAX_SUPPORTED_MINOR_VERSION));
 }
 
+// Used for the class, inner classes, methods and fields
+// Can only ACC_MODULE if the module attribute is set
+// Only called if acc_module_seen is true
+// TODO: this may change if define_class can pass in a module without
+// having set one already
+void ClassFileParser::verify_legal_class_module_modifier(
+    instanceKlassHandle k_h, TRAPS) {
+  if (!_need_verify) { return; }
+
+  // classes, interfaces and inner classes, methods and fields can only set ACC_MODULE if
+  // the ClassFile has a Module attribute
+  if (instanceKlass::cast(k_h())->module_name() == NULL) {
+    ResourceMark rm(THREAD);
+    Exceptions::fthrow(
+      THREAD_AND_LOCATION,
+      vmSymbolHandles::java_lang_ClassFormatError(),
+      "ACC_MODULE set but class %s has no Module attribute: ",
+      _class_name->as_C_string());
+    return;
+  }
+}
+
 void ClassFileParser::verify_legal_field_modifiers(
     jint flags, bool is_interface, TRAPS) {
   if (!_need_verify) { return; }
 
   const bool is_public    = (flags & JVM_ACC_PUBLIC)    != 0;
+  const bool is_module    = (flags & JVM_ACC_MODULE)    != 0;
   const bool is_protected = (flags & JVM_ACC_PROTECTED) != 0;
   const bool is_private   = (flags & JVM_ACC_PRIVATE)   != 0;
   const bool is_static    = (flags & JVM_ACC_STATIC)    != 0;
@@ -3664,11 +3811,16 @@ void ClassFileParser::verify_legal_field_modifiers(
   const bool is_transient = (flags & JVM_ACC_TRANSIENT) != 0;
   const bool is_enum      = (flags & JVM_ACC_ENUM)      != 0;
   const bool major_gte_15 = _major_version >= JAVA_1_5_VERSION;
+  const bool major_gte_7  = _major_version >= JAVA_7_VERSION;
+  const bool major_lt_7   = _major_version < JAVA_7_VERSION;
 
   bool is_illegal = false;
 
   if (is_interface) {
-    if (!is_public || !is_static || !is_final || is_private ||
+    if ((major_gte_7 && (!(is_public || is_module))) ||
+       (major_lt_7 && (!is_public)) ||
+       (is_public && is_module) ||
+        !is_static || !is_final || is_private ||
         is_protected || is_volatile || is_transient ||
         (major_gte_15 && is_enum)) {
       is_illegal = true;
@@ -3695,6 +3847,7 @@ void ClassFileParser::verify_legal_method_modifiers(
   if (!_need_verify) { return; }
 
   const bool is_public       = (flags & JVM_ACC_PUBLIC)       != 0;
+  const bool is_module       = (flags & JVM_ACC_MODULE)       != 0;
   const bool is_private      = (flags & JVM_ACC_PRIVATE)      != 0;
   const bool is_static       = (flags & JVM_ACC_STATIC)       != 0;
   const bool is_final        = (flags & JVM_ACC_FINAL)        != 0;
@@ -3704,12 +3857,17 @@ void ClassFileParser::verify_legal_method_modifiers(
   const bool is_strict       = (flags & JVM_ACC_STRICT)       != 0;
   const bool is_synchronized = (flags & JVM_ACC_SYNCHRONIZED) != 0;
   const bool major_gte_15    = _major_version >= JAVA_1_5_VERSION;
+  const bool major_gte_7     = _major_version >= JAVA_7_VERSION;
+  const bool major_lt_7      = _major_version < JAVA_7_VERSION;
   const bool is_initializer  = (name == vmSymbols::object_initializer_name());
 
   bool is_illegal = false;
 
   if (is_interface) {
-    if (!is_abstract || !is_public || is_static || is_final ||
+    if (!is_abstract || is_static || is_final ||
+       (major_gte_7 && (!(is_public || is_module))) ||
+       (major_lt_7 && (!(is_public ))) ||
+       (is_public && is_module) ||
         is_native || (major_gte_15 && (is_synchronized || is_strict))) {
       is_illegal = true;
     }

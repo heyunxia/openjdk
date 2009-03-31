@@ -845,9 +845,11 @@ instanceKlassHandle ClassLoader::load_classfile(symbolHandle h_name, TRAPS) {
     Handle class_loader;
     Handle protection_domain;
     symbolHandle parsed_name;
+    symbolHandle module_name; // null module if loaded by bootstrap loader
     instanceKlassHandle result = parser.parseClassFile(h_name,
                                                        class_loader,
                                                        protection_domain,
+                                                       module_name,
                                                        parsed_name,
                                                        CHECK_(h));
 

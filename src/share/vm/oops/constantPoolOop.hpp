@@ -214,6 +214,11 @@ class constantPoolOopDesc : public oopDesc {
     *int_at_addr(which) = ((jint) signature_index<<16) | name_index;  // Not so nice
   }
 
+  void module_info_at_put(int which, int module_name_index, int module_version_index) {
+    tag_at_put(which, JVM_CONSTANT_ModuleId_info);
+    *int_at_addr(which) = ((jint) module_version_index<<16) | module_name_index;  // Not so nice
+  }
+
   // Tag query
 
   constantTag tag_at(int which) const { return (constantTag)tags()->byte_at_acquire(which); }
@@ -338,6 +343,18 @@ class constantPoolOopDesc : public oopDesc {
     return *int_at_addr(which);
   }
 
+  jint module_info_at(int which) {
+    assert(tag_at(which).is_moduleId_info(), "Corrupted constant pool");
+    return *int_at_addr(which);
+  }
+
+  // Extract cp index for just the module name
+  jint module_name_at(int which) {
+    assert(tag_at(which).is_moduleId_info(), "Corrupted constant pool");
+    jint module_name_and_version = *int_at_addr(which);
+    return (module_name_and_version & 0XFFFF);
+  }
+
   // The following methods (klass_ref_at, klass_ref_at_noresolve, name_ref_at,
   // signature_ref_at, klass_ref_index_at, name_and_type_ref_index_at,
   // name_ref_index_at, signature_ref_index_at) all expect constant pool indices
@@ -356,6 +373,10 @@ class constantPoolOopDesc : public oopDesc {
   // Lookup for entries consisting of (name_index, signature_index)
   int name_ref_index_at(int which);
   int signature_ref_index_at(int which);
+
+  // Lookup for entries consisting of (module_name_index, module_version_index)
+  int module_name_ref_index_at(int which);
+  int module_version_ref_index_at(int which);
 
   BasicType basic_type_for_signature_at(int which);
 

@@ -2350,9 +2350,14 @@ SOLARIS_ONLY(
   }
   // Change the default value for flags  which have different default values
   // when working with older JDKs.
-  if (JDK_Version::current().compare_major(6) <= 0 &&
-      FLAG_IS_DEFAULT(UseVMInterruptibleIO)) {
-    FLAG_SET_DEFAULT(UseVMInterruptibleIO, true);
+  // Flags added or changed in JDK7:
+  if (JDK_Version::current().compare_major(6) <= 0) {
+    if FLAG_IS_DEFAULT(UseVMInterruptibleIO) {
+      FLAG_SET_DEFAULT(UseVMInterruptibleIO, true);
+    }
+    if  FLAG_IS_DEFAULT(DisableModuleAccessChecks) {
+      FLAG_SET_DEFAULT(DisableModuleAccessChecks, true);
+    }
   }
   return JNI_OK;
 }

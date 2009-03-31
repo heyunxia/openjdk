@@ -408,9 +408,10 @@ class methodOopDesc : public oopDesc {
 
   // Access flags
   bool is_public() const                         { return access_flags().is_public();      }
+  bool is_module() const                         { return access_flags().is_module();      }
   bool is_private() const                        { return access_flags().is_private();     }
   bool is_protected() const                      { return access_flags().is_protected();   }
-  bool is_package_private() const                { return !is_public() && !is_private() && !is_protected(); }
+  bool is_package_private() const                { return access_flags().is_package_private(); }
   bool is_static() const                         { return access_flags().is_static();      }
   bool is_final() const                          { return access_flags().is_final();       }
   bool is_synchronized() const                   { return access_flags().is_synchronized();}

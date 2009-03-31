@@ -38,6 +38,7 @@ public class ConstantTag {
   private static int JVM_CONSTANT_Methodref               = 10;
   private static int JVM_CONSTANT_InterfaceMethodref      = 11;
   private static int JVM_CONSTANT_NameAndType             = 12;
+  private static int JVM_CONSTANT_ModuleId_info           = 13;
   private static int JVM_CONSTANT_Invalid                 = 0;   // For bad value initialization
   private static int JVM_CONSTANT_UnresolvedClass         = 100; // Temporary tag until actual use
   private static int JVM_CONSTANT_ClassIndex              = 101; // Temporary tag while constructing constant pool
@@ -61,6 +62,7 @@ public class ConstantTag {
   public boolean isLong()             { return tag == JVM_CONSTANT_Long; }
   public boolean isDouble()           { return tag == JVM_CONSTANT_Double; }
   public boolean isNameAndType()      { return tag == JVM_CONSTANT_NameAndType; }
+  public boolean isModuleId_info()    { return tag == JVM_CONSTANT_ModuleId_info; }
   public boolean isUtf8()             { return tag == JVM_CONSTANT_Utf8; }
 
   public boolean isInvalid()          { return tag == JVM_CONSTANT_Invalid; }
