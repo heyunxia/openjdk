@@ -26,6 +26,8 @@
 package org.openjdk.jigsaw;
 
 import java.lang.module.*;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 
 public final class JigsawModuleSystem

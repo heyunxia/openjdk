@@ -23,48 +23,33 @@
  * have any questions.
  */
 
-package java.lang.module;
+package org.openjdk.jigsaw;
 
-import java.util.EnumSet;
-import java.util.Set;
+import java.io.File;
+import java.lang.module.*;
+import java.lang.reflect.*;
+
+import static org.openjdk.jigsaw.Trace.*;
 
 
-public final class Dependence {
+public final class Launcher {
 
-    public static enum Modifier { PRIVATE, OPTIONAL, LOCAL; }
-
-    private final Set<Modifier> mods;
-    private final ModuleIdQuery midq;
-
-    public Dependence(EnumSet<Modifier> mods, ModuleIdQuery midq) {
-	this.mods = mods;
-	this.midq = midq;
-    }
-
-    public ModuleIdQuery query() { return midq; }
-
-    public Set<Modifier> modifiers() { return mods; }
-
-    public boolean equals(Object ob) {
-	if (!(ob instanceof Dependence))
-	    return false;
-	Dependence that = (Dependence)ob;
-	return (midq.equals(that.midq) && mods.equals(that.mods));
-    }
-
-    public int hashCode() {
-	return midq.hashCode() * 43 + mods.hashCode();
-    }
-
-    @Override
-    public String toString() {
-	StringBuilder sb = new StringBuilder();
-	sb.append("requires");
-	for (Modifier m : mods) {
-	    sb.append(" ").append(m.toString().toLowerCase());
-	}
-	sb.append(" ").append(midq);
-	return sb.toString();
+    public static void main(String[] args)
+	throws Exception
+    {
+	JigsawModuleSystem jms = JigsawModuleSystem.instance();
+	File lib = new File(args[0]);
+	ModuleIdQuery midq = new ModuleIdQuery(args[1], null);
+	String main = (args.length == 3) ? args[2] : null;
+	Class<?> c = LoaderPool.findClass(lib, midq, main);
+	if (tracing)
+	    trace(0, "launch: loader %s, module %s, class %s",
+		  c.getClassLoader(),
+		  c.getModule().getModuleInfo().id(),
+		  c.getName());
+	Method m = c.getDeclaredMethod("main",
+				       Class.forName("[Ljava.lang.String;"));
+	m.invoke(null, (Object)new String[] { });
     }
 
 }

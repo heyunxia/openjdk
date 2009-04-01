@@ -34,7 +34,9 @@ public final class FileConstants {
 
     public static enum Type {
 
-	LIBRARY_HEADER(0);
+	LIBRARY_HEADER(0),
+	LIBRARY_MODULE_INDEX(1),
+	LIBRARY_MODULE_SUPPLIERS(2);
 
 	private final int value;
 	public int value() { return value; }

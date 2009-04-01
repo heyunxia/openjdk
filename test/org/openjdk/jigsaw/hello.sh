@@ -5,9 +5,7 @@
 #
 # This code is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License version 2 only, as
-# published by the Free Software Foundation.  Sun designates this
-# particular file as subject to the "Classpath" exception as provided
-# by Sun in the LICENSE file that accompanied this code.
+# published by the Free Software Foundation.
 #
 # This code is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -24,11 +22,12 @@
 # have any questions.
 
 # @test
-# @summary Unit test for jmod command
+# @summary Hello
 
 set -e
 
-BIN=${TESTJAVA:-../../../../../build}/bin
+BIN=${TESTJAVA:-../../../../build}/bin
+SRC=${TESTSRC:-.}
 
 mk() {
   d=$(dirname $1)
@@ -36,41 +35,56 @@ mk() {
   cat - >$1
 }
 
-rm -rf z.src
+rm -rf z.*
 
-mk z.src/com.foo.bar/module-info.java <<EOF
-module com.foo.bar @ 1.2.3_01-4a
-    provides baz @ 2.0, biz @ 3.4a
-{
-    permits com.foo.top, com.foo.bottom;
-    class com.foo.bar.Main;
+mk z.src/com.greetings/module-info.java <<EOF
+module com.greetings @ 0.1 {
+    requires org.astro @ 1.2;
+    class com.greetings.Hello;
 }
 EOF
 
-mk z.src/com.foo.byz/module-info.java <<EOF
-module com.foo.byz @ 0.11-42 { }
-EOF
-
-mk z.src/com.foo.bar/com/foo/bar/Main.java <<EOF
-module com.foo.bar;
-package com.foo.bar;
-public class Main {
+mk z.src/com.greetings/Hello.java <<EOF
+module com.greetings;
+package com.greetings;
+import org.astro.World;
+public class Hello {
     public static void main(String[] args) {
-        System.out.println("Hello, world!");
+        System.out.println("Hello, " + World.name() + "!");
     }
 }
 EOF
 
-rm -rf z.classes && mkdir z.classes
+mk z.src/org.astro/module-info.java <<EOF
+module org.astro @ 1.2 { }
+EOF
+
+mk z.src/org.astro/World.java <<EOF
+module org.astro;
+package org.astro;
+public class World {
+    public static String name() {
+	return "world";
+    }
+}
+EOF
+
+mkdir z.classes
+
 $BIN/javac -source 7 -d z.classes $(find z.src -name '*.java')
 
-rm -rf z.lib
+if false; then
+  # Hack
+  $BIN/javac -d z.classes -cp asm/classes StripModuleAttributes.java
+  $BIN/java -cp z.classes:asm/classes StripModuleAttributes \
+    $(find z.classes -name '*.class' | grep -v module-info.class)
+fi
+
+#export JIGSAW_TRACE=${JIGSAW_TRACE:-1}
+
 export JAVA_MODULES=z.lib
 $BIN/jmod create
-$BIN/jmod id
-$BIN/jmod install z.classes com.foo.bar
-$BIN/jmod install z.classes com.foo.byz
-$BIN/jmod list
-$BIN/jmod list -v
-$BIN/jmod dump com.foo.bar@1.2.3_01-4a com.foo.bar.Main >z
-cmp z z.classes/com/foo/bar/Main.class
+$BIN/jmod install z.classes org.astro
+$BIN/jmod install z.classes com.greetings
+
+$BIN/java org.openjdk.jigsaw.Launcher z.lib com.greetings

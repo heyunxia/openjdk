@@ -25,46 +25,48 @@
 
 package java.lang.module;
 
-import java.util.EnumSet;
-import java.util.Set;
+import java.lang.reflect.Module;
 
 
-public final class Dependence {
+public abstract class ModuleClassLoader
+    extends ClassLoader
+{
 
-    public static enum Modifier { PRIVATE, OPTIONAL, LOCAL; }
+    private ModuleSystem moduleSystem;
 
-    private final Set<Modifier> mods;
-    private final ModuleIdQuery midq;
-
-    public Dependence(EnumSet<Modifier> mods, ModuleIdQuery midq) {
-	this.mods = mods;
-	this.midq = midq;
+    protected ModuleClassLoader(ModuleSystem ms) {
+	moduleSystem = ms;
     }
 
-    public ModuleIdQuery query() { return midq; }
+    /** Primary entry point from the VM */
+    public abstract Class<?> loadClass(String name, Module requestor)
+        throws ClassNotFoundException;
 
-    public Set<Modifier> modifiers() { return mods; }
-
-    public boolean equals(Object ob) {
-	if (!(ob instanceof Dependence))
-	    return false;
-	Dependence that = (Dependence)ob;
-	return (midq.equals(that.midq) && mods.equals(that.mods));
+    protected Class<?> defineClass(Module m, String name,
+                                   byte[] b, int off, int len)
+        throws ClassFormatError
+    {
+	Class<?> c = super.defineClass(name, b, off, len);
+	sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
+	return c;
     }
 
-    public int hashCode() {
-	return midq.hashCode() * 43 + mods.hashCode();
+    // Invokes a corresponding native method implemented in the VM ## ??
+    protected Module defineModule(ModuleId id, byte[] bs, int off, int len)
+        throws ClassFormatError
+    {
+	if (off != 0 || bs.length != len) // ##
+	    throw new IllegalArgumentException();
+	return new Module(moduleSystem.parseModuleInfo(bs),
+			  this);
     }
 
     @Override
-    public String toString() {
-	StringBuilder sb = new StringBuilder();
-	sb.append("requires");
-	for (Modifier m : mods) {
-	    sb.append(" ").append(m.toString().toLowerCase());
-	}
-	sb.append(" ").append(midq);
-	return sb.toString();
+    protected Class<?> loadClass(String name, boolean resolve)
+        throws ClassNotFoundException
+    {
+        // ## Handle compatibility cases here
+        throw new ClassNotFoundException(name);
     }
 
 }

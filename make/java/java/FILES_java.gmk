@@ -453,8 +453,15 @@ JAVA_JAVA_java = \
     sun/misc/JavaIOFileDescriptorAccess.java \
     sun/misc/JavaNioAccess.java
 
+# Some java.lang and sun.misc classes are duplicated here,
+# for convenience during development
+
 JAVA_JAVA_jigsaw = \
+    java/lang/Class.java \
+    java/lang/System.java \
+    sun/misc/JavaLangAccess.java \
     java/lang/module/Dependence.java \
+    java/lang/module/ModuleClassLoader.java \
     java/lang/module/ModuleId.java \
     java/lang/module/ModuleIdQuery.java \
     java/lang/module/ModuleInfo.java \
@@ -462,11 +469,18 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/ModuleSystem.java \
     java/lang/module/Version.java \
     java/lang/module/VersionQuery.java \
+    java/lang/reflect/Module.java \
+    org/openjdk/jigsaw/ClassInfo.java \
     org/openjdk/jigsaw/JigsawModuleSystem.java \
     org/openjdk/jigsaw/JigsawVersion.java \
     org/openjdk/jigsaw/JigsawVersionQuery.java \
     org/openjdk/jigsaw/FileConstants.java \
     org/openjdk/jigsaw/Files.java \
-    org/openjdk/jigsaw/Library.java
+    org/openjdk/jigsaw/KernelLoader.java \
+    org/openjdk/jigsaw/Launcher.java \
+    org/openjdk/jigsaw/Library.java \
+    org/openjdk/jigsaw/Loader.java \
+    org/openjdk/jigsaw/LoaderPool.java \
+    org/openjdk/jigsaw/Trace.java
 
 FILES_java = $(JAVA_JAVA_java) $(JAVA_JAVA_jigsaw)

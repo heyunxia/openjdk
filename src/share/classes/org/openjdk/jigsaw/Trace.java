@@ -23,48 +23,35 @@
  * have any questions.
  */
 
-package java.lang.module;
+package org.openjdk.jigsaw;
 
-import java.util.EnumSet;
-import java.util.Set;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 
-public final class Dependence {
+class Trace {
 
-    public static enum Modifier { PRIVATE, OPTIONAL, LOCAL; }
+    static int traceLevel = 0;
+    static boolean tracing = false;
 
-    private final Set<Modifier> mods;
-    private final ModuleIdQuery midq;
-
-    public Dependence(EnumSet<Modifier> mods, ModuleIdQuery midq) {
-	this.mods = mods;
-	this.midq = midq;
-    }
-
-    public ModuleIdQuery query() { return midq; }
-
-    public Set<Modifier> modifiers() { return mods; }
-
-    public boolean equals(Object ob) {
-	if (!(ob instanceof Dependence))
-	    return false;
-	Dependence that = (Dependence)ob;
-	return (midq.equals(that.midq) && mods.equals(that.mods));
-    }
-
-    public int hashCode() {
-	return midq.hashCode() * 43 + mods.hashCode();
-    }
-
-    @Override
-    public String toString() {
-	StringBuilder sb = new StringBuilder();
-	sb.append("requires");
-	for (Modifier m : mods) {
-	    sb.append(" ").append(m.toString().toLowerCase());
+    static {
+	PrivilegedAction<String> pa = new PrivilegedAction<String>() {
+	    public String run() { return System.getenv("JIGSAW_TRACE"); }};
+	String v = AccessController.doPrivileged(pa);
+	if (v != null) {
+	    traceLevel = Integer.parseInt(v);
+	    tracing = traceLevel > 0;
 	}
-	sb.append(" ").append(midq);
-	return sb.toString();
+    }
+
+    static void trace(int level, String fmt, Object ... args) {
+	if (level >= traceLevel)
+	    return;
+	StringBuilder sb = new StringBuilder();
+	sb.append("| ");
+	for (int i = 0; i < level; i++)
+	    sb.append("  ");
+	System.out.format(sb.toString() + fmt + "%n", args);
     }
 
 }

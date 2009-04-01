@@ -29,81 +29,73 @@ import java.lang.module.*;
 import java.io.*;
 import java.util.*;
 
+import static org.openjdk.jigsaw.Trace.*;
+
 
 public final class Library {
 
-    private static final class MetaData {
+    private static abstract class MetaData {
 
-	private static String FILE
-	    = FileConstants.META_PREFIX + "jigsaw-library";
+	protected final int maxMajorVersion;
+	protected final int maxMinorVersion;
+	protected int majorVersion;
+	protected int minorVersion;
+	private FileConstants.Type type;
+	private File file;
 
-	private static int MAJOR_VERSION = 0;
-	private static int MINOR_VERSION = 1;
-
-	private int majorVersion;
-	private int minorVersion;
-
-	private Map<String,String> env = new HashMap<String,String>();
-
-	private MetaData(int maj, int min) {
-	    majorVersion = maj;
-	    minorVersion = min;
+	protected MetaData(int maxMajor, int maxMinor,
+			   FileConstants.Type t, File f)
+	{
+	    maxMajorVersion = majorVersion = maxMajor;
+	    maxMinorVersion = minorVersion = maxMinor;
+	    type = t;
+	    file = f;
 	}
 
-	private MetaData() {
-	    this(MAJOR_VERSION, MINOR_VERSION);
-	}
+	protected abstract void storeRest(DataOutputStream out)
+	    throws IOException;
 
-	private Map<String,String> env() { return env; }
-
-	private void store(File root) throws IOException {
-	    File f = new File(root, FILE);
-	    OutputStream fo = new FileOutputStream(f);
+	void store() throws IOException {
+	    OutputStream fo = new FileOutputStream(file);
 	    DataOutputStream out
 		= new DataOutputStream(new BufferedOutputStream(fo));
 	    try {
 		out.writeInt(FileConstants.MAGIC);
-		out.writeShort(FileConstants.Type.LIBRARY_HEADER.value());
-		out.writeShort(MAJOR_VERSION);
-		out.writeShort(MINOR_VERSION);
-		out.writeInt(env.size());
-		for (Map.Entry<String,String> me : env.entrySet()) {
-		    out.writeUTF(me.getKey());
-		    out.writeUTF(me.getValue());
-		}
+		out.writeShort(type.value());
+		out.writeShort(majorVersion);
+		out.writeShort(minorVersion);
+		storeRest(out);
 	    } finally {
 		out.close();
 	    }
 	}
 
-	private static MetaData load(File root) throws IOException {
-	    File f = new File(root, FILE);
-	    InputStream fi = new FileInputStream(f);
+	protected abstract void loadRest(DataInputStream in)
+	    throws IOException;
+
+	protected void load() throws IOException {
+	    InputStream fi = new FileInputStream(file);
 	    try {
 		DataInputStream in
 		    = new DataInputStream(new BufferedInputStream(fi));
 		int m = in.readInt();
 		if (m != FileConstants.MAGIC)
-		    throw new IOException(f + ": Invalid magic number");
+		    throw new IOException(file + ": Invalid magic number");
 		int typ = in.readShort();
-		if (typ != FileConstants.Type.LIBRARY_HEADER.value())
-		    throw new IOException(f + ": Invalid file type");
+		if (typ != type.value())
+		    throw new IOException(file + ": Invalid file type");
 		int maj = in.readShort();
 		int min = in.readShort();
-		if (   maj > MAJOR_VERSION
-		    || (maj == MAJOR_VERSION && min > MINOR_VERSION)) {
-		    throw new IOException(f + ": Futuristic version number");
+		if (   maj > maxMajorVersion
+		    || (maj == maxMajorVersion && min > maxMinorVersion)) {
+		    throw new IOException(file
+					  + ": Futuristic version number");
 		}
-		int n = in.readInt();
-		MetaData md = new MetaData(maj, min);
-		for (int i = 0; i < n; i++) {
-		    String k = in.readUTF();
-		    String v = in.readUTF();
-		    md.env().put(k, v);
-		}
-		return md;
+		majorVersion = maj;
+		minorVersion = min;
+		loadRest(in);
 	    } catch (EOFException x) {
-		throw new IOException(f + ": Invalid library metadata",
+		throw new IOException(file + ": Invalid library metadata",
 				      x);
 	    } finally {
 		fi.close();
@@ -112,13 +104,43 @@ public final class Library {
 
     }
 
+    private static final class Header
+	extends MetaData
+    {
+
+	private static String FILE
+	    = FileConstants.META_PREFIX + "jigsaw-library";
+
+	private static int MAJOR_VERSION = 0;
+	private static int MINOR_VERSION = 1;
+
+	private Header(File root) {
+	    super(MAJOR_VERSION, MINOR_VERSION,
+		  FileConstants.Type.LIBRARY_HEADER,
+		  new File(root, FILE));
+	}
+
+	protected void storeRest(DataOutputStream out) throws IOException { }
+
+	protected void loadRest(DataInputStream in) throws IOException { }
+
+	private static Header load(File f)
+	    throws IOException
+	{
+	    Header h = new Header(f);
+	    h.load();
+	    return h;
+	}
+
+    }
+
     private final File root;
     private final File canonicalRoot;
-    private final MetaData md;
+    private final Header hd;
 
     public File path() { return root; }
-    public int majorVersion() { return md.majorVersion; }
-    public int minorVersion() { return md.minorVersion; }
+    public int majorVersion() { return hd.majorVersion; }
+    public int minorVersion() { return hd.minorVersion; }
 
     /**
      * Return a string describing this module library.
@@ -127,7 +149,7 @@ public final class Library {
     public String toString() {
 	return (this.getClass().getName()
 		+ "[" + canonicalRoot
-		+ ", v" + md.majorVersion + "." + md.minorVersion + "]");
+		+ ", v" + hd.majorVersion + "." + hd.minorVersion + "]");
     }
 
     private Library(File path, boolean create)
@@ -138,15 +160,15 @@ public final class Library {
 	if (root.exists()) {
 	    if (!root.isDirectory())
 		throw new IOException(root + ": Exists but is not a directory");
-	    md = MetaData.load(root);
+	    hd = Header.load(root);
 	    return;
 	}
 	if (!create)
 	    throw new FileNotFoundException(root.toString());
 	if (!root.mkdir())
 	    throw new IOException(root + ": Cannot create library directory");
-	md = new MetaData();
-	md.store(root);
+	hd = new Header(root);
+	hd.store();
     }
 
     public static Library open(java.io.File path, boolean create)
@@ -162,11 +184,149 @@ public final class Library {
     //
     //   $LIB/=jigsaw-library
     //        com.foo.bar/1.2.3/info (= module-info.class)
+    //                          index (list of types)
+    //                          suppliers (type -> module id map)
     //                          classes/com/foo/bar/...
     //                          lib/libbar.so
     //                          bin/bar
 
-    public void install(java.io.File classes, String moduleName)
+    private static final class Index
+	extends MetaData
+    {
+
+	private static String FILE = "index";
+
+	private static int MAJOR_VERSION = 0;
+	private static int MINOR_VERSION = 1;
+
+	private Set<String> types;
+	public Set<String> types() { return types; }
+
+	private Index(File root) {
+	    super(MAJOR_VERSION, MINOR_VERSION,
+		  FileConstants.Type.LIBRARY_MODULE_INDEX,
+		  new File(root, FILE));
+	    // Unsorted on input, because we don't need it sorted
+	    types = new HashSet<String>();
+	}
+
+	protected void storeRest(DataOutputStream out)
+	    throws IOException
+	{
+	    // Sorted on output, because we can afford it
+	    types = new TreeSet<String>(types);
+	    out.writeInt(types.size());
+	    for (String tn : types)
+		out.writeUTF(tn);
+	}
+
+	protected void loadRest(DataInputStream in)
+	    throws IOException
+	{
+	    int n = in.readInt();
+	    for (int i = 0; i < n; i++)
+		types.add(in.readUTF());
+	}
+
+	private static Index load(File f)
+	    throws IOException
+	{
+	    Index ix = new Index(f);
+	    ix.load();
+	    return ix;
+	}
+
+    }
+
+    private static final class Suppliers
+	extends MetaData
+    {
+
+	private static String FILE = "suppliers";
+
+	private static int MAJOR_VERSION = 0;
+	private static int MINOR_VERSION = 1;
+
+	private Map<String,ModuleId> moduleForClass;
+	public Map<String,ModuleId> map() { return moduleForClass; }
+
+	private Suppliers(File root) {
+	    super(MAJOR_VERSION, MINOR_VERSION,
+		  FileConstants.Type.LIBRARY_MODULE_SUPPLIERS,
+		  new File(root, FILE));
+	    // Unsorted on input, because we don't need it sorted
+	    moduleForClass = new HashMap<String,ModuleId>();
+	}
+
+	protected void storeRest(DataOutputStream out)
+	    throws IOException
+	{
+	    // Sorted on output, because we can afford it
+	    moduleForClass = new TreeMap<String,ModuleId>(moduleForClass);
+	    out.writeInt(moduleForClass.size());
+	    for (Map.Entry<String,ModuleId> me : moduleForClass.entrySet()) {
+		out.writeUTF(me.getKey());
+		out.writeUTF(me.getValue().toString());
+	    }
+	}
+
+	protected void loadRest(DataInputStream in)
+	    throws IOException
+	{
+	    int n = in.readInt();
+	    for (int i = 0; i < n; i++) {
+		String cn = in.readUTF();
+		String mn = in.readUTF();
+		moduleForClass.put(cn, jms.parseModuleId(mn));
+	    }
+	}
+
+	private static Suppliers load(File f)
+	    throws IOException
+	{
+	    Suppliers sp = new Suppliers(f);
+	    sp.load();
+	    return sp;
+	}
+
+    }
+
+    private ModuleId findBestModuleId(ModuleIdQuery midq)
+	throws IOException
+    {
+	return findLatestModuleId(midq);
+    }
+
+    // A module mi has been installed.  Update its supplier map.
+    // Assume that all of its dependents have already been installed.
+    //
+    // ## Eventually we must consider updating the supplier maps
+    // ## of every module that might now depend upon this new module.
+    // 
+    private void updateSuppliers(ModuleInfo mi)
+	throws IOException
+    {
+	if (tracing)
+	    trace(0, "updateSuppliers %s", mi);
+	Suppliers sp = new Suppliers(moduleDir(mi.id()));
+	for (Dependence dep : mi.requires()) {
+	    if (tracing)
+		trace(1, "%s", dep);
+	    ModuleId smid = findBestModuleId(dep.query());
+	    if (smid == null)
+		throw new Error(mi.id() + ": Unsatisfied dependence on " + dep.query());
+	    Index six = Index.load(moduleDir(smid));
+	    for (String cn : six.types()) {
+		// ## Check for duplicates
+		if (tracing)
+		    trace(2, "%s %s", smid, cn);
+		sp.map().put(cn, smid);
+	    }
+	}
+	sp.store();
+    }
+
+    public void install(File classes, final String moduleName)
 	throws IOException
     {
 
@@ -181,17 +341,24 @@ public final class Library {
 	Files.mkdirs(mdst, "module");
 	Files.store(bs, new File(mdst, "info"));
 	File cldst = new File(mdst, "classes");
-	File dst = new File(cldst, path);
-	Files.mkdirs(dst, "classes");
 
-	// ## Very crude: This assumes that all packages in the module are in
-	// ## proper subpackages of the module's principal package.  We really
-	// ## need to scan the entire src directory to find all classes in the
-	// ## specified module.  See com.sun.tools.classfile.
-	Files.copyTree(src, dst, new Files.Filter<String>() {
-	    public boolean accept(String s) {
-		return !s.equals("module-info.class");
+	final Index ix = new Index(mdst);
+	Files.copyTree(classes, cldst, new Files.Filter<File>() {
+	    public boolean accept(File f) throws IOException {
+		if (f.isDirectory())
+		    return true;
+		ClassInfo ci = ClassInfo.read(f);
+		if (ci.moduleName() == null)
+		    return false;
+		if (!ci.isModuleInfo() && ci.moduleName().equals(moduleName)) {
+		    ix.types().add(ci.name());
+		    return true;
+		}
+		return false;
 	    }});
+
+	ix.store();
+	updateSuppliers(mi);
 
     }
 
@@ -236,7 +403,7 @@ public final class Library {
 	if (!mnd.isDirectory())
 	    throw new IOException(mnd + ": Not a directory");
 	if (!mnd.canRead())
-	    throw new IOException(md + ": Not readable");
+	    throw new IOException(mnd + ": Not readable");
 	Set<ModuleId> ans = new HashSet<ModuleId>();
 	for (String v : mnd.list()) {
 	    // ## Need a MS.parseModuleId(String, Version) method
@@ -266,6 +433,29 @@ public final class Library {
 		i.remove();
 	}
 	return ans;
+    }
+
+    /**
+     * Find the most recently-created module matching the given query in this
+     * library.
+     *
+     * @param   moduleIdQuery
+     *          The query to match against
+     *
+     * @return  The identification of the latest module matching the given
+     *          query, or {@code null} if none is found
+     */
+    public ModuleId findLatestModuleId(ModuleIdQuery midq)
+	throws IOException
+    {
+	Set<ModuleId> mids = findModuleIds(midq);
+	if (mids.isEmpty())
+	    return null;
+	if (mids.size() == 1)
+	    return mids.iterator().next();
+	SortedSet<ModuleId> ans = new TreeSet(midq.versionQuery());
+	ans.addAll(mids);
+	return ans.first();
     }
 
     private void checkModuleId(ModuleId mid) {
@@ -325,6 +515,16 @@ public final class Library {
 	return jms.parseModuleInfo(Files.load(new File(md, "info")));
     }
 
+    public byte[] findModuleInfoBytes(ModuleId mid) // ##
+	throws IOException
+    {
+	checkModuleId(mid);
+	File md = findModuleDir(mid);
+	if (md == null)
+	    return null;
+	return Files.load(new File(md, "info"));
+    }
+
     /**
      * Read the class bytes of the given class within the given module.
      *
@@ -357,6 +557,42 @@ public final class Library {
 	if (!cf.exists())
 	    return null;
 	return Files.load(cf);
+    }
+
+    private Map<ModuleId,Suppliers> suppliersCache
+	= new HashMap<ModuleId,Suppliers>();
+
+    /**
+     * Find the identification of the module capable of supplying the named
+     * class to the named requesting module.
+     *
+     * @param   className
+     *          The binary name of the requested class
+     *
+     * @param   requestor
+     *          The identification of the requesting module
+     *
+     * @return  The class supplier's identification
+     *
+     * @throws  ClassNotFoundException
+     *          If no supplier for the named class can be found
+     */
+    public ModuleId findModuleForClass(String className, ModuleId requestor)
+	throws ClassNotFoundException
+    {
+	Suppliers sp = suppliersCache.get(requestor);
+	if (sp == null) {
+	    try {
+		sp = Suppliers.load(moduleDir(requestor));
+		suppliersCache.put(requestor, sp);
+	    } catch (IOException x) {
+		throw new Error(x);		// ##
+	    }
+	}
+	ModuleId smid = sp.map().get(className);
+	if (smid == null)
+	    throw new ClassNotFoundException(className);
+	return smid;
     }
 
 }

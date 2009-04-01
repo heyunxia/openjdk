@@ -113,14 +113,14 @@ import java.util.*;
     }
 
     public static interface Filter<T> {
-	public boolean accept(T x);
+	public boolean accept(T x) throws IOException;
     }
 
     // src, dst are directories
     // src must exist; dst created if it does not yet exist
-    // Makes dst look exactly like src
+    // Makes dst look exactly like src, modulo filtering
     //
-    public static void copyTree(File src, File dst, Filter<String> nameFilter)
+    public static void copyTree(File src, File dst, Filter<File> filter)
 	throws IOException
     {
 	ensureIsDirectory(src);
@@ -134,12 +134,12 @@ import java.util.*;
 	    throw new IOException(dst + ": Cannot create directory");
 	String[] sls = list(src);
 	for (int i = 0; i < sls.length; i++) {
-	    if (nameFilter != null && !nameFilter.accept(sls[i]))
-		continue;
 	    File sf = new File(src, sls[i]);
+	    if (filter != null && !filter.accept(sf))
+		continue;
 	    File df = new File(dst, sls[i]);
 	    if (sf.isDirectory())
-		copyTree(sf, df, nameFilter);
+		copyTree(sf, df, filter);
 	    else
 		copy(sf, df);
 	}	    
@@ -188,14 +188,6 @@ import java.util.*;
     {
 	if (!d.mkdirs())
 	    throw new IOException(d + ": Cannot create " + what + " directory");
-    }
-
-    public static void main(String[] args) throws IOException {
-	String cmd = args[0];
-	if (cmd.equals("del"))
-	    deleteTree(new File(args[1]));
-	else if (cmd.equals("copy"))
-	    copyTree(new File(args[1]), new File(args[2]));
     }
 
 }
