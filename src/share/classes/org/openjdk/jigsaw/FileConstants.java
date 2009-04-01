@@ -28,6 +28,8 @@ package org.openjdk.jigsaw;
 
 public final class FileConstants {
 
+    private FileConstants() { }
+
     public static final int MAGIC = 0xcafe00fa;
 
     public static final String META_PREFIX = "%";

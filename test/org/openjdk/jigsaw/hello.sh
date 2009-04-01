@@ -73,13 +73,6 @@ mkdir z.classes
 
 $BIN/javac -source 7 -d z.classes $(find z.src -name '*.java')
 
-if false; then
-  # Hack
-  $BIN/javac -d z.classes -cp asm/classes StripModuleAttributes.java
-  $BIN/java -cp z.classes:asm/classes StripModuleAttributes \
-    $(find z.classes -name '*.class' | grep -v module-info.class)
-fi
-
 #export JIGSAW_TRACE=${JIGSAW_TRACE:-1}
 
 export JAVA_MODULES=z.lib
