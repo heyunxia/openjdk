@@ -55,13 +55,19 @@ public final class ModuleIdQuery {
 	if (!(ob instanceof ModuleIdQuery))
 	    return false;
 	ModuleIdQuery that = (ModuleIdQuery)ob;
-	return (this.name.equals(that.name)
-		&& this.versionQuery.equals(that.versionQuery));
+	if (!this.name.equals(that.name))
+	    return false;
+	if (versionQuery == that.versionQuery)
+	    return true;
+	if (versionQuery == null || that.versionQuery == null)
+	    return false;
+	return this.versionQuery.equals(that.versionQuery);
     }
 
     @Override
     public int hashCode() {
-	return name.hashCode() * 43 + versionQuery.hashCode();
+	return (name.hashCode() * 43
+		+ ((versionQuery == null) ? 7919 : versionQuery.hashCode()));
     }
 
     @Override
