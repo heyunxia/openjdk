@@ -26,7 +26,7 @@
 // Some interaction traces can be found at the end of this file
 //
 // TODO
-//  - Work through local, public, permits cases
+//  - Work through local, public, optional, permits cases
 //  - Work through security and concurrency issues
 
 package org.openjdk.jigsaw;
@@ -75,6 +75,12 @@ class Loader
 
     private static Module getCallerModule() {
 	Class c = Reflection.getCallerClass(3);
+	if (c == Class.class) {
+	    // Caller is Class.forName; skip two more frames
+	    // ## We should just pass the requestor's module object
+	    // ## all the way through
+	    c = Reflection.getCallerClass(5);
+	}
 	if (c == null)
 	    return null;
 	return c.getModule();
