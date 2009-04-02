@@ -38,10 +38,12 @@ final class KernelLoader
 
     private static class OtherPackages {
 
-	private static Set<String> packages = new HashSet<String>();
+	// 600 > 437 / .75
+	private static Set<String> packages = new HashSet<String>(600);
 
 	static {
 	    Set<String> p = packages;
+	    // 437
 	    p.add("com.sun.accessibility.internal.resources");
 	    p.add("com.sun.activation.registries");
 	    p.add("com.sun.awt");

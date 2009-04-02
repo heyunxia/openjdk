@@ -31,7 +31,7 @@ import java.util.Set;
 
 public final class Dependence {
 
-    public static enum Modifier { PRIVATE, OPTIONAL, LOCAL; }
+    public static enum Modifier { LOCAL, OPTIONAL, PUBLIC; }
 
     private final Set<Modifier> mods;
     private final ModuleIdQuery midq;

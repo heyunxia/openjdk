@@ -26,7 +26,7 @@
 // Some interaction traces can be found at the end of this file
 //
 // TODO
-//  - Work through local, private, permits cases
+//  - Work through local, public, permits cases
 //  - Work through security and concurrency issues
 
 package org.openjdk.jigsaw;
@@ -63,6 +63,14 @@ class Loader
 	      this,
 	      requestor != null ? requestor.getModuleId() : "unnamed",
 	      supplier, name);
+    }
+
+    // Invoked by KernelLoader to add the kernel module
+    //
+    protected void addModule(Module m) {
+	ModuleId mid = m.getModuleId();
+	moduleForName.put(mid.name(), m);
+	modules.add(mid);
     }
 
     private static Module getCallerModule() {
@@ -136,14 +144,6 @@ class Loader
 		throw new ClassNotFoundException(supplier + ":" + name);
 	}
 	return ld.findClass(supplier, name);
-    }
-
-    // Invoked by KernelLoader to add the kernel module
-    //
-    protected void addModule(Module m) {
-	ModuleId mid = m.getModuleId();
-	moduleForName.put(mid.name(), m);
-	modules.add(mid);
     }
 
     // Invoked by findClass, below, and (eventually) by LoaderPool.init()
