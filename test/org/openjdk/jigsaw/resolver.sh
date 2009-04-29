@@ -21,31 +21,58 @@
 # CA 95054 USA or visit www.sun.com if you need additional information or
 # have any questions.
 
-# @test
-# @summary Hello
+# @test Basic resolver tests
 
 exec /bin/sh ${TESTSRC:-.}/tester.sh $0
 
-: hello pass
+: trivial pass
 
-module com.greetings @ 0.1 {
-    requires org.astro @ 1.2;
-    class com.greetings.Hello;
+module x @ 1 {
+  requires y @ 1;
+  class x.X;
 }
 
-package com.greetings;
-import org.astro.World;
-public class Hello {
+package x;
+public class X {
     public static void main(String[] args) {
-        System.out.println("Hello, " + World.name() + "!");
+        System.exit(y.Y.zero());
     }
 }
 
-module org.astro @ 1.2 { }
+module y @ 1 { }
 
-package org.astro;
-public class World {
-    public static String name() {
-	return "world";
+package y;
+public class Y {
+    public static int zero() { return 0; }
+}
+
+: trivial2 fail install
+
+module x @ 1 {
+  requires y @ 1;
+  class x.X;
+}
+
+package x;
+public class X { }
+
+module y @ 2 { }
+
+: package-private fail invoke
+
+module x @ 1 {
+  requires y @ 1;
+  class x.X;
+}
+
+package x;
+public class X {
+    public static void main(String[] args) throws Exception {
+        Class.forName("y.Y");
     }
 }
+
+module y @ 1 { }
+
+package y;
+class Y { }

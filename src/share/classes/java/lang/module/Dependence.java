@@ -37,7 +37,7 @@ public final class Dependence {
     private final ModuleIdQuery midq;
 
     public Dependence(EnumSet<Modifier> mods, ModuleIdQuery midq) {
-	this.mods = mods;
+	this.mods = (mods != null) ? mods : EnumSet.noneOf(Modifier.class);
 	this.midq = midq;
     }
 

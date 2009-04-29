@@ -37,41 +37,45 @@ import static org.openjdk.jigsaw.Trace.*;
 public final class LoaderPool {
 
     private Library lib;
+    Library library() { return lib; }
 
-    LoaderPool(Library lib) {
-	if (lib == null)
+    private Configuration config;
+    Configuration config() { return config; }
+
+    LoaderPool(Library lb, Configuration cf) {
+	if (lb == null || cf == null)
 	    throw new IllegalArgumentException();
-	this.lib = lib;
-    }
-
-    Library library() {
-	return lib;
+	lib = lb;
+	config = cf;
     }
 
     // Our pool of module class loaders.  We use a weak set, so that
     // loaders can be garbage-collected when no longer in use.
     //
-    private Set<Loader> loaders
-	= new HashSet<Loader>();
+    private Set<Loader> loaders = new HashSet<Loader>();
         // ## = new WeakSet<Loader>();
 
-    // Map from module ids to module class loaders.  References to loaders
+    // Map from contexts to module class loaders.  References to loaders
     // are weak, as above.
     //
-    private Map<ModuleId,Loader> loaderForModule
-	= new HashMap<ModuleId,Loader>();
-        // ## = new WeakValueHashMap<ModuleId,Loader>();
+    private Map<Context,Loader> loaderForContext
+	= new HashMap<Context,Loader>();
+        // ## = new WeakValueHashMap<Context,Loader>();
 
-    // Find a loader for the given module, or else create one
+    // Find a loader for the given context, or else create one
     //
-    Loader findLoader(ModuleId mid) {
-        Loader ld = loaderForModule.get(mid);
+    Loader findLoader(Context cx) {
+        Loader ld = loaderForContext.get(cx);
         if (ld == null) {
-            ld = new Loader(this);
+            ld = new Loader(this, cx);
             loaders.add(ld);
-            loaderForModule.put(mid, ld);
+            loaderForContext.put(cx, ld);
         }
         return ld;
+    }
+
+    Loader findLoader(String cxn) {
+	return findLoader(config.getContext(cxn));
     }
 
     // The "kernel" module
@@ -99,34 +103,42 @@ public final class LoaderPool {
     }
     */
 
-    // Invoked by the launcher to find the main class
+    // Invoked by the launcher to load the main class
     //
-    public static Class<?> findClass(File libPath,
-				     ModuleIdQuery midq, String name)
+    public static Class<?> loadClass(File libPath,
+				     ModuleIdQuery midq, String className)
         throws IOException, ClassNotFoundException
     {
 	try {
-	    Library lb = Library.open(libPath, false);
-	    LoaderPool lp = new LoaderPool(lb);
-	    KernelLoader kl = new KernelLoader(lp);
-	    lp.kernelLoader = kl;
-	    lp.kernelModule = kl.module();
+	    Library lb = SimpleLibrary.open(libPath, false);
 	    ModuleId mid = lb.findLatestModuleId(midq);
-	    String cn = name;
+	    String cn = className;
 	    if (cn == null) {
 		// Use the module's declared main class, if any
-		ModuleInfo mi = lb.findModuleInfo(mid);
+		ModuleInfo mi = lb.readModuleInfo(mid);
 		if (mi != null)
 		    cn = mi.mainClass();
 		else
 		    throw new Error(mid + ": No main class specified");
 	    }
-	    return kl.loadClassFromSupplier(mid, cn);
+	    Configuration cf = lb.readConfiguration(mid);
+	    if (cf == null)
+		throw new Error(mid + ": Module not configured");
+	    Context cx = cf.findContextForModuleName(mid.name());
+	    if (cx == null)
+		throw new ClassNotFoundException(mid.name() + ":" + cn);
+	    LoaderPool lp = new LoaderPool(lb, cf);
+	    KernelLoader kl = new KernelLoader(lp);
+	    lp.kernelLoader = kl;
+	    lp.kernelModule = kl.module();
+	    Loader ld = lp.findLoader(cx);
+	    if (ld == null)
+		throw new ClassNotFoundException(cn);
+	    return ld.findClass(mid, cn);
 	} catch (IOException x) {
 	    // ## refactor; see Loader.cnf
 	    ClassNotFoundException cnfx
-		= new ClassNotFoundException(midq.name()
-					     + ":" + name);
+		= new ClassNotFoundException(midq.name() + ":" + className);
 	    cnfx.initCause(x);
 	    throw cnfx;
 	}

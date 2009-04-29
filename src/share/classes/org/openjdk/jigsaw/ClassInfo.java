@@ -31,10 +31,13 @@ import java.nio.channels.*;
 
 import static java.lang.System.out;
 
-// Specialized class-file reader which just reads a class file's type name
-// and module metadata.
-//
-// This class uses NIO, and so is not suitable for use during bootstrap.
+/**
+ * <p> A specialized class-file reader which just reads a class file's type
+ * name and module metadata. </p>
+ *
+ * <p> This class uses NIO, and so is not suitable for use during
+ * bootstrap. </p>
+ */
 
 public class ClassInfo {
 
@@ -42,11 +45,13 @@ public class ClassInfo {
     private String moduleName;
     private String moduleVersion;
     private boolean isModuleInfo;
+    private int acc;
 
     public String name() { return name; }
     public String moduleName() { return moduleName; }
     public String moduleVersion() { return moduleVersion; }
     public boolean isModuleInfo() { return isModuleInfo; }
+    public boolean isPublic() { return (acc & ACC_PUBLIC) != 0; }
 
     public String toString() {
 	return String.format("%s[%s %s@%s]",
@@ -252,7 +257,7 @@ public class ClassInfo {
 	int major = bb.getShort() & 0xffff;
 	int cpcount = bb.getShort() & 0xffff;
 	readConstantPool(bb, cpcount);
-	int acc = bb.getShort() & 0xffff;
+	acc = bb.getShort() & 0xffff;
 
 	int this_class = bb.getShort() & 0xffff;
 	name = constantString(constantInt(this_class)).replace('/', '.');

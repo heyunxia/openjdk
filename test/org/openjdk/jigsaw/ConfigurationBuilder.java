@@ -23,13 +23,47 @@
  * have any questions.
  */
 
-package java.lang.module;
+import java.util.*;
+import java.lang.module.*;
+import org.openjdk.jigsaw.*;
+
+import static java.lang.module.Dependence.Modifier;
 
 
-public interface Version
-    extends Comparable<Version>
-{
+public class ConfigurationBuilder {
 
-    public VersionQuery toQuery();
+    private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
+
+    private ModuleId root;
+    private Set<Context> contexts
+	= new HashSet<Context>();
+    private Map<String,Context> contextForModule
+	= new HashMap<String,Context>();
+
+    private Configuration cf;
+
+    private ConfigurationBuilder(String rmid) {
+	root = jms.parseModuleId(rmid);
+    }
+
+    public static ConfigurationBuilder config(String rmid) {
+	return new ConfigurationBuilder(rmid);
+    }
+
+    public ConfigurationBuilder add(ContextBuilder cb) {
+	Context cx = cb.build();
+	contexts.add(cx);
+	for (ModuleId mid : cx.modules())
+	    contextForModule.put(mid.name(), cx);
+	return this;
+    }
+
+    public Configuration build() {
+	return new Configuration(root, contexts, contextForModule);
+    }
+
+    public boolean isEmpty() {
+	return contexts.isEmpty();
+    }
 
 }

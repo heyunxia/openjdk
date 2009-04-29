@@ -38,10 +38,6 @@ public abstract class ModuleClassLoader
 	moduleSystem = ms;
     }
 
-    /** Primary entry point from the VM */
-    public abstract Class<?> loadClass(String name, Module requestor)
-        throws ClassNotFoundException;
-
     protected Class<?> defineClass(Module m, String name,
                                    byte[] b, int off, int len)
         throws ClassFormatError

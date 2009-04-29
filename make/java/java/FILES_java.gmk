@@ -471,6 +471,9 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/VersionQuery.java \
     java/lang/reflect/Module.java \
     org/openjdk/jigsaw/ClassInfo.java \
+    org/openjdk/jigsaw/Configuration.java \
+    org/openjdk/jigsaw/ConfigurationException.java \
+    org/openjdk/jigsaw/Context.java \
     org/openjdk/jigsaw/JigsawModuleSystem.java \
     org/openjdk/jigsaw/JigsawVersion.java \
     org/openjdk/jigsaw/JigsawVersionQuery.java \
@@ -481,6 +484,10 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/Library.java \
     org/openjdk/jigsaw/Loader.java \
     org/openjdk/jigsaw/LoaderPool.java \
-    org/openjdk/jigsaw/Trace.java
+    org/openjdk/jigsaw/Resolver.java \
+    org/openjdk/jigsaw/SimpleLibrary.java \
+    org/openjdk/jigsaw/Trace.java \
+    org/openjdk/jigsaw/cli/Command.java \
+    org/openjdk/jigsaw/cli/Librarian.java
 
 FILES_java = $(JAVA_JAVA_java) $(JAVA_JAVA_jigsaw)

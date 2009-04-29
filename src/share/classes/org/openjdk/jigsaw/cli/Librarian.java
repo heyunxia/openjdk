@@ -83,7 +83,7 @@ public class Librarian {
 	    finishArgs();
 	    byte[] bs = null;
 	    try {
-		bs = lib.findClass(mid, cn);
+		bs = lib.readClass(mid, cn);
 	    } catch (IllegalArgumentException x) {
 		throw new Command.Exception(x.getMessage());
 	    } catch (IOException x) {
@@ -107,7 +107,7 @@ public class Librarian {
 	{
 	    finishArgs();
 	    try {
-		out.format("path %s%n", lib.path().getCanonicalPath());
+		out.format("path %s%n", new File(lib.name()).getCanonicalPath());
 		out.format("version %d.%d%n",
 			   lib.majorVersion(), lib.minorVersion());
 	    } catch (IOException x) {
@@ -121,10 +121,15 @@ public class Librarian {
 	    throws Command.Exception
 	{
 	    File classes = new File(takeArg());
-	    String mn = takeArg();
+	    java.util.List<String> mns = new ArrayList<String>();
+	    mns.add(takeArg());
+	    while (hasArg())
+		mns.add(takeArg());
 	    finishArgs();
 	    try {
-		lib.install(classes, mn);
+		lib.install(classes, mns);
+	    } catch (ConfigurationException x) {
+		throw new Command.Exception(x);
 	    } catch (IOException x) {
 		throw new Command.Exception(x);
 	    }
@@ -157,7 +162,7 @@ public class Librarian {
 	    finishArgs();
 	    final int[] n = new int[1];
 	    try {
-		lib.visitModules(new Library.ModuleVisitor() {
+		lib.visitModules(new Library.ModuleInfoVisitor() {
 			public void accept(ModuleInfo mi) {
 			    if (midq != null && !midq.matches(mi.id()))
 				return;
@@ -181,11 +186,36 @@ public class Librarian {
 	}
     }
 
+    public static class Config extends Command<Library> {
+	protected void go(Library lib)
+	    throws Command.Exception
+	{
+	    String mids = takeArg();
+	    ModuleId mid = null;
+	    try {
+		mid = jms.parseModuleId(mids);
+	    } catch (IllegalArgumentException x) {
+		throw new Command.Exception(x.getMessage());
+	    }
+	    finishArgs();
+	    try {
+		Configuration cf = lib.readConfiguration(mid);
+		if (cf == null)
+		    throw new Command.Exception(mid + ": No such module");
+		cf.dump(out);
+	    } catch (IOException x) {
+		throw new Command.Exception(x);
+	    }
+	}
+    }
+
 
     private static Map<String,Class<? extends Command<Library>>> commands
         = new HashMap<String,Class<? extends Command<Library>>>();
 
     static {
+	commands.put("cf", Config.class);
+	commands.put("config", Config.class);
 	commands.put("create", Create.class);
 	commands.put("dump", Dump.class);
 	commands.put("id", Identify.class);
@@ -200,7 +230,8 @@ public class Librarian {
 
     private void usage() {
 	out.format("%n");
-	out.format("usage: jmod [-L <path>] create%n");
+	out.format("usage: jmod [-L <path>] config <module-id>%n");
+	out.format("       jmod [-L <path>] create%n");
 	out.format("       jmod [-L <path>] dump <module-id> <class-name>%n");
 	out.format("       jmod [-L <path>] identify%n");
 	out.format("       jmod [-L <path>] install <classes-dir> <module-name>%n");
@@ -255,7 +286,7 @@ public class Librarian {
 	    }
 	    Library lib = null;
 	    try {
-		lib = Library.open(lp, verb.equals("create"));
+		lib = SimpleLibrary.open(lp, verb.equals("create"));
 	    } catch (FileNotFoundException x) {
 		throw new Command.Exception("%s: No such library", lp);
 	    } catch (IOException x) {

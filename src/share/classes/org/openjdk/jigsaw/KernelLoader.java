@@ -531,31 +531,36 @@ final class KernelLoader
     }
 
     @Override
-    public Class<?> loadClass(String name, Module requestor)
+    public Class<?> loadClass(String cn)
 	throws ClassNotFoundException
     {
+
 	Class<?> c = null;
 
-        if ((c = findLoadedClass(name)) != null) {
+        if ((c = findLoadedClass(cn)) != null) {
 	    if (tracing)
-		traceLoad(name, requestor, "(cache)");
+		trace(0, "%s (cache) %s", this, cn);
             return c;
 	}
 
-        if ((c = findBootstrapClassOrNull(name)) != null) {
+        if ((c = findBootstrapClassOrNull(cn)) != null) {
 	    if (tracing)
-		traceLoad(name, requestor,
-			  c.getModule().getModuleInfo().id().toString());
+		trace(0, "%s: load %s:%s", this, KERNEL_MODULE_ID, cn);
             return c;
 	}
 
-	throw new ClassNotFoundException("unknown:" + name);
+	throw new ClassNotFoundException(cn);
+
     }
 
     KernelLoader(LoaderPool lp) {
-	super(lp);
+	super(lp, null);
 	module = new Module(new Info(), this);
 	addModule(module);
+    }
+
+    public String toString() {
+	return "+kernel";
     }
 
 }

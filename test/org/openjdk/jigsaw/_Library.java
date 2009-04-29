@@ -45,6 +45,10 @@ public class _Library {
 	    throw new AssertionError(o1.toString() + " : " + o2.toString());
     }
 
+    private static <T> boolean eq(Collection<T> c1, Collection<T> c2) {
+	return c1.containsAll(c2) && c2.containsAll(c1);
+    }
+
     private static void checkFooModuleInfo(ModuleInfo mi) {
 	eq(mi.id().name(), "com.foo.bar");
 	Version v = ms.parseVersion("1.2.3_04-5a");
@@ -53,28 +57,27 @@ public class _Library {
     }
 
     public static void main(String[] args)
-	throws IOException
+	throws Exception
     {
 
 	File libPath = new File("z.lib");
 
 	// Create
-	Library lib = Library.open(libPath, true);
+	Library lib = SimpleLibrary.open(libPath, true);
 	out.format("%s%n", lib);
 
 	// Check
-	lib = Library.open(libPath, false);
-	eq(lib.path(), libPath);
+	lib = SimpleLibrary.open(libPath, false);
 	eq(lib.majorVersion(), 0);
 	eq(lib.minorVersion(), 1);
 
 	// Install
-	lib.install(testClasses, "com.foo.bar");
+	lib.install(testClasses, Arrays.asList("com.foo.bar"));
 
 	// Enumerate
-	lib = Library.open(libPath, false);
+	lib = SimpleLibrary.open(libPath, false);
 	final int[] n = new int[1];
-	lib.visitModules(new Library.ModuleVisitor() {
+	lib.visitModules(new Library.ModuleInfoVisitor() {
 		public void accept(ModuleInfo mi) {
 		    checkFooModuleInfo(mi);
 		    n[0]++;
@@ -88,11 +91,11 @@ public class _Library {
 	for (String v : multiVersions) {
 	    lib.install(new File(testClasses,
 				 "module-classes/org.multi@" + v),
-			"org.multi");
+			Arrays.asList("org.multi"));
 	}
 
 	// Find module ids by name
-	Set<ModuleId> mids = lib.findModuleIds("org.multi");
+	Set<ModuleId> mids = new HashSet<ModuleId>(lib.findModuleIds("org.multi"));
 	out.format("find: %s%n", mids);
 	Set<ModuleId> emids = new HashSet<ModuleId>();
 	for (String v : multiVersions)
@@ -100,8 +103,8 @@ public class _Library {
 	eq(mids, emids);
 
 	// Find module ids by query
-	mids = lib.findModuleIds(new ModuleIdQuery("org.multi",
-						   ms.parseVersionQuery(">1.1")));
+	mids = new HashSet<ModuleId>(lib.findModuleIds(new ModuleIdQuery("org.multi",
+									 ms.parseVersionQuery(">1.1"))));
 	out.format("query: %s%n", mids);
 	emids = new HashSet<ModuleId>();
 	for (String v : multiVersions) {
@@ -113,9 +116,9 @@ public class _Library {
 
 	// Find a ModuleInfo
 	ModuleId foomid = ms.parseModuleId("com.foo.bar@1.2.3_04-5a");
-	ModuleInfo mi = lib.findModuleInfo(foomid);
+	ModuleInfo mi = lib.readModuleInfo(foomid);
 	checkFooModuleInfo(mi);
-	mi = lib.findModuleInfo(ms.parseModuleId("net.none@0.99z"));
+	mi = lib.readModuleInfo(ms.parseModuleId("net.none@0.99z"));
 	if (mi != null)
 	    throw new AssertionError();
 
@@ -128,11 +131,69 @@ public class _Library {
 	} finally {
 	    ds.close();
 	}
-	byte[] bs = lib.findClass(foomid, "com.foo.bar.Main");
+	byte[] bs = lib.readClass(foomid, "com.foo.bar.Main");
 	if (bs == null)
 	    throw new AssertionError();
 	if (!Arrays.equals(rbs, bs))
 	    throw new AssertionError();
+
+	// List classes
+	List<String> pcns = lib.listClasses(foomid, false);
+	eq(pcns, Arrays.asList("com.foo.bar.Main"));
+	List<String> acns = lib.listClasses(foomid, true);
+	eq(acns, Arrays.asList("com.foo.bar.Main",
+			       "com.foo.bar.Internal",
+			       "com.foo.bar.Internal$Secret"));
+
+	// Load configuration
+	Configuration cf = lib.readConfiguration(foomid);
+	cf.dump(System.out);
+	eq(foomid, cf.root());
+	eq(cf.contexts().size(), 1);
+	Context cx = cf.contexts().iterator().next();
+	eq(cx.modules(), Arrays.asList(foomid));
+	eq(cx.localClasses(), Arrays.asList("com.foo.bar.Main",
+					    "com.foo.bar.Internal",
+					    "com.foo.bar.Internal$Secret"));
+	for (String cn : cx.localClasses())
+	    eq(cx.findModuleForLocalClass(cn), foomid);
+	eq(cx.remotePackages(), Collections.emptySet());
+
+	// Install a root module that has a supplier
+	lib.install(testClasses, Arrays.asList("net.baz.aar"));
+	ModuleId bazmid = ms.parseModuleId("net.baz.aar@9");
+
+	// Then check its configuration
+	cf = lib.readConfiguration(ms.parseModuleId("net.baz.aar@9"));
+	cf.dump(System.out);
+	eq(bazmid, cf.root());
+	eq(cf.contexts().size(), 2);
+	int cb = 0;
+	for (Context dx : cf.contexts()) {
+	    if (dx.toString().equals("+org.multi")) {
+		ModuleId mid = ms.parseModuleId("org.multi@1");
+		eq(dx.modules(), Arrays.asList(mid));
+		eq(dx.localClasses(), Arrays.asList("org.multi.Tudinous"));
+		for (String cn : dx.localClasses())
+		    eq(dx.findModuleForLocalClass(cn), mid);
+		eq(dx.remotePackages(), Collections.emptySet());
+		cb |= 1;
+		continue;
+	    }
+	    if (dx.toString().equals("+net.baz.aar")) {
+		eq(dx.modules(), Arrays.asList(bazmid));
+		eq(dx.localClasses(), Arrays.asList("net.baz.aar.Ness"));
+		for (String cn : dx.localClasses())
+		    eq(dx.findModuleForLocalClass(cn), bazmid);
+		eq(dx.remotePackages(), Arrays.asList("org.multi"));
+		cb |= 2;
+		continue;
+	    }
+	    throw new AssertionError(dx.toString());
+	}
+	if (cb != 3)
+	    throw new AssertionError(cb);
+
     }
 
 }

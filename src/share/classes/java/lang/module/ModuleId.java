@@ -30,10 +30,14 @@ package java.lang.module;
  * A module's identification, which consists of a name and a version.
  */
 
-public final class ModuleId {
+public final class ModuleId
+    implements Comparable<ModuleId>
+{
 
     private String name;
     private Version version;
+
+    // ## Why do we allow ModuleIds to have null versions, anyway?
 
     /* package */ ModuleId(String nm, Version v) {
 	name = ModuleSystem.checkModuleName(nm);
@@ -73,6 +77,24 @@ public final class ModuleId {
     public String name() { return name; }
 
     public Version version() { return version; }
+
+    public int compareTo(ModuleId that) {
+	int c = name.compareTo(that.name);
+	if (c != 0)
+	    return c;
+	if (version == null) {
+	    if (that.version == null)
+		return 0;
+	    return -1;
+	}
+	if (that.version == null)
+	    return +1;
+	return version.compareTo(that.version);
+    }
+
+    public ModuleIdQuery toQuery() {
+	return new ModuleIdQuery(name, version.toQuery());
+    }
 
     @Override
     public boolean equals(Object ob) {

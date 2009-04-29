@@ -187,6 +187,10 @@ import java.util.*;
 	return compareTokens(this.branch, that.branch);
     }
 
+    public JigsawVersionQuery toQuery() {
+	return JigsawVersionQuery.fromVersion(this);
+    }
+
     public String toDebugString() {
 	return "v" + sequence + "-" + branch;
     }

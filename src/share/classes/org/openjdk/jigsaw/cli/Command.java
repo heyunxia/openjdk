@@ -36,12 +36,18 @@ import org.openjdk.internal.joptsimple.OptionSet;
 	extends java.lang.Exception
     {
 
+	private static final long serialVersionUID = 74132770414881L;
+
 	public Exception(String fmt, Object ... args) {
-	    super(String.format(fmt, (java.lang.Object[])args));
+	    super(String.format(fmt, args));
 	}
 
 	public Exception(IOException x) {
 	    super(String.format("I/O error: %s", x.getMessage()));
+	}
+
+	public Exception(java.lang.Exception x) {
+	    super(x);
 	}
 
     }

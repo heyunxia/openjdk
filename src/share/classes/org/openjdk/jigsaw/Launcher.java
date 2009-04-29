@@ -41,7 +41,7 @@ public final class Launcher {
 	File lib = new File(args[0]);
 	ModuleIdQuery midq = new ModuleIdQuery(args[1], null);
 	String main = (args.length == 3) ? args[2] : null;
-	Class<?> c = LoaderPool.findClass(lib, midq, main);
+	Class<?> c = LoaderPool.loadClass(lib, midq, main);
 	if (tracing)
 	    trace(0, "launch: loader %s, module %s, class %s",
 		  c.getClassLoader(),
@@ -49,7 +49,20 @@ public final class Launcher {
 		  c.getName());
 	Method m = c.getDeclaredMethod("main",
 				       Class.forName("[Ljava.lang.String;"));
-	m.invoke(null, (Object)new String[] { });
+	try {
+	    m.invoke(null, (Object)new String[] { });
+	} catch (InvocationTargetException x) {
+	    Throwable y = x.getCause();
+	    if (y == null)
+		throw x;
+	    if (y instanceof RuntimeException)
+		throw (RuntimeException)y;
+	    if (y instanceof Exception)
+		throw (Exception)y;
+	    if (y instanceof Error)
+		throw (Error)y;
+	    throw new AssertionError(y);
+	}
     }
 
 }

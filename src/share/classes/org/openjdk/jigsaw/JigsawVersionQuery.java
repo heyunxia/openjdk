@@ -90,6 +90,15 @@ import java.lang.module.*;
     private Relation relation;
     private JigsawVersion version;
 
+    private JigsawVersionQuery(Relation r, JigsawVersion v) {
+	relation = r;
+	version = v;
+    }
+
+    static JigsawVersionQuery fromVersion(JigsawVersion v) {
+	return new JigsawVersionQuery(Relation.EQ, v);
+    }
+
     private static String VQS = " version-query string";
 
     /* package */ JigsawVersionQuery(String q) {

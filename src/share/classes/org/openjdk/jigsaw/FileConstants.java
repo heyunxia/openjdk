@@ -38,7 +38,7 @@ public final class FileConstants {
 
 	LIBRARY_HEADER(0),
 	LIBRARY_MODULE_INDEX(1),
-	LIBRARY_MODULE_SUPPLIERS(2);
+	LIBRARY_MODULE_CONFIG(2);
 
 	private final int value;
 	public int value() { return value; }
