@@ -35,34 +35,34 @@ import static org.openjdk.jigsaw.Trace.*;
 public final class Launcher {
 
     public static void main(String[] args)
-	throws Exception
+        throws Exception
     {
-	JigsawModuleSystem jms = JigsawModuleSystem.instance();
-	File lib = new File(args[0]);
-	ModuleIdQuery midq = new ModuleIdQuery(args[1], null);
-	String main = (args.length == 3) ? args[2] : null;
-	Class<?> c = LoaderPool.loadClass(lib, midq, main);
-	if (tracing)
-	    trace(0, "launch: loader %s, module %s, class %s",
-		  c.getClassLoader(),
-		  c.getModule().getModuleInfo().id(),
-		  c.getName());
-	Method m = c.getDeclaredMethod("main",
-				       Class.forName("[Ljava.lang.String;"));
-	try {
-	    m.invoke(null, (Object)new String[] { });
-	} catch (InvocationTargetException x) {
-	    Throwable y = x.getCause();
-	    if (y == null)
-		throw x;
-	    if (y instanceof RuntimeException)
-		throw (RuntimeException)y;
-	    if (y instanceof Exception)
-		throw (Exception)y;
-	    if (y instanceof Error)
-		throw (Error)y;
-	    throw new AssertionError(y);
-	}
+        JigsawModuleSystem jms = JigsawModuleSystem.instance();
+        File lib = new File(args[0]);
+        ModuleIdQuery midq = new ModuleIdQuery(args[1], null);
+        String main = (args.length == 3) ? args[2] : null;
+        Class<?> c = LoaderPool.loadClass(lib, midq, main);
+        if (tracing)
+            trace(0, "launch: loader %s, module %s, class %s",
+                  c.getClassLoader(),
+                  c.getModule().getModuleInfo().id(),
+                  c.getName());
+        Method m = c.getDeclaredMethod("main",
+                                       Class.forName("[Ljava.lang.String;"));
+        try {
+            m.invoke(null, (Object)new String[] { });
+        } catch (InvocationTargetException x) {
+            Throwable y = x.getCause();
+            if (y == null)
+                throw x;
+            if (y instanceof RuntimeException)
+                throw (RuntimeException)y;
+            if (y instanceof Exception)
+                throw (Exception)y;
+            if (y instanceof Error)
+                throw (Error)y;
+            throw new AssertionError(y);
+        }
     }
 
 }

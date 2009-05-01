@@ -33,11 +33,11 @@ public class ConfigurationException
     private static final long serialVersionUID = 74132770414881L;
 
     public ConfigurationException(String m) {
-	super(m);
+        super(m);
     }
 
     public ConfigurationException(String fmt, Object ... args) {
-	super(String.format(fmt, args));
+        super(String.format(fmt, args));
     }
 
 }

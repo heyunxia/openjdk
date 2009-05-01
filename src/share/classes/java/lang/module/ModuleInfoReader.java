@@ -70,7 +70,7 @@ import java.util.Set;
 
     private ModuleInfoReader(ModuleSystem ms, byte[] data) {
 
-	this.ms = ms;
+        this.ms = ms;
 
         try {
             in = new DataInputStream(new ByteArrayInputStream(data));
@@ -160,8 +160,8 @@ import java.util.Set;
             int length = in.readUnsignedShort();
             EnumSet<Dependence.Modifier> mods = EnumSet.noneOf(Dependence.Modifier.class);
             for (int q = 0; q < length; q++) {
-		mods.add(Enum.valueOf(Dependence.Modifier.class,
-				      cpool.getUtf8(in.readUnsignedShort()).toUpperCase()));
+                mods.add(Enum.valueOf(Dependence.Modifier.class,
+                                      cpool.getUtf8(in.readUnsignedShort()).toUpperCase()));
             }
             requires.add(new Dependence(mods, cpool.getModuleIdQuery(index)));
         }
@@ -177,14 +177,14 @@ import java.util.Set;
     private void readModuleClass() throws IOException {
         int index = in.readUnsignedShort();
         mainClass = cpool.getClassName(index).replace('/', '.');
-	int count = in.readUnsignedShort();
-	for (int i = 0; i < count; i++) {
-	    mainClassModifiers.add(cpool.getUtf8(in.readUnsignedShort()));
-	}
+        int count = in.readUnsignedShort();
+        for (int i = 0; i < count; i++) {
+            mainClassModifiers.add(cpool.getUtf8(in.readUnsignedShort()));
+        }
     }
 
     private static class ModuleInfoImpl
-	implements ModuleInfo
+        implements ModuleInfo
     {
 
         private ModuleId id;
@@ -198,7 +198,7 @@ import java.util.Set;
                 Set<Dependence> requires,
                 Set<String> permits,
                 String mainClass)
-	{
+        {
             this.id = id;
             this.provides = provides;
             this.requires = requires;
@@ -288,12 +288,12 @@ import java.util.Set;
         private static final int CONSTANT_NameAndType = 12;
         private static final int CONSTANT_ModuleId = 13;
 
-	private final ModuleSystem ms;
+        private final ModuleSystem ms;
 
         ConstantPool(ModuleSystem ms, DataInputStream in)
-	    throws IOException
-	{
-	    this.ms = ms;
+            throws IOException
+        {
+            this.ms = ms;
             int count = in.readUnsignedShort();
             pool = new Entry[count];
 
@@ -361,7 +361,7 @@ import java.util.Set;
             Entry e = pool[index];
             assert e.tag == CONSTANT_ModuleId;
             Index2Entry i2e = (Index2Entry) e;
-	    // ## Why do module names use '/' instead of '.'?
+            // ## Why do module names use '/' instead of '.'?
             String name = getUtf8(i2e.index1).replace('/', '.');
             String version = (i2e.index2 == 0 ? null : getUtf8(i2e.index2));
             return new ModuleId(name, ms.parseVersion(version));
@@ -373,7 +373,7 @@ import java.util.Set;
             Index2Entry i2e = (Index2Entry) e;
             String name = getUtf8(i2e.index1);
             VersionQuery vq
-		= (i2e.index2 == 0 ? null : ms.parseVersionQuery(getUtf8(i2e.index2)));
+                = (i2e.index2 == 0 ? null : ms.parseVersionQuery(getUtf8(i2e.index2)));
             return new ModuleIdQuery(name, vq);
         }
 

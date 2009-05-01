@@ -35,32 +35,32 @@ class Trace {
     static boolean tracing = false;
 
     static {
-	PrivilegedAction<String> pa = new PrivilegedAction<String>() {
-	    public String run() { return System.getenv("JIGSAW_TRACE"); }};
-	String v = AccessController.doPrivileged(pa);
-	if (v != null) {
-	    traceLevel = Integer.parseInt(v);
-	    tracing = traceLevel > 0;
-	}
+        PrivilegedAction<String> pa = new PrivilegedAction<String>() {
+            public String run() { return System.getenv("JIGSAW_TRACE"); }};
+        String v = AccessController.doPrivileged(pa);
+        if (v != null) {
+            traceLevel = Integer.parseInt(v);
+            tracing = traceLevel > 0;
+        }
     }
 
     static void trace(int level, int depth, String fmt, Object ... args) {
-	if (level >= traceLevel)
-	    return;
-	StringBuilder sb = new StringBuilder();
-	sb.append("| ");
-	for (int i = 0; i < level; i++)
-	    sb.append("  ");
-	if (depth > 0) {
-	    for (int i = 0; i < depth; i++)
-		sb.append("-");
-	    sb.append(" ");
-	}
-	System.out.format(sb.toString() + fmt + "%n", args);
+        if (level >= traceLevel)
+            return;
+        StringBuilder sb = new StringBuilder();
+        sb.append("| ");
+        for (int i = 0; i < level; i++)
+            sb.append("  ");
+        if (depth > 0) {
+            for (int i = 0; i < depth; i++)
+                sb.append("-");
+            sb.append(" ");
+        }
+        System.out.format(sb.toString() + fmt + "%n", args);
     }
 
     static void trace(int level, String fmt, Object ... args) {
-	trace(level, 0, fmt, args);
+        trace(level, 0, fmt, args);
     }
 
 }

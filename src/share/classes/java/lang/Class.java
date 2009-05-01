@@ -115,9 +115,9 @@ import sun.reflect.annotation.*;
  */
 public final class Class<T>
     implements java.io.Serializable,
-	       java.lang.reflect.GenericDeclaration,
-	       java.lang.reflect.Type,
-	       java.lang.reflect.AnnotatedElement
+               java.lang.reflect.GenericDeclaration,
+               java.lang.reflect.Type,
+               java.lang.reflect.AnnotatedElement
 {
     private static final int ANNOTATION= 0x00002000;
     private static final int ENUM      = 0x00004000;
@@ -3123,7 +3123,7 @@ public final class Class<T>
     // Invoked by java.lang.module.ModuleClassLoader
     // via sun.misc.JavaLangAccess
     void setModule(Module m) {
-	module = m;
+        module = m;
     }
 
     /**
@@ -3135,7 +3135,7 @@ public final class Class<T>
      *          unnamed module
      */
     public Module getModule() {
-	return module;
+        return module;
     }
 
 }

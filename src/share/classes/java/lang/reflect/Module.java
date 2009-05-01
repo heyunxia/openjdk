@@ -41,49 +41,49 @@ public final class Module
 
     // ## TEMPORARY: Should redirect through sun.reflect.LangReflectAccess
     public Module(ModuleInfo mi, ModuleClassLoader ld) {
-	loader = ld;
-	moduleInfo = mi;
+        loader = ld;
+        moduleInfo = mi;
     }
 
     public ModuleClassLoader getClassLoader() {
-	return loader;
+        return loader;
     }
 
     public ModuleInfo getModuleInfo() {
-	return moduleInfo;
+        return moduleInfo;
     }
 
     // Convenience methods
 
     public ModuleId getModuleId() {
-	return moduleInfo.id();
+        return moduleInfo.id();
     }
 
     public String getName() {
-	return moduleInfo.id().name();
+        return moduleInfo.id().name();
     }
 
     public Version getVersion() {
-	return moduleInfo.id().version();
+        return moduleInfo.id().version();
     }
 
 
     //  -- AnnotatedElement methods --
 
     public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public Annotation[] getAnnotations() {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public Annotation[] getDeclaredAnnotations() {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
 
@@ -91,10 +91,10 @@ public final class Module
 
     @Override
     public String toString() {
-	StringBuilder sb = new StringBuilder();
-	sb.append(getClass().getName());
-	sb.append("(").append(moduleInfo.id()).append(")");
-	return sb.toString();
+        StringBuilder sb = new StringBuilder();
+        sb.append(getClass().getName());
+        sb.append("(").append(moduleInfo.id()).append(")");
+        return sb.toString();
     }
 
 }

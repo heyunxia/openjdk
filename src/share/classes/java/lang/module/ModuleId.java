@@ -40,38 +40,38 @@ public final class ModuleId
     // ## Why do we allow ModuleIds to have null versions, anyway?
 
     /* package */ ModuleId(String nm, Version v) {
-	name = ModuleSystem.checkModuleName(nm);
-	version = v;
+        name = ModuleSystem.checkModuleName(nm);
+        version = v;
     }
 
     /* package */ static ModuleId parse(ModuleSystem ms, String s) {
-	if (s == null)
-	    throw new IllegalArgumentException();
-	int n = s.length();
-	int i = 0;
-	while (i < n) {
-	    char c = s.charAt(i);
-	    if (c == ' ' || c == '@') break;
-	    i++;
-	}
-	if (i >= n)
-	    return new ModuleId(s, null);
-	if (i == 0)
-	    throw new IllegalArgumentException();
-	String nm = (i < n) ? s.substring(0, i) : s;
-	while (i < n && s.charAt(i) == ' ')
-	    i++;
-	if (i >= n || s.charAt(i) != '@')
-	    throw new IllegalArgumentException();
-	i++;
-	if (i >= n)
-	    throw new IllegalArgumentException();
-	while (i < n && s.charAt(i) == ' ')
-	    i++;
-	if (i >= n)
-	    throw new IllegalArgumentException();
-	Version v = ms.parseVersion(s.substring(i));
-	return new ModuleId(nm, v);
+        if (s == null)
+            throw new IllegalArgumentException();
+        int n = s.length();
+        int i = 0;
+        while (i < n) {
+            char c = s.charAt(i);
+            if (c == ' ' || c == '@') break;
+            i++;
+        }
+        if (i >= n)
+            return new ModuleId(s, null);
+        if (i == 0)
+            throw new IllegalArgumentException();
+        String nm = (i < n) ? s.substring(0, i) : s;
+        while (i < n && s.charAt(i) == ' ')
+            i++;
+        if (i >= n || s.charAt(i) != '@')
+            throw new IllegalArgumentException();
+        i++;
+        if (i >= n)
+            throw new IllegalArgumentException();
+        while (i < n && s.charAt(i) == ' ')
+            i++;
+        if (i >= n)
+            throw new IllegalArgumentException();
+        Version v = ms.parseVersion(s.substring(i));
+        return new ModuleId(nm, v);
     }
 
     public String name() { return name; }
@@ -79,46 +79,46 @@ public final class ModuleId
     public Version version() { return version; }
 
     public int compareTo(ModuleId that) {
-	int c = name.compareTo(that.name);
-	if (c != 0)
-	    return c;
-	if (version == null) {
-	    if (that.version == null)
-		return 0;
-	    return -1;
-	}
-	if (that.version == null)
-	    return +1;
-	return version.compareTo(that.version);
+        int c = name.compareTo(that.name);
+        if (c != 0)
+            return c;
+        if (version == null) {
+            if (that.version == null)
+                return 0;
+            return -1;
+        }
+        if (that.version == null)
+            return +1;
+        return version.compareTo(that.version);
     }
 
     public ModuleIdQuery toQuery() {
-	return new ModuleIdQuery(name, version.toQuery());
+        return new ModuleIdQuery(name, version.toQuery());
     }
 
     @Override
     public boolean equals(Object ob) {
-	if (!(ob instanceof ModuleId))
-	    return false;
-	ModuleId that = (ModuleId)ob;
-	if (!name.equals(that.name))
-	    return false;
-	if (version == that.version)
-	    return true;
-	if (version == null || that.version == null)
-	    return false;
-	return version.equals(that.version());
+        if (!(ob instanceof ModuleId))
+            return false;
+        ModuleId that = (ModuleId)ob;
+        if (!name.equals(that.name))
+            return false;
+        if (version == that.version)
+            return true;
+        if (version == null || that.version == null)
+            return false;
+        return version.equals(that.version());
     }
 
     @Override
     public int hashCode() {
-	return (43 * name.hashCode()
-		+ ((version != null) ? version.hashCode() : 0));
+        return (43 * name.hashCode()
+                + ((version != null) ? version.hashCode() : 0));
     }
 
     @Override
     public String toString() {
-	return (version == null ? name : name + "@" + version);
+        return (version == null ? name : name + "@" + version);
     }
 
 }

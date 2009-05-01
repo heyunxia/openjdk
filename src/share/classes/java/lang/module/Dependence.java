@@ -37,8 +37,8 @@ public final class Dependence {
     private final ModuleIdQuery midq;
 
     public Dependence(EnumSet<Modifier> mods, ModuleIdQuery midq) {
-	this.mods = (mods != null) ? mods : EnumSet.noneOf(Modifier.class);
-	this.midq = midq;
+        this.mods = (mods != null) ? mods : EnumSet.noneOf(Modifier.class);
+        this.midq = midq;
     }
 
     public ModuleIdQuery query() { return midq; }
@@ -46,25 +46,25 @@ public final class Dependence {
     public Set<Modifier> modifiers() { return mods; }
 
     public boolean equals(Object ob) {
-	if (!(ob instanceof Dependence))
-	    return false;
-	Dependence that = (Dependence)ob;
-	return (midq.equals(that.midq) && mods.equals(that.mods));
+        if (!(ob instanceof Dependence))
+            return false;
+        Dependence that = (Dependence)ob;
+        return (midq.equals(that.midq) && mods.equals(that.mods));
     }
 
     public int hashCode() {
-	return midq.hashCode() * 43 + mods.hashCode();
+        return midq.hashCode() * 43 + mods.hashCode();
     }
 
     @Override
     public String toString() {
-	StringBuilder sb = new StringBuilder();
-	sb.append("requires");
-	for (Modifier m : mods) {
-	    sb.append(" ").append(m.toString().toLowerCase());
-	}
-	sb.append(" ").append(midq);
-	return sb.toString();
+        StringBuilder sb = new StringBuilder();
+        sb.append("requires");
+        for (Modifier m : mods) {
+            sb.append(" ").append(m.toString().toLowerCase());
+        }
+        sb.append(" ").append(midq);
+        return sb.toString();
     }
 
 }

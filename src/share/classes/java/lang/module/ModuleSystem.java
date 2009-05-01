@@ -33,26 +33,26 @@ public abstract class ModuleSystem {
     private static ModuleSystem base = JigsawModuleSystem.instance();
 
     public static ModuleSystem base() {
-	return base;
+        return base;
     }
 
     // Module names must be legal Java identifiers
     //
     public static final String checkModuleName(String nm) {
-	if (nm == null)
-	    throw new IllegalArgumentException();
-	int n = nm.length();
-	if (n == 0 || !Character.isJavaIdentifierStart(nm.charAt(0)))
-	    throw new IllegalArgumentException();
-	for (int i = 1; i < n; i++) {
-	    char c = nm.charAt(i);
-	    if (!Character.isJavaIdentifierPart(c) && (c != '.'))
-		throw new IllegalArgumentException(nm
-						   + ": Illegal module-name"
-						   + " character"
-						   + " at index " + i);
-	}
-	return nm;
+        if (nm == null)
+            throw new IllegalArgumentException();
+        int n = nm.length();
+        if (n == 0 || !Character.isJavaIdentifierStart(nm.charAt(0)))
+            throw new IllegalArgumentException();
+        for (int i = 1; i < n; i++) {
+            char c = nm.charAt(i);
+            if (!Character.isJavaIdentifierPart(c) && (c != '.'))
+                throw new IllegalArgumentException(nm
+                                                   + ": Illegal module-name"
+                                                   + " character"
+                                                   + " at index " + i);
+        }
+        return nm;
     }
 
     public abstract Version parseVersion(String v);
@@ -60,11 +60,11 @@ public abstract class ModuleSystem {
     public abstract VersionQuery parseVersionQuery(String vq);
 
     public final ModuleInfo parseModuleInfo(byte[] bs) {
-	return ModuleInfoReader.read(this, bs);
+        return ModuleInfoReader.read(this, bs);
     }
 
     public final ModuleId parseModuleId(String mid) {
-	return ModuleId.parse(this, mid);
+        return ModuleId.parse(this, mid);
     }
 
 }

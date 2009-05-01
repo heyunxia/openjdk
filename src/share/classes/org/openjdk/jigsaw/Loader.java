@@ -49,18 +49,18 @@ class Loader
     private Set<ModuleId> modules = new HashSet<ModuleId>();
 
     public Loader(LoaderPool p, Context cx) {
-	super(JigsawModuleSystem.instance());
+        super(JigsawModuleSystem.instance());
         pool = p;
-	context = cx;
-	kernelLoader = p.kernelLoader();
+        context = cx;
+        kernelLoader = p.kernelLoader();
     }
 
     // Invoked by KernelLoader to add the kernel module
     //
     protected void addModule(Module m) {
-	ModuleId mid = m.getModuleId();
-	moduleForName.put(mid.name(), m);
-	modules.add(mid);
+        ModuleId mid = m.getModuleId();
+        moduleForName.put(mid.name(), m);
+        modules.add(mid);
     }
 
     // Primary entry point from VM
@@ -75,46 +75,46 @@ class Loader
         // user code.
         //
         Class<?> c = findLoadedClass(cn);
-	if (c != null) {
-	    if (tracing) {
-		trace(0, "%s: (cache) %s", this, cn);
-	    }
+        if (c != null) {
+            if (tracing) {
+                trace(0, "%s: (cache) %s", this, cn);
+            }
             return c;
-	}
+        }
 
-	// Check for a bootstrap class.  This is a temporary measure, until
-	// such time as the bootstrap classes have themselves been modularized.
-	//
-	if (kernelLoader.isKernelClass(cn)) {
-	    return kernelLoader.loadClass(cn);
-	}
+        // Check for a bootstrap class.  This is a temporary measure, until
+        // such time as the bootstrap classes have themselves been modularized.
+        //
+        if (kernelLoader.isKernelClass(cn)) {
+            return kernelLoader.loadClass(cn);
+        }
 
-	// Is the requested class local or remote?  It can be one or the other,
-	// but not both.
-	//
-	String rcxn = context.findContextForRemoteClass(cn);
-	ModuleId lmid = context.findModuleForLocalClass(cn);
-	if (rcxn != null && lmid != null) {
-	    throw new AssertionError("Class " + cn
-				     + " defined both locally and remotely");
-	}
+        // Is the requested class local or remote?  It can be one or the other,
+        // but not both.
+        //
+        String rcxn = context.findContextForRemoteClass(cn);
+        ModuleId lmid = context.findModuleForLocalClass(cn);
+        if (rcxn != null && lmid != null) {
+            throw new AssertionError("Class " + cn
+                                     + " defined both locally and remotely");
+        }
 
-	// Find a loader, and use that to load the class
-	//
-	Loader ld = null;
-	if (lmid != null) {
-	    ld = this;
-	    if (tracing)
-		trace(0, "%s: load %s:%s", this, lmid, cn);
-	} else if (rcxn != null) {
-	    ld = pool.findLoader(rcxn);
-	    if (tracing)
-		trace(0, "%s: load %s:%s", this, rcxn, cn);
-	}
-	if (ld == null) {
-	    throw new ClassNotFoundException(cn);
-	}
-	return ld.findClass(lmid, cn);
+        // Find a loader, and use that to load the class
+        //
+        Loader ld = null;
+        if (lmid != null) {
+            ld = this;
+            if (tracing)
+                trace(0, "%s: load %s:%s", this, lmid, cn);
+        } else if (rcxn != null) {
+            ld = pool.findLoader(rcxn);
+            if (tracing)
+                trace(0, "%s: load %s:%s", this, rcxn, cn);
+        }
+        if (ld == null) {
+            throw new ClassNotFoundException(cn);
+        }
+        return ld.findClass(lmid, cn);
 
     }
 
@@ -124,67 +124,67 @@ class Loader
         Module m = super.defineModule(mid, bs, 0, bs.length);
         moduleForName.put(mid.name(), m);
         modules.add(mid);
-	return m;
+        return m;
     }
 
     private ClassNotFoundException cnf(Module m, String cn, IOException x) {
-	ClassNotFoundException cnfx
-	    = new ClassNotFoundException(m.getName() + ":" + cn);
-	cnfx.initCause(x);
-	return cnfx;
+        ClassNotFoundException cnfx
+            = new ClassNotFoundException(m.getName() + ":" + cn);
+        cnfx.initCause(x);
+        return cnfx;
     }
 
     Class<?> findClass(ModuleId mid, String cn)
-	throws ClassNotFoundException
+        throws ClassNotFoundException
     {
 
-	if (mid == null) {
-	    mid = context.findModuleForLocalClass(cn);
-	    if (mid == null)
-		throw new ClassNotFoundException(mid.name() + ":" + cn);
-	}
+        if (mid == null) {
+            mid = context.findModuleForLocalClass(cn);
+            if (mid == null)
+                throw new ClassNotFoundException(mid.name() + ":" + cn);
+        }
 
         Class<?> c = findLoadedClass(cn);
         if (c != null) {
-	    ModuleId cmid = c.getModule().getModuleId();
-	    if (cmid == null || !cmid.equals(mid))
-		throw new AssertionError(cn + " previously loaded from "
-					 + cmid + "; now trying to load from "
-					 + mid);
+            ModuleId cmid = c.getModule().getModuleId();
+            if (cmid == null || !cmid.equals(mid))
+                throw new AssertionError(cn + " previously loaded from "
+                                         + cmid + "; now trying to load from "
+                                         + mid);
             return c;
-	}
+        }
 
         Module m = moduleForName.get(mid.name());
         if (m != null) {
             if (!m.getModuleId().equals(mid))
                 throw new AssertionError("Duplicate module in loader");
         } else {
-	    try {
-		byte[] bs = pool.library().readModuleInfoBytes(mid);
-		m = defineModule(mid, bs);
-		if (tracing)
-		    trace(0, "%s: define %s", this, mid);
-	    } catch (IOException x) {
-		throw cnf(m, cn, x);
-	    }
+            try {
+                byte[] bs = pool.library().readModuleInfoBytes(mid);
+                m = defineModule(mid, bs);
+                if (tracing)
+                    trace(0, "%s: define %s", this, mid);
+            } catch (IOException x) {
+                throw cnf(m, cn, x);
+            }
         }
 
-	try {
-	    byte[] bs = pool.library().readClass(mid, cn);
-	    if (bs == null)
-		throw new ClassNotFoundException(mid + ":" + cn);
-	    c = defineClass(m, cn, bs, 0, bs.length);
-	    if (tracing)
-		trace(0, "%s: define %s:%s", this, mid, cn);
-	    return c;
-	} catch (IOException x) {
-	    throw cnf(m, cn, x);
-	}
+        try {
+            byte[] bs = pool.library().readClass(mid, cn);
+            if (bs == null)
+                throw new ClassNotFoundException(mid + ":" + cn);
+            c = defineClass(m, cn, bs, 0, bs.length);
+            if (tracing)
+                trace(0, "%s: define %s:%s", this, mid, cn);
+            return c;
+        } catch (IOException x) {
+            throw cnf(m, cn, x);
+        }
 
     }
 
     public String toString() {
-	return context.name();
+        return context.name();
     }
 
 }

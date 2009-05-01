@@ -35,15 +35,15 @@ public final class JigsawModuleSystem
 {
 
     public Version parseVersion(String v) {
-	if (v == null)
-	    return null;
-	return new JigsawVersion(v);
+        if (v == null)
+            return null;
+        return new JigsawVersion(v);
     }
 
     public VersionQuery parseVersionQuery(String vq) {
-	if (vq == null)
-	    return null;
-	return new JigsawVersionQuery(vq);
+        if (vq == null)
+            return null;
+        return new JigsawVersionQuery(vq);
     }
 
     private JigsawModuleSystem() { }
@@ -51,7 +51,7 @@ public final class JigsawModuleSystem
     private static JigsawModuleSystem instance = new JigsawModuleSystem();
 
     public static JigsawModuleSystem instance() {
-	return instance;
+        return instance;
     }
 
 }

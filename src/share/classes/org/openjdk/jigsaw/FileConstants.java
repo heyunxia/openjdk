@@ -36,16 +36,16 @@ public final class FileConstants {
 
     public static enum Type {
 
-	LIBRARY_HEADER(0),
-	LIBRARY_MODULE_INDEX(1),
-	LIBRARY_MODULE_CONFIG(2);
+        LIBRARY_HEADER(0),
+        LIBRARY_MODULE_INDEX(1),
+        LIBRARY_MODULE_CONFIG(2);
 
-	private final int value;
-	public int value() { return value; }
+        private final int value;
+        public int value() { return value; }
 
-	private Type(int v) {
-	    value = v;
-	}
+        private Type(int v) {
+            value = v;
+        }
 
     }
 

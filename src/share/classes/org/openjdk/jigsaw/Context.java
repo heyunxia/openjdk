@@ -52,7 +52,7 @@ public class Context {
      * Add the given module to this context.
      */
     protected void add(ModuleId mid) {
-	modules.add(mid);
+        modules.add(mid);
     }
 
     private Set<ModuleId> roModules;
@@ -61,9 +61,9 @@ public class Context {
      * The set of modules in this context (read-only).
      */
     public final Set<ModuleId> modules() {
-	if (roModules == null)
-	    roModules = Collections.unmodifiableSet(modules);
-	return roModules;
+        if (roModules == null)
+            roModules = Collections.unmodifiableSet(modules);
+        return roModules;
     }
 
     // This context's name
@@ -77,9 +77,9 @@ public class Context {
      *         If this context is already frozen
      */
     public void freeze() {
-	if (name != null)
-	    throw new IllegalStateException();
-	name = makeName();
+        if (name != null)
+            throw new IllegalStateException();
+        name = makeName();
     }
 
     /**
@@ -89,20 +89,20 @@ public class Context {
      *         If this context is already frozen
      */
     protected void freeze(String cxn) {
-	if (name != null)
-	    throw new IllegalStateException();
-	name = cxn;
+        if (name != null)
+            throw new IllegalStateException();
+        name = cxn;
     }
 
     // Construct this context's name
     //
     private String makeName() {
-	StringBuilder sb = new StringBuilder();
-	ModuleId[] mids = modules.toArray(new ModuleId[] { });
-	Arrays.sort(mids);
-	for (ModuleId mid : mids)
-	    sb.append("+").append(mid.name());
-	return sb.toString();
+        StringBuilder sb = new StringBuilder();
+        ModuleId[] mids = modules.toArray(new ModuleId[] { });
+        Arrays.sort(mids);
+        for (ModuleId mid : mids)
+            sb.append("+").append(mid.name());
+        return sb.toString();
     }
 
     /**
@@ -112,23 +112,23 @@ public class Context {
      *         If this context is not yet frozen
      */
     public String name() {
-	if (name == null)
-	    throw new IllegalStateException();
-	return name;
+        if (name == null)
+            throw new IllegalStateException();
+        return name;
     }
 
     // For each type defined by this context,
     // the id of the module that defines it
     //
     private Map<String,ModuleId> moduleForLocalClass
-	= new HashMap<String,ModuleId>();
+        = new HashMap<String,ModuleId>();
 
     /**
      * Return this context's map from local class names to modules
      * (read-only).
      */
     public final Map<String,ModuleId> moduleForLocalClassMap() {
-	return Collections.unmodifiableMap(moduleForLocalClass);
+        return Collections.unmodifiableMap(moduleForLocalClass);
     }
 
     /**
@@ -139,28 +139,28 @@ public class Context {
      *          module exists in this context
      */
     public final ModuleId findModuleForLocalClass(String cn) {
-	return moduleForLocalClass.get(cn);
+        return moduleForLocalClass.get(cn);
     }
 
     /**
      * Record the given local class as being provided by the given module.
      */
     protected void putModuleForLocalClass(String cn, ModuleId mid) {
-	moduleForLocalClass.put(cn, mid);
+        moduleForLocalClass.put(cn, mid);
     }
 
     /**
      * Return the set of classes defined in this context (read-only).
      */
     public final Set<String> localClasses() {
-	return Collections.unmodifiableSet(moduleForLocalClass.keySet());
+        return Collections.unmodifiableSet(moduleForLocalClass.keySet());
     }
 
     // For each package imported by this context, either directly
     // or indirectly, the context that will supply it
     //
     private Map<String,String> contextForRemotePackage
-	= new HashMap<String,String>();
+        = new HashMap<String,String>();
 
     /**
      * Find the name of the remote context that will supply class definitions
@@ -170,7 +170,7 @@ public class Context {
      *          no such context exists
      */
     public final String findContextForRemotePackage(String pn) {
-	return contextForRemotePackage.get(pn);
+        return contextForRemotePackage.get(pn);
     }
 
     /**
@@ -178,7 +178,7 @@ public class Context {
      * contexts (read-only).
      */
     public final Map<String,String> contextForRemotePackageMap() {
-	return Collections.unmodifiableMap(contextForRemotePackage);
+        return Collections.unmodifiableMap(contextForRemotePackage);
     }
 
     /**
@@ -189,17 +189,17 @@ public class Context {
      *          no such context exists
      */
     public final String findContextForRemoteClass(String cn) {
-	int i = cn.lastIndexOf('.');
-	if (i < 0)
-	    return null;
-	return contextForRemotePackage.get(cn.substring(0, i));
+        int i = cn.lastIndexOf('.');
+        if (i < 0)
+            return null;
+        return contextForRemotePackage.get(cn.substring(0, i));
     }
 
     /**
      * Record the given remote package as being provided by the given context.
      */
     protected void putContextForRemotePackage(String pn, String cxn) {
-	contextForRemotePackage.put(pn, cxn);
+        contextForRemotePackage.put(pn, cxn);
     }
 
     /**
@@ -207,33 +207,33 @@ public class Context {
      * (read-only).
      */
     public final Set<String> remotePackages() {
-	return Collections.unmodifiableSet(contextForRemotePackage.keySet());
+        return Collections.unmodifiableSet(contextForRemotePackage.keySet());
     }
 
     public String toString() {
-	if (name == null)
-	    return makeName() + "*";
-	return name;
+        if (name == null)
+            return makeName() + "*";
+        return name;
     }
 
     public int hashCode() {
-	int hc = (name != null) ? name.hashCode() : 0;
-	hc = hc * 43 + modules.hashCode();
-	hc = hc * 43 + moduleForLocalClass.hashCode();
-	hc = hc * 43 + contextForRemotePackage.hashCode();
-	return hc;
+        int hc = (name != null) ? name.hashCode() : 0;
+        hc = hc * 43 + modules.hashCode();
+        hc = hc * 43 + moduleForLocalClass.hashCode();
+        hc = hc * 43 + contextForRemotePackage.hashCode();
+        return hc;
     }
 
     public boolean equals(Object ob) {
-	if (!(ob instanceof Context))
-	    return false;
-	Context that = (Context)ob;
-	if (name == null && that.name != null)
-	    return false;
-	return ((name == that.name || name.equals(that.name))
-		&& modules.equals(that.modules)
-		&& moduleForLocalClass.equals(that.moduleForLocalClass)
-		&& contextForRemotePackage.equals(that.contextForRemotePackage));
+        if (!(ob instanceof Context))
+            return false;
+        Context that = (Context)ob;
+        if (name == null && that.name != null)
+            return false;
+        return ((name == that.name || name.equals(that.name))
+                && modules.equals(that.modules)
+                && moduleForLocalClass.equals(that.moduleForLocalClass)
+                && contextForRemotePackage.equals(that.contextForRemotePackage));
     }
 
 }

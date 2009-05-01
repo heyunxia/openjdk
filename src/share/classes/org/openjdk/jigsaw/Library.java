@@ -38,7 +38,7 @@ import java.util.*;
 public abstract class Library {
 
     private static final JigsawModuleSystem jms
-	= JigsawModuleSystem.instance();
+        = JigsawModuleSystem.instance();
 
     /**
      * This library's name, not guaranteed to be unique.
@@ -56,10 +56,10 @@ public abstract class Library {
      */
     public interface ModuleInfoVisitor {
 
-	/**
-	 * Visit a single module-info object.
-	 */
-	public void accept(ModuleInfo mi);
+        /**
+         * Visit a single module-info object.
+         */
+        public void accept(ModuleInfo mi);
 
     }
 
@@ -72,7 +72,7 @@ public abstract class Library {
      */
 
     public abstract void visitModules(ModuleInfoVisitor visitor)
-	throws IOException;
+        throws IOException;
 
     /**
      * List all of the root modules installed in this library.  A root module
@@ -81,16 +81,16 @@ public abstract class Library {
      * @return  An unsorted list of module-info objects
      */
     public List<ModuleInfo> listRootModuleInfos()
-	throws IOException
+        throws IOException
     {
-	final List<ModuleInfo> mis = new ArrayList<ModuleInfo>();
-	visitModules(new ModuleInfoVisitor() {
-		public void accept(ModuleInfo mi) {
-		    if (mi.mainClass() != null)
-			mis.add(mi);
-		}
-	    });
-	return mis;
+        final List<ModuleInfo> mis = new ArrayList<ModuleInfo>();
+        visitModules(new ModuleInfoVisitor() {
+                public void accept(ModuleInfo mi) {
+                    if (mi.mainClass() != null)
+                        mis.add(mi);
+                }
+            });
+        return mis;
     }
 
     /**
@@ -104,7 +104,7 @@ public abstract class Library {
      *          be empty
      */
     public abstract List<ModuleId> findModuleIds(String moduleName)
-	throws IOException;
+        throws IOException;
 
     /**
      * Find all modules matching the given query in this library.
@@ -121,17 +121,17 @@ public abstract class Library {
      *          module-identifier query
      */
     public List<ModuleId> findModuleIds(ModuleIdQuery midq)
-	throws IOException
+        throws IOException
     {
-	List<ModuleId> ans = findModuleIds(midq.name());
-	if (ans.isEmpty() || midq.versionQuery() == null)
-	    return ans;
-	for (Iterator<ModuleId> i = ans.iterator(); i.hasNext();) {
-	    ModuleId mid = i.next();
-	    if (!midq.matches(mid))
-		i.remove();
-	}
-	return ans;
+        List<ModuleId> ans = findModuleIds(midq.name());
+        if (ans.isEmpty() || midq.versionQuery() == null)
+            return ans;
+        for (Iterator<ModuleId> i = ans.iterator(); i.hasNext();) {
+            ModuleId mid = i.next();
+            if (!midq.matches(mid))
+                i.remove();
+        }
+        return ans;
     }
 
     /**
@@ -149,15 +149,15 @@ public abstract class Library {
      *          module-identifier query
      */
     public ModuleId findLatestModuleId(ModuleIdQuery midq)
-	throws IOException
+        throws IOException
     {
-	List<ModuleId> mids = findModuleIds(midq);
-	if (mids.isEmpty())
-	    return null;
-	if (mids.size() == 1)
-	    return mids.get(0);
-	Collections.sort(mids);
-	return mids.get(0);
+        List<ModuleId> mids = findModuleIds(midq);
+        if (mids.isEmpty())
+            return null;
+        if (mids.size() == 1)
+            return mids.get(0);
+        Collections.sort(mids);
+        return mids.get(0);
     }
 
     /**
@@ -176,7 +176,7 @@ public abstract class Library {
      *          identifier
      */
     public abstract byte[] readModuleInfoBytes(ModuleId mid)
-	throws IOException;
+        throws IOException;
 
     /**
      * Find the {@link java.lang.module.ModuleInfo ModuleInfo} object for the
@@ -193,12 +193,12 @@ public abstract class Library {
      *          identifier
      */
     public ModuleInfo readModuleInfo(ModuleId mid)
-	throws IOException
+        throws IOException
     {
-	byte[] bs = readModuleInfoBytes(mid);
-	if (bs == null)
-	    return null;
-	return jms.parseModuleInfo(bs);
+        byte[] bs = readModuleInfoBytes(mid);
+        if (bs == null)
+            return null;
+        return jms.parseModuleInfo(bs);
     }
 
     /**
@@ -218,7 +218,7 @@ public abstract class Library {
      *          identifier
      */
     public abstract byte[] readClass(ModuleId mid, String className)
-	throws IOException;
+        throws IOException;
 
     /**
      * Return a list of the public and, optionally, all other classes defined
@@ -238,7 +238,7 @@ public abstract class Library {
      *          identifier
      */
     public abstract List<String> listClasses(ModuleId mid, boolean all)
-	throws IOException;
+        throws IOException;
 
     /**
      * Read the {@link Configuration} of the named module.
@@ -254,7 +254,7 @@ public abstract class Library {
      *          identifier
      */
     public abstract Configuration readConfiguration(ModuleId mid)
-	throws IOException;
+        throws IOException;
 
     /**
      * Install one or more modules into this library.
@@ -271,6 +271,6 @@ public abstract class Library {
      *          directory
      */
     public abstract void install(File classes, final List<String> moduleNames)
-	throws ConfigurationException, IOException;
+        throws ConfigurationException, IOException;
 
 }

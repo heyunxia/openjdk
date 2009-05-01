@@ -145,14 +145,14 @@ public final class Resolver {
     private ModuleIdQuery rootQuery;
 
     private Resolver(Library l, ModuleIdQuery rq) {
-	lib = l;
-	rootQuery = rq;
+        lib = l;
+        rootQuery = rq;
     }
 
     private Set<ModuleInfo> modules = new HashSet<ModuleInfo>();
 
     private Map<String,ModuleInfo> moduleForName
-	= new HashMap<String,ModuleInfo>();
+        = new HashMap<String,ModuleInfo>();
 
 
     // -- 1. Resolve versions --
@@ -175,18 +175,18 @@ public final class Resolver {
     // to require it?
     //
     private boolean permits(ModuleInfo rmi, Dependence dep, ModuleInfo smi) {
-	assert dep.query().matches(smi.id());
-	if (rmi == null) {
-	    // Special case: Synthetic root dependence
-	    return true;
-	}
-	Set<String> ps = smi.permits();
-	if (ps.isEmpty() && !dep.modifiers().contains(Modifier.LOCAL)) {
-	    // Non-local dependences are implicitly permitted
-	    // when the permit set is empty
-	    return true;
-	}
-	return ps.contains(rmi.id().name());
+        assert dep.query().matches(smi.id());
+        if (rmi == null) {
+            // Special case: Synthetic root dependence
+            return true;
+        }
+        Set<String> ps = smi.permits();
+        if (ps.isEmpty() && !dep.modifiers().contains(Modifier.LOCAL)) {
+            // Non-local dependences are implicitly permitted
+            // when the permit set is empty
+            return true;
+        }
+        return ps.contains(rmi.id().name());
     }
 
     // A choice that remains to be made.  Choices are arranged in a stack,
@@ -198,73 +198,73 @@ public final class Resolver {
     // completes without emptying the stack then it fails.
     //
     private static final class Choice {
-	private final ModuleInfo rmi;	// Requesting module
-	private final Dependence dep;	// Dependence to be satisfied
-	private final Choice next;	// Next choice in stack
-	private Choice(ModuleInfo mi, Dependence d, Choice ch) {
-	    rmi = mi;
-	    dep = d;
-	    next = ch;
-	}
+        private final ModuleInfo rmi;   // Requesting module
+        private final Dependence dep;   // Dependence to be satisfied
+        private final Choice next;      // Next choice in stack
+        private Choice(ModuleInfo mi, Dependence d, Choice ch) {
+            rmi = mi;
+            dep = d;
+            next = ch;
+        }
     }
 
     // Resolve the given choice
     //
     private boolean resolve(int depth, Choice choice)
-	throws IOException
+        throws IOException
     {
 
-	if (choice == null) {
-	    // Success!
-	    return true;
-	}
+        if (choice == null) {
+            // Success!
+            return true;
+        }
 
-	ModuleInfo rmi = choice.rmi;
-	Dependence dep = choice.dep;
+        ModuleInfo rmi = choice.rmi;
+        Dependence dep = choice.dep;
 
-	if (tracing)
-	    trace(1, depth, "resolving %s %s",
-		  rmi != null ? rmi.id() : "ROOT", dep);
+        if (tracing)
+            trace(1, depth, "resolving %s %s",
+                  rmi != null ? rmi.id() : "ROOT", dep);
 
-	if (dep.modifiers().contains(Modifier.OPTIONAL)) {
-	    // Skip for now; we'll handle these later
-	    return resolve(depth + 1, choice.next);
-	}
+        if (dep.modifiers().contains(Modifier.OPTIONAL)) {
+            // Skip for now; we'll handle these later
+            return resolve(depth + 1, choice.next);
+        }
 
-	String mn = dep.query().name();
+        String mn = dep.query().name();
 
-	// First check to see whether we've already resolved a module with
-	// the given name.  If so then it must satisfy the constraints, else
-	// we fail since we don't support side-by-side versioning at run time.
-	//
-	ModuleInfo mi = moduleForName.get(mn);
-	if (mi != null) {
-	    boolean rv = (dep.query().matches(mi.id())
-			  && permits(rmi, dep, mi));
-	    if (!rv) {
-		if (tracing)
-		    trace(1, depth, "fail: previously-resolved %s unacceptable",
-			  mi.id());
-		return false;
-	    }
-	    return resolve(depth + 1, choice.next);
-	}
+        // First check to see whether we've already resolved a module with
+        // the given name.  If so then it must satisfy the constraints, else
+        // we fail since we don't support side-by-side versioning at run time.
+        //
+        ModuleInfo mi = moduleForName.get(mn);
+        if (mi != null) {
+            boolean rv = (dep.query().matches(mi.id())
+                          && permits(rmi, dep, mi));
+            if (!rv) {
+                if (tracing)
+                    trace(1, depth, "fail: previously-resolved %s unacceptable",
+                          mi.id());
+                return false;
+            }
+            return resolve(depth + 1, choice.next);
+        }
 
-	// No resolved module of this name yet, so go try to find one.
-	// We prefer newer versions to older versions.
-	//
-	List<ModuleId> candidates = lib.findModuleIds(mn);
-	Collections.sort(candidates, Collections.reverseOrder());
-	for (ModuleId mid : candidates) {
-	    if (!dep.query().matches(mid))
-		continue;
-	    if (resolve(depth + 1, choice.next, rmi, dep, mid))
-		return true;
-	}
+        // No resolved module of this name yet, so go try to find one.
+        // We prefer newer versions to older versions.
+        //
+        List<ModuleId> candidates = lib.findModuleIds(mn);
+        Collections.sort(candidates, Collections.reverseOrder());
+        for (ModuleId mid : candidates) {
+            if (!dep.query().matches(mid))
+                continue;
+            if (resolve(depth + 1, choice.next, rmi, dep, mid))
+                return true;
+        }
 
-	if (tracing)
-	    trace(1, depth, "fail: %s", dep);
-	return false;
+        if (tracing)
+            trace(1, depth, "fail: %s", dep);
+        return false;
 
     }
 
@@ -272,65 +272,65 @@ public final class Resolver {
     // dependence
     //
     private boolean resolve(int depth, Choice nextChoice,
-			    ModuleInfo rmi, Dependence dep, ModuleId mid)
-	throws IOException
+                            ModuleInfo rmi, Dependence dep, ModuleId mid)
+        throws IOException
     {
 
-	if (tracing)
-	    trace(1, depth, "trying %s", mid);
+        if (tracing)
+            trace(1, depth, "trying %s", mid);
 
-	assert dep.query().matches(mid);
-	assert moduleForName.get(mid.name()) == null;
+        assert dep.query().matches(mid);
+        assert moduleForName.get(mid.name()) == null;
 
-	ModuleInfo mi = lib.readModuleInfo(mid);
+        ModuleInfo mi = lib.readModuleInfo(mid);
 
-	// Check this module's permits constraints
-	//
-	if (!permits(rmi, dep, mi)) {
-	    if (tracing)
-		trace(1, depth, "fail: permits %s", mi.permits());
-	    return false;
-	}
+        // Check this module's permits constraints
+        //
+        if (!permits(rmi, dep, mi)) {
+            if (tracing)
+                trace(1, depth, "fail: permits %s", mi.permits());
+            return false;
+        }
 
-	// Save the ModuleInfo in the moduleForName map,
-	// which also serves as our visited-node set
-	//
-	modules.add(mi);
-	moduleForName.put(mid.name(), mi);
+        // Save the ModuleInfo in the moduleForName map,
+        // which also serves as our visited-node set
+        //
+        modules.add(mi);
+        moduleForName.put(mid.name(), mi);
 
-	// Push this module's dependences onto the choice stack,
-	// in reverse order so that the choices are examined in
-	// forward order
-	//
-	Choice ch = nextChoice;
-	// ## ModuleInfo.requires() should be a list, not a set
-	List<Dependence> dl = new ArrayList<Dependence>(mi.requires());
-	Collections.reverse(dl);
-	for (Dependence d : dl)
-	    ch = new Choice(mi, d, ch);
+        // Push this module's dependences onto the choice stack,
+        // in reverse order so that the choices are examined in
+        // forward order
+        //
+        Choice ch = nextChoice;
+        // ## ModuleInfo.requires() should be a list, not a set
+        List<Dependence> dl = new ArrayList<Dependence>(mi.requires());
+        Collections.reverse(dl);
+        for (Dependence d : dl)
+            ch = new Choice(mi, d, ch);
 
-	// Recursively examine the next choice
-	//
-	if (!resolve(depth + 1, ch)) {
-	    // Revert map, then fail
-	    modules.remove(mi);
-	    moduleForName.remove(mid.name());
-	    if (tracing)
-		trace(1, depth, "fail: %s", mid);
-	    return false;
-	}
+        // Recursively examine the next choice
+        //
+        if (!resolve(depth + 1, ch)) {
+            // Revert map, then fail
+            modules.remove(mi);
+            moduleForName.remove(mid.name());
+            if (tracing)
+                trace(1, depth, "fail: %s", mid);
+            return false;
+        }
 
-	return true;
+        return true;
 
     }
 
     // Entry point
     //
     private boolean resolve(ModuleIdQuery rq)
-	throws IOException
+        throws IOException
     {
-	Dependence dep = new Dependence(EnumSet.noneOf(Modifier.class), rq);
-	return resolve(0, new Choice(null, dep,  null));
+        Dependence dep = new Dependence(EnumSet.noneOf(Modifier.class), rq);
+        return resolve(0, new Choice(null, dep,  null));
     }
 
 
@@ -359,68 +359,68 @@ public final class Resolver {
     // --
 
     private Map<String,List<String>> localRequestorsOfName    // Back edges
-	= new HashMap<String,List<String>>();
+        = new HashMap<String,List<String>>();
 
     private void addLocalRequestor(String rmn, String smn) {
-	List<String> ls = localRequestorsOfName.get(smn);
-	if (ls == null) {
-	    ls = new ArrayList<String>();
-	    localRequestorsOfName.put(smn, ls);
-	}
-	ls.add(rmn);
+        List<String> ls = localRequestorsOfName.get(smn);
+        if (ls == null) {
+            ls = new ArrayList<String>();
+            localRequestorsOfName.put(smn, ls);
+        }
+        ls.add(rmn);
     }
 
     // Find local-dependence back edges
     //
     private void findLocalRequestors() {
-	for (ModuleInfo mi : modules) {
-	    for (Dependence d : mi.requires()) {
-		if (d.modifiers().contains(Modifier.LOCAL)) {
-		    ModuleInfo smi = moduleForName.get(d.query().name());
-		    if (smi == null) {
-			// smi can be null if dependence is optional
-			assert d.modifiers().contains(Modifier.OPTIONAL);
-			continue;
-		    }
-		    addLocalRequestor(mi.id().name(), smi.id().name());
-		}
-	    }
-	}
+        for (ModuleInfo mi : modules) {
+            for (Dependence d : mi.requires()) {
+                if (d.modifiers().contains(Modifier.LOCAL)) {
+                    ModuleInfo smi = moduleForName.get(d.query().name());
+                    if (smi == null) {
+                        // smi can be null if dependence is optional
+                        assert d.modifiers().contains(Modifier.OPTIONAL);
+                        continue;
+                    }
+                    addLocalRequestor(mi.id().name(), smi.id().name());
+                }
+            }
+        }
     }
 
     // We extend the plain Context class with additional state for use
     // during the resolution process
     //
     private static class Context
-	extends org.openjdk.jigsaw.Context
+        extends org.openjdk.jigsaw.Context
     {
 
-	// A context-for-package map that returns actual contexts,
-	// rather than context names as in the superclass
-	//
-	private Map<String,Context> contextForPackage
-	    = new HashMap<String,Context>();
+        // A context-for-package map that returns actual contexts,
+        // rather than context names as in the superclass
+        //
+        private Map<String,Context> contextForPackage
+            = new HashMap<String,Context>();
 
-	// The ModuleInfos of the modules in this context
-	//
-	private Set<ModuleInfo> moduleInfos = new HashSet<ModuleInfo>();
+        // The ModuleInfos of the modules in this context
+        //
+        private Set<ModuleInfo> moduleInfos = new HashSet<ModuleInfo>();
 
-	// This context's supplying contexts
-	//
-	private Set<Context> suppliers = new HashSet<Context>();
+        // This context's supplying contexts
+        //
+        private Set<Context> suppliers = new HashSet<Context>();
 
-	// This context's re-exported supplying contexts
-	//
-	private Set<Context> reExportedSuppliers = new HashSet<Context>();
+        // This context's re-exported supplying contexts
+        //
+        private Set<Context> reExportedSuppliers = new HashSet<Context>();
 
-	// The set of packages defined by this context
-	//
-	private Set<String> packages = new HashSet<String>();
+        // The set of packages defined by this context
+        //
+        private Set<String> packages = new HashSet<String>();
 
-	// The set of packages exported by this context,
-	// either directly or indirectly
-	//
-	private Set<String> exports = new HashSet<String>();
+        // The set of packages exported by this context,
+        // either directly or indirectly
+        //
+        private Set<String> exports = new HashSet<String>();
 
     }
 
@@ -432,75 +432,75 @@ public final class Resolver {
     // as the visited-node set during context construction
     //
     private Map<String,Context> contextForModule
-	= new HashMap<String,Context>();
+        = new HashMap<String,Context>();
 
     // Add the given module to the given context, or create a new context for
     // that module if none is given, and then add all the other modules in the
     // module's locally-connected component to the same context
     //
     private void build(Context pcx, ModuleInfo mi)
-	throws ConfigurationException
+        throws ConfigurationException
     {
 
-	assert !contextForModule.containsKey(mi.id().name());
+        assert !contextForModule.containsKey(mi.id().name());
 
-	Context cx = pcx;
-	if (cx == null) {
-	    cx = new Context();
-	    contexts.add(cx);
-	}
-	cx.add(mi.id());
-	cx.moduleInfos.add(mi);
-	contextForModule.put(mi.id().name(), cx);
+        Context cx = pcx;
+        if (cx == null) {
+            cx = new Context();
+            contexts.add(cx);
+        }
+        cx.add(mi.id());
+        cx.moduleInfos.add(mi);
+        contextForModule.put(mi.id().name(), cx);
 
-	// Forward edges
-	for (Dependence d : mi.requires()) {
-	    if (d.modifiers().contains(Modifier.LOCAL)) {
-		Context scx = contextForModule.get(d.query().name());
-		if (scx != null) {
-		    assert cx == scx;
-		    continue;
-		}
-		ModuleInfo smi = moduleForName.get(d.query().name());
-		assert smi != null;
-		if (smi == null) {
-		    // Unsatisfied optional dependence
-		    assert d.modifiers().contains(Modifier.OPTIONAL);
-		    continue;
-		}
-		build(cx, smi);
-	    }
-	}
+        // Forward edges
+        for (Dependence d : mi.requires()) {
+            if (d.modifiers().contains(Modifier.LOCAL)) {
+                Context scx = contextForModule.get(d.query().name());
+                if (scx != null) {
+                    assert cx == scx;
+                    continue;
+                }
+                ModuleInfo smi = moduleForName.get(d.query().name());
+                assert smi != null;
+                if (smi == null) {
+                    // Unsatisfied optional dependence
+                    assert d.modifiers().contains(Modifier.OPTIONAL);
+                    continue;
+                }
+                build(cx, smi);
+            }
+        }
 
-	// Back edges
-	List<String> localRequestors
-	    = localRequestorsOfName.get(mi.id().name());
-	if (localRequestors != null) {
-	    for (String rmn : localRequestors) {
-		Context rcx = contextForModule.get(rmn);
-		if (rcx != null) {
-		    assert cx == rcx;
-		    continue;
-		}
-		ModuleInfo rmi = moduleForName.get(rmn);
-		assert rmi != null;
-		build(cx, rmi);
-	    }
-	}
+        // Back edges
+        List<String> localRequestors
+            = localRequestorsOfName.get(mi.id().name());
+        if (localRequestors != null) {
+            for (String rmn : localRequestors) {
+                Context rcx = contextForModule.get(rmn);
+                if (rcx != null) {
+                    assert cx == rcx;
+                    continue;
+                }
+                ModuleInfo rmi = moduleForName.get(rmn);
+                assert rmi != null;
+                build(cx, rmi);
+            }
+        }
 
     }
 
     // Entry point
     //
     private void build()
-	throws ConfigurationException
+        throws ConfigurationException
     {
-	findLocalRequestors();
-	for (ModuleInfo mi : modules) {
-	    if (contextForModule.containsKey(mi.id().name()))
-		continue;
-	    build(null, mi);
-	}
+        findLocalRequestors();
+        for (ModuleInfo mi : modules) {
+            if (contextForModule.containsKey(mi.id().name()))
+                continue;
+            build(null, mi);
+        }
     }
 
 
@@ -517,36 +517,36 @@ public final class Resolver {
     // --
 
     private String packageName(String cn) {
-	int i = cn.lastIndexOf('.');
-	if (i < 0)
-	    throw new IllegalArgumentException(cn + ": No package name");
-	return cn.substring(0, i);
+        int i = cn.lastIndexOf('.');
+        if (i < 0)
+            throw new IllegalArgumentException(cn + ": No package name");
+        return cn.substring(0, i);
     }
 
     private void fail(String fmt, Object ... args)
-	throws ConfigurationException
+        throws ConfigurationException
     {
-	throw new ConfigurationException(fmt, args);
+        throw new ConfigurationException(fmt, args);
     }
 
     private void resolveLocalSuppliers()
-	throws ConfigurationException, IOException
+        throws ConfigurationException, IOException
     {
-	for (Context cx : contexts) {
-	    for (ModuleInfo mi : cx.moduleInfos) {
-		for (String cn : lib.listClasses(mi.id(), true)) {
-		    ModuleId smid = cx.findModuleForLocalClass(cn);
-		    if (smid != null) {
-			// ## Do something more clever here: It should be possible
-			// ## to shadow definitions within a context when there is
-			// ## a dominant definition.
-			fail("Class %s: Multiple definitions in modules %s and %s",
-			     cn, mi.id(), smid);
-		    }
-		    cx.putModuleForLocalClass(cn, mi.id());
-		}
-	    }
-	}
+        for (Context cx : contexts) {
+            for (ModuleInfo mi : cx.moduleInfos) {
+                for (String cn : lib.listClasses(mi.id(), true)) {
+                    ModuleId smid = cx.findModuleForLocalClass(cn);
+                    if (smid != null) {
+                        // ## Do something more clever here: It should be possible
+                        // ## to shadow definitions within a context when there is
+                        // ## a dominant definition.
+                        fail("Class %s: Multiple definitions in modules %s and %s",
+                             cn, mi.id(), smid);
+                    }
+                    cx.putModuleForLocalClass(cn, mi.id());
+                }
+            }
+        }
     }
 
 
@@ -560,85 +560,85 @@ public final class Resolver {
     // --
 
     private boolean propagatePackage(boolean changed,
-				     Context cx, Context scx, String pn)
-	throws ConfigurationException
+                                     Context cx, Context scx, String pn)
+        throws ConfigurationException
     {
-	if (cx.packages.contains(pn)) {
-	    fail("Package %s defined in %s but exported by supplier %s",
-		 pn, cx, scx);
-	}
-	Context dcx = cx.contextForPackage.get(pn);
-	if (dcx == null) {
-	    if (scx.packages.contains(pn))
-		dcx = scx;
-	    else
-		dcx = scx.contextForPackage.get(pn);
-	    cx.contextForPackage.put(pn, dcx);
-	    if (tracing)
-		trace(1, 1, "adding %s:%s to %s", dcx, pn, cx);
-	    if (cx.reExportedSuppliers.contains(scx))
-		cx.exports.add(pn);
-	    changed = true;
-	} else if (dcx != scx) {
-	    if (dcx != scx.contextForPackage.get(pn))
-		fail("Package %s defined in both %s and %s", pn, scx, dcx);
-	}
-	return changed;
+        if (cx.packages.contains(pn)) {
+            fail("Package %s defined in %s but exported by supplier %s",
+                 pn, cx, scx);
+        }
+        Context dcx = cx.contextForPackage.get(pn);
+        if (dcx == null) {
+            if (scx.packages.contains(pn))
+                dcx = scx;
+            else
+                dcx = scx.contextForPackage.get(pn);
+            cx.contextForPackage.put(pn, dcx);
+            if (tracing)
+                trace(1, 1, "adding %s:%s to %s", dcx, pn, cx);
+            if (cx.reExportedSuppliers.contains(scx))
+                cx.exports.add(pn);
+            changed = true;
+        } else if (dcx != scx) {
+            if (dcx != scx.contextForPackage.get(pn))
+                fail("Package %s defined in both %s and %s", pn, scx, dcx);
+        }
+        return changed;
     }
 
     private void propagateExports()
-	throws ConfigurationException
+        throws ConfigurationException
     {
-	int n = 0;
-	for (;;) {
-	    n++;
-	    if (tracing)
-		trace(1, "propagating suppliers (pass %d)", n);
-	    boolean changed = false;
-	    for (Context cx : contexts) {
-		for (Context scx : cx.suppliers) {
-		    for (String pn : scx.exports)
-			changed = propagatePackage(changed, cx, scx, pn);
-		}
-	    }
-	    if (!changed)
-		return;
-	}
+        int n = 0;
+        for (;;) {
+            n++;
+            if (tracing)
+                trace(1, "propagating suppliers (pass %d)", n);
+            boolean changed = false;
+            for (Context cx : contexts) {
+                for (Context scx : cx.suppliers) {
+                    for (String pn : scx.exports)
+                        changed = propagatePackage(changed, cx, scx, pn);
+                }
+            }
+            if (!changed)
+                return;
+        }
     }
 
     private void resolveRemoteSuppliers()
-	throws ConfigurationException, IOException
+        throws ConfigurationException, IOException
     {
 
-	// Prepare export and supplier sets
-	for (Context cx : contexts) {
-	    for (ModuleInfo mi : cx.moduleInfos) {
-		for (String cn : lib.listClasses(mi.id(), false)) {
-		    String pn = packageName(cn);
-		    cx.packages.add(pn);
-		    cx.exports.add(pn);
-		}
-		for (Dependence d : mi.requires()) {
-		    Context scx = contextForModule.get(d.query().name());
-		    if (scx == null) {
-			// Unsatisfied optional dependence
-			assert d.modifiers().contains(Modifier.OPTIONAL);
-			continue;
-		    }
-		    if (!d.modifiers().contains(Modifier.LOCAL)) {
-			// Dependence upon some other context
-			cx.suppliers.add(scx);
-		    }
-		    if (d.modifiers().contains(Modifier.PUBLIC)) {
-			// Required publicly, so re-export it
-			cx.reExportedSuppliers.add(scx);
-		    }
-		}
-	    }
-	}
+        // Prepare export and supplier sets
+        for (Context cx : contexts) {
+            for (ModuleInfo mi : cx.moduleInfos) {
+                for (String cn : lib.listClasses(mi.id(), false)) {
+                    String pn = packageName(cn);
+                    cx.packages.add(pn);
+                    cx.exports.add(pn);
+                }
+                for (Dependence d : mi.requires()) {
+                    Context scx = contextForModule.get(d.query().name());
+                    if (scx == null) {
+                        // Unsatisfied optional dependence
+                        assert d.modifiers().contains(Modifier.OPTIONAL);
+                        continue;
+                    }
+                    if (!d.modifiers().contains(Modifier.LOCAL)) {
+                        // Dependence upon some other context
+                        cx.suppliers.add(scx);
+                    }
+                    if (d.modifiers().contains(Modifier.PUBLIC)) {
+                        // Required publicly, so re-export it
+                        cx.reExportedSuppliers.add(scx);
+                    }
+                }
+            }
+        }
 
-	// Flow
-	propagateExports();
+        // Flow
+        propagateExports();
 
     }
 
@@ -664,9 +664,9 @@ public final class Resolver {
      * @return  A newly-initialized resolver
      */
     public static Resolver create(Library lib,
-				  ModuleIdQuery rootQuery)
+                                  ModuleIdQuery rootQuery)
     {
-	return new Resolver(lib, rootQuery);
+        return new Resolver(lib, rootQuery);
     }
 
     /**
@@ -684,57 +684,57 @@ public final class Resolver {
      * @return  The resulting {@linkplain Configuration configuration}
      */
     public Configuration run()
-	throws ConfigurationException, IOException
+        throws ConfigurationException, IOException
     {
 
-	if (!modules.isEmpty()) {
-	    // Been here, done that
-	    throw new IllegalStateException();
-	}
+        if (!modules.isEmpty()) {
+            // Been here, done that
+            throw new IllegalStateException();
+        }
 
-	if (tracing)
-	    trace(0, "Configuring %s using library %s",
-		  rootQuery, lib.name());
+        if (tracing)
+            trace(0, "Configuring %s using library %s",
+                  rootQuery, lib.name());
 
-	// Resolve dependences
-	if (!resolve(rootQuery))
-	    fail("%s: Cannot resolve", rootQuery);
+        // Resolve dependences
+        if (!resolve(rootQuery))
+            fail("%s: Cannot resolve", rootQuery);
 
-	// Build context graph
-	ModuleInfo root = moduleForName.get(rootQuery.name());
-	assert root != null;
-	build();
-	Context rcx = contextForModule.get(rootQuery.name());
-	assert rcx != null;
+        // Build context graph
+        ModuleInfo root = moduleForName.get(rootQuery.name());
+        assert root != null;
+        build();
+        Context rcx = contextForModule.get(rootQuery.name());
+        assert rcx != null;
 
-	// Compute context import/export/supplier maps
-	resolveLocalSuppliers();
-	resolveRemoteSuppliers();
+        // Compute context import/export/supplier maps
+        resolveLocalSuppliers();
+        resolveRemoteSuppliers();
 
-	// Freeze context names
-	for (Context cx : contexts) {
-	    cx.freeze();
-	}
+        // Freeze context names
+        for (Context cx : contexts) {
+            cx.freeze();
+        }
 
-	// Synchronize the context-for-package maps
-	for (Context cx : contexts) {
-	    for (Map.Entry<String,Context> me
-		     : cx.contextForPackage.entrySet())
-	    {
-		cx.putContextForRemotePackage(me.getKey(),
-					      me.getValue().name());
-	    }
-	}
+        // Synchronize the context-for-package maps
+        for (Context cx : contexts) {
+            for (Map.Entry<String,Context> me
+                     : cx.contextForPackage.entrySet())
+            {
+                cx.putContextForRemotePackage(me.getKey(),
+                                              me.getValue().name());
+            }
+        }
 
-	// We're done!
-	Configuration cf
-	    = new Configuration(root.id(), contexts, contextForModule);
-	if (tracing) {
-	    trace(0, "Configured %s", root.id());
-	    if (traceLevel >= 3)
-		cf.dump(System.out);
-	}
-	return cf;
+        // We're done!
+        Configuration cf
+            = new Configuration(root.id(), contexts, contextForModule);
+        if (tracing) {
+            trace(0, "Configured %s", root.id());
+            if (traceLevel >= 3)
+                cf.dump(System.out);
+        }
+        return cf;
 
     }
 

@@ -32,8 +32,8 @@ public final class ModuleIdQuery {
     private VersionQuery versionQuery;
 
     public ModuleIdQuery(String name, VersionQuery versionQuery) {
-	this.name = ModuleSystem.checkModuleName(name);
-	this.versionQuery = versionQuery;
+        this.name = ModuleSystem.checkModuleName(name);
+        this.versionQuery = versionQuery;
     }
 
     public String name() { return name; }
@@ -41,38 +41,38 @@ public final class ModuleIdQuery {
     public VersionQuery versionQuery() { return versionQuery; }
 
     public boolean matches(ModuleId mid) {
-	if (!name.equals(mid.name()))
-	    return false;
-	if (versionQuery == null)
-	    return true;
-	if (mid.version() == null)
-	    return false;
-	return versionQuery.matches(mid.version());
+        if (!name.equals(mid.name()))
+            return false;
+        if (versionQuery == null)
+            return true;
+        if (mid.version() == null)
+            return false;
+        return versionQuery.matches(mid.version());
     }
 
     @Override
     public boolean equals(Object ob) {
-	if (!(ob instanceof ModuleIdQuery))
-	    return false;
-	ModuleIdQuery that = (ModuleIdQuery)ob;
-	if (!this.name.equals(that.name))
-	    return false;
-	if (versionQuery == that.versionQuery)
-	    return true;
-	if (versionQuery == null || that.versionQuery == null)
-	    return false;
-	return this.versionQuery.equals(that.versionQuery);
+        if (!(ob instanceof ModuleIdQuery))
+            return false;
+        ModuleIdQuery that = (ModuleIdQuery)ob;
+        if (!this.name.equals(that.name))
+            return false;
+        if (versionQuery == that.versionQuery)
+            return true;
+        if (versionQuery == null || that.versionQuery == null)
+            return false;
+        return this.versionQuery.equals(that.versionQuery);
     }
 
     @Override
     public int hashCode() {
-	return (name.hashCode() * 43
-		+ ((versionQuery == null) ? 7919 : versionQuery.hashCode()));
+        return (name.hashCode() * 43
+                + ((versionQuery == null) ? 7919 : versionQuery.hashCode()));
     }
 
     @Override
     public String toString() {
-	return (versionQuery == null ? name : name + "@" + versionQuery);
+        return (versionQuery == null ? name : name + "@" + versionQuery);
     }
 
 }

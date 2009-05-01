@@ -35,26 +35,26 @@ public abstract class ModuleClassLoader
     private ModuleSystem moduleSystem;
 
     protected ModuleClassLoader(ModuleSystem ms) {
-	moduleSystem = ms;
+        moduleSystem = ms;
     }
 
     protected Class<?> defineClass(Module m, String name,
                                    byte[] b, int off, int len)
         throws ClassFormatError
     {
-	Class<?> c = super.defineClass(name, b, off, len);
-	sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
-	return c;
+        Class<?> c = super.defineClass(name, b, off, len);
+        sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
+        return c;
     }
 
     // Invokes a corresponding native method implemented in the VM ## ??
     protected Module defineModule(ModuleId id, byte[] bs, int off, int len)
         throws ClassFormatError
     {
-	if (off != 0 || bs.length != len) // ##
-	    throw new IllegalArgumentException();
-	return new Module(moduleSystem.parseModuleInfo(bs),
-			  this);
+        if (off != 0 || bs.length != len) // ##
+            throw new IllegalArgumentException();
+        return new Module(moduleSystem.parseModuleInfo(bs),
+                          this);
     }
 
     @Override

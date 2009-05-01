@@ -53,19 +53,19 @@ import java.util.*;
     // Requires: s.charAt(i) is (decimal) numeric
     //
     private static int takeNumber(String s, int i, List<Object> acc) {
-	char c = s.charAt(i);
-	int d = (c - '0');
-	int n = s.length();
-	while (++i < n) {
-	    c = s.charAt(i);
-	    if (c >= '0' && c <= '9') {
-		d = d * 10 + (c - '0');
-		continue;
-	    }
-	    break;
-	}
-	acc.add(d);
-	return i;
+        char c = s.charAt(i);
+        int d = (c - '0');
+        int n = s.length();
+        while (++i < n) {
+            c = s.charAt(i);
+            if (c >= '0' && c <= '9') {
+                d = d * 10 + (c - '0');
+                continue;
+            }
+            break;
+        }
+        acc.add(d);
+        return i;
     }
 
     // Take a string token starting at position i
@@ -74,17 +74,17 @@ import java.util.*;
     // Requires: s.charAt(i) is not '.'
     //
     private static int takeString(String s, int i, List<Object> acc) {
-	int b = i;
-	char c = s.charAt(i);
-	int n = s.length();
-	while (++i < n) {
-	    c = s.charAt(i);
-	    if (c != '.' && c != '-' && !(c >= '0' && c <= '9'))
-		continue;
-	    break;
-	}
-	acc.add(s.substring(b, i));
-	return i;
+        int b = i;
+        char c = s.charAt(i);
+        int n = s.length();
+        while (++i < n) {
+            c = s.charAt(i);
+            if (c != '.' && c != '-' && !(c >= '0' && c <= '9'))
+                continue;
+            break;
+        }
+        acc.add(s.substring(b, i));
+        return i;
     }
 
     // Version syntax, for now: tok+ ( '-' tok+)?
@@ -96,120 +96,120 @@ import java.util.*;
     //
     /* package */ JigsawVersion(String v) {
 
-	if (v == null)
-	    throw new IllegalArgumentException("Null version string");
-	int n = v.length();
-	if (n == 0)
-	    throw new IllegalArgumentException("Empty version string");
+        if (v == null)
+            throw new IllegalArgumentException("Null version string");
+        int n = v.length();
+        if (n == 0)
+            throw new IllegalArgumentException("Empty version string");
 
-	int i = 0;
-	char c = v.charAt(i);
-	if (!(c >= '0' && c <= '9'))
-	    throw new
-		IllegalArgumentException(v
-					 + ": Version does not start"
-					 + " with a number");
-	i = takeNumber(v, i, sequence);
+        int i = 0;
+        char c = v.charAt(i);
+        if (!(c >= '0' && c <= '9'))
+            throw new
+                IllegalArgumentException(v
+                                         + ": Version does not start"
+                                         + " with a number");
+        i = takeNumber(v, i, sequence);
 
-	while (i < n) {
-	    c = v.charAt(i);
-	    if (c == '.') {
-		i++;
-		continue;
-	    }
-	    if (c == '-') {
-		i++;
-		break;
-	    }
-	    if (c >= '0' && c <= '9')
-		i = takeNumber(v, i, sequence);
-	    else
-		i = takeString(v, i, sequence);
-	}
+        while (i < n) {
+            c = v.charAt(i);
+            if (c == '.') {
+                i++;
+                continue;
+            }
+            if (c == '-') {
+                i++;
+                break;
+            }
+            if (c >= '0' && c <= '9')
+                i = takeNumber(v, i, sequence);
+            else
+                i = takeString(v, i, sequence);
+        }
 
-	if (c == '-' && i >= n)
-	    throw new IllegalArgumentException(v + ": Empty branch");
+        if (c == '-' && i >= n)
+            throw new IllegalArgumentException(v + ": Empty branch");
 
-	while (i < n) {
-	    c = v.charAt(i);
-	    if (c >= '0' && c <= '9')
-		i = takeNumber(v, i, branch);
-	    else
-		i = takeString(v, i, branch);
-	    if (i >= n)
-		break;
-	    c = v.charAt(i);
-	    if (c == '.') {
-		i++;
-		continue;
-	    }
-	}
+        while (i < n) {
+            c = v.charAt(i);
+            if (c >= '0' && c <= '9')
+                i = takeNumber(v, i, branch);
+            else
+                i = takeString(v, i, branch);
+            if (i >= n)
+                break;
+            c = v.charAt(i);
+            if (c == '.') {
+                i++;
+                continue;
+            }
+        }
 
-	version = v;
+        version = v;
     }
 
     private int compareTokens(List<Object> ts1, List<Object> ts2) {
-	int n = Math.min(ts1.size(), ts2.size());
-	for (int i = 0; i < n; i++) {
-	    Object o1 = ts1.get(i);
-	    Object o2 = ts2.get(i);
-	    if (   (o1 instanceof Integer && o2 instanceof Integer)
-		|| (o1 instanceof String && o2 instanceof String)) {
-		int c = ((Comparable)o1).compareTo((Comparable)o2);
-		if (c == 0)
-		    continue;
-		return c;
-	    }
-	    // Types differ, so convert number to string form
-	    int c = o1.toString().compareTo(o2.toString());
-	    if (c == 0)
-		continue;
-	    return c;
-	}
-	List<Object> rest = ts1.size() > ts2.size() ? ts1 : ts2;
-	int e = rest.size();
-	for (int i = n; i < e; i++) {
-	    Object o = rest.get(i);
-	    if (o instanceof Integer && ((Integer)o) == 0)
-		continue;
-	    return ts1.size() - ts2.size();
-	}
-	return 0;
+        int n = Math.min(ts1.size(), ts2.size());
+        for (int i = 0; i < n; i++) {
+            Object o1 = ts1.get(i);
+            Object o2 = ts2.get(i);
+            if (   (o1 instanceof Integer && o2 instanceof Integer)
+                || (o1 instanceof String && o2 instanceof String)) {
+                int c = ((Comparable)o1).compareTo((Comparable)o2);
+                if (c == 0)
+                    continue;
+                return c;
+            }
+            // Types differ, so convert number to string form
+            int c = o1.toString().compareTo(o2.toString());
+            if (c == 0)
+                continue;
+            return c;
+        }
+        List<Object> rest = ts1.size() > ts2.size() ? ts1 : ts2;
+        int e = rest.size();
+        for (int i = n; i < e; i++) {
+            Object o = rest.get(i);
+            if (o instanceof Integer && ((Integer)o) == 0)
+                continue;
+            return ts1.size() - ts2.size();
+        }
+        return 0;
     }
 
     public int compareTo(Version ob) {
-	if (!(ob instanceof JigsawVersion))
-	    return +1;
-	JigsawVersion that = (JigsawVersion)ob;
-	int c = compareTokens(this.sequence, that.sequence);
-	if (c != 0)
-	    return c;
-	return compareTokens(this.branch, that.branch);
+        if (!(ob instanceof JigsawVersion))
+            return +1;
+        JigsawVersion that = (JigsawVersion)ob;
+        int c = compareTokens(this.sequence, that.sequence);
+        if (c != 0)
+            return c;
+        return compareTokens(this.branch, that.branch);
     }
 
     public JigsawVersionQuery toQuery() {
-	return JigsawVersionQuery.fromVersion(this);
+        return JigsawVersionQuery.fromVersion(this);
     }
 
     public String toDebugString() {
-	return "v" + sequence + "-" + branch;
+        return "v" + sequence + "-" + branch;
     }
 
     @Override
     public boolean equals(Object ob) {
-	if (!(ob instanceof JigsawVersion))
-	    return false;
-	return compareTo((JigsawVersion)ob) == 0;
+        if (!(ob instanceof JigsawVersion))
+            return false;
+        return compareTo((JigsawVersion)ob) == 0;
     }
 
     @Override
     public int hashCode() {
-	return version.hashCode();
+        return version.hashCode();
     }
 
     @Override
     public String toString() {
-	return version;
+        return version;
     }
 
 }

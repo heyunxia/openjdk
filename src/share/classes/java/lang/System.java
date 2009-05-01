@@ -1175,9 +1175,9 @@ public final class System {
             public void blockedOn(Thread t, Interruptible b) {
                 t.blockedOn(b);
             }
-	    public void setModule(Class c, Module m) {
-		c.setModule(m);
-	    }
+            public void setModule(Class c, Module m) {
+                c.setModule(m);
+            }
         });
     }
 
