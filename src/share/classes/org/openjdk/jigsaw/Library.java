@@ -260,7 +260,7 @@ public abstract class Library {
      * Install one or more modules into this library.
      *
      * The modules are first copied from the given classes directory, and then
-     * the configuration of any affected root modules in the library are
+     * the configurations of any affected root modules in the library are
      * recomputed.
      *
      * @param   classes

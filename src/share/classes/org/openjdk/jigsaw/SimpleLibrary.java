@@ -38,6 +38,16 @@ import static org.openjdk.jigsaw.Trace.*;
  * @see Library
  */
 
+// On-disk library layout
+//
+//   $LIB/%jigsaw-library
+//        com.foo.bar/1.2.3/info (= module-info.class)
+//                          index (list of defined classes)
+//                          config (resolved configuration, if a root)
+//                          classes/com/foo/bar/...
+//                          lib/libbar.so
+//                          bin/bar
+
 public final class SimpleLibrary
     extends Library
 {
@@ -184,16 +194,6 @@ public final class SimpleLibrary
 
     private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
-
-    // Library layout
-    //
-    //   $LIB/%jigsaw-library
-    //        com.foo.bar/1.2.3/info (= module-info.class)
-    //                          index (list of defined classes)
-    //                          config
-    //                          classes/com/foo/bar/...
-    //                          lib/libbar.so
-    //                          bin/bar
 
     private static final class Index
         extends MetaData
@@ -475,8 +475,8 @@ public final class SimpleLibrary
         return scf.cf;
     }
 
-    private void install(File classes, final String moduleName)
-        throws ConfigurationException, IOException
+    private void install(File classes, final String moduleName, File dst)
+        throws IOException
     {
 
         String path = moduleName.replace('.', '/');
@@ -486,7 +486,7 @@ public final class SimpleLibrary
         String m = mi.id().name();
         JigsawVersion v = (JigsawVersion)mi.id().version();
         String vs = (v == null) ? "default" : v.toString();
-        File mdst = new File(new File(root, m), vs);
+        File mdst = new File(new File(dst, m), vs);
         Files.mkdirs(mdst, "module");
         Files.store(bs, new File(mdst, "info"));
         File cldst = new File(mdst, "classes");
@@ -519,19 +519,59 @@ public final class SimpleLibrary
     public void install(File classes, List<String> moduleNames)
         throws ConfigurationException, IOException
     {
-
-        // Install modules
         for (String mn : moduleNames)
-            install (classes, mn);
+            install(classes, mn, root);
+        configure(null);
+    }
 
-        // Update configurations
-        // ## We could be a lot more clever about this!
+    /**
+     * <p> Pre-install one or more modules to an arbitrary destination
+     * directory. </p>
+     *
+     * <p> A pre-installed module has the same format as within the library
+     * itself, except that there is never a configuration file. </p>
+     *
+     * <p> This method is provided for use by the module-packaging tool. </p>
+     *
+     * @param   classes
+     *          The directory of classes containing the modules to be installed
+     *
+     * @param   moduleNames
+     *          The names of the modules to be installed from the given classes
+     *          directory
+     *
+     * @param   dst
+     *          The destination directory, with one subdirectory per module
+     *          name, each of which contains one subdirectory per version
+     */
+    public void preInstall(File classes, List<String> moduleNames, File dst)
+        throws IOException
+    {
+        Files.mkdirs(dst, "module destination");
+        for (String mn : moduleNames)
+            install(classes, mn, dst);
+    }
+
+    /**
+     * <p> Update the configurations of any root modules affected by the
+     * copying of the named modules, in pre-installed format, into this
+     * library. </p>
+     *
+     * @param   mids
+     *          The module ids of the new or updated modules, or
+     *          {@code null} if the configuration of every root module
+     *          should be (re)computed
+     */
+    public void configure(List<ModuleId> mids)
+        throws ConfigurationException, IOException
+    {
+        // ## mids not used yet
         for (ModuleInfo mi : listRootModuleInfos()) {
+            // ## We could be a lot more clever about this!
             Configuration cf
                 = Resolver.create(this, mi.id().toQuery()).run();
             new StoredConfiguration(moduleDir(mi.id()), cf).store();
         }
-
     }
 
 }

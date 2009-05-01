@@ -60,16 +60,16 @@ public class Librarian {
         out.format("%n");
     }
 
-    public static class Create extends Command<Library> {
-        protected void go(Library lib)
+    public static class Create extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             finishArgs();
         }
     }
 
-    public static class Dump extends Command<Library> {
-        protected void go(Library lib)
+    public static class Dump extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             String mids = takeArg();
@@ -101,8 +101,8 @@ public class Librarian {
         }
     }
 
-    public static class Identify extends Command<Library> {
-        protected void go(Library lib)
+    public static class Identify extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             finishArgs();
@@ -116,8 +116,8 @@ public class Librarian {
         }
     }
 
-    public static class Install extends Command<Library> {
-        protected void go(Library lib)
+    public static class Install extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             File classes = new File(takeArg());
@@ -130,6 +130,25 @@ public class Librarian {
                 lib.install(classes, mns);
             } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
+
+    public static class PreInstall extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            File classes = new File(takeArg());
+            File dst = new File(takeArg());
+            java.util.List<String> mns = new ArrayList<String>();
+            mns.add(takeArg());
+            while (hasArg())
+                mns.add(takeArg());
+            finishArgs();
+            try {
+                lib.preInstall(classes, mns, dst);
             } catch (IOException x) {
                 throw new Command.Exception(x);
             }
@@ -150,8 +169,8 @@ public class Librarian {
                                  jms.parseVersionQuery(vq));
     }
 
-    public static class List extends Command<Library> {
-        protected void go(Library lib)
+    public static class List extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             final ModuleIdQuery midq;
@@ -186,8 +205,8 @@ public class Librarian {
         }
     }
 
-    public static class Config extends Command<Library> {
-        protected void go(Library lib)
+    public static class Show extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             String mids = takeArg();
@@ -209,12 +228,32 @@ public class Librarian {
         }
     }
 
+    public static class Config extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            java.util.List<ModuleId> mids = new ArrayList<ModuleId>();
+            try {
+                while (hasArg())
+                    mids.add(jms.parseModuleId(takeArg()));
+            } catch (IllegalArgumentException x) {
+                throw new Command.Exception(x.getMessage());
+            }
+            try {
+                lib.configure(mids);
+            } catch (ConfigurationException x) {
+                throw new Command.Exception(x);
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
 
-    private static Map<String,Class<? extends Command<Library>>> commands
-        = new HashMap<String,Class<? extends Command<Library>>>();
+
+    private static Map<String,Class<? extends Command<SimpleLibrary>>> commands
+        = new HashMap<String,Class<? extends Command<SimpleLibrary>>>();
 
     static {
-        commands.put("cf", Config.class);
         commands.put("config", Config.class);
         commands.put("create", Create.class);
         commands.put("dump", Dump.class);
@@ -223,6 +262,8 @@ public class Librarian {
         commands.put("install", Install.class);
         commands.put("list", List.class);
         commands.put("ls", List.class);
+        commands.put("preinstall", PreInstall.class);
+        commands.put("show", Show.class);
     }
 
 
@@ -230,12 +271,14 @@ public class Librarian {
 
     private void usage() {
         out.format("%n");
-        out.format("usage: jmod [-L <path>] config <module-id>%n");
-        out.format("       jmod [-L <path>] create%n");
-        out.format("       jmod [-L <path>] dump <module-id> <class-name>%n");
-        out.format("       jmod [-L <path>] identify%n");
-        out.format("       jmod [-L <path>] install <classes-dir> <module-name>%n");
-        out.format("       jmod [-L <path>] list [-v] [<module-id-query>]%n");
+        out.format("usage: jmod config [<module-id> ...]%n");
+        out.format("       jmod create%n");
+        out.format("       jmod dump <module-id> <class-name>%n");
+        out.format("       jmod identify%n");
+        out.format("       jmod install <classes-dir> <module-name> ...%n");
+        out.format("       jmod list [-v] [<module-id-query>]%n");
+        out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
+        out.format("       jmod show <module-id>%n");
         out.format("%n");
         try {
             parser.printHelpOn(out);
@@ -272,7 +315,7 @@ public class Librarian {
             if (words.isEmpty())
                 usage();
             String verb = words.get(0);
-            Class<? extends Command<Library>> cmd = commands.get(verb);
+            Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
             if (cmd == null)
                 throw new Command.Exception("%s: unknown command", verb);
             File lp = null;
@@ -284,7 +327,7 @@ public class Librarian {
                     throw new Command.Exception("No module library specified");
                 lp = new File(jm);
             }
-            Library lib = null;
+            SimpleLibrary lib = null;
             try {
                 lib = SimpleLibrary.open(lp, verb.equals("create"));
             } catch (FileNotFoundException x) {
