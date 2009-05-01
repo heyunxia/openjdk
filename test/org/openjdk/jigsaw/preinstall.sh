@@ -23,11 +23,12 @@
 
 # @test Pre-install
 
-set -e
-/bin/sh preinstall-setup.sh
-
+SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../build}/bin
 alias jmod=$BIN/jmod
+
+set -e
+/bin/sh $SRC/preinstall-setup.sh
 
 export JAVA_MODULES=z.lib
 jmod create
