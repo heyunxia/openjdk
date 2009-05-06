@@ -29,7 +29,9 @@ package org.openjdk.jigsaw;
 
 import java.lang.module.*;
 import java.lang.reflect.Module;
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -185,6 +187,92 @@ class Loader
 
     public String toString() {
         return context.name();
+    }
+
+
+    // -- Resources --
+
+    // --
+    //
+    // The approach taken here is simply to discover resources at run time.
+    // Given a resource name we first search this loader's modules for that
+    // resource; we then search the loaders for every other context in this
+    // configuration.  If we think of a Jigsaw configuration as a "better
+    // class path" then this isn't completely unreasonable, but it is meant
+    // to be temporary.
+    //
+    // An eventual fuller treatment of resources will treat them more like
+    // classes, resolving them statically, allowing them to be declared
+    // private to a module or public, and re-exporting them from one
+    // context to another when "requires public" is used.
+    //
+    // --
+
+    private static interface ResourceVisitor {
+        // Return null to continue the search or a File to terminate
+        // the search, returning that File
+        public File accept(File f) throws IOException;
+    }
+
+    private File visitLocalResources(String rn, ResourceVisitor rv)
+        throws IOException
+    {
+        for (ModuleId mid : context.modules()) {
+            File f = pool.library().findResource(mid, rn);
+            if (f != null) {
+                f = rv.accept(f);
+                if (f != null)
+                    return f;
+            }
+        }
+        return null;
+    }
+
+    private File visitResources(String rn, ResourceVisitor rv)
+        throws IOException
+    {
+        // ## Should look up "platform" resources first,
+        // ## in order to mimic current behavior
+        File f = visitLocalResources(rn, rv);
+        if (f != null)
+            return f;
+        for (Context cx : pool.config().contexts()) {
+            if (context == cx)
+                continue;
+            f = pool.findLoader(cx).visitLocalResources(rn, rv);
+            if (f != null)
+                return f;
+        }
+        return null;
+    }
+
+    public URL getResource(String rn) {
+        try {
+            File f = visitResources(rn, new ResourceVisitor() {
+                    public File accept(File f) {
+                        return f;
+                    }
+                });
+            if (f != null)
+                return f.toURI().toURL();
+            return null;
+        } catch (IOException x) {
+            // ClassLoader.getResource doesn't throw IOException (!)
+            return null;
+        }
+    }
+
+    public Enumeration<URL> getResources(String rn)
+        throws IOException
+    {
+        final List<URL> fs = new ArrayList<URL>();
+        visitResources(rn, new ResourceVisitor() {
+                public File accept(File f) throws IOException {
+                    fs.add(f.toURI().toURL());
+                    return null;
+                }
+            });
+        return Collections.enumeration(fs);
     }
 
 }

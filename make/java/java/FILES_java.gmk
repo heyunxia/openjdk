@@ -484,6 +484,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/Library.java \
     org/openjdk/jigsaw/Loader.java \
     org/openjdk/jigsaw/LoaderPool.java \
+    org/openjdk/jigsaw/Manifest.java \
     org/openjdk/jigsaw/Resolver.java \
     org/openjdk/jigsaw/SimpleLibrary.java \
     org/openjdk/jigsaw/Trace.java \

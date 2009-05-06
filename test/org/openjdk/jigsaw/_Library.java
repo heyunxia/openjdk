@@ -72,7 +72,7 @@ public class _Library {
 	eq(lib.minorVersion(), 1);
 
 	// Install
-	lib.install(testClasses, Arrays.asList("com.foo.bar"));
+	lib.install(Arrays.asList(Manifest.create("com.foo.bar", testClasses)));
 
 	// Enumerate
 	lib = SimpleLibrary.open(libPath, false);
@@ -89,9 +89,9 @@ public class _Library {
 	// Install multiple versions of a module
 	String[] multiVersions = new String[] { "1", "1.2", "2", "3" };
 	for (String v : multiVersions) {
-	    lib.install(new File(testClasses,
-				 "module-classes/org.multi@" + v),
-			Arrays.asList("org.multi"));
+	    lib.install(Arrays.asList(Manifest.create("org.multi")
+                                      .addClasses(new File(testClasses,
+                                                           "module-classes/org.multi@" + v))));
 	}
 
 	// Find module ids by name
@@ -160,7 +160,7 @@ public class _Library {
 	eq(cx.remotePackages(), Collections.emptySet());
 
 	// Install a root module that has a supplier
-	lib.install(testClasses, Arrays.asList("net.baz.aar"));
+	lib.install(Arrays.asList(Manifest.create("net.baz.aar", testClasses)));
 	ModuleId bazmid = ms.parseModuleId("net.baz.aar@9");
 
 	// Then check its configuration

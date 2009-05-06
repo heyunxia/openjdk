@@ -102,4 +102,4 @@ EOF
 $BIN/javac -source 7 -d z.classes \
   $(find z.src/net.baz.aar -name '*.java')
 
-$BIN/java -cp z.classes _Library
+$BIN/java -ea -cp z.classes _Library

@@ -114,7 +114,7 @@ install() {
 
 invoke() {
   if [ -e main ]; then
-    $BIN/java org.openjdk.jigsaw.Launcher z.lib $(cat main)
+    $BIN/java -ea org.openjdk.jigsaw.Launcher z.lib $(cat main)
   else
     true
   fi
@@ -147,6 +147,8 @@ run() {
       step compile pass && step install fail;;
     'fail invoke')
       step compile pass && step install pass && step invoke fail;;
+    'pass compile')
+      step compile pass;;
     pass)
       step compile pass && step install pass && step invoke pass;;
     *)

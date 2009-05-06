@@ -29,6 +29,7 @@ import java.lang.module.*;
 import java.io.*;
 import java.util.*;
 
+
 /**
  * The abstract base class for module libraries
  *
@@ -39,6 +40,8 @@ public abstract class Library {
 
     private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
+
+    protected Library() { }
 
     /**
      * This library's name, not guaranteed to be unique.
@@ -257,20 +260,35 @@ public abstract class Library {
         throws IOException;
 
     /**
-     * Install one or more modules into this library.
+     * <p> Install one or more modules into this library. </p>
      *
-     * The modules are first copied from the given classes directory, and then
-     * the configurations of any affected root modules in the library are
-     * recomputed.
+     * <p> The modules are first copied from the locations specified in the
+     * given manifests, and then the configurations of any affected root
+     * modules in the library are recomputed. </p>
      *
-     * @param   classes
-     *          The directory of classes containing the modules to be installed
-     *
-     * @param   moduleNames
-     *          The names of the modules to be installed from the given classes
-     *          directory
+     * @param   mfs
+     *          The manifests describing the contents of the modules to be
+     *          installed
      */
-    public abstract void install(File classes, final List<String> moduleNames)
+    public abstract void install(Collection<Manifest> mfs)
         throws ConfigurationException, IOException;
+
+    /**
+     * Find a resource within the given module.
+     *
+     * @param   mid
+     *          The module's identifier
+     *
+     * @param   rn
+     *          The name of the requested resource, in the usual
+     *          slash-separated form
+     *
+     * @return  A {@code File} object naming the location of the resource,
+     *          or {@code null} if the named module does not define that
+     *          resource
+     */
+    // ## Returning file paths here is EVIL!
+    public abstract File findResource(ModuleId mid, String rn)
+        throws IOException;
 
 }

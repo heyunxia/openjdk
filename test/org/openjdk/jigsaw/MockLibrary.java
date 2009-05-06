@@ -90,7 +90,7 @@ class MockLibrary
     public int majorVersion() { return 0; }
     public int minorVersion() { return 1; }
 
-    public void install(File classes, List<String> moduleName) {
+    public void install(Collection<Manifest> mf) {
 	throw new UnsupportedOperationException();
     }
 
@@ -147,6 +147,10 @@ class MockLibrary
 
     public Configuration readConfiguration(ModuleId mid) {
 	throw new UnsupportedOperationException();
+    }
+
+    public File findResource(ModuleId mid, String name) {
+        throw new UnsupportedOperationException();
     }
 
 }

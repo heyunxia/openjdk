@@ -45,6 +45,7 @@ import static org.openjdk.jigsaw.Trace.*;
 //                          index (list of defined classes)
 //                          config (resolved configuration, if a root)
 //                          classes/com/foo/bar/...
+//                          resources/com/foo/bar/...
 //                          lib/libbar.so
 //                          bin/bar
 
@@ -475,11 +476,19 @@ public final class SimpleLibrary
         return scf.cf;
     }
 
-    private void install(File classes, final String moduleName, File dst)
+    private void install(Manifest mf, File dst)
         throws IOException
     {
+        if (mf.classes().size() > 1)
+            throw new IllegalArgumentException("Multiple classes directories"
+                                               + " not yet supported");
+        if (mf.classes().size() < 1)
+            throw new IllegalArgumentException("At least one classes"
+                                               + " directory required");
+        File classes = mf.classes().get(0);
+        final String mn = mf.module();
 
-        String path = moduleName.replace('.', '/');
+        String path = mn.replace('.', '/');
         File src = new File(classes, path);
         byte[] bs =  Files.load(new File(src, "module-info.class"));
         ModuleInfo mi = jms.parseModuleInfo(bs);
@@ -503,7 +512,7 @@ public final class SimpleLibrary
                 ClassInfo ci = ClassInfo.read(f);
                 if (ci.moduleName() == null)
                     return false;
-                if (!ci.isModuleInfo() && ci.moduleName().equals(moduleName)) {
+                if (!ci.isModuleInfo() && ci.moduleName().equals(mn)) {
                     if (ci.isPublic())
                         ix.publicClasses().add(ci.name());
                     else
@@ -514,13 +523,24 @@ public final class SimpleLibrary
             }});
         ix.store();
 
+        // Copy resources
+        File rdst = new File(mdst, "resources");
+        for (File rsrc : mf.resources())
+            Files.copyTree(rsrc, rdst);
+
     }
 
-    public void install(File classes, List<String> moduleNames)
+    private void install(Collection<Manifest> mfs, File dst)
+        throws IOException
+    {
+        for (Manifest mf : mfs)
+            install(mf, dst);
+    }
+
+    public void install(Collection<Manifest> mfs)
         throws ConfigurationException, IOException
     {
-        for (String mn : moduleNames)
-            install(classes, mn, root);
+        install(mfs, root);
         configure(null);
     }
 
@@ -533,23 +553,25 @@ public final class SimpleLibrary
      *
      * <p> This method is provided for use by the module-packaging tool. </p>
      *
-     * @param   classes
-     *          The directory of classes containing the modules to be installed
-     *
-     * @param   moduleNames
-     *          The names of the modules to be installed from the given classes
-     *          directory
+     * @param   mfs
+     *          The manifest describing the contents of the modules to be
+     *          pre-installed
      *
      * @param   dst
      *          The destination directory, with one subdirectory per module
      *          name, each of which contains one subdirectory per version
      */
-    public void preInstall(File classes, List<String> moduleNames, File dst)
+    public void preInstall(Collection<Manifest> mfs, File dst)
         throws IOException
     {
         Files.mkdirs(dst, "module destination");
-        for (String mn : moduleNames)
-            install(classes, mn, dst);
+        install(mfs, dst);
+    }
+
+    public void preInstall(Manifest mf, File dst)
+        throws IOException
+    {
+        preInstall(Collections.singleton(mf), dst);
     }
 
     /**
@@ -572,6 +594,18 @@ public final class SimpleLibrary
                 = Resolver.create(this, mi.id().toQuery()).run();
             new StoredConfiguration(moduleDir(mi.id()), cf).store();
         }
+    }
+
+    public File findResource(ModuleId mid, String name)
+        throws IOException
+    {
+        File md = findModuleDir(mid);
+        if (md == null)
+            return null;
+        File f = new File(new File(md, "resources"), name);
+        if (!f.exists())
+            return null;
+        return f;
     }
 
 }

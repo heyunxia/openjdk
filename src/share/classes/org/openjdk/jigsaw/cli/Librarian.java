@@ -60,7 +60,7 @@ public class Librarian {
         out.format("%n");
     }
 
-    public static class Create extends Command<SimpleLibrary> {
+    static class Create extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -68,7 +68,7 @@ public class Librarian {
         }
     }
 
-    public static class Dump extends Command<SimpleLibrary> {
+    static class Dump extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -101,7 +101,7 @@ public class Librarian {
         }
     }
 
-    public static class Identify extends Command<SimpleLibrary> {
+    static class Identify extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -116,18 +116,22 @@ public class Librarian {
         }
     }
 
-    public static class Install extends Command<SimpleLibrary> {
+    static class Install extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             File classes = new File(takeArg());
-            java.util.List<String> mns = new ArrayList<String>();
-            mns.add(takeArg());
+            java.util.List<Manifest> mfs = new ArrayList<Manifest>();
             while (hasArg())
-                mns.add(takeArg());
+                mfs.add(Manifest.create(takeArg(), classes));
             finishArgs();
+            if (!mfs.isEmpty() && opts.has(resourcePath)) {
+                // ## Single -r option only applies to first module
+                // ## Should support one -r option for each module
+                mfs.get(0).addResources(opts.valueOf(resourcePath));
+            }
             try {
-                lib.install(classes, mns);
+                lib.install(mfs);
             } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
             } catch (IOException x) {
@@ -136,19 +140,23 @@ public class Librarian {
         }
     }
 
-    public static class PreInstall extends Command<SimpleLibrary> {
+    static class PreInstall extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             File classes = new File(takeArg());
             File dst = new File(takeArg());
-            java.util.List<String> mns = new ArrayList<String>();
-            mns.add(takeArg());
+            java.util.List<Manifest> mfs = new ArrayList<Manifest>();
             while (hasArg())
-                mns.add(takeArg());
+                mfs.add(Manifest.create(takeArg(), classes));
+            if (!mfs.isEmpty() && opts.has(resourcePath)) {
+                // ## Single -r option only applies to first module
+                // ## Should support one -r option for each module
+                mfs.get(0).addResources(opts.valueOf(resourcePath));
+            }
             finishArgs();
             try {
-                lib.preInstall(classes, mns, dst);
+                lib.preInstall(mfs, dst);
             } catch (IOException x) {
                 throw new Command.Exception(x);
             }
@@ -169,7 +177,7 @@ public class Librarian {
                                  jms.parseVersionQuery(vq));
     }
 
-    public static class List extends Command<SimpleLibrary> {
+    static class List extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -205,7 +213,7 @@ public class Librarian {
         }
     }
 
-    public static class Show extends Command<SimpleLibrary> {
+    static class Show extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -228,7 +236,7 @@ public class Librarian {
         }
     }
 
-    public static class Config extends Command<SimpleLibrary> {
+    static class Config extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -266,8 +274,9 @@ public class Librarian {
         commands.put("show", Show.class);
     }
 
-
     private OptionParser parser;
+
+    private static OptionSpec<File> resourcePath; // ##
 
     private void usage() {
         out.format("%n");
@@ -275,7 +284,7 @@ public class Librarian {
         out.format("       jmod create%n");
         out.format("       jmod dump <module-id> <class-name>%n");
         out.format("       jmod identify%n");
-        out.format("       jmod install <classes-dir> <module-name> ...%n");
+        out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
         out.format("       jmod list [-v] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
         out.format("       jmod show <module-id>%n");
@@ -303,6 +312,15 @@ public class Librarian {
                           "Enable verbose output");
         parser.acceptsAll(Arrays.asList("h", "?", "help"),
                           "Show this help message");
+
+        // ## Need subcommand-specific option parsing
+        resourcePath
+            = (parser.acceptsAll(Arrays.asList("r", "resources"),
+                                 "Directory of resources to be processed")
+               .withRequiredArg()
+               .describedAs("path")
+               .ofType(File.class));
+            
 
         if (args.length == 0)
             usage();

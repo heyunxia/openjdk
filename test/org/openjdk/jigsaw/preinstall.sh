@@ -23,16 +23,19 @@
 
 # @test Pre-install
 
+set -e
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../build}/bin
 alias jmod=$BIN/jmod
 
-set -e
-/bin/sh $SRC/preinstall-setup.sh
+/bin/sh ${TESTSRC:-.}/tester.sh $0
+
+mkdir -p z.res/foo
+echo '<hello/>' >z.res/foo/x.xml
 
 export JAVA_MODULES=z.lib
 jmod create
-jmod preinstall z.tests/000setup/classes z.pre x y
+jmod preinstall z.tests/000setup/classes -r z.res z.pre x y
 cp -r z.pre/* z.lib
 ms="$(echo $(jmod list | sort))"
 if [ "$ms" != "x@1 y@1" ]; then
@@ -41,3 +44,42 @@ if [ "$ms" != "x@1 y@1" ]; then
 fi
 JIGSAW_TRACE=1 jmod config
 jmod show x@1
+$BIN/java -ea org.openjdk.jigsaw.Launcher z.lib x x.X
+exit 0
+
+
+# -- Setup
+
+: setup pass compile
+
+module x @ 1 {
+  requires y @ 1;
+  class x.X;
+}
+
+package x;
+import java.io.*;
+import java.net.*;
+public class X {
+    public static void main(String[] args) throws Exception {
+        ClassLoader cl = X.class.getClassLoader();
+        URL u = cl.getResource("foo/x.xml");
+        if (u == null)
+            throw new Error("No resource foo/x.xml");
+        System.out.format("%s%n", u);
+        InputStream in = cl.getResourceAsStream("/foo/x.xml");
+        byte[] buf = new byte[1024];
+        int n = in.read(buf);
+        if (n <= 0)
+            throw new Error();
+        System.out.write(buf, 0, n);
+        System.exit(y.Y.zero());
+    }
+}
+
+module y @ 1 { }
+
+package y;
+public class Y {
+    public static int zero() { return 0; }
+}
