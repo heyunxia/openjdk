@@ -275,4 +275,29 @@ class Loader
         return Collections.enumeration(fs);
     }
 
+
+    // -- Stubs for methods not yet re-implemented --
+
+    /* ## Can't do this -- CL.getParent is final
+    public ClassLoader getParent() {
+        throw new UnsupportedOperationException();
+    }
+    */
+
+    protected Package definePackage(String name, String specTitle,
+                                    String specVersion, String specVendor,
+                                    String implTitle, String implVersion,
+                                    String implVendor, URL sealBase)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    protected Package getPackage(String name) {
+        throw new UnsupportedOperationException();
+    }
+
+    protected Package[] getPackages() {
+        throw new UnsupportedOperationException();
+    }
+
 }
