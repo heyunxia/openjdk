@@ -247,6 +247,10 @@ class Arguments : AllStatic {
   // java/gamma launcher
   static const char* _sun_java_launcher;
 
+  // sun.java.launcher.module.boot, private property identifying
+  // the path from which to boot when in modular mode
+  static const char* _sun_java_launcher_module_boot;
+
   // sun.java.launcher.pid, private property
   static int    _sun_java_launcher_pid;
 
@@ -426,6 +430,10 @@ class Arguments : AllStatic {
   static bool created_by_java_launcher();
   // -Dsun.java.launcher.pid
   static int sun_java_launcher_pid()        { return _sun_java_launcher_pid; }
+  // -Dsun.java.launcher.module.boot
+  static const char* sun_java_launcher_module_boot() {
+    return _sun_java_launcher_module_boot;
+  }
 
   // -Xloggc:<file>, if not specified will be NULL
   static const char* gc_log_filename()      { return _gc_log_filename; }
