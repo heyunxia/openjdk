@@ -63,7 +63,7 @@ public class ClassInfo {
     private static String readUTF(ByteBuffer bb)
         throws UTFDataFormatException
     {
-        int utflen = bb.getShort();
+        int utflen = bb.getShort() & 0xffff;
         int start = bb.position();
         int count = 0;
         char[] chararr = new char[utflen];
