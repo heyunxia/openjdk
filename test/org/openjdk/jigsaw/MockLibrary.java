@@ -94,7 +94,11 @@ class MockLibrary
 	throw new UnsupportedOperationException();
     }
 
-    public void visitModules(ModuleInfoVisitor mv) {
+    public Library parent() {
+        return null;
+    }
+
+    public List<ModuleId> listModuleIds(boolean parents) {
 	throw new UnsupportedOperationException();
     }
 

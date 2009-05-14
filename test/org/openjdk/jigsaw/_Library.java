@@ -67,7 +67,7 @@ public class _Library {
 	out.format("%s%n", lib);
 
 	// Check
-	lib = SimpleLibrary.open(libPath, false);
+	lib = SimpleLibrary.open(libPath);
 	eq(lib.majorVersion(), 0);
 	eq(lib.minorVersion(), 1);
 
@@ -75,16 +75,14 @@ public class _Library {
 	lib.install(Arrays.asList(Manifest.create("com.foo.bar", testClasses)));
 
 	// Enumerate
-	lib = SimpleLibrary.open(libPath, false);
-	final int[] n = new int[1];
-	lib.visitModules(new Library.ModuleInfoVisitor() {
-		public void accept(ModuleInfo mi) {
-		    checkFooModuleInfo(mi);
-		    n[0]++;
-		}
-	    });
-	if (n[0] != 1)
-	    throw new RuntimeException("Wrong number of modules: " + n[0]);
+	lib = SimpleLibrary.open(libPath);
+	int n = 0;
+        for (ModuleId mid : lib.listModuleIds(false)) {
+            checkFooModuleInfo(lib.readModuleInfo(mid));
+            n++;
+        }
+	if (n != 1)
+	    throw new RuntimeException("Wrong number of modules: " + n);
 
 	// Install multiple versions of a module
 	String[] multiVersions = new String[] { "1", "1.2", "2", "3" };
@@ -193,6 +191,13 @@ public class _Library {
 	}
 	if (cb != 3)
 	    throw new AssertionError(cb);
+
+        // Delegation
+        File lib2path = new File("z.lib2");
+        Library lib2 = SimpleLibrary.open(lib2path, true, libPath);
+        lib2 = SimpleLibrary.open(lib2path);
+        eq(lib2.findModuleIds("com.foo.bar"), Arrays.asList(foomid));
+        eq(lib2.findModuleIds("net.baz.aar"), Arrays.asList(bazmid));
 
     }
 

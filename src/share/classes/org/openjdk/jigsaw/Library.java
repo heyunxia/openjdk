@@ -52,34 +52,48 @@ public abstract class Library {
     public abstract int minorVersion();
 
     /**
-     * Visitor interface for {@link java.lang.module.ModuleInfo ModuleInfo}
-     * objects.
+     * <p> This library's parent library, for delegation </p>
      *
-     * @see Library#visitModules
+     * <p> If a library has a parent then every module in the parent library
+     * that is not also present in the child appears to be in the child, except
+     * that it cannot be installed, uninstalled, or configured.  This property
+     * is recursive: A library may have a parent which in turn has a parent,
+     * which would be the first library's grandparent, and so on. </p>
+     *
+     * <p> When searching for modules the child library is always considered
+     * first; this is the opposite of the old class-loader delegation
+     * model. </p>
+     *
+     * @return  This library's parent library, or {@code null}
+     *          if it has no parent
      */
-    public interface ModuleInfoVisitor {
-
-        /**
-         * Visit a single module-info object.
-         */
-        public void accept(ModuleInfo mi);
-
-    }
+    public abstract Library parent();
 
     /**
-     * Visit all of the modules installed in this library.
+     * <p> List all of the modules installed in this library, optionally
+     * including the modules installed in this library's parent if it has
+     * one. </p>
+     *
+     * @param   listParents
+     *          Whether or not modules installed in this library's parent,
+     *          if defined, should be included
      *
      * @param   visitor
      *          The visitor to be applied to each {@link
      *          java.lang.module.ModuleInfo ModuleInfo}
+     *
+     * @return  The list of requested module ids, sorted in their natural
+     *          order
      */
-
-    public abstract void visitModules(ModuleInfoVisitor visitor)
+    public abstract List<ModuleId> listModuleIds(boolean listParents)
         throws IOException;
 
     /**
-     * List all of the root modules installed in this library.  A root module
-     * is any module that declares a main class.
+     * <p> List all of the root modules installed in this library.  A root module
+     * is any module that declares a main class. </p>
+     *
+     * <p> This method does not include root modules installed in this
+     * library's parent, if any. </p>
      *
      * @return  An unsorted list of module-info objects
      */
@@ -87,12 +101,11 @@ public abstract class Library {
         throws IOException
     {
         final List<ModuleInfo> mis = new ArrayList<ModuleInfo>();
-        visitModules(new ModuleInfoVisitor() {
-                public void accept(ModuleInfo mi) {
-                    if (mi.mainClass() != null)
-                        mis.add(mi);
-                }
-            });
+        for (ModuleId mid : listModuleIds(false)) {
+            ModuleInfo mi = readModuleInfo(mid);
+            if (mi.mainClass() != null)
+                mis.add(mi);
+        }
         return mis;
     }
 

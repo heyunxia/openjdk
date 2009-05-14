@@ -106,12 +106,13 @@ public class Librarian {
             throws Command.Exception
         {
             finishArgs();
-            try {
-                out.format("path %s%n", new File(lib.name()).getCanonicalPath());
-                out.format("version %d.%d%n",
-                           lib.majorVersion(), lib.minorVersion());
-            } catch (IOException x) {
-                throw new Command.Exception(x);
+            out.format("path %s%n", lib.root());
+            out.format("version %d.%d%n",
+                       lib.majorVersion(), lib.minorVersion());
+            SimpleLibrary plib = lib.parent();
+            while (plib != null) {
+                out.format("parent %s%n", plib.root());
+                plib = plib.parent();
             }
         }
     }
@@ -186,29 +187,29 @@ public class Librarian {
                 midq = parseModuleIdQuery(takeArg());
             else
                 midq = null;
+            boolean parents = opts.has("p");
             finishArgs();
-            final int[] n = new int[1];
+            int n = 0;
             try {
-                lib.visitModules(new Library.ModuleInfoVisitor() {
-                        public void accept(ModuleInfo mi) {
-                            if (midq != null && !midq.matches(mi.id()))
-                                return;
-                            if (verbose)
-                                out.format("%n");
-                            out.format("%s%n", mi.id());
-                            n[0]++;
-                            if (verbose) {
-                                formatCommaList(out, "provides", mi.provides());
-                                for (Dependence d : mi.requires())
-                                    out.format("  %s%n", d);
-                                formatCommaList(out, "permits", mi.permits());
-                            }
-                        }
-                    });
+                for (ModuleId mid : lib.listModuleIds(parents)) {
+                    if (midq != null && !midq.matches(mid))
+                        continue;
+                    ModuleInfo mi = lib.readModuleInfo(mid);
+                    if (verbose)
+                        out.format("%n");
+                    out.format("%s%n", mi.id());
+                    n++;
+                    if (verbose) {
+                        formatCommaList(out, "provides", mi.provides());
+                        for (Dependence d : mi.requires())
+                            out.format("  %s%n", d);
+                        formatCommaList(out, "permits", mi.permits());
+                    }
+                }
             } catch (IOException x) {
                 throw new Command.Exception(x);
             }
-            if (verbose && n[0] > 0)
+            if (verbose && n > 0)
                 out.format("%n");
         }
     }
@@ -281,11 +282,11 @@ public class Librarian {
     private void usage() {
         out.format("%n");
         out.format("usage: jmod config [<module-id> ...]%n");
-        out.format("       jmod create%n");
+        out.format("       jmod create [-L <library>] [-P <parent>]%n");
         out.format("       jmod dump <module-id> <class-name>%n");
         out.format("       jmod identify%n");
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
-        out.format("       jmod list [-v] [<module-id-query>]%n");
+        out.format("       jmod list [-v] [-p] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
         out.format("       jmod show <module-id>%n");
         out.format("%n");
@@ -302,9 +303,17 @@ public class Librarian {
 
         parser = new OptionParser();
 
+        // ## Need subcommand-specific option parsing
         OptionSpec<File> libPath
             = (parser.acceptsAll(Arrays.asList("L", "library"),
-                                 "Module-library location (default $JAVA_MODULES)")
+                                 "Module-library location"
+                                 + " (default $JAVA_MODULES)")
+               .withRequiredArg()
+               .describedAs("path")
+               .ofType(File.class));
+        OptionSpec<File> parentPath
+            = (parser.acceptsAll(Arrays.asList("P", "parent-path"),
+                                 "Parent module-library location")
                .withRequiredArg()
                .describedAs("path")
                .ofType(File.class));
@@ -312,8 +321,8 @@ public class Librarian {
                           "Enable verbose output");
         parser.acceptsAll(Arrays.asList("h", "?", "help"),
                           "Show this help message");
-
-        // ## Need subcommand-specific option parsing
+        parser.acceptsAll(Arrays.asList("p", "parent"),
+                          "Apply operation to parent library, if any");
         resourcePath
             = (parser.acceptsAll(Arrays.asList("r", "resources"),
                                  "Directory of resources to be processed")
@@ -345,11 +354,26 @@ public class Librarian {
                     throw new Command.Exception("No module library specified");
                 lp = new File(jm);
             }
+            File pp = null;
+            if (opts.has(parentPath)) {
+                pp = opts.valueOf(parentPath);
+            }
             SimpleLibrary lib = null;
             try {
-                lib = SimpleLibrary.open(lp, verb.equals("create"));
+                lib = SimpleLibrary.open(lp, verb.equals("create"), pp);
             } catch (FileNotFoundException x) {
-                throw new Command.Exception("%s: No such library", lp);
+                String msg = null;
+                File f = new File(x.getMessage());
+                try {
+                    f = f.getCanonicalFile();
+                    if (lp.getCanonicalFile().equals(f))
+                        msg = "No such library";
+                    else
+                        msg = "Cannot open parent library " + f;
+                } catch (IOException y) {
+                    throw new Command.Exception(y);
+                }
+                throw new Command.Exception("%s: %s", lp, msg);
             } catch (IOException x) {
                 throw new Command.Exception(x);
             }

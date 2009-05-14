@@ -133,15 +133,35 @@ public final class SimpleLibrary
         private static int MAJOR_VERSION = 0;
         private static int MINOR_VERSION = 1;
 
-        private Header(File root) {
+        private File parent;
+        public File parent() { return parent; }
+
+        private Header(File root, File p) {
             super(MAJOR_VERSION, MINOR_VERSION,
                   FileConstants.Type.LIBRARY_HEADER,
                   new File(root, FILE));
+            this.parent = p;
         }
 
-        protected void storeRest(DataOutputStream out) throws IOException { }
+        private Header(File root) {
+            this(root, null);
+        }
 
-        protected void loadRest(DataInputStream in) throws IOException { }
+        protected void storeRest(DataOutputStream out)
+            throws IOException
+        {
+            out.writeByte((parent != null) ? 1 : 0);
+            if (parent != null)
+                out.writeUTF(parent.toString());
+        }
+
+        protected void loadRest(DataInputStream in)
+            throws IOException
+        {
+            int b = in.readByte();
+            if (b != 0)
+                parent = new File(in.readUTF());
+        }
 
         private static Header load(File f)
             throws IOException
@@ -155,11 +175,15 @@ public final class SimpleLibrary
 
     private final File root;
     private final File canonicalRoot;
+    private File parentPath = null;
+    private SimpleLibrary parent = null;
     private final Header hd;
 
     public String name() { return root.toString(); }
+    public File root() { return canonicalRoot; }
     public int majorVersion() { return hd.majorVersion; }
     public int minorVersion() { return hd.minorVersion; }
+    public SimpleLibrary parent() { return parent; }
 
     @Override
     public String toString() {
@@ -168,7 +192,7 @@ public final class SimpleLibrary
                 + ", v" + hd.majorVersion + "." + hd.minorVersion + "]");
     }
 
-    private SimpleLibrary(File path, boolean create)
+    private SimpleLibrary(File path, boolean create, File parentPath)
         throws IOException
     {
         root = path;
@@ -177,20 +201,41 @@ public final class SimpleLibrary
             if (!root.isDirectory())
                 throw new IOException(root + ": Exists but is not a directory");
             hd = Header.load(root);
+            if (hd.parent() != null) {
+                parent = open(hd.parent());
+                parentPath = hd.parent();
+            }
             return;
         }
         if (!create)
             throw new FileNotFoundException(root.toString());
+        if (parentPath != null) {
+            this.parent = open(parentPath);
+            this.parentPath = this.parent.root();
+        }
         if (!root.mkdir())
             throw new IOException(root + ": Cannot create library directory");
-        hd = new Header(root);
+        hd = new Header(root, this.parentPath);
         hd.store();
     }
 
-    public static SimpleLibrary open(java.io.File path, boolean create)
+    public static SimpleLibrary open(File path, boolean create, File parent)
         throws IOException
     {
-        return new SimpleLibrary(path, create);
+        return new SimpleLibrary(path, create, parent);
+    }
+
+    public static SimpleLibrary open(File path, boolean create)
+        throws IOException
+    {
+        // ## Should default parent to $JAVA_HOME/lib/modules
+        return new SimpleLibrary(path, create, null);
+    }
+
+    public static SimpleLibrary open(File path)
+        throws IOException
+    {
+        return new SimpleLibrary(path, false, null);
     }
 
     private static final JigsawModuleSystem jms
@@ -357,7 +402,7 @@ public final class SimpleLibrary
 
     }
 
-    public void visitModules(ModuleInfoVisitor mv)
+    public void gatherModuleIds(boolean parents, Set<ModuleId> mids)
         throws IOException
     {
         File[] mnds = root.listFiles();
@@ -365,33 +410,51 @@ public final class SimpleLibrary
         for (File mnd : mnds) {
             if (mnd.getName().startsWith(FileConstants.META_PREFIX))
                 continue;
-            File[] mds = mnd.listFiles();
-            Arrays.sort(mds);
-            for (File md : mds) {
-                byte[] bs = Files.load(new File(md, "info"));
-                ModuleInfo mi = jms.parseModuleInfo(bs);
-                mv.accept(mi);
+            for (String v : mnd.list()) {
+                ModuleId mid = jms.parseModuleId(mnd.getName() + "@" + v);
+                mids.add(mid);
             }
         }
+        if (parents && parent != null)
+            parent.gatherModuleIds(parents, mids);
+    }
+
+    public List<ModuleId> listModuleIds(boolean parents)
+        throws IOException
+    {
+        Set<ModuleId> mids = new HashSet<ModuleId>();
+        gatherModuleIds(parents, mids);
+        List<ModuleId> rv = new ArrayList<ModuleId>(mids);
+        Collections.sort(rv);
+        return rv;
+    }
+
+    private void gatherModuleIds(String moduleName, Set<ModuleId> mids)
+        throws IOException
+    {
+        File mnd = new File(root, moduleName);
+        if (!mnd.exists())
+            return;
+        if (!mnd.isDirectory())
+            throw new IOException(mnd + ": Not a directory");
+        if (!mnd.canRead())
+            throw new IOException(mnd + ": Not readable");
+        for (String v : mnd.list()) {
+            // ## Need a MS.parseModuleId(String, Version) method
+            mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
+        }
+        if (parent != null)
+            parent.gatherModuleIds(moduleName, mids);
     }
 
     public List<ModuleId> findModuleIds(String moduleName)
         throws IOException
     {
         ModuleSystem.checkModuleName(moduleName);
-        File mnd = new File(root, moduleName);
-        if (!mnd.exists())
-            return Collections.emptyList();
-        if (!mnd.isDirectory())
-            throw new IOException(mnd + ": Not a directory");
-        if (!mnd.canRead())
-            throw new IOException(mnd + ": Not readable");
-        List<ModuleId> ans = new ArrayList<ModuleId>();
-        for (String v : mnd.list()) {
-            // ## Need a MS.parseModuleId(String, Version) method
-            ans.add(jms.parseModuleId(mnd.getName() + "@" + v));
-        }
-        return ans;
+        Set<ModuleId> mids = new HashSet<ModuleId>();
+        gatherModuleIds(moduleName, mids);
+        // ## Perhaps this method should return a set after all?
+        return new ArrayList<ModuleId>(mids);
     }
 
     private void checkModuleId(ModuleId mid) {
@@ -432,8 +495,11 @@ public final class SimpleLibrary
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null)
+        if (md == null) {
+            if (parent != null)
+                return parent.readModuleInfoBytes(mid);
             return null;
+        }
         return Files.load(new File(md, "info"));
     }
 
@@ -441,8 +507,11 @@ public final class SimpleLibrary
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null)
+        if (md == null) {
+            if (parent != null)
+                return parent.readClass(mid, className);
             return null;
+        }
         File cf = new File(new File(md, "classes"),
                            className.replace('.', '/') + ".class");
         if (!cf.exists())
@@ -454,8 +523,11 @@ public final class SimpleLibrary
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null)
+        if (md == null) {
+            if (parent != null)
+                return parent.listClasses(mid, all);
             return null;
+        }
         Index ix = Index.load(md);
         int os = all ? ix.otherClasses().size() : 0;
         ArrayList<String> cns
@@ -470,8 +542,11 @@ public final class SimpleLibrary
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null)
+        if (md == null) {
+            if (parent != null)
+                return parent.readConfiguration(mid);
             return null;
+        }
         StoredConfiguration scf = StoredConfiguration.load(md);
         return scf.cf;
     }
@@ -611,8 +686,11 @@ public final class SimpleLibrary
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null)
+        if (md == null) {
+            if (parent != null)
+                return parent.findResource(mid, name);
             return null;
+        }
         File f = new File(new File(md, "resources"), name);
         if (!f.exists())
             return null;
