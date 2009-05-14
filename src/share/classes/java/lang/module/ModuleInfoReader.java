@@ -211,7 +211,12 @@ import java.util.Set;
         }
 
         public Set<Dependence> requires() {
-            return Collections.unmodifiableSet(requires);
+            // ## Temporarily allow this to be modifiable so that
+            // ## platform-default dependences can be added at
+            // ## configuration time.  Undo this once we start
+            // ## adding those defaults at compile time.
+            //return Collections.unmodifiableSet(requires);
+            return requires;
         }
 
         public Set<ModuleId> provides() {

@@ -317,6 +317,8 @@ public class Librarian {
                .withRequiredArg()
                .describedAs("path")
                .ofType(File.class));
+        parser.acceptsAll(Arrays.asList("N", "no-parent"),
+                          "Use no parent library when creating");
         parser.acceptsAll(Arrays.asList("v", "verbose"),
                           "Enable verbose output");
         parser.acceptsAll(Arrays.asList("h", "?", "help"),
@@ -357,6 +359,8 @@ public class Librarian {
             File pp = null;
             if (opts.has(parentPath)) {
                 pp = opts.valueOf(parentPath);
+            } else if (!opts.has("N")) {
+                pp = new File(System.getProperty("java.home"), "lib/modules");
             }
             SimpleLibrary lib = null;
             try {

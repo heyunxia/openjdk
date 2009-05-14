@@ -470,6 +470,7 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/Version.java \
     java/lang/module/VersionQuery.java \
     java/lang/reflect/Module.java \
+    org/openjdk/jigsaw/BootLoader.java \
     org/openjdk/jigsaw/ClassInfo.java \
     org/openjdk/jigsaw/Configuration.java \
     org/openjdk/jigsaw/ConfigurationException.java \
@@ -479,12 +480,12 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/JigsawVersionQuery.java \
     org/openjdk/jigsaw/FileConstants.java \
     org/openjdk/jigsaw/Files.java \
-    org/openjdk/jigsaw/KernelLoader.java \
     org/openjdk/jigsaw/Launcher.java \
     org/openjdk/jigsaw/Library.java \
     org/openjdk/jigsaw/Loader.java \
     org/openjdk/jigsaw/LoaderPool.java \
     org/openjdk/jigsaw/Manifest.java \
+    org/openjdk/jigsaw/Platform.java \
     org/openjdk/jigsaw/Resolver.java \
     org/openjdk/jigsaw/SimpleLibrary.java \
     org/openjdk/jigsaw/Trace.java \

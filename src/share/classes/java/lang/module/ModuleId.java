@@ -34,14 +34,17 @@ public final class ModuleId
     implements Comparable<ModuleId>
 {
 
-    private String name;
-    private Version version;
+    private final String name;
+    private final Version version;
+    private final int hash;
 
     // ## Why do we allow ModuleIds to have null versions, anyway?
 
     /* package */ ModuleId(String nm, Version v) {
         name = ModuleSystem.checkModuleName(nm);
         version = v;
+        hash = (43 * name.hashCode()
+                + ((version != null) ? version.hashCode() : 0));
     }
 
     /* package */ static ModuleId parse(ModuleSystem ms, String s) {
@@ -112,8 +115,7 @@ public final class ModuleId
 
     @Override
     public int hashCode() {
-        return (43 * name.hashCode()
-                + ((version != null) ? version.hashCode() : 0));
+        return hash;
     }
 
     @Override

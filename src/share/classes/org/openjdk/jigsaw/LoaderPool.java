@@ -65,9 +65,14 @@ public final class LoaderPool {
     // Find a loader for the given context, or else create one
     //
     Loader findLoader(Context cx) {
+        if (cx == null)
+            throw new AssertionError();
         Loader ld = loaderForContext.get(cx);
         if (ld == null) {
-            ld = new Loader(this, cx);
+            if (Platform.isPlatformContext(cx)) {
+                ld = new BootLoader(this, cx);
+            } else
+                ld = new Loader(this, cx);
             loaders.add(ld);
             loaderForContext.put(cx, ld);
         }
@@ -75,33 +80,11 @@ public final class LoaderPool {
     }
 
     Loader findLoader(String cxn) {
-        return findLoader(config.getContext(cxn));
+        Context cx = config.getContext(cxn);
+        if (cx == null)
+            throw new AssertionError();
+        return findLoader(cx);
     }
-
-    // The "kernel" module
-    //
-    private Module kernelModule;
-
-    Module kernelModule() { return kernelModule; }
-
-    // The "kernel" loader -- we retain a separate reference to it here since
-    // kernelModule.getClassLoader() is just a ModuleClassLoader, and we need
-    // the Jigsaw view of it
-    //
-    private KernelLoader kernelLoader;
-
-    KernelLoader kernelLoader() { return kernelLoader; }
-
-    /* ## not yet
-    // Invoked by the VM to initialize the module system
-    // Returns the kernel module
-    //
-    private Module init(ModuleId mid, byte[] bs) {
-        kernelLoader = findLoader(mid);
-        kernelModule = kernelLoader.defineModule(mid, bs);
-        return kernelModule;
-    }
-    */
 
     // Invoked by the launcher to load the main class
     //
@@ -128,9 +111,6 @@ public final class LoaderPool {
             if (cx == null)
                 throw new ClassNotFoundException(mid.name() + ":" + cn);
             LoaderPool lp = new LoaderPool(lb, cf);
-            KernelLoader kl = new KernelLoader(lp);
-            lp.kernelLoader = kl;
-            lp.kernelModule = kl.module();
             Loader ld = lp.findLoader(cx);
             if (ld == null)
                 throw new ClassNotFoundException(cn);

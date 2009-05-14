@@ -216,24 +216,4 @@ public class Context {
         return name;
     }
 
-    public int hashCode() {
-        int hc = (name != null) ? name.hashCode() : 0;
-        hc = hc * 43 + modules.hashCode();
-        hc = hc * 43 + moduleForLocalClass.hashCode();
-        hc = hc * 43 + contextForRemotePackage.hashCode();
-        return hc;
-    }
-
-    public boolean equals(Object ob) {
-        if (!(ob instanceof Context))
-            return false;
-        Context that = (Context)ob;
-        if (name == null && that.name != null)
-            return false;
-        return ((name == that.name || name.equals(that.name))
-                && modules.equals(that.modules)
-                && moduleForLocalClass.equals(that.moduleForLocalClass)
-                && contextForRemotePackage.equals(that.contextForRemotePackage));
-    }
-
 }

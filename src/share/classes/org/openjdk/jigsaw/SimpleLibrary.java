@@ -433,15 +433,15 @@ public final class SimpleLibrary
         throws IOException
     {
         File mnd = new File(root, moduleName);
-        if (!mnd.exists())
-            return;
-        if (!mnd.isDirectory())
-            throw new IOException(mnd + ": Not a directory");
-        if (!mnd.canRead())
-            throw new IOException(mnd + ": Not readable");
-        for (String v : mnd.list()) {
-            // ## Need a MS.parseModuleId(String, Version) method
-            mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
+        if (mnd.exists()) {
+            if (!mnd.isDirectory())
+                throw new IOException(mnd + ": Not a directory");
+            if (!mnd.canRead())
+                throw new IOException(mnd + ": Not readable");
+            for (String v : mnd.list()) {
+                // ## Need a MS.parseModuleId(String, Version) method
+                mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
+            }
         }
         if (parent != null)
             parent.gatherModuleIds(moduleName, mids);

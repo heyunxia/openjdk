@@ -317,7 +317,7 @@ public abstract class ClassLoader {
                 if (parent != null) {
                     c = parent.loadClass(name, false);
                 } else {
-                    c = findBootstrapClass0(name);
+                    c = findBootClass(name);
                 }
             } catch (ClassNotFoundException e) {
                 // If still not found, then invoke findClass in order
@@ -903,7 +903,22 @@ public abstract class ClassLoader {
         return system.loadClass(name);
     }
 
-    private Class findBootstrapClass0(String name)
+    /**
+     * Finds a class with the specified <a href="#name">binary name</a>,
+     * loading it if necessary, using the bootstrap class loader.
+     *
+     * @param   name
+     *          The <a href="#name">binary name</a> of the class
+     *
+     * @return  The <tt>Class</tt> object for the specified <tt>name</tt>
+     *
+     * @throws  ClassNotFoundException
+     *          If the class could not be found
+     */
+    // ## This should be named findBootstrapClass, and findBootstrapClass
+    // ## should be renamed findBootstrapClass0, but that won't link, for
+    // ## reasons unknown
+    protected Class findBootClass(String name)
         throws ClassNotFoundException
     {
         check();

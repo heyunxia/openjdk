@@ -63,7 +63,9 @@ public class _Library {
 	File libPath = new File("z.lib");
 
 	// Create
-	Library lib = SimpleLibrary.open(libPath, true);
+        File jhlib = new File(System.getProperty("java.home"),
+                              "lib/modules");
+	Library lib = SimpleLibrary.open(libPath, true, jhlib);
 	out.format("%s%n", lib);
 
 	// Check
@@ -147,15 +149,18 @@ public class _Library {
 	Configuration cf = lib.readConfiguration(foomid);
 	cf.dump(System.out);
 	eq(foomid, cf.root());
-	eq(cf.contexts().size(), 1);
-	Context cx = cf.contexts().iterator().next();
+	eq(cf.contexts().size(), 2);
+	Context cx = cf.getContext("+com.foo.bar");
+        //ModuleId jdkmid = ms.parseModuleId("jdk@7-ea");
 	eq(cx.modules(), Arrays.asList(foomid));
 	eq(cx.localClasses(), Arrays.asList("com.foo.bar.Main",
 					    "com.foo.bar.Internal",
 					    "com.foo.bar.Internal$Secret"));
-	for (String cn : cx.localClasses())
-	    eq(cx.findModuleForLocalClass(cn), foomid);
-	eq(cx.remotePackages(), Collections.emptySet());
+	for (String cn : cx.localClasses()) {
+            ModuleId mid = cx.findModuleForLocalClass(cn);
+            if (!mid.equals(foomid))
+                throw new AssertionError(mid + " : " + foomid + "; class " + cn);
+        }
 
 	// Install a root module that has a supplier
 	lib.install(Arrays.asList(Manifest.create("net.baz.aar", testClasses)));
@@ -165,16 +170,17 @@ public class _Library {
 	cf = lib.readConfiguration(ms.parseModuleId("net.baz.aar@9"));
 	cf.dump(System.out);
 	eq(bazmid, cf.root());
-	eq(cf.contexts().size(), 2);
+	eq(cf.contexts().size(), 3);
 	int cb = 0;
 	for (Context dx : cf.contexts()) {
+            if (dx.toString().equals("+jdk"))
+                continue;
 	    if (dx.toString().equals("+org.multi")) {
 		ModuleId mid = ms.parseModuleId("org.multi@1");
 		eq(dx.modules(), Arrays.asList(mid));
 		eq(dx.localClasses(), Arrays.asList("org.multi.Tudinous"));
 		for (String cn : dx.localClasses())
 		    eq(dx.findModuleForLocalClass(cn), mid);
-		eq(dx.remotePackages(), Collections.emptySet());
 		cb |= 1;
 		continue;
 	    }
@@ -183,7 +189,7 @@ public class _Library {
 		eq(dx.localClasses(), Arrays.asList("net.baz.aar.Ness"));
 		for (String cn : dx.localClasses())
 		    eq(dx.findModuleForLocalClass(cn), bazmid);
-		eq(dx.remotePackages(), Arrays.asList("org.multi"));
+		eq(dx.remotePackages().contains("org.multi"), true);
 		cb |= 2;
 		continue;
 	    }

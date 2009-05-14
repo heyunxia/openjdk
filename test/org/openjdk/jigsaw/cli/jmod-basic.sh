@@ -26,6 +26,8 @@
 # @test
 # @summary Unit test for jmod command
 
+trap "rm -f z.lib/jdk" 0        # jtreg is stupid about symlinks
+
 set -e
 
 BIN=${TESTJAVA:-../../../../../build}/bin

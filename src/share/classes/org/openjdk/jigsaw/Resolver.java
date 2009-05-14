@@ -28,6 +28,7 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.util.*;
+import java.util.regex.*;
 
 import static java.lang.module.Dependence.Modifier;
 import static org.openjdk.jigsaw.Trace.*;
@@ -283,6 +284,7 @@ public final class Resolver {
         assert moduleForName.get(mid.name()) == null;
 
         ModuleInfo mi = lib.readModuleInfo(mid);
+        Platform.addPlatformDependenceDefault(mi);
 
         // Check this module's permits constraints
         //
@@ -574,7 +576,7 @@ public final class Resolver {
             else
                 dcx = scx.contextForPackage.get(pn);
             cx.contextForPackage.put(pn, dcx);
-            if (tracing)
+            if (tracing && !Platform.isPlatformContext(dcx))
                 trace(1, 1, "adding %s:%s to %s", dcx, pn, cx);
             if (cx.reExportedSuppliers.contains(scx))
                 cx.exports.add(pn);

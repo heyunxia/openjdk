@@ -34,8 +34,8 @@ SRC=${TESTSRC:-.}
 
 rm -rf z.*
 mkdir z.tests
-
 cd z.tests
+
 awk <$tsrc '
 
   /^:/ {
@@ -108,13 +108,13 @@ compile() {
 
 install() {
   $BIN/jmod create \
-  && $BIN/jmod install classes $(cd modules; echo *)
+  && $BIN/jmod $VM_FLAGS_INSTALL install classes $(cd modules; echo *)
 #  && $BIN/jmod list
 }
 
 invoke() {
   if [ -e main ]; then
-    $BIN/java -ea org.openjdk.jigsaw.Launcher z.lib $(cat main)
+    $BIN/java $VM_FLAGS -ea org.openjdk.jigsaw.Launcher z.lib $(cat main)
   else
     true
   fi

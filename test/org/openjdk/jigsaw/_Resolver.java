@@ -360,6 +360,7 @@ public class _Resolver {
     }
 
     public static void main(String[] args) throws Exception {
+        System.setProperty("org.openjdk.jigsaw.noPlatformDefault", "#t");
 	for (Test t : tests) {
 	    out.format("%n-- %s%n", t.name);
 	    t.run();

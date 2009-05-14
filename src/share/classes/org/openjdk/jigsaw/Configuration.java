@@ -151,9 +151,24 @@ public final class Configuration {
         out.format("configuration root = %s%n", root());
         for (Context cx : contexts()) {
             out.format("  context %s %s%n", cx, cx.modules());
+            if (Platform.isPlatformContext(cx))
+                continue;
             if (!cx.remotePackages().isEmpty()) {
-                out.format("    remote %s%n",
-                           cx.contextForRemotePackageMap());
+                out.format("    remote {");
+                boolean first = true;
+                for (Map.Entry<String,String> me
+                         : cx.contextForRemotePackageMap().entrySet())
+                {
+                    Context dcx = getContext(me.getValue());
+                    if (Platform.isPlatformContext(dcx))
+                        continue;
+                    if (!first)
+                        out.format(", ");
+                    else
+                        first = false;
+                    out.format("%s=%s", me.getKey(), me.getValue());
+                }
+                out.format("}%n");
             }
             if (!cx.localClasses().isEmpty()) {
                 out.format("    local");
@@ -163,22 +178,6 @@ public final class Configuration {
                 out.format("%n");
             }
         }
-    }
-
-    public int hashCode() {
-        int hc = root.hashCode();
-        hc = hc * 43 + contexts.hashCode();
-        hc = hc * 43 + contextForModule.hashCode();
-        return hc;
-    }
-
-    public boolean equals(Object ob) {
-        if (!(ob instanceof Configuration))
-            return false;
-        Configuration that = (Configuration)ob;
-        return (root.equals(that.root)
-                && contexts.equals(that.contexts)
-                && contextForModule.equals(that.contextForModule));
     }
 
 }

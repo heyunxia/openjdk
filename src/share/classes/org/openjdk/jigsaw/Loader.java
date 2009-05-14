@@ -43,7 +43,6 @@ class Loader
 
     protected final LoaderPool pool;
     private final Context context;
-    private KernelLoader kernelLoader;
 
     private Map<String,Module> moduleForName
         = new HashMap<String,Module>();
@@ -52,17 +51,10 @@ class Loader
 
     public Loader(LoaderPool p, Context cx) {
         super(JigsawModuleSystem.instance());
+        if (cx == null)
+            throw new IllegalArgumentException("Null context");
         pool = p;
         context = cx;
-        kernelLoader = p.kernelLoader();
-    }
-
-    // Invoked by KernelLoader to add the kernel module
-    //
-    protected void addModule(Module m) {
-        ModuleId mid = m.getModuleId();
-        moduleForName.put(mid.name(), m);
-        modules.add(mid);
     }
 
     // Primary entry point from VM
@@ -82,13 +74,6 @@ class Loader
                 trace(0, "%s: (cache) %s", this, cn);
             }
             return c;
-        }
-
-        // Check for a bootstrap class.  This is a temporary measure, until
-        // such time as the bootstrap classes have themselves been modularized.
-        //
-        if (kernelLoader.isKernelClass(cn)) {
-            return kernelLoader.loadClass(cn);
         }
 
         // Is the requested class local or remote?  It can be one or the other,
@@ -171,11 +156,22 @@ class Loader
             }
         }
 
+        // The last step, of actually locating the class, is in a
+        // separate method so that the kernel loader can override it
+        //
+        return finishFindingClass(mid, m, cn);
+
+    }
+
+    Class<?> finishFindingClass(ModuleId mid, Module m, String cn)
+        throws ClassNotFoundException
+    {
+
         try {
             byte[] bs = pool.library().readClass(mid, cn);
             if (bs == null)
                 throw new ClassNotFoundException(mid + ":" + cn);
-            c = defineClass(m, cn, bs, 0, bs.length);
+            Class<?> c = defineClass(m, cn, bs, 0, bs.length);
             if (tracing)
                 trace(0, "%s: define %s:%s", this, mid, cn);
             return c;
