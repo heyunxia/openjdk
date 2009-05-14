@@ -21,13 +21,15 @@
 # have any questions.
 #
 
-BUILD = ../../build
-BIN = $(BUILD)/bin
-CLASSES = $(BUILD)/classes
-TMP=$(BUILD)/jigsaw
+BUILDDIR=..
+include $(BUILDDIR)/common/Defs.gmk
+
+BIN = $(BINDIR)
+CLASSES = $(CLASSBINDIR)
+TMP=$(TEMPDIR)/jigsaw
 MODULE_CLASSES = $(TMP)/module-classes
 RESOURCES = $(TMP)/resources
-MODULES = $(BUILD)/lib/modules
+MODULES = $(LIBDIR)/modules
 SRC = ../../src/share/modules
 
 all: $(MODULES)/jdk
@@ -60,9 +62,8 @@ clean-modules:
 	rm -rf $(MODULES)
 
 
-# Development only
+# For convenience during development
 #
-
 update:
 	rsync -avO --include '*/' --include '*.class' --exclude '*' \
           $(CLASSES)/ $(MODULES)/jdk/7-ea/classes

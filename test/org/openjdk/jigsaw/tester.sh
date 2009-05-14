@@ -121,7 +121,7 @@ install() {
 
 invoke() {
   if [ -e main ]; then
-    $BIN/java $VM_FLAGS -ea org.openjdk.jigsaw.Launcher module-lib $(cat main)
+    $BIN/java $VM_FLAGS -ea -L module-lib -m $(cat main)
   else
     true
   fi

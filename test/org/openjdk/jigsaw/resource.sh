@@ -49,7 +49,7 @@ jmod create
 jmod install z.test/modules -r z.res.z z
 jmod install z.test/modules -r z.res.y y
 jmod install z.test/modules -r z.res.x x
-$BIN/java org.openjdk.jigsaw.Launcher z.lib x x.X
+$BIN/java -ea -L z.lib -m x
 exit 0
 
 

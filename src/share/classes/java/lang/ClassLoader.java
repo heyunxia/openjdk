@@ -1333,34 +1333,56 @@ public abstract class ClassLoader {
         return scl;
     }
 
+    private static int initDepth = 0;
+
     private static synchronized void initSystemClassLoader() {
-        if (!sclSet) {
-            if (scl != null)
-                throw new IllegalStateException("recursive invocation");
-            sun.misc.Launcher l = sun.misc.Launcher.getLauncher();
-            if (l != null) {
-                Throwable oops = null;
-                scl = l.getClassLoader();
-                try {
-                    scl = AccessController.doPrivileged(
-                        new SystemClassLoaderAction(scl));
-                } catch (PrivilegedActionException pae) {
-                    oops = pae.getCause();
-                    if (oops instanceof InvocationTargetException) {
-                        oops = oops.getCause();
-                    }
-                }
-                if (oops != null) {
-                    if (oops instanceof Error) {
-                        throw (Error) oops;
-                    } else {
-                        // wrap the exception
-                        throw new Error(oops);
-                    }
+        if (sclSet)
+            return;
+        if (initDepth > 0 || scl != null) {
+            // Java object locks are re-entrant!
+            throw new InternalError("Recursive initialization"
+                                    + " of system class loader");
+        }
+        initDepth++;
+        try {
+            String midq = System.getProperty("sun.java.launcher.module");
+            if (midq != null)
+                initModularSystemClassLoader(midq);
+            else
+                initLegacySystemClassLoader();
+            sclSet = true;
+        } finally {
+            initDepth--;
+        }
+    }
+
+    private static void initLegacySystemClassLoader() {
+        sun.misc.Launcher l = sun.misc.Launcher.getLauncher();
+        if (l != null) {
+            Throwable oops = null;
+            scl = l.getClassLoader();
+            try {
+                scl = AccessController.doPrivileged(
+                          new SystemClassLoaderAction(scl));
+            } catch (PrivilegedActionException pae) {
+                oops = pae.getCause();
+                if (oops instanceof InvocationTargetException) {
+                    oops = oops.getCause();
                 }
             }
-            sclSet = true;
+            if (oops != null) {
+                if (oops instanceof Error) {
+                    throw (Error) oops;
+                } else {
+                    // wrap the exception
+                    throw new Error(oops);
+                }
+            }
         }
+    }
+
+    private static void initModularSystemClassLoader(String midq) {
+        scl = org.openjdk.jigsaw.Launcher.launch(midq);
     }
 
     // Returns true if the specified class loader can be found in this class

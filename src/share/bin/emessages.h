@@ -41,6 +41,9 @@
 #define ARG_ERROR1      "Error: %s requires class path specification"
 #define ARG_ERROR2      "Error: %s requires jar file specification"
 #define ARG_ERROR3      "Error: The -J option should not be followed by a space."
+#define ARG_ERROR4      "Error: %s requires a module specification"
+#define ARG_ERROR5      "Error: At most one of -jar or -m can be used"
+#define ARG_ERROR6      "Error: -L requires a module-library path"
 
 #define JVM_ERROR1      "Error: Could not create the Java Virtual Machine.\n" GEN_ERROR
 #define JVM_ERROR2      "Error: Could not detach main thread.\n" JNI_ERROR

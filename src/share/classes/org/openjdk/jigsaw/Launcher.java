@@ -25,7 +25,7 @@
 
 package org.openjdk.jigsaw;
 
-import java.io.File;
+import java.io.*;
 import java.lang.module.*;
 import java.lang.reflect.*;
 
@@ -34,35 +34,65 @@ import static org.openjdk.jigsaw.Trace.*;
 
 public final class Launcher {
 
-    public static void main(String[] args)
-        throws Exception
+    private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
+
+    // ## Should throw (mostly) ModuleNotFoundErrors if we fail here
+
+    // Find a root module loader
+    //
+    private static Loader loadModule(File libPath, ModuleIdQuery midq)
+        throws IOException
     {
-        JigsawModuleSystem jms = JigsawModuleSystem.instance();
-        File lib = new File(args[0]);
-        ModuleIdQuery midq = new ModuleIdQuery(args[1], null);
-        String main = (args.length == 3) ? args[2] : null;
-        Class<?> c = LoaderPool.loadClass(lib, midq, main);
-        if (tracing)
-            trace(0, "launch: loader %s, module %s, class %s",
-                  c.getClassLoader(),
-                  c.getModule().getModuleInfo().id(),
-                  c.getName());
-        Method m = c.getDeclaredMethod("main",
-                                       Class.forName("[Ljava.lang.String;"));
+
+        Library lb = SimpleLibrary.open(libPath, false);
+        ModuleId mid = lb.findLatestModuleId(midq);
+        if (mid == null)
+            throw new Error(midq + ": No installed module"
+                            + " satisfies this query");
+        ModuleInfo mi = lb.readModuleInfo(mid);
+        if (mi == null)
+            throw new InternalError(midq + ": Can't read module-info");
+        String cn = mi.mainClass();
+        if (cn == null)
+            throw new Error(mid + ": Module does not specify"
+                            + " a main class");
+        Configuration cf = lb.readConfiguration(mid);
+        if (cf == null)
+            throw new Error(mid + ": Module not configured");
+        Context cx = cf.getContextForModuleName(mid.name());
+        if (cx == null)
+            throw new InternalError(mid + ": Cannot find context");
+        LoaderPool lp = new LoaderPool(lb, cf, cn);
+
+        return lp.findLoader(cx);
+
+    }
+
+    public static ClassLoader launch(String midqs) {
+        // ## What about the extension class loader?
+        // ## Delete these and other sjlm properties when done with them
+        String mlpath = System.getProperty("sun.java.launcher.module.library");
+        File ml = ((mlpath != null)
+                   ? new File(mlpath)
+                   : new File(new File(System.getProperty("java.home"), "lib"),
+                              "modules"));
+        Loader ld = null;
         try {
-            m.invoke(null, (Object)new String[] { });
-        } catch (InvocationTargetException x) {
-            Throwable y = x.getCause();
-            if (y == null)
-                throw x;
-            if (y instanceof RuntimeException)
-                throw (RuntimeException)y;
-            if (y instanceof Exception)
-                throw (Exception)y;
-            if (y instanceof Error)
-                throw (Error)y;
-            throw new AssertionError(y);
+            ld = loadModule(ml, jms.parseModuleIdQuery(midqs));
+        } catch (FileNotFoundException x) {
+            throw new Error(ml + ": No such library");
+        } catch (IOException x) {
+            Error y = new InternalError("Cannot create root module loader");
+            y.initCause(x);
+            throw y;
         }
+        Thread.currentThread().setContextClassLoader(ld);
+        // ## Install optional security manager here? (cf. sun.misc.Launcher)
+        return ld;
+    }
+
+    public static String mainClass(ClassLoader cl) {
+        return ((Loader)cl).pool.mainClass();
     }
 
 }

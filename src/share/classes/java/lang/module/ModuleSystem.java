@@ -67,4 +67,17 @@ public abstract class ModuleSystem {
         return ModuleId.parse(this, mid);
     }
 
+    public final ModuleIdQuery parseModuleIdQuery(String midq) {
+	int i = midq.indexOf('@');
+	String mn;
+	VersionQuery vq = null;
+	if (i < 0) {
+	    mn = midq;
+	} else {
+	    mn = midq.substring(0, i);
+	    vq = parseVersionQuery(midq.substring(i + 1));
+	}
+	return new ModuleIdQuery(mn, vq);
+    }
+
 }

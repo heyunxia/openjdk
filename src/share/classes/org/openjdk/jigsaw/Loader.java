@@ -37,7 +37,7 @@ import java.util.*;
 import static org.openjdk.jigsaw.Trace.*;
 
 
-class Loader
+public class Loader
     extends ModuleClassLoader
 {
 

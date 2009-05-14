@@ -35,6 +35,7 @@ public abstract class ModuleClassLoader
     private ModuleSystem moduleSystem;
 
     protected ModuleClassLoader(ModuleSystem ms) {
+        super(null);
         moduleSystem = ms;
     }
 

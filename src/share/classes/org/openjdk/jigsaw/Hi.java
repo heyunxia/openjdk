@@ -23,6 +23,20 @@
  * have any questions.
  */
 
-module jdk @ 7-ea {
-    class org.openjdk.jigsaw.Hi;        // ## Testing
+package org.openjdk.jigsaw;
+
+
+// Trivial main class for the JDK boot module, for testing only
+//
+//   $ java -m jdk
+//   The JDK boot module is brought to you by the letter 'J' and the number 7.
+//   $
+
+public final class Hi {
+
+    public static void main(String[] args) {
+        System.out.println("The JDK boot module is brought to you by"
+                           + " the letter 'J' and the number 7.");
+    }
+
 }

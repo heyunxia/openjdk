@@ -43,26 +43,12 @@ public class _Resolver {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
-    // ## Should be in j.l.module.ModuleSystem
-    private static ModuleIdQuery parseModuleIdQuery(String mnvq) {
-	int i = mnvq.indexOf('@');
-	String mn;
-	VersionQuery vq = null;
-	if (i < 0) {
-	    mn = mnvq;
-	} else {
-	    mn = mnvq.substring(0, i);
-	    vq = jms.parseVersionQuery(mnvq.substring(i + 1));
-	}
-	return new ModuleIdQuery(mn, vq);
-    }
-
     private static Configuration go(Library lib, String root)
 	throws ConfigurationException
     {
 	try {
 	    return (Resolver
-		    .create(lib, parseModuleIdQuery(root))
+		    .create(lib, jms.parseModuleIdQuery(root))
 		    .run());
 	} catch (IOException x) {
 	    throw new Error("Unexpected I/O exception", x);

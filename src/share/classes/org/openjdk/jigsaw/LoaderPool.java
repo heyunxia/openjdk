@@ -42,11 +42,22 @@ public final class LoaderPool {
     private Configuration config;
     Configuration config() { return config; }
 
-    LoaderPool(Library lb, Configuration cf) {
+    // In the Jigsaw launcher we save the main class here for
+    // later retrieval by the sun.launcher.LauncherHelper class
+    //
+    private String mainClass;
+    public String mainClass() { return mainClass; }
+
+    LoaderPool(Library lb, Configuration cf, String cn) {
         if (lb == null || cf == null)
             throw new IllegalArgumentException();
         lib = lb;
         config = cf;
+        mainClass = cn;
+    }
+
+    LoaderPool(Library lb, Configuration cf) {
+        this(lb, cf, null);
     }
 
     // Our pool of module class loaders.  We use a weak set, so that
@@ -84,44 +95,6 @@ public final class LoaderPool {
         if (cx == null)
             throw new AssertionError();
         return findLoader(cx);
-    }
-
-    // Invoked by the launcher to load the main class
-    //
-    public static Class<?> loadClass(File libPath,
-                                     ModuleIdQuery midq, String className)
-        throws IOException, ClassNotFoundException
-    {
-        try {
-            Library lb = SimpleLibrary.open(libPath, false);
-            ModuleId mid = lb.findLatestModuleId(midq);
-            String cn = className;
-            if (cn == null) {
-                // Use the module's declared main class, if any
-                ModuleInfo mi = lb.readModuleInfo(mid);
-                if (mi != null)
-                    cn = mi.mainClass();
-                else
-                    throw new Error(mid + ": No main class specified");
-            }
-            Configuration cf = lb.readConfiguration(mid);
-            if (cf == null)
-                throw new Error(mid + ": Module not configured");
-            Context cx = cf.findContextForModuleName(mid.name());
-            if (cx == null)
-                throw new ClassNotFoundException(mid.name() + ":" + cn);
-            LoaderPool lp = new LoaderPool(lb, cf);
-            Loader ld = lp.findLoader(cx);
-            if (ld == null)
-                throw new ClassNotFoundException(cn);
-            return ld.findClass(mid, cn);
-        } catch (IOException x) {
-            // ## refactor; see Loader.cnf
-            ClassNotFoundException cnfx
-                = new ClassNotFoundException(midq.name() + ":" + className);
-            cnfx.initCause(x);
-            throw cnfx;
-        }
     }
 
 }

@@ -44,7 +44,7 @@ if [ "$ms" != "x@1 y@1" ]; then
 fi
 JIGSAW_TRACE=1 jmod config
 jmod show x@1
-$BIN/java -ea org.openjdk.jigsaw.Launcher z.lib x x.X
+$BIN/java -ea -L z.lib -m x
 exit 0
 
 
