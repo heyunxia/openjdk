@@ -551,27 +551,20 @@ public final class SimpleLibrary
         return scf.cf;
     }
 
-    // ## This is a temporary hack to install all classes rather than just
-    // ## those with a matching module name; remove this when we can process
-    // ## proper modularized compiler output directories.
-    //
-    private static final boolean INSTALL_ALL
-        = (System.getenv("JIGSAW_INSTALL_ALL") != null);
-
     private void install(Manifest mf, File dst)
         throws IOException
     {
         if (mf.classes().size() > 1)
-            throw new IllegalArgumentException("Multiple classes directories"
+            throw new IllegalArgumentException("Multiple module-class"
+                                               + " directories"
                                                + " not yet supported");
         if (mf.classes().size() < 1)
-            throw new IllegalArgumentException("At least one classes"
+            throw new IllegalArgumentException("At least one module-class"
                                                + " directory required");
         File classes = mf.classes().get(0);
         final String mn = mf.module();
 
-        String path = mn.replace('.', '/');
-        File src = new File(classes, path);
+        File src = new File(classes, mn);
         byte[] bs =  Files.load(new File(src, "module-info.class"));
         ModuleInfo mi = jms.parseModuleInfo(bs);
         String m = mi.id().name();
@@ -587,19 +580,16 @@ public final class SimpleLibrary
 
         // Copy class files and build index
         final Index ix = new Index(mdst);
-        Files.copyTree(classes, cldst, new Files.Filter<File>() {
+        Files.copyTree(src, cldst, new Files.Filter<File>() {
             public boolean accept(File f) throws IOException {
                 if (f.isDirectory())
                     return true;
                 ClassInfo ci = ClassInfo.read(f);
                 if (ci.isModuleInfo())
                     return false;
-                if (ci.moduleName() == null) {
-                    if (!INSTALL_ALL)
-                        return false;
-                } else {
-                    if (!ci.moduleName().equals(mn))
-                        return false;
+                if (ci.moduleName() != null) {
+                    throw new IOException(f + ": Old-style class file with"
+                                          + " module attribute");
                 }
                 if (ci.isPublic())
                     ix.publicClasses().add(ci.name());

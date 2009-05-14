@@ -48,8 +48,7 @@ module com.foo.bar @ 1.2.3_04-5a
 }
 EOF
 
-mk z.src/com.foo.bar/Main.java <<EOF
-module com.foo.bar;
+mk z.src/com.foo.bar/com/foo/bar/Main.java <<EOF
 package com.foo.bar;
 public class Main {
     public static void main(String[] args) {
@@ -58,32 +57,32 @@ public class Main {
 }
 EOF
 
-mk z.src/com.foo.bar/Internal.java <<EOF
-module com.foo.bar;
+mk z.src/com.foo.bar/com/foo/bar/Internal.java <<EOF
 package com.foo.bar;
 class Internal {
     private static class Secret { }
 }
 EOF
 
-mkdir z.classes
+mkdir z.modules z.classes
 
-$BIN/javac -source 7 -d z.classes \
-  $SRC/_Library.java $(find z.src -name '*.java')
+$BIN/javac -source 7 -d z.classes $SRC/_Library.java
+
+$BIN/javac -source 7 -d z.modules -modulepath z.modules \
+  $(find z.src -name '*.java')
 
 for v in 1 1.2 2 3; do
   m=org.multi@$v
-  mk z.src/$m/module-info.java <<EOF
+  mk z.src.$m/org.multi/module-info.java <<EOF
 module org.multi @ $v { }
 EOF
-mk z.src/$m/Tudinous.java <<EOF
-module org.multi;
+mk z.src.$m/org.multi/org/multi/Tudinous.java <<EOF
 package org.multi;
 public class Tudinous { }
 EOF
-  cl=z.classes/module-classes/$m
-  mkdir -p $cl
-  $BIN/javac -source 7 -d $cl z.src/$m/*.java
+  md=z.modules.$m
+  mkdir -p $md
+  $BIN/javac -source 7 -d $md -modulepath $md $(find z.src.$m -name '*.java')
 done
 
 mk z.src/net.baz.aar/module-info.java <<EOF
@@ -93,13 +92,12 @@ module net.baz.aar @ 9 {
 }
 EOF
 
-mk z.src/net.baz.aar/Ness.java <<EOF
-module net.baz.aar;
+mk z.src/net.baz.aar/net/baz/aar/Ness.java <<EOF
 package net.baz.aar;
 public class Ness { }
 EOF
 
-$BIN/javac -source 7 -d z.classes \
+$BIN/javac -source 7 -d z.modules -modulepath z.modules:z.modules.org.multi@1 \
   $(find z.src/net.baz.aar -name '*.java')
 
 $BIN/java -ea -cp z.classes _Library

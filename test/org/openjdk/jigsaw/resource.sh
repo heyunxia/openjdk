@@ -46,9 +46,9 @@ mk z.res.z/inf/a 'and a three!'
 
 export JAVA_MODULES=z.lib
 jmod create
-jmod install z.tests/000setup/classes -r z.res.z z
-jmod install z.tests/000setup/classes -r z.res.y y
-jmod install z.tests/000setup/classes -r z.res.x x
+jmod install z.test/modules -r z.res.z z
+jmod install z.test/modules -r z.res.y y
+jmod install z.test/modules -r z.res.x x
 $BIN/java org.openjdk.jigsaw.Launcher z.lib x x.X
 exit 0
 

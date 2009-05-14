@@ -23,12 +23,6 @@
  * have any questions.
  */
 
-/* @test
- * @summary java.lang.module.ModuleInfoReader unit test
- * @compile -source 7 module-info.java Main.java
- * @run main _ModuleInfoReader
- */
-
 import java.io.*;
 import java.util.*;
 import java.lang.module.*;
@@ -51,8 +45,7 @@ public class _ModuleInfoReader {
 
     public static void main(String[] args) throws Exception {
 
-	File f = new File(System.getProperty("test.classes", "z.classes"),
-			  "M/module-info.class");
+	File f = new File("z.test/modules/M/module-info.class");
         
         byte[] data = new byte[(int) f.length()];
         DataInputStream d = new DataInputStream(new FileInputStream(f));
@@ -77,7 +70,10 @@ public class _ModuleInfoReader {
 						ms.parseVersionQuery("9.0"))));
 	ds.add(new Dependence(EnumSet.of(OPTIONAL, LOCAL),
 			      new ModuleIdQuery("P",
-						ms.parseVersionQuery(">=9.1"))));
+                                                // ## Should be >=9.1, but
+                                                // ## javac can't compile
+                                                // ## that at the moment
+						ms.parseVersionQuery("9.1"))));
 	ds.add(new Dependence(EnumSet.of(PUBLIC),
 			      new ModuleIdQuery("Q",
 						ms.parseVersionQuery("5.11"))));
@@ -88,8 +84,7 @@ public class _ModuleInfoReader {
 	   new HashSet<String>(Arrays.asList("A", "B")));
 
 	// main class
-	// ## bug: mi.mainClass() is null, but module-info.java defines one
-	// ok(mi.mainClass().equals("M.X.Y"));
+        ok(mi.mainClass().equals("M.X.Y.Main"));
 
     }
 

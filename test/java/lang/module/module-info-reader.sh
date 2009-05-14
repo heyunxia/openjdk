@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 # Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
@@ -21,61 +21,39 @@
 # CA 95054 USA or visit www.sun.com if you need additional information or
 # have any questions.
 
-# @test Basic resolver tests
+# @test
+# @summary java.lang.module.ModuleInfoReader unit test
 
-exec /bin/sh ${TESTSRC:-.}/tester.sh $0
+set -e
 
-: trivial pass
+BIN=${TESTJAVA:-../../../../build}/bin
+SRC=${TESTSRC:-.}
 
-module x @ 1 {
-  requires y @ 1;
-  class x.X;
+rm -rf z.*
+
+sh $SRC/../../../org/openjdk/jigsaw/tester.sh $0
+
+mkdir z.classes
+$BIN/javac -d z.classes $SRC/_ModuleInfoReader.java
+$BIN/java -cp z.classes _ModuleInfoReader
+exit 0
+
+: setup pass compile
+
+module M @ 1.0
+    provides M1 @ 2.0, M2 @ 2.1
+{
+    requires optional local N @ 9.0, P @ 9.1;
+    requires public Q @ 5.11;
+    permits A, B;
+    class act M.X.Y.Main;
 }
 
-package x;
-public class X {
-    public static void main(String[] args) {
-        System.exit(y.Y.zero());
-    }
-}
+package M.X.Y;
+public class Main { }
 
-module y @ 1 { }
+module N @ 9.0 { }
 
-package y;
-public class Y {
-    public static int zero() { return 0; }
-}
+module P @ 9.1 { }
 
-: trivial2 fail compile
-
-module x @ 1 {
-  requires y @ 1;
-  class x.X;
-}
-
-package x;
-public class X { }
-
-module y @ 2 { }
-
-package y;
-public class Y { }
-
-: package-private fail invoke
-
-module x @ 1 {
-  requires y @ 1;
-  class x.X;
-}
-
-package x;
-public class X {
-    public static void main(String[] args) throws Exception {
-        Class.forName("y.Y");
-    }
-}
-
-module y @ 1 { }
-
-package y;
-class Y { }
+module Q @ 5.11 { }

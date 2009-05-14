@@ -35,7 +35,7 @@ import static java.lang.System.out;
 
 public class _Library {
 
-    private static File testClasses = new File("z.classes");
+    private static File testModules = new File("z.modules");
 
     private static JigsawModuleSystem ms
 	= JigsawModuleSystem.instance();
@@ -74,7 +74,7 @@ public class _Library {
 	eq(lib.minorVersion(), 1);
 
 	// Install
-	lib.install(Arrays.asList(Manifest.create("com.foo.bar", testClasses)));
+	lib.install(Arrays.asList(Manifest.create("com.foo.bar", testModules)));
 
 	// Enumerate
 	lib = SimpleLibrary.open(libPath);
@@ -90,8 +90,7 @@ public class _Library {
 	String[] multiVersions = new String[] { "1", "1.2", "2", "3" };
 	for (String v : multiVersions) {
 	    lib.install(Arrays.asList(Manifest.create("org.multi")
-                                      .addClasses(new File(testClasses,
-                                                           "module-classes/org.multi@" + v))));
+                                      .addClasses(new File("z.modules.org.multi@" + v))));
 	}
 
 	// Find module ids by name
@@ -123,7 +122,7 @@ public class _Library {
 	    throw new AssertionError();
 
 	// Find a class
-	File rcf = new File(testClasses, "com/foo/bar/Main.class");
+	File rcf = new File(testModules, "com.foo.bar/com/foo/bar/Main.class");
 	byte[] rbs = new byte[(int)rcf.length()];
 	DataInputStream ds = new DataInputStream(new FileInputStream(rcf));
 	try {
@@ -163,7 +162,7 @@ public class _Library {
         }
 
 	// Install a root module that has a supplier
-	lib.install(Arrays.asList(Manifest.create("net.baz.aar", testClasses)));
+	lib.install(Arrays.asList(Manifest.create("net.baz.aar", testModules)));
 	ModuleId bazmid = ms.parseModuleId("net.baz.aar@9");
 
 	// Then check its configuration

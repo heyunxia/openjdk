@@ -29,12 +29,12 @@ case $tsrc in
   *)  tsrc=../$tsrc;;
 esac
 
-BIN=${TESTJAVA:-../../../../../../build}/bin
+BIN=${TESTJAVA:-../../../../../build}/bin
 SRC=${TESTSRC:-.}
 
 rm -rf z.*
-mkdir z.tests
-cd z.tests
+mkdir z.test
+cd z.test
 
 awk <$tsrc '
 
@@ -44,13 +44,13 @@ awk <$tsrc '
     system("mkdir -p " tdir);
     if (NF == 3) e = $3; else e = $3 " " $4;
     print e >(tdir "/expected");
-    msdir = tdir "/modules";
+    msdir = tdir "/src";
   }
 
   /^module / {
     module = $2;
     mname = module;
-    mdir = msdir "/" module;
+    mdir = msdir "/" mname;
     system("mkdir -p " mdir);
     mfile = mdir "/module-info.java";
     print $0 >mfile;
@@ -59,6 +59,8 @@ awk <$tsrc '
 
   /^package / {
     pkgpre = $0;
+    pdir = mdir "/" gensub("\\.", "/", "g", gensub("(package|;| )", "", "g"));
+    system("mkdir -p " pdir);
     module = 0;
     next;
   }
@@ -70,8 +72,7 @@ awk <$tsrc '
 
   /.* (class|interface) .* *{ *}? *$/ {
     class = gensub(".*class +([A-Za-z]+) +{ *}? *", "\\1", 1);
-    cfile = mdir "/" class ".java";
-    print "module " mname ";" >cfile
+    cfile = pdir  "/" class ".java";
     print pkgpre >>cfile;
     print $0 >>cfile;
     pkgpre = "";
@@ -95,6 +96,11 @@ awk <$tsrc '
 '
 
 tests=$(echo * | wc -w)
+if [ $tests = 1 ]; then
+  d=$(eval 'echo *')
+  mv $d/* .
+  rmdir $d
+fi
 
 failures=0
 fail() {
@@ -103,18 +109,19 @@ fail() {
 }
 
 compile() {
-  $BIN/javac -source 7 -d classes $(find modules -name '*.java')
+  $BIN/javac -source 7 -d modules -modulepath modules \
+    $(find src -name '*.java')
 }
 
 install() {
   $BIN/jmod create \
-  && $BIN/jmod $VM_FLAGS_INSTALL install classes $(cd modules; echo *)
+  && $BIN/jmod $VM_FLAGS_INSTALL install modules $(cd modules; echo *)
 #  && $BIN/jmod list
 }
 
 invoke() {
   if [ -e main ]; then
-    $BIN/java $VM_FLAGS -ea org.openjdk.jigsaw.Launcher z.lib $(cat main)
+    $BIN/java $VM_FLAGS -ea org.openjdk.jigsaw.Launcher module-lib $(cat main)
   else
     true
   fi
@@ -138,8 +145,8 @@ run() {
   test=$1
   e=$(cat expected)
   [ $tests = 1 ] || echo "-- $test $e"
-  mkdir classes
-  export JAVA_MODULES=z.lib
+  mkdir modules
+  export JAVA_MODULES=module-lib
   case "$e" in
     'fail compile')
       step compile fail;;
@@ -147,6 +154,8 @@ run() {
       step compile pass && step install fail;;
     'fail invoke')
       step compile pass && step install pass && step invoke fail;;
+    'pass setup')
+      ;;
     'pass compile')
       step compile pass;;
     pass)
@@ -156,11 +165,16 @@ run() {
   esac
 }
 
-for t in *; do
-  cd $t
-  run $(echo $t | cut -c4-) || /bin/true
-  cd ..
-done
+if [ $tests = 1 ]; then
+  run singleton || /bin/true
+else
+  if ! [ $TESTSRC ]; then BIN=../$BIN; fi
+  for t in *; do
+    cd $t
+    run $(echo $t | cut -c4-) || /bin/true
+    cd ..
+  done
+fi
 
 if [ $tests -gt 1 ]; then
   echo

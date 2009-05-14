@@ -35,7 +35,7 @@ echo '<hello/>' >z.res/foo/x.xml
 
 export JAVA_MODULES=z.lib
 jmod create
-jmod preinstall z.tests/000setup/classes -r z.res z.pre x y
+jmod preinstall z.test/modules -r z.res z.pre x y
 cp -r z.pre/* z.lib
 ms="$(echo $(jmod list | grep -v jdk@ | sort))"
 if [ "$ms" != "x@1 y@1" ]; then

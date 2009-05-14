@@ -25,31 +25,33 @@ BUILD = ../../build
 BIN = $(BUILD)/bin
 CLASSES = $(BUILD)/classes
 TMP=$(BUILD)/jigsaw
-PURECLASSES = $(TMP)/classes
+MODULE_CLASSES = $(TMP)/module-classes
 RESOURCES = $(TMP)/resources
 MODULES = $(BUILD)/lib/modules
 SRC = ../../src/share/modules
 
 all: $(MODULES)/jdk
 
-$(PURECLASSES):
+$(MODULE_CLASSES)/jdk:
 	mkdir -p $@
 	(cd $(CLASSES); find . -name '*.class' | tar cfT - -) \
-         | tar xfC - $(PURECLASSES)
+         | tar xfC - $(MODULE_CLASSES)/jdk
 
-$(PURECLASSES)/module-info.class: $(SRC)/jdk/module-info.java $(PURECLASSES)
-	$(BIN)/javac -source 7 $< -d $(PURECLASSES)
+$(MODULE_CLASSES)/jdk/module-info.class: $(SRC)/jdk/module-info.java \
+                                         $(MODULE_CLASSES)/jdk
+	$(BIN)/javac -source 7 \
+          -d $(MODULE_CLASSES) -modulepath $(MODULE_CLASSES) $<
 
 $(RESOURCES):
 	mkdir -p $@
 	tar cfC - $(CLASSES) --exclude '*.class' . | tar xfC - $(RESOURCES)
 
 $(MODULES):
-	$(BIN)/jmod -L $(MODULES) create
+	$(BIN)/jmod -L $(MODULES) -N create
 
-$(MODULES)/jdk: $(RESOURCES) $(PURECLASSES)/module-info.class $(MODULES)
-	JIGSAW_INSTALL_ALL=1 $(BIN)/jmod -L $(MODULES) \
-          install $(PURECLASSES) -r $(RESOURCES) jdk
+$(MODULES)/jdk: $(RESOURCES) $(MODULE_CLASSES)/jdk/module-info.class $(MODULES)
+	$(BIN)/jmod -L $(MODULES) \
+          install $(MODULE_CLASSES) -r $(RESOURCES) jdk
 
 clean:
 	rm -rf $(MODULES) $(TMP)

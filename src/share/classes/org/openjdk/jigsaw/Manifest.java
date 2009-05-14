@@ -48,7 +48,8 @@ public final class Manifest {
     }
 
     /**
-     * The name of the module to be installed from the classes directories
+     * The name of the module to be installed from the module-classes
+     * directories
      */
     public String module() {
         return module;
@@ -62,6 +63,15 @@ public final class Manifest {
     private List<File> cmds = new ArrayList<File>();
     */
 
+    /**
+     * <p> Add a module-class directory to this manifest. </p>
+     *
+     * <p> The name of each child of such a directory should be that of a
+     * specific module, without a version number.  Each child should, in turn,
+     * contain a {@code module-info.class} file as well as classes structured
+     * in the usual fashion, with a subdirectory for each package-name
+     * component. </p>
+     */
     public Manifest addClasses(File f) {
         if (!f.isDirectory())
             throw new IllegalArgumentException(f + ": Not a directory");
@@ -70,12 +80,20 @@ public final class Manifest {
     }
 
     /**
-     * The classes directories to be scanned for the requested modules
+     * <p> The module-classes directories to be scanned for the requested
+     * modules. </p>
      */
     public List<File> classes() {
         return classes;
     }
 
+
+    /**
+     * <p> Add a resource directory to this manifest. </p>
+     *
+     * <p> The content of this directory will be copied, without change, into
+     * the installed module. </p>
+     */
     public Manifest addResources(File f) {
         if (!f.isDirectory())
             throw new IllegalArgumentException(f + ": Not a directory");
@@ -84,7 +102,7 @@ public final class Manifest {
     }
 
     /**
-     * The resource directories whose contents will be installed
+     * <p> The resource directories whose contents will be installed </p>
      */
     public List<File> resources() {
         return resources;

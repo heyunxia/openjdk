@@ -54,7 +54,6 @@ module com.foo.byz @ 0.11-42 { }
 EOF
 
 mk z.src/com.foo.bar/com/foo/bar/Main.java <<EOF
-module com.foo.bar;
 package com.foo.bar;
 public class Main {
     public static void main(String[] args) {
@@ -63,16 +62,16 @@ public class Main {
 }
 EOF
 
-rm -rf z.classes && mkdir z.classes
-$BIN/javac -source 7 -d z.classes $(find z.src -name '*.java')
+rm -rf z.modules && mkdir z.modules
+$BIN/javac -source 7 -d z.modules -modulepath z.modules $(find z.src -name '*.java')
 
 rm -rf z.lib
 export JAVA_MODULES=z.lib
 $BIN/jmod create
 $BIN/jmod id
-$BIN/jmod install z.classes com.foo.bar
-$BIN/jmod install z.classes com.foo.byz
+$BIN/jmod install z.modules com.foo.bar
+$BIN/jmod install z.modules com.foo.byz
 $BIN/jmod list
 $BIN/jmod list -v
 $BIN/jmod dump com.foo.bar@1.2.3_01-4a com.foo.bar.Main >z
-cmp z z.classes/com/foo/bar/Main.class
+cmp z z.modules/com.foo.bar/com/foo/bar/Main.class
