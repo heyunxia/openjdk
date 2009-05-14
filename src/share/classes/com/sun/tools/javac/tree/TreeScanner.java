@@ -46,7 +46,8 @@ public class TreeScanner extends Visitor {
     /** Visitor method: Scan a single node.
      */
     public void scan(JCTree tree) {
-        if(tree!=null) tree.accept(this);
+        if (tree != null)
+            tree.accept(this);
     }
 
     /** Visitor method: scan a list of nodes.

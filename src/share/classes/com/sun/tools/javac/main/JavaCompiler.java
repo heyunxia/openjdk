@@ -704,8 +704,6 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
     /** Complete compiling a source file that has been accessed
      *  by the class file reader.
      *  @param c          The class the source file of which needs to be compiled.
-     *  @param filename   The name of the source file.
-     *  @param f          An input stream that reads the source file.
      */
     public void complete(ClassSymbol c) throws CompletionFailure {
         if (completionFailureName == c.fullname) {
@@ -797,6 +795,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
     {
         if (processors != null && processors.iterator().hasNext())
             explicitAnnotationProcessingRequested = true;
+
         // as a JavaCompiler can only be used once, throw an exception if
         // it has been used before.
         if (hasBeenUsed)
@@ -1125,7 +1124,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
                                   env.enclClass.sym.sourcefile :
                                   env.toplevel.sourcefile);
         try {
-            attr.attribClass(env.tree.pos(), env.enclClass.sym);
+            attr.analyze(env);
             compileStates.put(env, CompileState.ATTR);
         }
         finally {
@@ -1274,7 +1273,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
             make.at(Position.FIRSTPOS);
             TreeMaker localMake = make.forToplevel(env.toplevel);
 
-            if (env.tree instanceof JCCompilationUnit) {
+            if (env.tree.getTag() == JCTree.TOPLEVEL || env.tree.getTag() == JCTree.MODULE) {
                 if (!(stubOutput || sourceOutput || printFlat)) {
                     if (shouldStop(CompileState.LOWER))
                         return;

@@ -239,6 +239,10 @@ public class ZipArchive implements Archive {
             String entryName = getZipEntryName();
             return removeExtension(entryName).replace('/', '.');
         }
+
+        protected String inferModuleTag(String binaryName) {
+            return removeExtension(new File(getZipName()).getName());
+        }
     }
 
 }

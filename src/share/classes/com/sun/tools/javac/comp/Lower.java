@@ -1963,38 +1963,34 @@ public class Lower extends TreeTranslator {
     public void visitTopLevel(JCCompilationUnit tree) {
         if (TreeInfo.isPackageInfo(tree)) {
             JCPackageDecl pd = TreeInfo.getPackage(tree);
+            long flags = Flags.ABSTRACT | Flags.INTERFACE;
+            if (target.isPackageInfoSynthetic())
+                flags |= SYNTHETIC;
             ClassSymbol c = reader.enterClass(names.package_info, tree.packge);
-            createInfoClass(tree, pd.annots, pd.sym, c,
-                    target.isPackageInfoSynthetic());
-        }
-
-        if (TreeInfo.isModuleInfo(tree)) {
-            JCModuleDecl md = TreeInfo.getModule(tree);
-            PackageSymbol p = reader.enterPackage(tree.modle.flatName());
-            ClassSymbol c = new ClassSymbol(0, names.module_info, p);
-            createInfoClass(tree, md.annots, md.sym, c, true);
+            c.sourcefile = attrEnv.toplevel.sourcefile;
+            c.completer = null;
+            c.members_field = new Scope(c);
+            c.flags_field = flags;
+            c.attributes_field = pd.sym.attributes_field;
+            c.modle = attrEnv.toplevel.modle;
+            pd.sym.attributes_field = List.nil();
+            ClassType ctype = (ClassType) c.type;
+            ctype.supertype_field = syms.objectType;
+            ctype.interfaces_field = List.nil();
+            createInfoClass(pd.annots, c);
         }
     }
-    //where
-    private void createInfoClass(JCCompilationUnit tree, List<JCAnnotation> annots,
-                TypeSymbol sym, ClassSymbol c, boolean synthetic) {
+
+    public void visitModuleDef(JCModuleDecl tree) {
+        createInfoClass(tree.annots, tree.sym.module_info);
+    }
+
+    private void createInfoClass(List<JCAnnotation> annots, ClassSymbol c) {
         long flags = Flags.ABSTRACT | Flags.INTERFACE;
-        if (synthetic)
-            flags |= SYNTHETIC;
         JCClassDecl infoClass =
                 make.ClassDef(make.Modifiers(flags, annots),
                     c.name, List.<JCTypeParameter>nil(),
                     null, List.<JCExpression>nil(), List.<JCTree>nil());
-        c.sourcefile = tree.sourcefile;
-        c.completer = null;
-        c.members_field = new Scope(c);
-        c.flags_field = flags;
-        c.attributes_field = sym.attributes_field;
-        c.modle = tree.modle;
-        sym.attributes_field = List.nil();
-        ClassType ctype = (ClassType) c.type;
-        ctype.supertype_field = syms.objectType;
-        ctype.interfaces_field = List.nil();
         infoClass.sym = c;
         translated.append(infoClass);
     }

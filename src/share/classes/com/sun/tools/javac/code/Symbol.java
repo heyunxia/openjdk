@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.lang.model.element.*;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.util.*;
@@ -624,9 +625,28 @@ public abstract class Symbol implements Element {
         }
     }
 
+    public static class ModuleRequires implements ModuleElement.ModuleRequires {
+        public ModuleId moduleId;
+        public List<Name> flags;
+
+        public ModuleRequires(ModuleId moduleIdQuery, List<Name> flags) {
+            this.moduleId = moduleIdQuery;
+            this.flags = flags;
+        }
+
+        public ModuleElement.ModuleId getModuleId() {
+            return moduleId;
+        }
+
+        public java.util.List<? extends CharSequence> getFlags() {
+            return flags;
+        }
+
+    }
+
     /** A class for module symbols.
      */
-    public static class ModuleSymbol extends TypeSymbol // JIGSAW need TypeSymbol?
+    public static class ModuleSymbol extends TypeSymbol implements ModuleElement // JIGSAW need TypeSymbol?
             /*implements ModuleElement*/ {
         public Name fullname;
         public Name version;
@@ -636,8 +656,15 @@ public abstract class Symbol implements Element {
         public ClassSymbol className;
         public List<Name> classFlags;
         public ListBuffer<Name> permits;
-        public ListBuffer<ModuleId> provides;
-        public Map<ModuleId,List<Name>> requires;
+        public ListBuffer<ClassFile.ModuleId> provides;
+        public Map<ClassFile.ModuleId,Symbol.ModuleRequires> requires;
+        public JavaFileManager.Location location;
+
+        public ModuleSymbol() {
+            super(0, null, null, null);
+            this.kind = MDL;
+            this.type = new ModuleType(this);
+        }
 
         public ModuleSymbol(Name name, Symbol owner) {
             super(0, name, null, owner);
@@ -646,9 +673,18 @@ public abstract class Symbol implements Element {
             this.fullname = formFullName(name, owner);
         }
 
+        public java.util.List<Symbol.ModuleRequires> getRequires() {
+            List<Symbol.ModuleRequires> l = List.nil();
+            for (Symbol.ModuleRequires mr: requires.values()) {
+                l = l.prepend(mr);
+            }
+            return l.reverse();
+        }
+
         @Override
         public String toString() {
-            return fullname.toString();
+            String n = fullname== null ? "<unknown>" : String.valueOf(fullname); // null-safe
+            return (version == null) ? n : n + "@" + version;
         }
 
         @Override

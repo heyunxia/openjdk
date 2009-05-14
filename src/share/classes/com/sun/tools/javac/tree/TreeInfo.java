@@ -887,7 +887,6 @@ public class TreeInfo {
         for (JCTree def: t.defs) {
             switch (def.getTag()) {
                 case JCTree.IMPORT:
-                case JCTree.MODULE:
                     continue;
                 case JCTree.PACKAGE:
                     return (JCPackageDecl) def;

@@ -185,12 +185,6 @@ public class Symtab {
      */
     public final Map<Name, PackageSymbol> packages = new HashMap<Name, PackageSymbol>();
 
-    /** A hashtable containing the encountered modules.
-     *  The table should be updated from outside to reflect modules defined
-     *  by compiled source files.
-     */
-    public final Map<Name, ModuleSymbol> modules = new HashMap<Name, ModuleSymbol>();
-
     public void initType(Type type, ClassSymbol c) {
         type.tsym = c;
         typeOfTag[type.tag] = type;

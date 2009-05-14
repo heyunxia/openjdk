@@ -33,20 +33,20 @@ import com.sun.tools.classfile.*;
 
 public class ModuleVersionTest01 {
     String[] values = {
-	"0",
-	"1",
-	"2.3",
-	"3.4alpha",
-	"(2:3]",
-	"[3:4]",
-	"<1",
-	"=2",
-	">3",
-	"\"alpha\"",
-	"\"alpha beta\"",
-	"\"alpha,beta\""
+        "0",
+        "1",
+        "2.3",
+        "3.4alpha",
+        "(2:3]",
+        "[3:4]",
+        "<1",
+        "=2",
+        ">3",
+        "\"alpha\"",
+        "\"alpha beta\"",
+        "\"alpha,beta\""
     };
- 	
+
 
     public static void main(String[] args) throws Exception {
         new ModuleVersionTest01().run();
@@ -76,14 +76,14 @@ public class ModuleVersionTest01 {
         addFile(files, createFile("module-info.java", "module M @ " + version + " { }"));
         compile(files);
         String moduleId = "M@" + unquote(version);
-        checkModuleAttribute("M/module-info.class", moduleId);
+        checkModuleAttribute("module-info.class", moduleId);
     }
 
     String unquote(String v) {
-	if (v.startsWith("\"") && v.endsWith("\""))
-	    return v.substring(1, v.length() - 1);
-	else
-	    return v;
+        if (v.startsWith("\"") && v.endsWith("\""))
+            return v.substring(1, v.length() - 1);
+        else
+            return v;
     }
 
     void checkModuleAttribute(String file, String moduleId) throws IOException {

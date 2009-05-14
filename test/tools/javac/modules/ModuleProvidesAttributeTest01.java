@@ -87,7 +87,7 @@ public class ModuleProvidesAttributeTest01 {
     private static final char FS = File.separatorChar;
 
     void checkProvidesAttribute(String moduleName, List<String> providesList) {
-        String file = moduleName.replace('.', FS) + FS + "module-info.class";
+        String file = "module-info.class";
         System.err.println("Checking " + file);
         try {
             ClassFile cf = ClassFile.read(new File(classesDir, file));

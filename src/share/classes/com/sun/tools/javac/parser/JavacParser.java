@@ -1970,7 +1970,8 @@ public class JavacParser implements Parser {
                 break;
             default: break loop;
             }
-            if ((flags & flag) != 0) log.error(S.pos(), "repeated.modifier");
+            if ((flags & flag) != 0)
+                log.error(S.pos(), "repeated.modifier");
             lastPos = S.pos();
             S.nextToken();
             if (flag == Flags.ANNOTATION) {
@@ -2242,7 +2243,10 @@ public class JavacParser implements Parser {
     }
 
     /**
-     * ModuleDecl = QualifiedIdentifier ';' | ModuleId '{' { ModuleMetadata } '}'
+     * ModuleDecl = { "@" Annotation } MODULE ModuleId [ ModuleProvides ] '{' { ModuleMetadata } '}'
+     * ModuleProvides = PROVIDES ModuleIdList
+     *
+     * called after MODULE has been seen
      */
     JCModuleDecl moduleDecl(JCModifiers mods, String dc) {
         int pos = S.pos();
@@ -2259,18 +2263,14 @@ public class JavacParser implements Parser {
         List<JCModuleId> provides = null;
         List<JCModuleMetadata> metadataList = null;
 
-        if (S.token() == SEMI) {
+        if (S.token() == IDENTIFIER && S.name() == names.provides) {
             S.nextToken();
-        } else {
-            if (S.token() == IDENTIFIER && S.name() == names.provides) {
-                S.nextToken();
-                provides = moduleIdList();
-            } else
-                provides = List.nil();
-            accept(LBRACE);
-            metadataList = moduleMetadataList();
-            accept(RBRACE);
-        }
+            provides = moduleIdList();
+        } else
+            provides = List.nil();
+        accept(LBRACE);
+        metadataList = moduleMetadataList();
+        accept(RBRACE);
 
         JCModuleDecl result = toP(F.at(pos).Module(annots, mid, provides, metadataList));
         attach(result, dc);
@@ -2280,9 +2280,8 @@ public class JavacParser implements Parser {
     /**
      * ModuleMetadataList = ModuleMetadata*
      * ModuleMetadata = ModuleRequires | ModulePermits | ModuleProvides
-     * ModuleRequires = 'requires' Identifier* ModuleId {',' ModuleId}
-     * ModulePermits  = 'permits'  QualifiedIdentifier {',' QualifiedIdentifier}
-     * ModuleProvides = 'provides' ModuleId {',' ModuleId}
+     * ModuleRequires = REQUIRES Identifier* ModuleId {',' ModuleId}
+     * ModulePermits  = PERMITS  QualifiedIdentifier {',' QualifiedIdentifier}
      */
     List<JCModuleMetadata> moduleMetadataList() {
         ListBuffer<JCModuleMetadata> defs = new ListBuffer<JCModuleMetadata>();

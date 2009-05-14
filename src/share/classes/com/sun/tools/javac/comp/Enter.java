@@ -38,7 +38,6 @@ import com.sun.tools.javac.util.List;
 
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.code.Symbol.*;
-import com.sun.tools.javac.jvm.ClassFile.ModuleId;
 import com.sun.tools.javac.tree.JCTree.*;
 
 import static com.sun.tools.javac.code.Flags.*;
@@ -99,13 +98,11 @@ public class Enter extends JCTree.Visitor {
     ClassReader reader;
     Annotate annotate;
     MemberEnter memberEnter;
-    Names names;
     Types types;
     Lint lint;
-    Source source;
     JavaFileManager fileManager;
+    Modules modules;
 
-    private boolean allowModules;
     private final Todo todo;
 
     public static Enter instance(Context context) {
@@ -122,15 +119,12 @@ public class Enter extends JCTree.Visitor {
         reader = ClassReader.instance(context);
         make = TreeMaker.instance(context);
         syms = Symtab.instance(context);
-        names = Names.instance(context);
         chk = Check.instance(context);
         memberEnter = MemberEnter.instance(context);
         types = Types.instance(context);
         annotate = Annotate.instance(context);
         lint = Lint.instance(context);
-
-        source = Source.instance(context);
-        allowModules = source.allowModules();
+        modules = Modules.instance(context);
 
         predefClassDef = make.ClassDef(
             make.Modifiers(PUBLIC),
@@ -232,6 +226,21 @@ public class Enter extends JCTree.Visitor {
             ? ((JCClassDecl) env.tree).sym.members_field
             : env.info.scope;
     }
+    /** Create a fresh environment for modules.
+     *
+     *  @param tree     The module definition.
+     *  @param env      The environment current outside of the module definition.
+     */
+    public Env<AttrContext> moduleEnv(JCModuleDecl tree, Env<AttrContext> env) {
+        Env<AttrContext> localEnv =
+            env.dup(tree, env.info.dup(new Scope(tree.sym)));
+        localEnv.enclClass = predefClassDef;
+        localEnv.outer = env;
+        localEnv.info.isSelfCall = false;
+        localEnv.info.lint = null; // leave this to be filled in by Attr,
+                                   // when annotations have been processed
+        return localEnv;
+    }
 
 /* ************************************************************************
  * Visitor methods for phase 1: class enter
@@ -281,39 +290,9 @@ public class Enter extends JCTree.Visitor {
         JavaFileObject prev = log.useSource(tree.sourcefile);
         boolean addEnv = false;
 
-        boolean isModuleInfo = TreeInfo.isModuleInfo(tree);
-        JCModuleDecl md = TreeInfo.getModule(tree);
-
         boolean isPackageInfo = TreeInfo.isPackageInfo(tree);
+        boolean isModuleInfo = TreeInfo.isModuleInfo(tree);
         JCPackageDecl pd = TreeInfo.getPackage(tree);
-
-        if (md != null) {
-            tree.modle = md.sym = reader.enterModule(TreeInfo.fullName(md.id.qualId));
-            if (md.id.version != null) {
-                if (isModuleInfo)
-                    tree.modle.version = md.id.version;
-                else
-                    log.error("mdl.version.not.allowed");
-            }
-            // JIGSAW TODO check version
-            if (md.annots.nonEmpty() && !isModuleInfo) {
-                log.error(md.annots.head.pos(),
-                          "mdl.annotations.sb.in.module-info.java");
-            }
-            if (pd == null) {
-                for (List<JCTree> l = tree.defs; l.nonEmpty(); l = l.tail) {
-                    if (l.head.getTag() == JCTree.CLASSDEF) {
-                        log.error(tree.pos(), "mdl.for.decls.in.unnamed.package");
-                        continue;
-                    }
-                }
-            }
-        } else {
-            if (isModuleInfo) {
-                log.error(tree, "modinfo.must.contain.module.decl");
-                tree.modle = new ModuleSymbol(names.empty, syms.rootModule);
-            }
-        }
 
         if (pd != null) {
             tree.packge = pd.sym = reader.enterPackage(TreeInfo.fullName(pd.packageId));
@@ -328,32 +307,9 @@ public class Enter extends JCTree.Visitor {
 
         Env<AttrContext> treeEnv = topLevelEnv(tree);
 
-        if (isModuleInfo) {
-            addEnv = true;
-
-            // Save environment of module-info.java file.
-            Env<AttrContext> env0 = typeEnvs.get(tree.modle);
-            if (env0 == null) {
-                typeEnvs.put(tree.modle, treeEnv);
-            } else {
-                JCCompilationUnit tree0 = env0.toplevel;
-                JCModuleDecl md0 = TreeInfo.getModule(tree0);
-                if (!fileManager.isSameFile(tree.sourcefile, tree0.sourcefile)) {
-                    log.warning(md != null ? md.pos() : null,
-                                "module-info.already.seen",
-                                tree.modle);
-                    if (addEnv || (md0.annots.isEmpty() &&
-                                   tree.docComments != null &&
-                                   tree.docComments.get(tree) != null)) {
-                        typeEnvs.put(tree.modle, treeEnv);
-                    }
-                }
-            }
-        }
-
         // Save environment of package-info.java file.
         if (isPackageInfo) {
-            addEnv = (pd != null) && (md != null || pd.annots.nonEmpty());
+            addEnv = (pd != null) && pd.annots.nonEmpty();
 
             Env<AttrContext> env0 = typeEnvs.get(tree.packge);
             if (env0 == null) {
@@ -371,6 +327,11 @@ public class Enter extends JCTree.Visitor {
                     }
                 }
             }
+        } else if (isModuleInfo) {
+            JCModuleDecl md = TreeInfo.getModule(tree);
+            if (md != null) {
+                typeEnvs.put(md.sym, treeEnv);
+            }
         }
 
         classEnter(tree.defs, treeEnv);
@@ -382,6 +343,7 @@ public class Enter extends JCTree.Visitor {
         result = null;
     }
 
+    @Override
     public void visitClassDef(JCClassDecl tree) {
         Symbol owner = env.info.scope.owner;
         Scope enclScope = enterScope(env);
@@ -490,6 +452,7 @@ public class Enter extends JCTree.Visitor {
      *  Enter a symbol for type parameter in local scope, after checking that it
      *  is unique.
      */
+    @Override
     public void visitTypeParameter(JCTypeParameter tree) {
         TypeVar a = (tree.type != null)
             ? (TypeVar)tree.type
@@ -503,60 +466,14 @@ public class Enter extends JCTree.Visitor {
 
     @Override
     public void visitModuleDef(JCModuleDecl tree) {
-        if (!allowModules) {
-            log.error(tree.pos(), "modules.not.supported.in.source", source.name);
-            allowModules = true;
-        }
-
-        if (tree.provides == null)
-            return;
-
-        ModuleSymbol sym = tree.sym;
-        sym.permits = new ListBuffer<Name>();
-        sym.provides = new ListBuffer<ModuleId>();
-        sym.requires = new LinkedHashMap<ModuleId,List<Name>>();
-        for (List<JCModuleId> l = tree.provides; l.nonEmpty(); l = l.tail) {
-            JCModuleId moduleId = l.head;
-            sym.provides.append(new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version));
-        }
-        for (List<JCModuleMetadata> l = tree.metadata; l.nonEmpty(); l = l.tail) {
-            l.head.accept(this);
-        }
-    }
-
-    @Override
-    public void visitModuleClass(JCModuleClass tree) {
-        ModuleSymbol sym = env.toplevel.modle;
-        Name className = TreeInfo.fullName(tree.qualId);
-        // JIGSAW TODO check conflicts
-        sym.className = reader.enterClass(className);
-        sym.classFlags = tree.flags;
-    }
-
-    @Override
-    public void visitModulePermits(JCModulePermits tree) {
-        ModuleSymbol sym = env.toplevel.modle;
-        for (List<JCExpression> l = tree.moduleNames; l.nonEmpty(); l = l.tail) {
-            JCTree qualId = l.head;
-            Name moduleName = TreeInfo.fullName(qualId);
-            // JIGSAW TODO check conflicts
-            sym.permits.add(moduleName);
-        }
-    }
-
-    @Override
-    public void visitModuleRequires(JCModuleRequires tree) {
-        ModuleSymbol sym = env.toplevel.modle;
-        for (List<JCModuleId> l = tree.moduleIds; l.nonEmpty(); l = l.tail) {
-            JCModuleId moduleId = l.head;
-            ModuleId mid = new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version);
-            // JIGSAW TODO check conflicts
-            sym.requires.put(mid, tree.flags);
-        }
+        Env<AttrContext> moduleEnv = moduleEnv(tree, env);
+        typeEnvs.put(tree.sym, moduleEnv);
+        todo.append(moduleEnv);
     }
 
     /** Default class enter visitor method: do nothing.
      */
+    @Override
     public void visitTree(JCTree tree) {
         result = null;
     }
@@ -576,9 +493,13 @@ public class Enter extends JCTree.Visitor {
     public void complete(List<JCCompilationUnit> trees, ClassSymbol c) {
         annotate.enterStart();
         ListBuffer<ClassSymbol> prevUncompleted = uncompleted;
-        if (memberEnter.completionEnabled) uncompleted = new ListBuffer<ClassSymbol>();
+        if (memberEnter.completionEnabled)
+            uncompleted = new ListBuffer<ClassSymbol>();
 
         try {
+            // process module declarations
+            modules.enter(trees);
+
             // enter all classes, and construct uncompleted list
             classEnter(trees, null);
 
@@ -598,11 +519,14 @@ public class Enter extends JCTree.Visitor {
                 for (JCCompilationUnit tree : trees) {
                     if (tree.starImportScope.elems == null) {
                         JavaFileObject prev = log.useSource(tree.sourcefile);
-                        Env<AttrContext> env = typeEnvs.get(tree);
-                        if (env == null)
-                            env = topLevelEnv(tree);
-                        memberEnter.memberEnter(tree, env);
-                        log.useSource(prev);
+                        try {
+                            Env<AttrContext> tenv = typeEnvs.get(tree);
+                            if (tenv == null)
+                                tenv = topLevelEnv(tree);
+                            memberEnter.memberEnter(tree, tenv);
+                        } finally {
+                            log.useSource(prev);
+                        }
                     }
                 }
             }

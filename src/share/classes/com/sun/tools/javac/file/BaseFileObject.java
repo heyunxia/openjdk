@@ -82,6 +82,8 @@ public abstract class BaseFileObject implements JavaFileObject {
 
     protected abstract String inferBinaryName(Iterable<? extends File> path);
 
+    protected abstract String inferModuleTag(String binaryName);
+
     protected static String removeExtension(String fileName) {
         int lastDot = fileName.lastIndexOf(".");
         return (lastDot == -1 ? fileName : fileName.substring(0, lastDot));

@@ -227,6 +227,10 @@ public class ZipFileIndexArchive implements Archive {
             }
             return removeExtension(entryName).replace('/', '.');
         }
+
+        protected String inferModuleTag(String binaryName) {
+            return removeExtension(zfIndex.getZipFile().getName());
+        }
     }
 
 }

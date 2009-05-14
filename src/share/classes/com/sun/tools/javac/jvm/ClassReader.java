@@ -158,10 +158,6 @@ public class ClassReader implements Completer {
      */
     private Map<Name, PackageSymbol> packages;
 
-    /** A hashtable containing the encountered modules.
-     */
-    private Map<Name, ModuleSymbol> modules;
-
     /** The current scope where type variables are entered.
      */
     protected Scope typevars;
@@ -216,21 +212,14 @@ public class ClassReader implements Completer {
         if (classes != null) return;
 
         if (definitive) {
-            assert modules == null || modules == syms.modules;
-            modules = syms.modules;
             assert packages == null || packages == syms.packages;
             packages = syms.packages;
             assert classes == null || classes == syms.classes;
             classes = syms.classes;
         } else {
-            modules = new HashMap<Name, ModuleSymbol>();
             packages = new HashMap<Name, PackageSymbol>();
             classes = new HashMap<Name, ClassSymbol>();
         }
-
-        modules.put(names.empty, syms.rootModule);
-        syms.rootModule.completer = this;
-        syms.unnamedModule.completer = this;
 
         packages.put(names.empty, syms.rootPackage);
         syms.rootPackage.completer = this;
@@ -485,7 +474,7 @@ public class ClassReader implements Completer {
             break;
         case CONSTANT_ModuleId:
             poolObj[i] = new ModuleId(
-                readName(getChar(index + 1)),
+                readInternalName(getChar(index + 1)),
                 readName(getChar(index + 3)));
             break;
         default:
@@ -540,6 +529,23 @@ public class ClassReader implements Completer {
      */
     ModuleId readModuleId(int i) {
         return (ModuleId) (readPool(i));
+    }
+
+    Name readInternalName(int i) {
+        int index = poolIdx[i];
+        return names.fromUtf(internalize(buf, index + 3, getChar(index + 1)));
+    }
+
+    /** Read module name.
+     * The module name is in a CONSTANT_Class_info, but we don't want to
+     * enter a class for it, so can't use readClassSymbol.
+     */
+    Name readModuleInfoName(int i) {
+        int index = poolIdx[i];
+        assert index != 0;
+        byte tag = buf[index];
+        assert tag == CONSTANT_Class;
+        return readInternalName(getChar(index+1));
     }
 
 /************************************************************************
@@ -1091,18 +1097,19 @@ public class ClassReader implements Completer {
                 }
             },
 
+            //  v51 module attributes
+
             new AttributeReader(names.Module, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
                 @Override
                 boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
                 }
                 void read(Symbol sym, int attrLen) {
-                    if (sym.kind == TYP) {
-                        ClassSymbol c = (ClassSymbol) sym;
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
                         ModuleId mid = readModuleId(nextChar());
-                        c.modle = enterModule(mid.name);
-                        if (c.name == names.module_info)
-                            c.modle.version = mid.version;
+                        msym.name = msym.fullname = mid.name;
+                        msym.version = mid.version;
                     }
                 }
             },
@@ -1113,11 +1120,11 @@ public class ClassReader implements Completer {
                     return super.accepts(kind) && allowModules;
                 }
                 void read(Symbol sym, int attrLen) {
-                    if (sym.name == names.module_info && sym.kind == TYP) {
-                        ClassSymbol c = (ClassSymbol) sym;
-                        if (c.modle == null)
-                            c.modle = enterModule(c.packge().flatName());
-                        readModuleAttribute(c.modle, names.ModulePermits, attrLen);
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int num = nextChar();
+                        for (int i = 0; i < num; i++)
+                            msym.permits.append(readName(nextChar()));
                     }
                 }
             },
@@ -1128,11 +1135,11 @@ public class ClassReader implements Completer {
                     return super.accepts(kind) && allowModules;
                 }
                 void read(Symbol sym, int attrLen) {
-                    if (sym.name == names.module_info && sym.kind == TYP) {
-                        ClassSymbol c = (ClassSymbol) sym;
-                        if (c.modle == null)
-                            c.modle = enterModule(c.packge().flatName());
-                        readModuleAttribute(c.modle, names.ModuleProvides, attrLen);
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int num = nextChar();
+                        for (int i = 0; i < num; i++)
+                            msym.provides.append(readModuleId(nextChar()));
                     }
                 }
             },
@@ -1143,11 +1150,18 @@ public class ClassReader implements Completer {
                     return super.accepts(kind) && allowModules;
                 }
                 void read(Symbol sym, int attrLen) {
-                    if (sym.name == names.module_info && sym.kind == TYP) {
-                        ClassSymbol c = (ClassSymbol) sym;
-                        if (c.modle == null)
-                            c.modle = enterModule(c.packge().flatName());
-                        readModuleAttribute(c.modle, names.ModuleRequires, attrLen);
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int numRequires = nextChar();
+                        for (int r = 0; r < numRequires; r++) {
+                            ModuleId id = readModuleId(nextChar());
+                            ListBuffer<Name> flags = new ListBuffer<Name>();
+                            int numFlags = nextChar();
+                            for (int f = 0; f < numFlags; f++) {
+                                flags.append(readName(nextChar()));
+                            }
+                            msym.requires.put(id, new ModuleRequires(id, flags.toList()));
+                        }
                     }
                 }
             }
@@ -1317,38 +1331,6 @@ public class ClassReader implements Completer {
         bp += exception_table_length * 8;
         readMemberAttrs(owner);
         return null;
-    }
-
-    /** Read module attributes */
-
-    void readModuleAttribute(ModuleSymbol m, Name attrName, int attrLen) {
-        if (attrName == names.ModuleProvides) {
-            m.provides = new ListBuffer<ModuleId>();
-            int num = nextChar();
-            for (int i = 0; i < num; i++)
-                m.provides.append(readModuleId(nextChar()));
-        } else if (attrName == names.ModuleRequires) {
-            Map<ModuleId,List<Name>> requires = new LinkedHashMap<ModuleId,List<Name>>();
-            int numRequires = nextChar();
-            for (int r = 0; r < numRequires; r++) {
-                ModuleId id = readModuleId(nextChar());
-                ListBuffer<Name> flags = new ListBuffer<Name>();
-                int numFlags = nextChar();
-                for (int f = 0; f < numFlags; f++) {
-                    flags.append(readName(nextChar()));
-                }
-                requires.put(id, flags.toList());
-            }
-            m.requires = requires;
-        } else if (attrName == names.ModulePermits) {
-            m.permits = new ListBuffer<Name>();
-            int num = nextChar();
-            for (int i = 0; i < num; i++)
-                m.permits.append(readName(nextChar()));
-        } else {
-            unrecognized(attrName);
-            bp = bp + attrLen;
-        }
     }
 
 /************************************************************************
@@ -1817,11 +1799,20 @@ public class ClassReader implements Completer {
         long flags = adjustClassFlags(nextChar());
         if (c.owner.kind == PCK) c.flags_field = flags;
 
-        // read own class name and check that it matches
-        ClassSymbol self = readClassSymbol(nextChar());
-        if (c != self)
-            throw badClassFile("class.file.wrong.class",
-                               self.flatname);
+        if (c.owner.kind == MDL) {
+            //System.err.println("ClassReader.readClass getModuleInfoName");
+            c.fullname = c.flatname = readModuleInfoName(nextChar());
+            c.name = Convert.shortName(c.fullname);
+            assert c.name == names.module_info;
+        } else {
+            // read own class name and check that it matches
+            ClassSymbol self = readClassSymbol(nextChar());
+            if (c != self) {
+                //System.err.println("ClassReader.readClass c=" + c + " self=" + self);
+                throw badClassFile("class.file.wrong.class",
+                                   self.flatname);
+            }
+        }
 
         // class attributes must be read before class
         // skip ahead to read class attributes
@@ -2059,10 +2050,15 @@ public class ClassReader implements Completer {
                 throw new CompletionFailure(sym, ex.getLocalizedMessage()).initCause(ex);
             }
         } else if (sym.kind == MDL) {
-            ModuleSymbol m = (ModuleSymbol) sym;
-            enterPackage(m.flatName()).complete();
-            if (m.module_info != null)
-                m.module_info.complete();
+            //System.err.println("ClassReader.complete module " + sym + " " + sym.name);
+            ModuleSymbol msym = (ModuleSymbol) sym;
+            msym.permits = new ListBuffer<Name>();
+            msym.provides = new ListBuffer<ModuleId>();
+            msym.requires = new LinkedHashMap<ModuleId,ModuleRequires>();
+            msym.module_info.members_field = new Scope(sym); // or Scope.empty?
+            fillIn(msym.module_info);
+            assert msym.name != null;
+            //System.err.println("ClassReader.completed module " + sym + " " + sym.name);
         }
         if (!filling && !suppressFlush)
             annotate.flush(); // finish attaching annotations
@@ -2275,15 +2271,11 @@ public class ClassReader implements Completer {
      *             is older.
      */
     protected void includeClassFile(PackageSymbol p, JavaFileObject file, Name simpleName) {
-        boolean isModuleInfo = simpleName == names.module_info;
         boolean isPackageInfo = simpleName == names.package_info;
-        ModuleSymbol m = isModuleInfo ? enterModule(p.flatName()) : null;
 
-        if (!isModuleInfo) {
-            if ((p.flags_field & EXISTS) == 0)
-                for (Symbol q = p; q != null && q.kind == PCK; q = q.owner)
-                    q.flags_field |= EXISTS;
-        }
+        if ((p.flags_field & EXISTS) == 0)
+            for (Symbol q = p; q != null && q.kind == PCK; q = q.owner)
+                q.flags_field |= EXISTS;
         JavaFileObject.Kind kind = file.getKind();
         int seen;
         if (kind == JavaFileObject.Kind.CLASS)
@@ -2291,16 +2283,13 @@ public class ClassReader implements Completer {
         else
             seen = SOURCE_SEEN;
         ClassSymbol c =
-              isModuleInfo ? m.module_info
-            : isPackageInfo ? p.package_info
+            isPackageInfo ? p.package_info
             : (ClassSymbol) p.members_field.lookup(simpleName).sym;
         if (c == null) {
             c = enterClass(simpleName, p);
             if (c.classfile == null) // only update the file if's it's newly created
                 c.classfile = file;
-            if (isModuleInfo) {
-                m.module_info = c;
-            } else if (isPackageInfo) {
+            if (isPackageInfo) {
                 p.package_info = c;
             } else {
                 if (c.owner == p)  // it might be an inner class
@@ -2321,7 +2310,7 @@ public class ClassReader implements Completer {
      *  file or a class file when both are present.  May be overridden
      *  by subclasses.
      */
-    protected JavaFileObject preferredFileObject(JavaFileObject a,
+    public JavaFileObject preferredFileObject(JavaFileObject a,
                                            JavaFileObject b) {
 
         if (preferSource)
@@ -2348,9 +2337,13 @@ public class ClassReader implements Completer {
     protected void extraFileActions(PackageSymbol pack, JavaFileObject fe) {
     }
 
-    protected Location currentLoc; // FIXME
+    public void setPathLocation(Location pathLocation) {
+        this.pathLocation = pathLocation;
+    }
 
+    private Location pathLocation;
     private boolean verbosePath = true;
+
 
     /** Load directory of package into members scope.
      */
@@ -2365,6 +2358,16 @@ public class ClassReader implements Completer {
                                 packageName,
                                 EnumSet.of(JavaFileObject.Kind.CLASS),
                                 false));
+
+        if (pathLocation != null) {
+            //System.err.println("ClassReader.fillIn using pathLocation " + pathLocation);
+            fillIn(p, pathLocation,
+                    fileManager.list(pathLocation,
+                                    packageName,
+                                    EnumSet.allOf(JavaFileObject.Kind.class),
+                                    false));
+            return;
+        }
 
         Set<JavaFileObject.Kind> classKinds = EnumSet.copyOf(kinds);
         classKinds.remove(JavaFileObject.Kind.SOURCE);
@@ -2432,16 +2435,14 @@ public class ClassReader implements Completer {
                             Location location,
                             Iterable<JavaFileObject> files)
         {
-            currentLoc = location;
             for (JavaFileObject fo : files) {
                 switch (fo.getKind()) {
                 case CLASS:
                 case SOURCE: {
-                    String binaryName = fileManager.inferBinaryName(currentLoc, fo);
+                    String binaryName = fileManager.inferBinaryName(location, fo);
                     String simpleName = binaryName.substring(binaryName.lastIndexOf(".") + 1);
                     if (SourceVersion.isIdentifier(simpleName) ||
-                        simpleName.contentEquals(names.package_info) ||
-                        simpleName.contentEquals(names.module_info)) {
+                        simpleName.contentEquals(names.package_info)) {
                         includeClassFile(p, fo, names.fromString(simpleName));
                     }
                     break;
@@ -2451,21 +2452,6 @@ public class ClassReader implements Completer {
                 }
             }
         }
-
-    /** Make a module, given its fully qualified name.
-     */
-    public ModuleSymbol enterModule(Name fullname) {
-        ModuleSymbol m = modules.get(fullname);
-        if (m == null) {
-            assert !fullname.isEmpty() : "rootModule missing!";
-            m = new ModuleSymbol(
-                Convert.shortName(fullname),
-                enterModule(Convert.packagePart(fullname)));
-            m.completer = this;
-            modules.put(fullname, m);
-        }
-        return m;
-    }
 
     /** Output for "-verbose" option.
      *  @param key The key to look up the correct internationalized string.
@@ -2571,6 +2557,11 @@ public class ClassReader implements Completer {
         @Override
         protected String inferBinaryName(Iterable<? extends File> path) {
             return flatname.toString();
+        }
+
+        @Override
+        protected String inferModuleTag(String binaryName) {
+            return null;
         }
     }
 }

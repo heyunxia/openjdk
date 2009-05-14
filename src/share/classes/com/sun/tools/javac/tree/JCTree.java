@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.util.*;
@@ -434,6 +435,7 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         public List<JCTree> defs;
         public JavaFileObject sourcefile;
         public ModuleSymbol modle;
+        public Location locn;
         public PackageSymbol packge;
         public Scope namedImportScope;
         public Scope starImportScope;

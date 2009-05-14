@@ -33,9 +33,9 @@ import com.sun.tools.classfile.*;
 
 public class ModuleClassAttributeTest01 {
     String[][] values = {
-	{"C"},
-	{"main", "my.pckge.Main"},
-	{"fx", "applet", "a.b.c.MyClass"}
+        {"C"},
+        {"main", "my.pckge.Main"},
+        {"fx", "applet", "a.b.c.MyClass"}
     };
 
     public static void main(String[] args) throws Exception {
@@ -45,12 +45,12 @@ public class ModuleClassAttributeTest01 {
     void run() throws Exception {
         for (String[] v: values) {
             try {
-		String[] flags = null;
-	     	String className = null;
-		if (v.length > 0) {
-		    flags = new String[v.length - 1];
-		    System.arraycopy(v, 0, flags, 0, flags.length);
-		    className = v[v.length - 1];
+                String[] flags = null;
+                String className = null;
+                if (v.length > 0) {
+                    flags = new String[v.length - 1];
+                    System.arraycopy(v, 0, flags, 0, flags.length);
+                    className = v[v.length - 1];
                 }
                 System.err.println("Test " + Arrays.asList(flags) + " " + className);
                 test(flags, className);
@@ -69,30 +69,35 @@ public class ModuleClassAttributeTest01 {
     void test(String[] flags, String className) throws Exception {
         count++;
         reset();
-	StringBuilder sb = new StringBuilder();
-	sb.append("module M { ");
-	if (className != null) {
-	    sb.append("class ");
-	    for (String f: flags)
-	        sb.append(f + " ");
-	    sb.append(className);
-	    sb.append("; ");
+        StringBuilder sb = new StringBuilder();
+        sb.append("module M { ");
+        if (className != null) {
+            sb.append("class ");
+            for (String f: flags)
+                sb.append(f + " ");
+            sb.append(className);
+            sb.append("; ");
         }
-	sb.append("}");
-	String moduleInfoBody = sb.toString();
+        sb.append("}");
+        String moduleInfoBody = sb.toString();
 
-	String classBody;
-	int dot = className.lastIndexOf('.');
-	if (dot == -1) 
-	    classBody = "class " + className + " { }";
-	else
-	    classBody = "package " + className.substring(0, dot) + "; class " + className.substring(dot + 1) + " { }";
+        String classPath; // path name of the class
+        String classBody;
+        int dot = className.lastIndexOf('.');
+        if (dot == -1) {
+            classBody = "public class " + className + " { }";
+            classPath = className + ".java";
+        }
+        else {
+            classBody = "package " + className.substring(0, dot) + "; public class " + className.substring(dot + 1) + " { }";
+            classPath = className.substring(dot + 1) + ".java";
+        }
 
         List<File> files = new ArrayList<File>();
-	addFile(files, createFile("dummy.java", classBody));
+        addFile(files, createFile(classPath, classBody));
         addFile(files, createFile("module-info.java", moduleInfoBody));
         compile(files);
-        checkModuleClassAttribute("M/module-info.class", flags, className.replace('.', '/'));
+        checkModuleClassAttribute("module-info.class", flags, className.replace('.', '/'));
     }
 
     void checkModuleClassAttribute(String file, String[] flags, String className) throws IOException {
@@ -114,7 +119,7 @@ public class ModuleClassAttributeTest01 {
             }
         } catch (ConstantPoolException e) {
             error("Error accessing constant pool " + file + ": " + e);
-	    e.printStackTrace();
+            e.printStackTrace();
         } catch (IOException e) {
             error("Error reading " + file + ": " + e);
         }

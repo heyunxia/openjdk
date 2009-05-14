@@ -64,13 +64,19 @@ public class ModuleAccessTest01
     };
 
     enum ModuleKind {
-        M1("module m1; package p1;"),
-        M2("module m2; package p2;"),
-        UNNAMED("");
-        ModuleKind(String s) {
-            text = s;
+        M1("m1", "p1"),
+        M2("m2", "p2"),
+        UNNAMED("", "");
+        ModuleKind(String m, String p) {
+            moduleName = m;
+            packageName = p;
         }
-        final String text;
+        String moduleDir() { return (moduleName.equals("") ? "anon" : moduleName) + "/"; }
+        String moduleDecl() { return "module " + moduleName + " { }"; }
+        String packageDir() { return (packageName.equals("") ? "" : packageName + "/"); }
+        String packageDecl() { return (packageName.equals("") ? "" : "package " + packageName + ";"); }
+        final String moduleName;
+        final String packageName;
     };
 
     public static void main(String... args) throws Exception {
@@ -94,10 +100,17 @@ public class ModuleAccessTest01
 
     void test(ItemKind ik, ModuleKind mk, AccessKind ak) throws Exception {
         System.out.println("Test " + (++count) + ": " + ik + " " + mk + " " + ak);
+
+        File testDir = new File("test" + count);
+        srcDir = new File(testDir, "src");
+        classesDir = new File(testDir, "classes");
         resetDirs(srcDir, classesDir);
 
+        List<File> files = new ArrayList<File>();
+
+        // create a reference class in module m1, package p
         String[] refBody = {
-            "module m1; package p;",
+            "package p;",
             "public class Ref {",
             "    " + ak.text + " Ref() { }",
             "    " + ak.text + " int field;",
@@ -105,21 +118,32 @@ public class ModuleAccessTest01
             "    " + ak.text + " class C { }",
             "}"
         };
-        File ref = createFile(srcDir, "Ref.java", join(refBody));
+        files.add(createFile(srcDir, "m1/p/Ref.java", join(refBody)));
+        files.add(createFile(srcDir, "m1/module-info.java", "module m1 { }"));
 
+        // create a test class in module mk.moduleName, package mk.packageName
         String[] testBody = {
-            mk.text,
+            mk.packageDecl(),
             "class Test {",
             "    void m(p.Ref ref) {",
             "        " + ik.text,
             "    }",
             "}"
         };
-        File test = createFile(srcDir, "Test.java", join(testBody));
+        files.add(createFile(srcDir, mk.moduleDir() + mk.packageDir() + "Test.java", join(testBody)));
+        switch (mk) {
+        case UNNAMED:   // no module-info
+        case M1:        // already generated for ref
+            break;
+        default:
+            files.add(createFile(srcDir, mk.moduleDir() + "module-info.java", mk.moduleDecl()));
+        }
+
+        System.out.println("files: " + files);
 
         boolean expectError = (ak == AccessKind.PACKAGE || mk != ModuleKind.M1);
 
-        compile(Arrays.asList(ref, test), classesDir, null, expectError);
+        compile(files, classesDir, Arrays.asList("-modulepath", classesDir.getPath()), expectError);
     }
 
     void compile(List<File> files, File classOutDir, List<String> extraOpts, boolean expectError) {
@@ -234,7 +258,7 @@ public class ModuleAccessTest01
 
     int count;
     int errors;
-    File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
-    File classesDir = new File("tmp", "classes");
+    File srcDir;
+    File classesDir;
 
 }

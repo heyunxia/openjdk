@@ -24,39 +24,30 @@
 /*
  * @test
  * @bug 6802521
- * @summary add support for modules: test basic use of Module attribute
+ * @summary add support for modules: test basic use of module resolution
  */
 
 import java.io.*;
 import java.util.*;
 import com.sun.tools.classfile.*;
 
-public class ModuleAttributeTest01 {
-    /** Simple combinations of compilation units to test. */
-    enum Kind {
-        NONE("package P; class C { }", null),
-        NAME("package P; class C { }", "module M { }"),
-        NAME_AND_VERSION("package P; class C { }", "module M@1.0 { }");
-        Kind(String classBody, String moduleInfoBody) {
-            this.classBody = classBody;
-            this.moduleInfoBody = moduleInfoBody;
-        }
-        final String classBody;
-        final String moduleInfoBody;
-    };
-
-
-    public static void main(String[] args) throws Exception {
-        new ModuleAttributeTest01().run();
+/*
+ * Test compilation of module-info.java on the command line
+ * and interaction with path options.
+ */
+public class ModuleResolverTest01
+{
+    public static void main(String... args) throws Exception {
+        new ModuleResolverTest01().run();
     }
 
-    void run() throws Exception {
-        for (Kind k: Kind.values()) {
-            try {
-                test(k);
-            } catch (Throwable t) {
-                t.printStackTrace();
-                errors++;
+    public void run() throws Exception {
+        boolean[] values = { false, true };
+        for (boolean modulepath : values) {
+            for (boolean classpath : values) {
+                for (boolean sourcepath : values) {
+                    test(modulepath, classpath, sourcepath);
+                }
             }
         }
 
@@ -66,38 +57,37 @@ public class ModuleAttributeTest01 {
             throw new Exception(errors + "/" + count + " tests failed");
     }
 
-    void test(Kind k) throws Exception {
-        System.out.println("Test " + (++count) + ": " + k);
+    void test(boolean mp, boolean cp, boolean sp) throws IOException {
+        System.err.println("Test " + (++count) + ": modulepath " + mp + "  classpath " + cp + " sourcepath " + sp);
 
-        File testDir = new File("test" + count);
-        srcDir = new File(testDir, "src");
-        classesDir = new File(testDir, "classes");
+        File srcDir = new File("test" + count, "src");
+        File classesDir = new File("test" + count, "classes");
         resetDirs(srcDir, classesDir);
 
-        String classBody = k.classBody;
-        String moduleInfoBody = k.moduleInfoBody;
+        boolean modular = (mp && !cp);
 
-        List<File> files = new ArrayList<File>();
-        addFile(files, createFile("C.java", classBody));
-        addFile(files, createFile("module-info.java", moduleInfoBody));
-        compile(files);
-        String moduleId = getModuleId(moduleInfoBody);
-        checkModuleAttribute("P/C.class", null); // Module attribute no longer written in class file
-        if (moduleInfoBody != null)
-            checkModuleAttribute("module-info.class", moduleId);
+        String moduleId = "M@1.0";
+        File srcFile = createFile(srcDir,
+                    modular ? "m/module-info.java" : "module-info.java",
+                    "module " + moduleId + " { }");
+
+        List<String> args = new ArrayList<String>();
+        if (cp) append(args, "-classpath", ".");
+        if (sp) append(args, "-sourcepath", ".");
+        if (mp) append(args, "-modulepath", ".");
+        append(args, "-d", classesDir.getPath());
+        append(args, "-source", "7");
+        compile(args, srcFile);
+
+        checkModuleAttribute(classesDir,
+                        modular ? "m/module-info.class" : "module-info.class",
+                        moduleId);
     }
 
-    String getModuleId(String moduleBody) {
-        if (moduleBody == null)
-            return null;
-        String[] tokens = moduleBody.split(" +");
-        return tokens[1];
-    }
-
-    void checkModuleAttribute(String file, String moduleId) throws IOException {
-        System.err.println("Checking " + file);
+    void checkModuleAttribute(File dir, String path, String moduleId) throws IOException {
+        System.err.println("Checking " + path);
         try {
-            ClassFile cf = ClassFile.read(new File(classesDir, file));
+            ClassFile cf = ClassFile.read(new File(dir, path));
             Module_attribute attr = (Module_attribute) cf.getAttribute(Attribute.Module);
             if (attr == null) {
                 if (moduleId != null)
@@ -121,10 +111,16 @@ public class ModuleAttributeTest01 {
                 }
             }
         } catch (ConstantPoolException e) {
-            error("Error accessing constant pool " + file + ": " + e);
+            error("Error accessing constant pool " + path + ": " + e);
+        } catch (FileNotFoundException e) {
+            error("File not found: " + path);
         } catch (IOException e) {
-            error("Error reading " + file + ": " + e);
+            error("Error reading " + path + ": " + e);
         }
+    }
+
+    void append(List<String> list, String... args) {
+        list.addAll(Arrays.asList(args));
     }
 
     <T> void checkEqual(String tag, T expect, T found) {
@@ -136,41 +132,29 @@ public class ModuleAttributeTest01 {
     /**
      * Compile a list of files.
      */
-    void compile(List<File> files) {
-        List<String> options = new ArrayList<String>();
-        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath()));
+    void compile(List<String> opts, File... files) {
+        List<String> argList = new ArrayList<String>(opts);
         for (File f: files)
-            options.add(f.getPath());
-
-        String[] opts = options.toArray(new String[options.size()]);
+            argList.add(f.getPath());
+        System.err.println("Compile: " + argList);
+        String[] args = argList.toArray(new String[argList.size()]);
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        int rc = com.sun.tools.javac.Main.compile(opts, pw);
+        int rc = com.sun.tools.javac.Main.compile(args, pw);
         pw.close();
 
         String out = sw.toString();
         if (out.trim().length() > 0)
-            System.err.println(out);
+            System.out.println(out);
         if (rc != 0)
             throw new Error("compilation failed: rc=" + rc);
     }
 
     /**
-     * Add a file to a list if the file is not null.
+     * Create a test file with given content.
      */
-    void addFile(List<File> files, File file) {
-        if (file != null)
-            files.add(file);
-    }
-
-
-    /**
-     * Create a test file with given content if the content is not null.
-     */
-    File createFile(String path, String body) throws IOException {
-        if (body == null)
-            return null;
-        File file = new File(srcDir, path);
+    File createFile(File dir, String path, String body) throws IOException {
+        File file = new File(dir, path);
         file.getAbsoluteFile().getParentFile().mkdirs();
         FileWriter out = new FileWriter(file);
         out.write(body);
@@ -208,12 +192,12 @@ public class ModuleAttributeTest01 {
         for (String s: more)
             System.err.println(s);
         errors++;
+        throw new Error(msg);
     }
 
     int count;
     int errors;
-    File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
-    File classesDir = new File("tmp", "classes");
 }
+
 
 

@@ -69,11 +69,12 @@ public class ModuleRequiresAttributeTest01 {
     }
 
     void test(Set<Flag> flags, MultiKind kind) throws Exception {
-        System.err.println("Test " + flags + " " + kind);
-        reset();
+        System.err.println("Test group " + (++group) + " " + flags + " " + kind);
+        srcDir = new File("group" + group + "/src");
+        modulesDir = new File("group" + group + "/modules");
+        resetDirs(srcDir, modulesDir);
         try {
             String[] modules = { "M1", "M2.N2", "M3.N3.O3@1.0", "M4@4.0" };
-
             List<String> requiresList = new ArrayList<String>();
             for (String m: modules) {
                 test(flags, kind, m, requiresList);
@@ -89,7 +90,7 @@ public class ModuleRequiresAttributeTest01 {
     void test(Set<Flag> flags, MultiKind kind, String moduleId, List<String> requiresList) throws Exception {
         // do not reset on each test case so that we can reuse the previously
         // generated module classes
-        count++;
+        System.err.println("Test " + (++count) + " " + moduleId + " " + requiresList);
         File f = createFile(flags, kind, moduleId, requiresList);
         compile(Arrays.asList(f));
         checkRequiresAttribute(getModuleName(moduleId), flags, requiresList);
@@ -116,7 +117,7 @@ public class ModuleRequiresAttributeTest01 {
             }
         }
         sb.append(" }");
-        return createFile("module-info.java", sb.toString());
+        return createFile("test" + count + "/module-info.java", sb.toString());
     }
 
     static String flags2String(Set<Flag> flags) {
@@ -130,10 +131,10 @@ public class ModuleRequiresAttributeTest01 {
     private static final char FS = File.separatorChar;
 
     void checkRequiresAttribute(String moduleName, Set<Flag> flags, List<String> requiresList) {
-        String file = moduleName.replace('.', FS) + FS + "module-info.class";
+        String file = "test" + count + "/module-info.class";
         System.err.println("Checking " + file);
         try {
-            ClassFile cf = ClassFile.read(new File(classesDir, file));
+            ClassFile cf = ClassFile.read(new File(modulesDir, file));
             ModuleRequires_attribute attr =
                     (ModuleRequires_attribute) cf.getAttribute(Attribute.ModuleRequires);
             if (attr == null) {
@@ -198,15 +199,15 @@ public class ModuleRequiresAttributeTest01 {
      * Compile a list of files.
      */
     void compile(List<File> files) {
-        List<String> options = new ArrayList<String>();
-        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath()));
+        List<String> argList = new ArrayList<String>();
+        argList.addAll(Arrays.asList("-source", "7", "-d", modulesDir.getPath(), "-modulepath", modulesDir.getPath()));
         for (File f: files)
-            options.add(f.getPath());
+            argList.add(f.getPath());
 
-        String[] opts = options.toArray(new String[options.size()]);
+        String[] args = argList.toArray(new String[argList.size()]);
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        int rc = com.sun.tools.javac.Main.compile(opts, pw);
+        int rc = com.sun.tools.javac.Main.compile(args, pw);
         pw.close();
 
         String out = sw.toString();
@@ -223,11 +224,14 @@ public class ModuleRequiresAttributeTest01 {
     }
 
     /**
-     * Set up empty src and classes directories for a test.
+     * Set up empty directories.
      */
-    void reset() {
-        resetDir(srcDir);
-        resetDir(classesDir);
+    void resetDirs(File... dirs) {
+        for (File dir: dirs) {
+            if (dir.exists())
+                deleteAll(dir);
+            dir.mkdirs();
+        }
     }
 
     /**
@@ -258,10 +262,12 @@ public class ModuleRequiresAttributeTest01 {
         for (String s: more)
             System.err.println(s);
         errors++;
+        throw new Error();
     }
 
+    int group;
     int count;
     int errors;
-    File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
-    File classesDir = new File("tmp", "classes");
+    File srcDir;
+    File modulesDir;
 }

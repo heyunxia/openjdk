@@ -130,6 +130,7 @@ public class RecognizedOptions {
         XBOOTCLASSPATH_PREPEND,
         XBOOTCLASSPATH_APPEND,
         XBOOTCLASSPATH,
+        MODULEPATH,
         EXTDIRS,
         DJAVA_EXT_DIRS,
         ENDORSEDDIRS,
@@ -177,6 +178,7 @@ public class RecognizedOptions {
         XBOOTCLASSPATH_PREPEND,
         XBOOTCLASSPATH_APPEND,
         XBOOTCLASSPATH,
+        MODULEPATH,
         EXTDIRS,
         DJAVA_EXT_DIRS,
         ENDORSEDDIRS,
@@ -314,6 +316,7 @@ public class RecognizedOptions {
                 return super.process(options, "-bootclasspath", arg);
             }
         },
+        new Option(MODULEPATH,             "opt.arg.path",      "opt.modulepath"),
         new Option(EXTDIRS,                "opt.arg.dirs",      "opt.extdirs"),
         new XOption(DJAVA_EXT_DIRS,        "opt.arg.dirs",      "opt.extdirs") {
             @Override

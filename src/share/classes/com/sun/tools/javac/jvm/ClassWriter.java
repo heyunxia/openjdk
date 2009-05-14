@@ -29,8 +29,8 @@ import java.io.*;
 import java.util.Set;
 import java.util.HashSet;
 
-import javax.tools.JavaFileManager;
 import javax.tools.FileObject;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.*;
@@ -40,6 +40,8 @@ import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.List;
 
 import java.util.Map;
+import javax.tools.JavaFileManager.Location;
+import javax.tools.ModuleFileManager;
 import static com.sun.tools.javac.code.BoundKind.*;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
@@ -906,12 +908,12 @@ public class ClassWriter extends ClassFile {
         if (sym.requires.size() > 0) {
             int alenIdx = writeAttr(names.ModuleRequires);
             databuf.appendChar(sym.requires.size());
-            for (Map.Entry<ModuleId,List<Name>> e: sym.requires.entrySet()) {
+            for (Map.Entry<ModuleId,ModuleRequires> e: sym.requires.entrySet()) {
                 ModuleId m = e.getKey();
-                List<Name> flags = e.getValue();
+                ModuleRequires mr = e.getValue();
                 databuf.appendChar(pool.put(m));
-                databuf.appendChar(flags.size());
-                for (List<Name> l = flags; l.nonEmpty(); l = l.tail) {
+                databuf.appendChar(mr.flags.size());
+                for (List<Name> l = mr.flags; l.nonEmpty(); l = l.tail) {
                     databuf.appendChar(pool.put(l.head));
                 }
             }
@@ -960,6 +962,7 @@ public class ClassWriter extends ClassFile {
         if (c.type.tag != CLASS) return; // arrays
         if (pool != null && // pool might be null if called from xClassName
             c.owner.kind != PCK &&
+            c.owner.kind != MDL &&
             (innerClasses == null || !innerClasses.contains(c))) {
 //          log.errWriter.println("enter inner " + c);//DEBUG
             if (c.owner.kind == TYP) enterInner((ClassSymbol)c.owner);
@@ -1526,9 +1529,25 @@ public class ClassWriter extends ClassFile {
     public JavaFileObject writeClass(ClassSymbol c)
         throws IOException, PoolOverflow, StringOverflow
     {
+        String name = (c.owner.kind == MDL ? c.name : c.flatname).toString();
+
+        Location outLocn;
+        if (fileManager instanceof ModuleFileManager && fileManager.hasLocation(CLASS_OUTPUT)) {
+            ModuleFileManager mfm = (ModuleFileManager) fileManager;
+            String pkgName = c.owner.kind == MDL ? "" : c.packge().fullname.toString();
+            try {
+                outLocn = mfm.getModuleLocation(CLASS_OUTPUT, c.sourcefile, pkgName);
+            } catch (IllegalArgumentException e) {
+                throw new AssertionError();
+            }
+        } else
+            // Note: when CLASS_OUTPUT is not set, getJavaFileForOutput will
+            // default to writing the output in the same directory as the sourcefile
+            outLocn = CLASS_OUTPUT;
+
         JavaFileObject outFile
-            = fileManager.getJavaFileForOutput(CLASS_OUTPUT,
-                                               c.flatname.toString(),
+            = fileManager.getJavaFileForOutput(outLocn,
+                                               name,
                                                JavaFileObject.Kind.CLASS,
                                                c.sourcefile);
         OutputStream out = outFile.openOutputStream();
@@ -1651,11 +1670,9 @@ public class ClassWriter extends ClassFile {
         acount += writeFlagAttrs(c.flags());
         acount += writeJavaAnnotations(c.getAnnotationMirrors());
         acount += writeEnclosingMethodAttribute(c);
-        if (target.useModules()) {
+        if (c.owner.kind == MDL) {
             acount += writeModuleAttribute(c);
-            if (c.name == names.module_info) {
-                acount += writeModuleMetadata(c.modle);
-            }
+            acount += writeModuleMetadata(c.modle);
         }
 
         poolbuf.appendInt(JAVA_MAGIC);

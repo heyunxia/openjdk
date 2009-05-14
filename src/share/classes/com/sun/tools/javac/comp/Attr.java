@@ -2605,6 +2605,29 @@ public class Attr extends JCTree.Visitor {
         result = tree.type = syms.errType;
     }
 
+    public void visitModuleDef(JCModuleDecl tree) {
+        attribStats(tree.getMetadataList(), env);
+    }
+
+    public void visitModuleRequires(JCModuleRequires tree) {
+    }
+
+    public void visitModulePermits(JCModulePermits tree) {
+    }
+
+    public void visitModuleClass(JCModuleClass tree) {
+        ModuleSymbol msym = env.toplevel.modle;
+        System.err.println("Attr.visitModuleClass " + env.toplevel.modle);
+        Type t = attribType(tree.qualId, env);
+        System.err.println("Attr.visitModuleClass " + t + " " + t.tsym);
+        if (t.tag == CLASS) {
+            // check duplicates
+            msym.className = (ClassSymbol) tree.qualId.type.tsym;
+            msym.classFlags = tree.flags;
+        }
+        System.err.println("Attr.visitModuleClass exit " + tree.qualId.type);
+    }
+
     public void visitErroneous(JCErroneous tree) {
         if (tree.errs != null)
             for (JCTree err : tree.errs)
@@ -2616,6 +2639,33 @@ public class Attr extends JCTree.Visitor {
      */
     public void visitTree(JCTree tree) {
         throw new AssertionError();
+    }
+
+    public void analyze(Env<AttrContext> env) {
+        switch (env.tree.getTag()) {
+            case JCTree.MODULE:
+                attribModule(env.tree.pos(), ((JCModuleDecl)env.tree).sym);
+                break;
+            default:
+                attribClass(env.tree.pos(), env.enclClass.sym);
+        }
+    }
+
+    public void attribModule(DiagnosticPosition pos, ModuleSymbol m) {
+        try {
+            annotate.flush();
+            attribModule(m);
+        } catch (CompletionFailure ex) {
+            chk.completionError(pos, ex);
+        }
+
+    }
+
+    void attribModule(ModuleSymbol m) {
+        // Get environment current at the point of module definition.
+        Env<AttrContext> env = enter.typeEnvs.get(m);
+        //System.err.println("Attr.attribModule: " + env + " " + env.tree);
+        attribStat(env.tree, env);
     }
 
     /** Main method: attribute class definition associated with given class symbol.

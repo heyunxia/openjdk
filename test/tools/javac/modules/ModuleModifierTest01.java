@@ -85,6 +85,10 @@ public class ModuleModifierTest01
 
     void test(ClassKind ck, ItemKind ik) throws Exception {
         System.out.println("Test " + (++count) + ": " + ck + " " + ik);
+
+        File testDir = new File("test" + count);
+        srcDir = new File(testDir, "src");
+        classesDir = new File(testDir, "classes");
         resetDirs(srcDir, classesDir);
 
         boolean needModule;
@@ -96,19 +100,24 @@ public class ModuleModifierTest01
         }
 
         String[] testBody = {
-            "module m; package p;",
+            "package p;",
             "    " + ck.text,
             "    " + ik.decl + (ck == ClassKind.INTERFACE ? ik.intfTail : ik.classTail),
             "}",
             (needModule ? "class module { }" : "")
         };
 
+        String[] moduleInfoBody = {
+            "module m { }"
+        };
+
         File test = createFile(srcDir, "Test.java", join(testBody));
+        File module_info = createFile(srcDir, "module-info.java", join(moduleInfoBody));
         boolean expectError =
             (ck == ClassKind.ENUM && ik == ItemKind.AMBIG1)
             || (ck == ClassKind.CLASS && ik == ItemKind.AMBIG2);
 
-        compile(Arrays.asList(test), classesDir, null, expectError);
+        compile(Arrays.asList(test, module_info), classesDir, null, expectError);
     }
 
     void compile(List<File> files, File classOutDir, List<String> extraOpts, boolean expectError) {
@@ -223,7 +232,7 @@ public class ModuleModifierTest01
 
     int count;
     int errors;
-    File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
-    File classesDir = new File("tmp", "classes");
+    File srcDir;
+    File classesDir;
 }
 
