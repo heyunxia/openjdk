@@ -273,7 +273,10 @@ void ClassLoader::setup_meta_index() {
   const char* known_version = "% VERSION 2";
   char* meta_index_path = Arguments::get_meta_index_path();
   char* meta_index_dir  = Arguments::get_meta_index_dir();
-  FILE* file = fopen(meta_index_path, "r");
+  FILE* file = NULL;
+  if (meta_index_path != NULL) { // Will be null if we booted from a module
+    file = fopen(meta_index_path, "r");
+  }
   int line_no = 0;
   if (file != NULL) {
     ResourceMark rm;
