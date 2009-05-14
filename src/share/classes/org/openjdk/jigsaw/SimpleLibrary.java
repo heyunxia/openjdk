@@ -476,6 +476,13 @@ public final class SimpleLibrary
         return scf.cf;
     }
 
+    // ## This is a temporary hack to install all classes rather than just
+    // ## those with a matching module name; remove this when we can process
+    // ## proper modularized compiler output directories.
+    //
+    private static final boolean INSTALL_ALL
+        = (System.getenv("JIGSAW_INSTALL_ALL") != null);
+
     private void install(Manifest mf, File dst)
         throws IOException
     {
@@ -510,16 +517,20 @@ public final class SimpleLibrary
                 if (f.isDirectory())
                     return true;
                 ClassInfo ci = ClassInfo.read(f);
-                if (ci.moduleName() == null)
+                if (ci.isModuleInfo())
                     return false;
-                if (!ci.isModuleInfo() && ci.moduleName().equals(mn)) {
-                    if (ci.isPublic())
-                        ix.publicClasses().add(ci.name());
-                    else
-                        ix.otherClasses().add(ci.name());
-                    return true;
+                if (ci.moduleName() == null) {
+                    if (!INSTALL_ALL)
+                        return false;
+                } else {
+                    if (!ci.moduleName().equals(mn))
+                        return false;
                 }
-                return false;
+                if (ci.isPublic())
+                    ix.publicClasses().add(ci.name());
+                else
+                    ix.otherClasses().add(ci.name());
+                return true;
             }});
         ix.store();
 
