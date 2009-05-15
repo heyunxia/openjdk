@@ -242,6 +242,12 @@ public class Main {
             return null;
 
         String sourceString = options.get("-source");
+        
+        // TEMP HACK FOR JIGSAW TO AUTO-DEFAULT -source TO 7 WHEN -modulepath 
+        // OR module-info.java USED. REMOVE WHEN -source 7 IS THE DEFAULT
+        if (sourceString == null && options.get("jigsaw.source") != null)
+            options.put("-source", sourceString = options.get("jigsaw.source"));
+
         Source source = (sourceString != null)
             ? Source.lookup(sourceString)
             : Source.DEFAULT;
@@ -506,6 +512,7 @@ public class Main {
     public static void useRawMessages(boolean enable) {
         if (enable) {
             messages = new JavacMessages(javacBundleName) {
+                    @Override
                     public String getLocalizedString(String key, Object... args) {
                         return key;
                     }
