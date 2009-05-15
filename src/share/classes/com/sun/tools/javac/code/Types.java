@@ -27,8 +27,6 @@ package com.sun.tools.javac.code;
 
 import java.util.*;
 
-import com.sun.tools.javac.api.Messages;
-
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.List;
 

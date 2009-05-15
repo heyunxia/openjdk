@@ -1562,6 +1562,7 @@ public class Resolve {
 
         /** Print the (debug only) name of the kind of error.
          */
+        @Override
         public String toString() {
             return debugName + " wrongSym=" + wrongSym + " explanation=" + explanation;
         }
@@ -1582,6 +1583,7 @@ public class Resolve {
             return this;
         }
 
+        @Override
         public boolean exists() {
             switch (kind) {
             case HIDDEN:
@@ -1708,6 +1710,7 @@ public class Resolve {
          *  @param typeargtypes  The invocation's type arguments,
          *                   if we looked for a method.
          */
+        @Override
         void report(Log log, DiagnosticPosition pos, Type site, Name name,
                     List<Type> argtypes, List<Type> typeargtypes) {
             if (sym.owner.type.tag != ERROR) {
@@ -1748,6 +1751,7 @@ public class Resolve {
          *  @param typeargtypes  The invocation's type arguments,
          *                   if we looked for a method.
          */
+        @Override
         void report(Log log,
                     DiagnosticPosition pos,
                     Type site,
@@ -1784,6 +1788,7 @@ public class Resolve {
          *  @param typeargtypes  The invocation's type arguments,
          *                   if we looked for a method.
          */
+        @Override
         void report(Log log, DiagnosticPosition pos, Type site, Name name,
                     List<Type> argtypes, List<Type> typeargtypes) {
             AmbiguityError pair = this;

@@ -2617,15 +2617,12 @@ public class Attr extends JCTree.Visitor {
 
     public void visitModuleClass(JCModuleClass tree) {
         ModuleSymbol msym = env.toplevel.modle;
-        System.err.println("Attr.visitModuleClass " + env.toplevel.modle);
         Type t = attribType(tree.qualId, env);
-        System.err.println("Attr.visitModuleClass " + t + " " + t.tsym);
         if (t.tag == CLASS) {
             // check duplicates
             msym.className = (ClassSymbol) tree.qualId.type.tsym;
             msym.classFlags = tree.flags;
         }
-        System.err.println("Attr.visitModuleClass exit " + tree.qualId.type);
     }
 
     public void visitErroneous(JCErroneous tree) {
