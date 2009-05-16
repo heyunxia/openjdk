@@ -564,9 +564,21 @@ public final class SimpleLibrary
         File classes = mf.classes().get(0);
         final String mn = mf.module();
 
-        File src = new File(classes, mn);
-        byte[] bs =  Files.load(new File(src, "module-info.class"));
+        File mif = new File(classes, "module-info.class");
+        File src = null;
+        if (mif.exists()) {
+            src = classes;
+        } else {
+            src = new File(classes, mn);
+            mif = new File(src, "module-info.class");
+        }
+        byte[] bs =  Files.load(mif);
         ModuleInfo mi = jms.parseModuleInfo(bs);
+        if (!mi.id().name().equals(mn)) {
+            // ## Need a more appropriate throwable here
+            throw new Error(mif + " is for module " + mi.id().name()
+                            + ", not " + mn);
+        }
         String m = mi.id().name();
         JigsawVersion v = (JigsawVersion)mi.id().version();
         String vs = (v == null) ? "default" : v.toString();

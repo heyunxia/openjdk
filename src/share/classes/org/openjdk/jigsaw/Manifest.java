@@ -64,13 +64,26 @@ public final class Manifest {
     */
 
     /**
-     * <p> Add a module-class directory to this manifest. </p>
+     * <p> Add a classes directory to this manifest. </p>
      *
-     * <p> The name of each child of such a directory should be that of a
-     * specific module, without a version number.  Each child should, in turn,
-     * contain a {@code module-info.class} file as well as classes structured
-     * in the usual fashion, with a subdirectory for each package-name
-     * component. </p>
+     * <p> Two types of classes directories are supported. </p>
+     *
+     * <ul>
+     *
+     *   <li><p> A <i>single-module</i> classes directory is just like a
+     *   regular classes directory, with a subdirectory for each initial
+     *   package-name component, except that it also contains a
+     *   <tt>module-info.class</tt> file. </p></li>
+     *
+     *   <li><p> A <i>multi-module</i> classes directory contains one
+     *   subdirectory for each module; the name of that subdirectory is the
+     *   module's name, without a version number.  Each such subdirectory is
+     *   itself structured as in the single-module case </p></li>
+     *
+     * </ul>
+     *
+     * <p> If a classes directory contains a <tt>module-info.class</tt> then
+     * the single-module case is assumed. </p>
      */
     public Manifest addClasses(File f) {
         if (!f.isDirectory())
