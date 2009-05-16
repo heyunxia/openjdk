@@ -336,6 +336,9 @@ public class Librarian {
         if (args.length == 0)
             usage();
 
+        File homeLibrary = new File(System.getProperty("java.home"),
+                                    "lib/modules");
+
         try {
             OptionSet opts = parser.parse(args);
             if (opts.has("h"))
@@ -352,15 +355,16 @@ public class Librarian {
                 lp = opts.valueOf(libPath);
             } else {
                 String jm = System.getenv("JAVA_MODULES");
-                if (jm == null)
-                    throw new Command.Exception("No module library specified");
-                lp = new File(jm);
+                if (jm != null)
+                    lp = new File(jm);
+                else
+                    lp = homeLibrary;
             }
             File pp = null;
             if (opts.has(parentPath)) {
                 pp = opts.valueOf(parentPath);
             } else if (!opts.has("N")) {
-                pp = new File(System.getProperty("java.home"), "lib/modules");
+                pp = homeLibrary;
             }
             SimpleLibrary lib = null;
             try {
