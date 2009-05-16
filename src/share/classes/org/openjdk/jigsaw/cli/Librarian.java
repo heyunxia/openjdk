@@ -218,18 +218,21 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
-            String mids = takeArg();
-            ModuleId mid = null;
+            String midqs = takeArg();
+            ModuleIdQuery midq = null;
             try {
-                mid = jms.parseModuleId(mids);
+                midq = jms.parseModuleIdQuery(midqs);
             } catch (IllegalArgumentException x) {
                 throw new Command.Exception(x.getMessage());
             }
             finishArgs();
             try {
+                ModuleId mid = lib.findLatestModuleId(midq);
+                if (mid == null)
+                    throw new Command.Exception(midq + ": No such module");
                 Configuration cf = lib.readConfiguration(mid);
                 if (cf == null)
-                    throw new Command.Exception(mid + ": No such module");
+                    throw new Command.Exception(mid + ": Not a root module");
                 cf.dump(out);
             } catch (IOException x) {
                 throw new Command.Exception(x);
