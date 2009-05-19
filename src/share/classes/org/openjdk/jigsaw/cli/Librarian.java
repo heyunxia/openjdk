@@ -261,6 +261,27 @@ public class Librarian {
         }
     }
 
+    static class ReIndex extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            java.util.List<ModuleId> mids = new ArrayList<ModuleId>();
+            try {
+                while (hasArg())
+                    mids.add(jms.parseModuleId(takeArg()));
+            } catch (IllegalArgumentException x) {
+                throw new Command.Exception(x.getMessage());
+            }
+            try {
+                lib.reIndex(mids);
+            } catch (ConfigurationException x) {
+                throw new Command.Exception(x);
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
+
 
     private static Map<String,Class<? extends Command<SimpleLibrary>>> commands
         = new HashMap<String,Class<? extends Command<SimpleLibrary>>>();
@@ -275,6 +296,7 @@ public class Librarian {
         commands.put("list", List.class);
         commands.put("ls", List.class);
         commands.put("preinstall", PreInstall.class);
+        commands.put("reindex", ReIndex.class);
         commands.put("show", Show.class);
     }
 
@@ -291,6 +313,7 @@ public class Librarian {
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
         out.format("       jmod list [-v] [-p] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
+        out.format("       jmod reindex [<module-id> ...]%n");
         out.format("       jmod show <module-id>%n");
         out.format("%n");
         try {

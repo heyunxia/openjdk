@@ -152,6 +152,24 @@ import java.util.*;
         copyTree(src, dst, null);
     }
 
+    public static interface Visitor<T> {
+        public void accept(T x) throws IOException;
+    }
+
+    public static void walkTree(File src, Visitor<File> visitor)
+        throws IOException
+    {
+        ensureIsDirectory(src);
+        String[] sls = list(src);
+        for (int i = 0; i < sls.length; i++) {
+            File sf = new File(src, sls[i]);
+            if (sf.isDirectory())
+                walkTree(sf, visitor);
+            else
+                visitor.accept(sf);
+        }
+    }
+
     public static byte[] load(File src)
         throws IOException
     {

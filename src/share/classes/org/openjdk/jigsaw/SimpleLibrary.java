@@ -551,6 +551,39 @@ public final class SimpleLibrary
         return scf.cf;
     }
 
+    private boolean addToIndex(File f, Index ix)
+        throws IOException
+    {
+        ClassInfo ci = ClassInfo.read(f);
+        if (ci.isModuleInfo())
+            return false;
+        if (ci.moduleName() != null) {
+            throw new IOException(f + ": Old-style class file with"
+                                  + " module attribute");
+        }
+        if (ci.isPublic())
+            ix.publicClasses().add(ci.name());
+        else
+            ix.otherClasses().add(ci.name());
+        return true;
+    }
+
+    private void reIndex(ModuleId mid)
+        throws IOException
+    {
+        File md = findModuleDir(mid);
+        if (md == null)
+            throw new IllegalArgumentException(mid + ": No such module");
+        File cd = new File(md, "classes");
+        final Index ix = new Index(md);
+        Files.walkTree(cd, new Files.Visitor<File>() {
+            public void accept(File f) throws IOException {
+                addToIndex(f, ix);
+            }
+        });
+        ix.store();
+    }
+
     private void install(Manifest mf, File dst)
         throws IOException
     {
@@ -596,18 +629,7 @@ public final class SimpleLibrary
             public boolean accept(File f) throws IOException {
                 if (f.isDirectory())
                     return true;
-                ClassInfo ci = ClassInfo.read(f);
-                if (ci.isModuleInfo())
-                    return false;
-                if (ci.moduleName() != null) {
-                    throw new IOException(f + ": Old-style class file with"
-                                          + " module attribute");
-                }
-                if (ci.isPublic())
-                    ix.publicClasses().add(ci.name());
-                else
-                    ix.otherClasses().add(ci.name());
-                return true;
+                return addToIndex(f, ix);
             }});
         ix.store();
 
@@ -710,6 +732,27 @@ public final class SimpleLibrary
         }
         // ## Check for other formats here
         return new File(md, "classes");
+    }
+
+    /**
+     * <p> Re-index the classes of the named previously-installed modules, and
+     * then update the configurations of any affected root modules. </p>
+     *
+     * <p> This method is intended for use during development, when a build
+     * process may update a previously-installed module in place, adding or
+     * removing classes. </p>
+     * 
+     * @param   mids
+     *          The module ids of the new or updated modules, or
+     *          {@code null} if the configuration of every root module
+     *          should be (re)computed
+     */
+    public void reIndex(List<ModuleId> mids)
+        throws ConfigurationException, IOException
+    {
+        for (ModuleId mid : mids)
+            reIndex(mid);
+        configure(mids);
     }
 
 }
