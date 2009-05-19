@@ -157,4 +157,8 @@ class MockLibrary
         throw new UnsupportedOperationException();
     }
 
+    public File classPath(ModuleId mid) {
+        throw new UnsupportedOperationException();
+    }
+
 }

@@ -46,7 +46,12 @@ final class Platform {
     private static final ModuleIdQuery DEFAULT_PLATFORM_MIDQ
         = DEFAULT_PLATFORM_MID.toQuery();
 
-    static boolean isPlatformModuleName(String mn) {
+    private static final ModuleId BOOT_MID
+        = jms.parseModuleId("jdk@7-ea");
+
+    public static ModuleId bootModule() { return BOOT_MID; }
+
+    public static boolean isPlatformModuleName(String mn) {
         return (mn.equals("jdk") || mn.startsWith("jdk."));
     }
 

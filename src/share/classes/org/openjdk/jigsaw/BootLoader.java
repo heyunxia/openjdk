@@ -27,6 +27,7 @@ package org.openjdk.jigsaw;
 
 import java.lang.module.*;
 import java.lang.reflect.Module;
+import java.io.*;
 import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -39,16 +40,40 @@ import static org.openjdk.jigsaw.Trace.*;
 // java.* classes are only loaded by the built-in class loader and that
 // Class.getClassLoader() returns null for java.* classes.
 
-// ## TODO: Add additional modules to boot class path on demand
-//
-// Right now we have just one big JDK module.  When we start splitting it
-// up we'll need to create a new VM interface so that this class can append
-// additional modules to the VM's boot class path.  This should not be hard;
-// we just need to expose ClassLoader::update_class_path_entry_list.
-
 final class BootLoader
     extends Loader
 {
+
+    private static native void extendBootPath0(String path);
+
+    private static void extendBootPath(File path) {
+        if (!(path.exists() && (path.isFile() || path.isDirectory())))
+            throw new IllegalArgumentException(path.getPath());
+        extendBootPath0(path.getPath());
+    }
+
+    BootLoader(LoaderPool lp, Context cx) {
+        super(lp, cx);
+
+        // Add the rest of the boot context's modules
+        // to the VM's boot class path
+        //
+        for (ModuleId mid : cx.modules()) {
+            if (mid.equals(Platform.bootModule()))
+                continue;
+            try {
+                File p = pool.library().classPath(mid);
+                extendBootPath(p);
+            } catch (IOException x) {
+                throw new Error(x);
+            }
+        }
+
+    }
+
+    public static void main(String[] args) throws Exception {
+        extendBootPath(new File("/tmp/foo/bar"));
+    }
 
     @Override
     Class<?> finishFindingClass(ModuleId mid, Module m, String cn)
@@ -58,10 +83,6 @@ final class BootLoader
         if (tracing)
             trace(0, "%s: found %s:%s (boot)", this, mid, cn);
         return c;
-    }
-
-    BootLoader(LoaderPool lp, Context cx) {
-        super(lp, cx);
     }
 
 }

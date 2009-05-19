@@ -304,4 +304,16 @@ public abstract class Library {
     public abstract File findResource(ModuleId mid, String rn)
         throws IOException;
 
+    /**
+     * <p> Return a file path to the given module's classes. </p>
+     *
+     * @param   mid
+     *          The module's identifier
+     *
+     * @return  A {@code File} object naming the location of the module's
+     *          classes, or {@code null} if the named module does not exist
+     */
+    public abstract File classPath(ModuleId mid)
+        throws IOException;
+
 }

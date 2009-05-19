@@ -699,4 +699,17 @@ public final class SimpleLibrary
         return f;
     }
 
+    public File classPath(ModuleId mid)
+        throws IOException
+    {
+        File md = findModuleDir(mid);
+        if (md == null) {
+            if (parent != null)
+                return parent.classPath(mid);
+            return null;
+        }
+        // ## Check for other formats here
+        return new File(md, "classes");
+    }
+
 }
