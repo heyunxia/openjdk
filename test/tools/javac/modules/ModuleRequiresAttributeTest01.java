@@ -141,30 +141,37 @@ public class ModuleRequiresAttributeTest01 {
                 if (requiresList.size() > 0)
                     error("ModuleRequires attribute not found; expected " + flags + " " + requiresList);
             } else {
-                if (requiresList.size() == 0) {
-                    error("Unexpected module attribute found: " + attr);
-                } else {
-                    ConstantPool cp = cf.constant_pool;
-                    List<String> attrList = new ArrayList<String>();
-                    for (int i = 0; i < attr.requires_length; i++) {
-                        ModuleRequires_attribute.Entry e = attr.requires_table[i];
-                        ConstantPool.CONSTANT_ModuleId_info mid = cp.getModuleIdInfo(e.requires_index);
-                        String mn = cp.getUTF8Value(mid.name_index);
-                        String mvq = (mid.version_index == 0 ? null : cp.getUTF8Value(mid.version_index));
-                        attrList.add(getModuleId(mn, mvq));
-                        Set<Flag> attrFlags = new HashSet<Flag>();
-                        for (int f = 0; f < e.attributes_length; f++)
-                            attrFlags.add(Flag.of(cp.getUTF8Value(e.attributes[f])));
-                        checkEqual("flags", flags, attrFlags);
-                    }
-                    checkEqual("requires", requiresList, attrList);
+                ConstantPool cp = cf.constant_pool;
+                List<String> attrList = new ArrayList<String>();
+                for (int i = 0; i < attr.requires_length; i++) {
+                    ModuleRequires_attribute.Entry e = attr.requires_table[i];
+		    if (isSynthetic(e, cp))
+			continue;
+                    ConstantPool.CONSTANT_ModuleId_info mid = cp.getModuleIdInfo(e.requires_index);
+                    String mn = cp.getUTF8Value(mid.name_index);
+                    String mvq = (mid.version_index == 0 ? null : cp.getUTF8Value(mid.version_index));
+                    attrList.add(getModuleId(mn, mvq));
+                    Set<Flag> attrFlags = new HashSet<Flag>();
+                    for (int f = 0; f < e.attributes_length; f++)
+                        attrFlags.add(Flag.of(cp.getUTF8Value(e.attributes[f])));
+                    checkEqual("flags", flags, attrFlags);
                 }
+                checkEqual("requires", requiresList, attrList);
             }
         } catch (ConstantPoolException e) {
             error("Error accessing constant pool " + file + ": " + e);
         } catch (IOException e) {
             error("Error reading " + file + ": " + e);
         }
+    }
+
+    static boolean isSynthetic(ModuleRequires_attribute.Entry e, ConstantPool cp) 
+		throws ConstantPoolException {
+        for (int f = 0; f < e.attributes_length; f++) {
+            if (cp.getUTF8Value(e.attributes[f]).equals("synthetic"))
+		return true;
+   	}
+	return false;
     }
 
     static String getModuleId(String name, String version) {

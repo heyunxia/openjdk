@@ -147,6 +147,7 @@ public class Names {
     public final Name requires;
     public final Name provides;
     public final Name permits;
+    public final Name synthetic;
     public final Name ModuleClass;
     public final Name ModulePermits;
     public final Name ModuleProvides;
@@ -265,6 +266,7 @@ public class Names {
         requires = fromString("requires");
         provides = fromString("provides");
         permits = fromString("permits");
+        synthetic = fromString("synthetic");
         ModuleClass = fromString("ModuleClass");
         ModulePermits = fromString("ModulePermits");
         ModuleProvides = fromString("ModuleProvides");

@@ -103,10 +103,19 @@ public class Modules extends JCTree.Visitor {
     /** The symbol currently being analyzed. */
     ModuleSymbol currSym;
 
-    Env<JCModuleDecl> env;
-    Map<ModuleSymbol, Env<JCModuleDecl>> moduleEnvs = new HashMap<ModuleSymbol, Env<JCModuleDecl>>();
+    static class ModuleContext {
+        ModuleContext(JCModuleDecl decl) {
+            this.decl = decl;
+        }
+        final JCModuleDecl decl;
+        boolean seenPlatformRequires;
+    }
 
-    /** True if seen module declaration in input trees. */
+    Env<ModuleContext> env;
+    Map<ModuleSymbol, Env<ModuleContext>> moduleEnvs = new HashMap<ModuleSymbol, Env<ModuleContext>>();
+
+    /** True if file manager is not a ModuleFileManager and we have
+     * seen module declaration in input trees. */
     boolean moduleFileManagerUnavailable;
 
     public static Modules instance(Context context) {
@@ -186,12 +195,17 @@ public class Modules extends JCTree.Visitor {
         }
 
         currSym = sym;
-        Env<JCModuleDecl> menv = env.dup(tree, tree);
+        Env<ModuleContext> menv = env.dup(tree, new ModuleContext(tree));
         moduleEnvs.put(sym, menv);
-        Env<JCModuleDecl> prev = env;
+        Env<ModuleContext> prev = env;
         env = menv;
         try {
             acceptAll(tree.metadata);
+
+            if (!env.info.seenPlatformRequires) {
+                ModuleId mid = getDefaultPlatformModule();
+                sym.requires.put(mid, new ModuleRequires(mid, List.of(names.synthetic)));
+            }
         } finally {
             currSym = null;
             env = prev;
@@ -201,7 +215,7 @@ public class Modules extends JCTree.Visitor {
     @Override
     public void visitTopLevel(JCCompilationUnit tree) {
         DEBUG("Modules.visitTopLevel " + tree.sourcefile);
-        env = new Env<JCModuleDecl>(tree, null);
+        env = new Env<ModuleContext>(tree, null);
         env.toplevel = tree;
         currTopLevel = tree;
         JavaFileObject prev = log.useSource(tree.sourcefile);
@@ -226,7 +240,7 @@ public class Modules extends JCTree.Visitor {
         } finally {
             currTopLevel = null;
             log.useSource(prev);
-        DEBUG("Modules.visitTopLevel EXIT rootLocns=" + rootLocns);
+            DEBUG("Modules.visitTopLevel EXIT rootLocns=" + rootLocns);
         }
     }
 
@@ -258,6 +272,9 @@ public class Modules extends JCTree.Visitor {
             ModuleId mid = new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version);
             // JIGSAW TODO check duplicates
             sym.requires.put(mid, new ModuleRequires(mid, tree.flags));
+            ModuleResolver mr = getModuleResolver();
+            if (mr.isPlatformName(mid.name))
+                env.info.seenPlatformRequires = true;
         }
     }
 
@@ -314,6 +331,24 @@ public class Modules extends JCTree.Visitor {
         }
     }
 
+    ModuleId getDefaultPlatformModule() {
+        if (defaultPlatformModule == null) {
+            ModuleResolver mr = getModuleResolver();
+            String def = mr.getDefaultPlatformModule();
+            int at = def.indexOf("@");
+            if (at == -1)
+                defaultPlatformModule = new ModuleId(names.fromString(def), null);
+            else {
+                Name name = names.fromString(def.substring(0, at).trim());
+                Name version = names.fromString(def.substring(at + 1).trim());
+                defaultPlatformModule = new ModuleId(name, version);
+            }
+        }
+        return defaultPlatformModule;
+    }
+    // where
+    private ModuleId defaultPlatformModule;
+
     private boolean resolve(List<JCCompilationUnit> trees) {
         if (moduleFileManagerUnavailable)
             return false;
@@ -359,8 +394,8 @@ public class Modules extends JCTree.Visitor {
         }
 
         DEBUG("Modules.resolve: resolve modules");
-        ModuleResolver moduleResolver = getModuleResolver();
-        DEBUG("Modules.resolve: module resolver: " + moduleResolver);
+        ModuleResolver mr = getModuleResolver();
+        DEBUG("Modules.resolve: module resolver: " + mr);
         try {
             ListBuffer<ModuleSymbol> namedModules = new ListBuffer<ModuleSymbol>();
             for (ModuleSymbol msym: allModules.values()) {
@@ -368,7 +403,7 @@ public class Modules extends JCTree.Visitor {
                     namedModules.add(msym);
             }
             Iterable<? extends ModuleElement> modules =
-                    moduleResolver.resolve(roots, namedModules);
+                    mr.resolve(roots, namedModules);
 
             ListBuffer<Location> locns = new ListBuffer<Location>();
             for (ModuleElement me: modules) {
@@ -390,27 +425,34 @@ public class Modules extends JCTree.Visitor {
     }
 
     protected ModuleResolver getModuleResolver() {
+        if (moduleResolver != null)
+            return moduleResolver;
 
         ServiceLoader<ModuleResolver> loader = ServiceLoader.load(ModuleResolver.class);
         // for now, use the first available, if any
-        for (Iterator<ModuleResolver> iter = loader.iterator(); iter.hasNext(); )
-            return iter.next();
+        for (Iterator<ModuleResolver> iter = loader.iterator(); iter.hasNext(); ) {
+            moduleResolver = iter.next();
+            return moduleResolver;
+        }
 
         // use Class.forName on jigsaw module resolve
 
         // use ZeroMod
-        return new ZeroMod(new ErrorHandler() {
+        moduleResolver = new ZeroMod(new ErrorHandler() {
             public void report(ModuleSymbol msym, ModuleId mid, String key, Object... args) {
                 error(msym, mid, key, args);
             }
         });
+        return moduleResolver;
     }
+    // where
+    private ModuleResolver moduleResolver;
 
     private void error(ModuleSymbol msym, ModuleId id, String key, Object... args) {
         // TODO, determine error location from msym, mid
         ClassSymbol minfo = msym.module_info;
 
-        Env<JCModuleDecl> menv = moduleEnvs.get(msym);
+        Env<ModuleContext> menv = moduleEnvs.get(msym);
         DEBUG("Modules.error " + msym + " -- " + moduleEnvs.get(msym));
         JavaFileObject fo;
         JCDiagnostic.DiagnosticPosition pos;
@@ -421,7 +463,7 @@ public class Modules extends JCTree.Visitor {
             pos = null;
         } else {
             fo = menv.toplevel.sourcefile;
-            pos = treeFinder.find(menv.info, id);
+            pos = treeFinder.find(menv.info.decl, id);
         }
 
         JavaFileObject prev = log.useSource(fo);
@@ -691,6 +733,15 @@ public class Modules extends JCTree.Visitor {
         // where
         private Map<Name, Map<Name, ModuleSymbol>> moduleTable;
 
+        public boolean isPlatformName(CharSequence name) {
+            String n = name.toString();
+            return n.equals("jdk") || n.startsWith("jdk.");  // for now
+        }
+
+        public String getDefaultPlatformModule() {
+            return "jdk@7-ea"; // for now
+        }
+
         private class ModuleException extends Exception {
             private static final long serialVersionUID = 0;
             ModuleException(String key, ModuleId moduleId) {
@@ -734,6 +785,10 @@ public class Modules extends JCTree.Visitor {
                 DEBUG("ZeroMod.Node.getDependencies: " + sym + " " + sym.requires);
                 ListBuffer<Node> nodes = new ListBuffer<Node>();
                 for (ModuleRequires mr: sym.requires.values()) {
+                    if (isPlatformName(mr.moduleId.name)) {
+                        DEBUG("ZeroMod.Node.getDependencies: ignore platform module " + mr.moduleId.name);
+                        continue;
+                    }
                     try {
                         nodes.add(getNode(getModule(mr.moduleId)));
                     } catch (ModuleException e) {
