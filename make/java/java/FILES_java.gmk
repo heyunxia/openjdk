@@ -492,6 +492,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/SimpleLibrary.java \
     org/openjdk/jigsaw/Trace.java \
     org/openjdk/jigsaw/cli/Command.java \
-    org/openjdk/jigsaw/cli/Librarian.java
+    org/openjdk/jigsaw/cli/Librarian.java \
+    org/openjdk/jigsaw/cli/Packager.java 
 
 FILES_java = $(JAVA_JAVA_java) $(JAVA_JAVA_jigsaw)

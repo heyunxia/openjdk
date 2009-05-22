@@ -29,7 +29,7 @@ import java.io.*;
 import java.util.*;
 
 
-/* package */ final class Files {
+public final class Files {
 
     private Files() { }
 
