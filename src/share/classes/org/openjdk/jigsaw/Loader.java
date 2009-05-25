@@ -47,7 +47,7 @@ public class Loader
     private Map<String,Module> moduleForName
         = new HashMap<String,Module>();
 
-    private Set<ModuleId> modules = new HashSet<ModuleId>();
+    protected final Set<ModuleId> modules = new HashSet<ModuleId>();
 
     public Loader(LoaderPool p, Context cx) {
         super(JigsawModuleSystem.instance());

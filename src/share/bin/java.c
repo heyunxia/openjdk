@@ -303,7 +303,8 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     } else if (mode == LM_MODULE) {
         SetClassPath("");       /* Hah! */
         SetModuleProp(what);    /* sun.java.launcher.module */
-        SetModuleBootProp("lib/modules/jdk/7-ea/classes"); /* s.j.l.m.boot */
+        // ## Store boot module in %jigsaw-library?
+        SetModuleBootProp("lib/modules/jdk.boot/7-ea/classes"); /* s.j.l.m.boot */
     }
 
     /* set the -Dsun.java.command pseudo property */

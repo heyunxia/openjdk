@@ -172,7 +172,7 @@ public class _Library {
 	eq(cf.contexts().size(), 3);
 	int cb = 0;
 	for (Context dx : cf.contexts()) {
-            if (dx.toString().equals("+jdk"))
+            if (dx.toString().startsWith("+jdk"))
                 continue;
 	    if (dx.toString().equals("+org.multi")) {
 		ModuleId mid = ms.parseModuleId("org.multi@1");

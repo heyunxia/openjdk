@@ -1,0 +1,81 @@
+#! /bin/sh
+
+#
+# Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
+# CA 95054 USA or visit www.sun.com if you need additional information or
+# have any questions.
+#
+
+set -e
+
+MS='jdk.boot jdk.base'
+
+MCLS=$TMP/module-classes
+MRES=$TMP/module-resources
+
+RSYNC='rsync -a --delete --delete-excluded'
+
+if [ -e $MODULES ]; then RSYNC="$RSYNC -v"; fi
+
+mkdir -p $MCLS $MRES
+
+for m in $MS; do
+  echo $m
+  mc=$MCLS/$m
+  mr=$MRES/$m
+  mkdir -p $mc $mr
+  if [ -e $m.ls ]; then
+    sed -e '/^\(#\|$\)/d' -e 's!\.!/!g' -e 's/$/.class/' <$m.ls >$TMP/$m.cf
+    $RSYNC --include '*/' --include-from=$TMP/$m.cf --exclude '*' $CLASSES/ $mc
+  else
+    touch $TMP/$m.cf
+  fi
+  if [ $m = jdk.boot ]; then
+    ## Do this for boot module only (it gets all resources, for now)
+    $RSYNC --exclude-from=$TMP/$m.cf --exclude '*.class' $CLASSES/ $MRES/$m
+  fi
+  $BIN/javac -source 7 -d $MCLS -modulepath $SRC $SRC/$m/module-info.java
+done
+
+echo jdk
+m=jdk
+mc=$MCLS/$m
+cat $TMP/*.cf \
+| $RSYNC --exclude-from=- --include '*/' --include '*.class' --exclude '*' $CLASSES/ $mc
+$BIN/javac -source 7 -d $MCLS -modulepath $SRC $SRC/$m/module-info.java
+
+if [ -e $MODULES ]; then
+  mids=
+  ## jmod ls should take multiple module queries
+  for m in $MS jdk; do
+    mid=$($BIN/jmod ls $m)
+    v=$(echo $mid | cut -d@ -f2)
+    mc=$MCLS/$m
+    mr=$MRES/$m
+    (set -x; $RSYNC --exclude module-info.class $mc/ $MODULES/$m/$v/classes)
+    (set -x; cp -p $mc/module-info.class $MODULES/$m/$v/info)
+    if [ -e $mr ]; then (set -x; $RSYNC $mr/ $MODULES/$m/$v/resources); fi
+    mids="$mids $mid"
+  done
+  $BIN/jmod reindex $mids
+else
+  $BIN/jmod create -N
+  $BIN/jmod install $MCLS -r $MRES/jdk.boot jdk.boot jdk.base jdk
+fi

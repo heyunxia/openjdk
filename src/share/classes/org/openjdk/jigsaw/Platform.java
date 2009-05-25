@@ -47,7 +47,7 @@ final class Platform {
         = DEFAULT_PLATFORM_MID.toQuery();
 
     private static final ModuleId BOOT_MID
-        = jms.parseModuleId("jdk@7-ea");
+        = jms.parseModuleId("jdk.base@7-ea");
 
     public static ModuleId bootModule() { return BOOT_MID; }
 

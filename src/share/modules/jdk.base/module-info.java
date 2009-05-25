@@ -23,7 +23,7 @@
  * have any questions.
  */
 
-module jdk @ 7-ea {
+module jdk.base @ 7-ea {
     requires public local jdk.boot @ 7-ea;
     class org.openjdk.jigsaw.Hi;        // ## Testing
 }

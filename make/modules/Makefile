@@ -24,46 +24,19 @@
 BUILDDIR=..
 include $(BUILDDIR)/common/Defs.gmk
 
+SRC = $(SHARE_SRC)/modules
 BIN = $(BINDIR)
 CLASSES = $(CLASSBINDIR)
 TMP=$(TEMPDIR)/jigsaw
-MODULE_CLASSES = $(TMP)/module-classes
-RESOURCES = $(TMP)/resources
 MODULES = $(LIBDIR)/modules
-SRC = ../../src/share/modules
 
-all: $(MODULES)/jdk
+all: mods
 
-$(MODULE_CLASSES)/jdk:
-	mkdir -p $@
-	(cd $(CLASSES); find . -name '*.class' | tar cfT - -) \
-         | tar xfC - $(MODULE_CLASSES)/jdk
-
-$(MODULE_CLASSES)/jdk/module-info.class: $(SRC)/jdk/module-info.java \
-                                         $(MODULE_CLASSES)/jdk
-	$(BIN)/javac -source 7 \
-          -d $(MODULE_CLASSES) -modulepath $(MODULE_CLASSES) $<
-
-$(RESOURCES):
-	mkdir -p $@
-	tar cfC - $(CLASSES) --exclude '*.class' . | tar xfC - $(RESOURCES)
-
-$(MODULES):
-	$(BIN)/jmod -L $(MODULES) -N create
-
-$(MODULES)/jdk: $(RESOURCES) $(MODULE_CLASSES)/jdk/module-info.class $(MODULES)
-	$(BIN)/jmod -L $(MODULES) \
-          install $(MODULE_CLASSES) -r $(RESOURCES) jdk
+mods:
+	SRC=$(SRC) BIN=$(BIN) CLASSES=$(CLASSES) TMP=$(TMP) MODULES=$(MODULES) \
+	JIGSAW_TRACE=3 sh modularize
 
 clean:
 	rm -rf $(MODULES) $(TMP)
 
-clean-modules:
-	rm -rf $(MODULES)
-
-
-# For convenience during development
-#
-update:
-	rsync -avO --include '*/' --include '*.class' --exclude '*' \
-          $(CLASSES)/ $(MODULES)/jdk/7-ea/classes
+.PHONY: mods
