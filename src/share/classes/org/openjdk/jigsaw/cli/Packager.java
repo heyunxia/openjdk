@@ -160,6 +160,10 @@ public class Packager {
             }    
 	}
 
+        private String translateVersion(String v) {
+            return v.replaceAll("-", "_");
+        }
+
 	private String computeDependencies(ModuleInfo info)
 	{
 	    StringBuilder deps = new StringBuilder();
@@ -169,7 +173,7 @@ public class Packager {
 		    .append(d.query().name())
 		    .append(' ')
 		    .append(d.query().versionQuery() != null ?
-			    "(" + d.query().versionQuery().toString() + ")" :
+			    "(" + translateVersion(d.query().versionQuery().toString()) + ")" :
 			    "");
 
 	    return deps.length() > 0 ?
@@ -235,7 +239,9 @@ public class Packager {
 
 		// Create the control file, and fill in dependency and provides info
 		PrintStream control = new PrintStream(new File(tmp_metadata_dst, "control"));		
-		control.format(DEBIAN_CONTROL_FORMAT, info.id().name(), info.id().version());
+		control.format(DEBIAN_CONTROL_FORMAT,
+                               info.id().name(),
+                               translateVersion(info.id().version().toString()));
 		if (!info.requires().isEmpty())
 		    control.format("Depends: %s\n", computeDependencies(info));
 		if (!info.provides().isEmpty())
