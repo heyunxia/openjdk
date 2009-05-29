@@ -64,22 +64,22 @@ final class Platform {
         return true;
     }
 
-    // ## Temporary -- this should be done at compile time,
-    // ## not configuration time
+    // ## Workaround: Compiler should not add synthetic dependences
+    // ## to platform modules themselves
     //
-    static void addPlatformDependenceDefault(ModuleInfo mi) {
-        if (System.getProperty("org.openjdk.jigsaw.noPlatformDefault") != null)
+    static void adjustPlatformDependences(ModuleInfo mi) {
+        if (!isPlatformModuleName(mi.id().name()))
             return;
-        if (isPlatformModuleName(mi.id().name()))
-            return;
-        for (Dependence d : mi.requires()) {
-            if (isPlatformModuleName(d.query().name()))
-                return;
+        for (Iterator<Dependence> i = mi.requires().iterator();
+             i.hasNext();)
+        {
+            Dependence d = i.next();
+            if (d.modifiers().contains(Modifier.SYNTHETIC)) {
+                if (tracing)
+                    trace(1, "removing %s -> %s", mi.id(), d);
+                i.remove();
+            }
         }
-        if (tracing)
-            trace(1, "adding %s to %s as platform default",
-                  DEFAULT_PLATFORM_MIDQ, mi.id());
-        mi.requires().add(new Dependence(null, DEFAULT_PLATFORM_MIDQ));
     }
 
 }

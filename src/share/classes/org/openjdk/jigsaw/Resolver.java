@@ -284,7 +284,7 @@ public final class Resolver {
         assert moduleForName.get(mid.name()) == null;
 
         ModuleInfo mi = lib.readModuleInfo(mid);
-        Platform.addPlatformDependenceDefault(mi);
+        Platform.adjustPlatformDependences(mi);
 
         // Check this module's permits constraints
         //

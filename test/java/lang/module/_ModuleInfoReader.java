@@ -77,6 +77,9 @@ public class _ModuleInfoReader {
 	ds.add(new Dependence(EnumSet.of(PUBLIC),
 			      new ModuleIdQuery("Q",
 						ms.parseVersionQuery("5.11"))));
+        ds.add(new Dependence(EnumSet.of(SYNTHETIC),
+                              new ModuleIdQuery("jdk",
+                                                ms.parseVersionQuery("7-ea"))));
 	eq(mi.requires(), ds);
 
 	// permits
