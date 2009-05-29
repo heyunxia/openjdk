@@ -28,15 +28,52 @@ SRC = $(SHARE_SRC)/modules
 BIN = $(BINDIR)
 CLASSES = $(CLASSBINDIR)
 TMP=$(TEMPDIR)/jigsaw
-MODULES = $(LIBDIR)/modules
+MLIB = $(LIBDIR)/modules
+PKGS = $(OUTPUTDIR)/jigsaw-pkgs
 
-all: mods
+MODULES = boot base awt swing
+
+all: mods pkgs
+
+# For faster builds, during development only
+dev-%: ; MODULARIZE_DEV=1 $(MAKE) --no-print-directory $*
 
 mods:
-	SRC=$(SRC) BIN=$(BIN) CLASSES=$(CLASSES) TMP=$(TMP) MODULES=$(MODULES) \
-	JIGSAW_TRACE=3 sh modularize
+	SRC=$(SRC) BIN=$(BIN) CLASSES=$(CLASSES) TMP=$(TMP) MLIB=$(MLIB) \
+	JIGSAW_TRACE=3 sh modularize.sh $(MODULES)
 
-clean:
-	rm -rf $(MODULES) $(TMP)
+%-image:
+	OUTPUTDIR=$(OUTPUTDIR) TMP=$(TMP) sh imagine.sh $*
 
-.PHONY: mods
+images: $(MODULES:%=%-image) jdk-image
+
+$(PKGS): ; mkdir -p $@
+
+# The boot package gets special treatment,
+# both here and in {imagine,modularize}.sh
+#
+boot-deb: boot-image $(PKGS)
+	fakeroot dpkg-deb -Zlzma --build \
+	  $(OUTPUTDIR)/jigsaw-images/boot $(PKGS)
+
+%-deb: %-image $(PKGS)
+	mkdir -p $(OUTPUTDIR)/jigsaw-images/$*
+	(M=$$(if [ $* != jdk ]; then echo jdk.$*; else echo jdk; fi); \
+	 PATH=$(BINDIR):$(PATH) $(BINDIR)/jpkg -v -m $(TMP)/module-classes \
+	   -i $(OUTPUTDIR)/jigsaw-images/$* \
+           -L /usr/local/jigsaw/lib/modules -d $(PKGS) -c jigsaw-jdk-$* deb $$M)
+
+debs: $(MODULES:%=%-deb)
+
+all-debs: debs jdk-deb
+
+pkgs: all-debs
+
+clean-image:
+	rm -rf $(OUTPUTDIR)/jigsaw-images
+
+clean-pkgs: clean-image
+	rm -rf $(OUTPUTDIR)/jigsaw-pkgs
+
+clean: clean-pkgs
+	rm -rf $(MLIB) $(TMP)

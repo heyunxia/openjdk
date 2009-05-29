@@ -23,21 +23,28 @@
 # have any questions.
 #
 
+# Create component modules from the classes and resources left
+# in $CLASSBINDIR by the usual build process, and install them
+# into $LIBDIR/modules
+#
+# export MODULARIZE_DEV=1 to avoid building the big jdk module
+
 set -e
 
-MS='jdk.boot jdk.base'
+MODULES="$*"
+JMS="$(echo $MODULES | sed -e 's/\(^\| \)/ jdk./g')"
 
 MCLS=$TMP/module-classes
 MRES=$TMP/module-resources
 
-RSYNC='rsync -a --delete --delete-excluded'
+RSYNC="rsync -amO --delete --delete-excluded"
 
-if [ -e $MODULES ]; then RSYNC="$RSYNC -v"; fi
+if [ -e $MLIB ]; then RSYNC="$RSYNC -i"; fi ## --out-format='%n%L'"; fi
 
 mkdir -p $MCLS $MRES
 
-for m in $MS; do
-  echo $m
+for m in $JMS; do
+  echo "-- $m"
   mc=$MCLS/$m
   mr=$MRES/$m
   mkdir -p $mc $mr
@@ -54,28 +61,33 @@ for m in $MS; do
   $BIN/javac -source 7 -d $MCLS -modulepath $SRC $SRC/$m/module-info.java
 done
 
-echo jdk
-m=jdk
-mc=$MCLS/$m
-cat $TMP/*.cf \
-| $RSYNC --exclude-from=- --include '*/' --include '*.class' --exclude '*' $CLASSES/ $mc
-$BIN/javac -source 7 -d $MCLS -modulepath $SRC $SRC/$m/module-info.java
+if ! [ "$MODULARIZE_DEV" ]; then
+  echo "-- jdk"
+  m=jdk
+  mc=$MCLS/$m
+  cat $TMP/*.cf \
+  | $RSYNC --exclude-from=- --include '*/' --include '*.class' --exclude '*' $CLASSES/ $mc
+  $BIN/javac -source 7 -d $MCLS -modulepath $SRC $SRC/$m/module-info.java
+fi
 
-if [ -e $MODULES ]; then
+if ! [ "$MODULARIZE_DEV" ]; then JMS="$JMS jdk"; fi
+
+if [ -e $MLIB ]; then
   mids=
   ## jmod ls should take multiple module queries
-  for m in $MS jdk; do
-    mid=$($BIN/jmod ls $m)
+  for m in $JMS; do
+    mid=$($BIN/jmod ls $m | grep -v '#')
+    if [ "x$mid" = x ]; then echo "ERROR: No version for $m"; exit 9; fi
     v=$(echo $mid | cut -d@ -f2)
     mc=$MCLS/$m
     mr=$MRES/$m
-    (set -x; $RSYNC --exclude module-info.class $mc/ $MODULES/$m/$v/classes)
-    (set -x; cp -p $mc/module-info.class $MODULES/$m/$v/info)
-    if [ -e $mr ]; then (set -x; $RSYNC $mr/ $MODULES/$m/$v/resources); fi
+    $RSYNC --exclude module-info.class $mc/ $MLIB/$m/$v/classes
+    cp -p $mc/module-info.class $MLIB/$m/$v/info
+    if [ -e $mr ]; then $RSYNC $mr/ $MLIB/$m/$v/resources; fi
     mids="$mids $mid"
   done
   $BIN/jmod reindex $mids
 else
   $BIN/jmod create -N
-  $BIN/jmod install $MCLS -r $MRES/jdk.boot jdk.boot jdk.base jdk
+  $BIN/jmod install $MCLS -r $MRES/jdk.boot $JMS
 fi

@@ -2201,3 +2201,15 @@ sun.util.resources.LocaleData$2
 sun.util.resources.LocaleData$AvailableLocales
 sun.util.resources.LocaleData$LocaleDataResourceBundleControl
 sun.util.resources.OpenListResourceBundle
+# Needed by legacy launcher / app class loader
+sun.net.***
+# jmod
+org.openjdk.jigsaw.***
+org.openjdk.internal.joptsimple.***
+# joptsimple (!)
+sun.text.resources.***
+#
+sun.nio.cs.***
+sun.reflect.***
+sun.util.resources.***
+java.text.***
