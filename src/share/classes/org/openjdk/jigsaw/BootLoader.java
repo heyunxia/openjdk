@@ -40,15 +40,15 @@ import static org.openjdk.jigsaw.Trace.*;
 // java.* classes are only loaded by the built-in class loader and that
 // Class.getClassLoader() returns null for java.* classes.
 
-final class BootLoader
+public final class BootLoader    // ## TEMPORARY should be package-private
     extends Loader
 {
 
     private static native void extendBootPath0(String path);
 
-    private static void extendBootPath(File path) {
-        if (!(path.exists() && (path.isFile() || path.isDirectory())))
-            throw new IllegalArgumentException(path.getPath());
+    // ## TEMPORARY should be private; used by j.l.ClassLoader
+    // ## to make the legacy application class loader work
+    public static void extendBootPath(File path) {
         extendBootPath0(path.getPath());
     }
 
