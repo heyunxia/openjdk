@@ -295,7 +295,19 @@ public class Packager {
 		pis = new PrintStream(postinst);
 		pis.format("#!/bin/sh\n" +
 			   "set -e\n" +
+			   "if [ -f %s/%s.pack ] ; then\n" +
+			   " for i in %s/*.pack ; do\n" +
+			   "   %s/bin/unpack200 -r $i %s/tmp.jar\n" +
+			   "   unzip -o -q -d / %s/tmp.jar\n" +
+			   "   rm %s/tmp.jar\n" +
+			   " done\n" +
+			   "fi\n" +
 			   "%s -L %s config %s\n",
+			   library, manifest.module(),
+			   library,
+			   System.getProperty("java.home"), library,
+			   library,
+			   library,
 			   jmod, library, info.id());
 		pis.close();
 		postinst.setExecutable(true, false);
@@ -350,6 +362,57 @@ public class Packager {
 	    }
 	}
 
+	private File getPackFile(Manifest manifest)
+	{
+	    return new File(tmp_module_dst, manifest.module() + ".pack");
+	}
+
+	private void packModule(Manifest manifest)
+	    throws Command.Exception
+	{
+	    try {
+		File tmp_jar = new File(tmp_dst, "module.jar");
+
+		// Create temporary jar file with module classes and ressources
+		// Store entries, as we'll just need it for pack200 to read from
+		// and then delete it. No point in wasting time.
+		Process jar
+		    = (new ProcessBuilder("jar", "c0f",  tmp_jar.toString(), 
+					  "-C", tmp_dst.toString(), 
+					  library.toString())).start();
+		BufferedReader br = new BufferedReader(new InputStreamReader(jar.getErrorStream()));
+		if (0 != jar.waitFor())
+		    throw new Command.Exception("Failed to jar module " + br.readLine());
+
+		// Remove redundant META-INF directory from jar file,
+		// so that it doesn't pollute the filesystem hierarchy
+		// when we unpack the files again.
+		Process zip
+		    = (new ProcessBuilder("zip",  tmp_jar.toString(), 
+					  "-d", "META-INF/*")).start();
+		br = new BufferedReader(new InputStreamReader(zip.getErrorStream()));
+		if (0 != zip.waitFor())
+		    throw new Command.Exception("Failed to remove META-INF direcotry from jar module " + br.readLine());
+
+		// Compress the jar file with pack200.
+		Process pack200
+		    = (new ProcessBuilder("pack200", "-E9", "-S-1", "--no-gzip",
+					  getPackFile(manifest).toString(),
+					  tmp_jar.toString())).start();
+		br = new BufferedReader(new InputStreamReader(pack200.getErrorStream()));
+		if (0 != pack200.waitFor())
+		    throw new Command.Exception("Failed to pack200 module " + br.readLine());
+
+		if (! tmp_jar.delete())
+		    throw new Command.Exception("Failed to delete temporary file " + tmp_jar);
+		Files.deleteTree(new File(tmp_module_dst, manifest.module().toString()));
+	    } catch (IOException x) {
+                throw new Command.Exception(x);
+            } catch (InterruptedException x) {
+                throw new Command.Exception(x);
+            }
+	}
+
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -376,6 +439,7 @@ public class Packager {
 		    }
 		}
 		preinstallModule(manifest);
+		packModule(manifest);
 		writeMetaData(manifest);
 		buildPackage();
 		cleanup();
