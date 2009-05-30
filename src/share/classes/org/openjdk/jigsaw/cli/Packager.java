@@ -196,22 +196,24 @@ public class Packager {
 	/**
 	 * Lookup the location of jmod on the $PATH.
 	 * It's currently hardcoded in the generated packages.
-	 * The function will become redundant once we can simply
-	 * depend on a jdk7-ea package in the generated packages.
 	 */
 	private String findJMod()
 	    throws Command.Exception
 	{
 	    try {
-		Process which 
-		    = (new ProcessBuilder("which", "jmod")).start();
-		
-		BufferedReader br = new BufferedReader(new InputStreamReader(which.getInputStream()));
+		String jmod_binary = System.getProperty("java.home") + "/bin/jmod";
 
-		if (0 != which.waitFor())
-		    throw new Command.Exception("Failed to locate jmod ");
-		else
-		    return br.readLine();
+		if (! (new File(jmod_binary).exists())) {
+		    Process which = (new ProcessBuilder("which", "jmod")).start();
+		    BufferedReader br = new BufferedReader(new InputStreamReader(which.getInputStream()));
+		    
+		    if (0 != which.waitFor())
+			throw new Command.Exception("Failed to locate jmod ");
+		    else
+			jmod_binary = br.readLine();
+		}
+
+		return jmod_binary;
 	    } catch (IOException x) {
                 throw new Command.Exception(x);
             } catch (InterruptedException x) {
