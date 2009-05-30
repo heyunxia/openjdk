@@ -262,7 +262,12 @@ public class Packager {
 		    PrintStream launcher = new PrintStream(cmd);
 		    launcher.format("#!/bin/sh\n" +
 				    "set -e\n" + 
-				    "java -ea -L %s -m %s\n",
+				    "if [ $JAVA_HOME ] ; then\n" +
+				    " JAVA_LAUNCHER=$JAVA_HOME/bin/java\n" +
+				    "else\n" +
+				    " JAVA_LAUNCHER=java\n" +
+				    "fi\n" +
+				    "exec $JAVA_LAUNCHER -ea -L %s -m %s \"$@\"\n",
 				    library, info.id().name())
 			.close();
 		    cmd.setExecutable(true, false);
