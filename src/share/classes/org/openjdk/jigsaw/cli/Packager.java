@@ -97,7 +97,6 @@ public class Packager {
 	    + "Maintainer: No maintainer <automatically.generated@by.jpkg>\n"
 	    + "Description: No short description\n"
 	    + " No long description.\n"
-	    + "Architecture: all\n"
 	    + "Section: misc\n"
 	    + "Priority: optional\n";
 
