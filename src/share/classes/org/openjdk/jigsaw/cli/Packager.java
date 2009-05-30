@@ -38,7 +38,7 @@ import org.openjdk.internal.joptsimple.*;
 
 /* Interface:
 
-jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] [-d <output_dir>] [-c <command>] deb <module_name>*
+jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] [-d <output_dir>] [-c <command>] [-n <name>] deb <module_name>*
 
   -v           : verbose output
   -L           : library the modules are installed to
@@ -47,6 +47,7 @@ jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] 
   -m           : directory with modules to package
   -d           : destination directory to put the package in
   -c           : command name for launcher invoking main class
+  -n           : maintainer name
 */
 
 public class Packager {
@@ -77,6 +78,9 @@ public class Packager {
     /** Directory with optional files to include in package */
     private static File includes;
 
+    /** Name of the maintainer or creator of the package */
+    private static String maintainer_name = System.getProperty("user.name");
+
     private static void createTempWorkDir()
 	throws Command.Exception
     {
@@ -94,7 +98,7 @@ public class Packager {
 	private static final String DEBIAN_CONTROL_FORMAT 
 	    = "Package: %s\n" 
 	    + "Version: %s\n"
-	    + "Maintainer: No maintainer <automatically.generated@by.jpkg>\n"
+	    + "Maintainer: %s\n"
 	    + "Description: No short description\n"
 	    + " No long description.\n"
 	    + "Section: misc\n"
@@ -242,7 +246,8 @@ public class Packager {
 		PrintStream control = new PrintStream(new File(tmp_metadata_dst, "control"));		
 		control.format(DEBIAN_CONTROL_FORMAT,
                                info.id().name(),
-                               translateVersion(info.id().version().toString()));
+                               translateVersion(info.id().version().toString()),
+						maintainer_name);
 		if (!info.requires().isEmpty())
 		    control.format("Depends: %s\n", computeDependencies(info));
 		if (!info.provides().isEmpty())
@@ -460,7 +465,7 @@ public class Packager {
 
     private void usage() {
         out.format("%n");
-        out.format("usage: jpkg [-v] [-L <library>] [-r <resource-dir>] [-i <include-dir>] [-m <module-dir>] [-d <output-dir>]  [-c <command>] deb <module-name>%n");
+        out.format("usage: jpkg [-v] [-L <library>] [-r <resource-dir>] [-i <include-dir>] [-m <module-dir>] [-d <output-dir>]  [-c <command>] [-n <name>] deb <module-name>%n");
         out.format("%n");
         try {
             parser.printHelpOn(out);
@@ -522,6 +527,13 @@ public class Packager {
                .describedAs("path")
                .ofType(File.class));
 
+        OptionSpec<String> maintainerName
+            = (parser.acceptsAll(Arrays.asList("n", "name"),
+                                 "Package maintainer's name")
+               .withRequiredArg()
+               .describedAs("name")
+               .ofType(String.class));
+
         if (args.length == 0)
             usage();
 
@@ -555,6 +567,8 @@ public class Packager {
 		resources = opts.valueOf(resourcePath);
 	    if (opts.has(includePath))
 		includes = opts.valueOf(includePath);
+	    if (opts.has(maintainerName))
+		maintainer_name = opts.valueOf(maintainerName);
 	    createTempWorkDir();
 	    
             try {
