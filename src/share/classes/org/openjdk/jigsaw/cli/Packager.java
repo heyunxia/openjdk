@@ -81,6 +81,9 @@ public class Packager {
     /** Name of the maintainer or creator of the package */
     private static String maintainer_name = System.getProperty("user.name");
 
+    /** Email address of the maintainer or creator of the package */
+    private static String maintainer_email = "<generated@by.jigsaw>";
+
     private static void createTempWorkDir()
 	throws Command.Exception
     {
@@ -98,7 +101,7 @@ public class Packager {
 	private static final String DEBIAN_CONTROL_FORMAT 
 	    = "Package: %s\n" 
 	    + "Version: %s\n"
-	    + "Maintainer: %s\n"
+	    + "Maintainer: %s %s\n"
 	    + "Description: No short description\n"
 	    + " No long description.\n"
 	    + "Section: misc\n"
@@ -247,7 +250,7 @@ public class Packager {
 		control.format(DEBIAN_CONTROL_FORMAT,
                                info.id().name(),
                                translateVersion(info.id().version().toString()),
-						maintainer_name);
+			       maintainer_name, maintainer_email);
 		if (!info.requires().isEmpty())
 		    control.format("Depends: %s\n", computeDependencies(info));
 		if (!info.provides().isEmpty())
@@ -534,6 +537,13 @@ public class Packager {
                .describedAs("name")
                .ofType(String.class));
 
+        OptionSpec<String> maintainerEmail
+            = (parser.acceptsAll(Arrays.asList("e", "email"),
+                                 "Package maintainer's e-mail address")
+               .withRequiredArg()
+               .describedAs("e-mail@address")
+               .ofType(String.class));
+
         if (args.length == 0)
             usage();
 
@@ -569,6 +579,13 @@ public class Packager {
 		includes = opts.valueOf(includePath);
 	    if (opts.has(maintainerName))
 		maintainer_name = opts.valueOf(maintainerName);
+	    if (opts.has(maintainerEmail))
+		maintainer_email = opts.valueOf(maintainerEmail);
+	    // Add missing e-mail quotes if necessary
+	    maintainer_email 
+		= (maintainer_email.startsWith("<") ? "" : "<") 
+		+ maintainer_email
+		+ (maintainer_email.endsWith(">") ? "" : ">") ;
 	    createTempWorkDir();
 	    
             try {
