@@ -325,7 +325,7 @@ public class Packager {
 	{
 	    try {
 		Process build 
-		    = (new ProcessBuilder("fakeroot", "dpkg-deb", "-Zlzma", "--build", 
+		    = (new ProcessBuilder("fakeroot", "dpkg-deb", "-z9", "-Zlzma", "--build", 
 					  tmp_dst.toString(), destination.toString())).start();
 		
 		BufferedReader br = new BufferedReader(new InputStreamReader(build.getErrorStream()));
