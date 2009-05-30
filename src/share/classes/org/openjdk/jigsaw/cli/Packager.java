@@ -392,7 +392,7 @@ public class Packager {
 					  "-d", "META-INF/*")).start();
 		br = new BufferedReader(new InputStreamReader(zip.getErrorStream()));
 		if (0 != zip.waitFor())
-		    throw new Command.Exception("Failed to remove META-INF direcotry from jar module " + br.readLine());
+		    throw new Command.Exception("Failed to remove META-INF directory from jar module " + br.readLine());
 
 		// Compress the jar file with pack200.
 		Process pack200
