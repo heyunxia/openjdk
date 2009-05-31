@@ -201,8 +201,10 @@ public class Librarian {
                     n++;
                     if (verbose) {
                         formatCommaList(out, "provides", mi.provides());
-                        for (Dependence d : mi.requires())
+                        Platform.adjustPlatformDependences(mi); // ##
+                        for (Dependence d : mi.requires()) {
                             out.format("  %s%n", d);
+                        }
                         formatCommaList(out, "permits", mi.permits());
                     }
                 }

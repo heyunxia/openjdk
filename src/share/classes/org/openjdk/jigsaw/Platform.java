@@ -33,7 +33,7 @@ import static java.lang.module.Dependence.Modifier;
 import static org.openjdk.jigsaw.Trace.*;
 
 
-final class Platform {
+public final class Platform {
 
     private Platform() { }
 
@@ -67,7 +67,7 @@ final class Platform {
     // ## Workaround: Compiler should not add synthetic dependences
     // ## to platform modules themselves
     //
-    static void adjustPlatformDependences(ModuleInfo mi) {
+    public static void adjustPlatformDependences(ModuleInfo mi) {
         if (!isPlatformModuleName(mi.id().name()))
             return;
         for (Iterator<Dependence> i = mi.requires().iterator();
