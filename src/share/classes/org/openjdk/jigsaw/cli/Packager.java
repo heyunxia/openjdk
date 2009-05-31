@@ -109,13 +109,14 @@ public class Packager {
 
     static class Deb extends Command<SimpleLibrary> {
 	private static final String DEBIAN_CONTROL_FORMAT 
-	    = "Package: %s\n" 
-	    + "Version: %s\n"
-	    + "Maintainer: %s %s\n"
-	    + "Description: %s\n"
-	    + "%s\n"
-	    + "Section: misc\n"
-	    + "Priority: optional\n";
+	    = "Package: %s%n" 
+	    + "Version: %s%n"
+	    + "Maintainer: %s %s%n"
+	    + "Description: %s%n"
+	    + "%s%n"
+	    + "Section: misc%n"
+	    + "Priority: optional%n"
+	    + "Architecture: " + System.getProperty("os.arch") + "%n";
 
 	private File tmp_module_dst;
 	private File tmp_metadata_dst;
