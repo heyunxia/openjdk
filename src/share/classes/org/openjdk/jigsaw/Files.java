@@ -101,8 +101,9 @@ public final class Files {
             FileOutputStream out = new FileOutputStream(dst);
             try {
                 int n;
-                while ((n = in.read(buf)) > 0)
+                while ((n = in.read(buf)) > 0) {
                     out.write(buf, 0, n);
+                }
             } finally {
                 out.close();
             }
@@ -110,6 +111,8 @@ public final class Files {
             in.close();
         }
         dst.setLastModified(src.lastModified());
+        if (src.canExecute())
+            dst.setExecutable(true, false);
     }
 
     public static interface Filter<T> {
