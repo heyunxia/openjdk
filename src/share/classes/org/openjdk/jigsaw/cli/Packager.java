@@ -57,6 +57,9 @@ public class Packager {
     private static JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
+    private static boolean jigsawDevMode
+        = System.getenv("JIGSAW_DEV_MODE") != null;
+
     /** Temp dir for modules to be pre-installed into */
     private static File tmp_dst;
 
@@ -361,9 +364,10 @@ public class Packager {
 	private void buildPackage()
 	    throws Command.Exception 
 	{
+            String dashz = "-z" + (jigsawDevMode ? 1 : 9);
 	    try {
 		Process build 
-		    = (new ProcessBuilder("fakeroot", "dpkg-deb", "-z9", "-Zlzma", "--build", 
+		    = (new ProcessBuilder("fakeroot", "dpkg-deb", dashz, "-Zlzma", "--build", 
 					  tmp_dst.toString(), destination.toString())).start();
 		
 		BufferedReader br = new BufferedReader(new InputStreamReader(build.getErrorStream()));
@@ -421,8 +425,9 @@ public class Packager {
 		    throw new Command.Exception("Failed to remove META-INF directory from jar module " + br.readLine());
 
 		// Compress the jar file with pack200.
+                String dashE = "-E" + (jigsawDevMode ? "0" : "9");
 		Process pack200
-		    = (new ProcessBuilder("pack200", "-E9", "-S-1", "--no-gzip",
+		    = (new ProcessBuilder("pack200", dashE, "-S-1", "--no-gzip",
 					  getPackFile(manifest).toString(),
 					  tmp_jar.toString())).start();
 		br = new BufferedReader(new InputStreamReader(pack200.getErrorStream()));
