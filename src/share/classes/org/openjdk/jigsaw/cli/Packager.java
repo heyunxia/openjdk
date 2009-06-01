@@ -98,7 +98,10 @@ public class Packager {
     /** Long description of the package */
     private static String long_description 
 	= "This package was automatically generated from the corresponding Jigsaw module.\n"
-	+ "Information on Jigsaw is available at http://OpenJDK.Java.Net/projects/jigsaw .";
+	+ "Information on Jigsaw is available at http://openjdk.java.net/projects/jigsaw.";
+
+    // Installed size
+    private static Integer installedSize = null;
 
     private static void createTempWorkDir()
 	throws Command.Exception
@@ -279,6 +282,8 @@ public class Packager {
 		    control.format("Depends: %s\n", computeDependencies(info));
 		if (!info.provides().isEmpty())
 		    control.format("Provides: %s\n", computeProvides(info));
+                if (installedSize != null)
+                    control.format("Installed-Size: %d\n", installedSize);
 		control.close();
 
 		// Generate the launcher script, if a main class exists
@@ -585,6 +590,13 @@ public class Packager {
                .describedAs("description")
                .ofType(String.class));
 
+        OptionSpec<Integer> isize
+            = (parser.acceptsAll(Arrays.asList("installed-size"),
+                                 "Installed size in kilobytes")
+               .withRequiredArg()
+               .describedAs("size")
+               .ofType(Integer.class));
+
         OptionSpec<File> javaHomePath
             = (parser.acceptsAll(Arrays.asList("java-home"),
                                  "Alternate $JAVA_HOME location")
@@ -640,6 +652,8 @@ public class Packager {
 		short_description = opts.valueOf(shortDescription);
 	    if (opts.has(longDescription))
 		long_description = opts.valueOf(longDescription);
+            if (opts.has(isize))
+                installedSize = opts.valueOf(isize);
 	    createTempWorkDir();
 	    
             try {
