@@ -72,6 +72,9 @@ public class Packager {
     /** The default location to install modules to */
     private static File library = new File("/usr/lib/java/modules");
 
+    /** The JRE to use in control scripts */
+    private static File javaHome = new File(System.getProperty("java.home"));
+
     private static boolean verbose;
 
     /** Command launcher for main class */
@@ -304,6 +307,7 @@ public class Packager {
 		}
 
 		String jmod = findJMod();
+                String installedJMod = javaHome.getPath() + "/bin/jmod";
 
 		// Before a package is installed, 
 		//   check if the jigsaw module library needs to be created first
@@ -315,7 +319,7 @@ public class Packager {
 			   "then\n" +
 			   "  %s  -L %s create\n" +
 			   "fi\n",
-			   library, jmod, library).close();
+			   library, installedJMod, library).close();
 		preinst.setExecutable(true, false);
 
 		// After a package is installed,
@@ -334,10 +338,10 @@ public class Packager {
 			   "%s -L %s config %s\n",
 			   library, manifest.module(),
 			   library,
-			   System.getProperty("java.home"), library,
+			   javaHome, library,
 			   library,
 			   library,
-			   jmod, library, info.id());
+			   installedJMod, library, info.id());
 		pis.close();
 		postinst.setExecutable(true, false);
 
@@ -581,6 +585,13 @@ public class Packager {
                .describedAs("description")
                .ofType(String.class));
 
+        OptionSpec<File> javaHomePath
+            = (parser.acceptsAll(Arrays.asList("java-home"),
+                                 "Alternate $JAVA_HOME location")
+               .withRequiredArg()
+               .describedAs("dir")
+               .ofType(File.class));
+
         if (args.length == 0)
             usage();
 
@@ -614,6 +625,8 @@ public class Packager {
 		resources = opts.valueOf(resourcePath);
 	    if (opts.has(includePath))
 		includes = opts.valueOf(includePath);
+            if (opts.has(javaHomePath))
+                javaHome = opts.valueOf(javaHomePath);
 	    if (opts.has(maintainerName))
 		maintainer_name = opts.valueOf(maintainerName);
 	    if (opts.has(maintainerEmail))
