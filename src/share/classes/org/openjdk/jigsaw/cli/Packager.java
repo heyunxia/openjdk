@@ -356,9 +356,9 @@ public class Packager {
 		pis = new PrintStream(prerm);
 		pis.format("#!/bin/sh\n" +
 			   "set -e\n" +
-			   "if [ -f %s/%s/%s/config ]\n" +
+			   "if [ -e %s/%s/%s ]\n" +
 			   "then\n" +
-			   "  rm %s/%s/%s/config\n" +
+			   "  rm -rf %s/%s/%s\n" +
 			   "fi\n",
 			   library, info.id().name(), info.id().version(),
 			   library, info.id().name(), info.id().version());
