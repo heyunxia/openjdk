@@ -1760,7 +1760,7 @@ public class File
             new File(valueAsString, fs.prefixLength(valueAsString));
 
         // file name generation
-        private static final SecureRandom random = new SecureRandom();
+        private static final Random random = new Random();
         static File generateFile(String prefix, String suffix, File dir) {
             long n = random.nextLong();
             if (n == Long.MIN_VALUE) {
