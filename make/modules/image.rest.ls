@@ -84,7 +84,7 @@
 /lib/ext/meta-index
 /lib/ext/sunjce_provider.jar
 /lib/ext/sunpkcs11.jar
-/lib/i386/jvm.cfg
+#/lib/i386/jvm.cfg
 /lib/i386/libJdbcOdbc.so
 /lib/i386/libattach.so
 /lib/i386/libdeploy.so

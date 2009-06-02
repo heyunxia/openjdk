@@ -31,12 +31,12 @@ TMP=$(TEMPDIR)/jigsaw
 MLIB = $(LIBDIR)/modules
 PKGS = $(OUTPUTDIR)/jigsaw-pkgs
 
-MODULES = boot base awt swing
+MODULES = boot base awt swing tools
 
 all: mods pkgs
 
 # For faster builds, during development only
-dev-%: ; MODULARIZE_DEV=1 $(MAKE) --no-print-directory $*
+dev-%: ; MODULARIZE_DEV=1 JIGSAW_DEV_MODE=1 $(MAKE) --no-print-directory $*
 
 mods:
 	SRC=$(SRC) BIN=$(BIN) CLASSES=$(CLASSES) TMP=$(TMP) MLIB=$(MLIB) \
@@ -49,19 +49,30 @@ images: $(MODULES:%=%-image) jdk-image
 
 $(PKGS): ; mkdir -p $@
 
+ifndef JIGSAW_DEV_MODE
+  BOOT_Z = -z9
+endif
+
 # The boot package gets special treatment,
 # both here and in {imagine,modularize}.sh
 #
 boot-deb: boot-image $(PKGS)
-	fakeroot dpkg-deb -Zlzma --build \
+	fakeroot dpkg-deb $(BOOT_Z) -Zlzma --build \
 	  $(OUTPUTDIR)/jigsaw-images/boot $(PKGS)
 
 %-deb: %-image $(PKGS)
 	mkdir -p $(OUTPUTDIR)/jigsaw-images/$*
 	(M=$$(if [ $* != jdk ]; then echo jdk.$*; else echo jdk; fi); \
+         ISZ=$$(expr $$(du -s $(TMP)/module-classes/$$M | cut -f1) \
+                   + $$(du -s $(OUTPUTDIR)/jigsaw-images/$* | cut -f1)); \
+         LD="$$(if [ -e ld.$$M ]; then cat ld.$$M; fi)"; \
+         if ! [ -z "$$LD" ]; then LD="-l '$$LD'"; fi; \
 	 PATH=$(BINDIR):$(PATH) $(BINDIR)/jpkg -v -m $(TMP)/module-classes \
 	   -i $(OUTPUTDIR)/jigsaw-images/$* \
-           -L /usr/local/jigsaw/lib/modules -d $(PKGS) -c jigsaw-jdk-$* deb $$M)
+           --java-home /usr/local/jigsaw -L /usr/local/jigsaw/lib/modules \
+           -n 'Jigsaw Team' -e 'jigsaw-dev@openjdk.java.net' \
+           -s 'Jigsaw JDK 7 $* module' --installed-size $$ISZ \
+           -d $(PKGS) -c jigsaw-jdk-$* deb $$M)
 
 debs: $(MODULES:%=%-deb)
 

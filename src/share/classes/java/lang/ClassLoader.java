@@ -1363,7 +1363,7 @@ public abstract class ClassLoader {
     // loader created by the legacy launcher.
     //
     private static void hackBootPath() {    // ## TEMPORARY
-        String[] mods = { "jdk.awt", "jdk.swing", "jdk" };
+        String[] mods = { "jdk.awt", "jdk.swing", "jdk.tools", "jdk" };
         String jhlm = System.getProperty("java.home") + "/lib/modules/";
         for (String m : mods) {
             File f = new File(jhlm + m + "/7-ea/classes");

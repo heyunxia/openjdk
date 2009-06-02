@@ -23,7 +23,7 @@
  * have any questions.
  */
 
-module jdk.boot @ 7-ea {
-    permits jdk.base, jdk.awt, jdk.swing, jdk.tools, jdk;
+module jdk.tools @ 7-ea {
+    requires public local jdk.boot @ 7-ea;
     class org.openjdk.jigsaw.Hi;        // ## Testing
 }

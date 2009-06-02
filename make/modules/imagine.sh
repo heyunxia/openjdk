@@ -59,17 +59,21 @@ mkdir -p $IMAGE_DEST/lib/modules
 $RSYNC --include '/%*' --include '*/' --include '/jdk.boot/***' --exclude '*' \
        $BUILD/lib/modules/ $IMAGE_DEST/lib/modules
 
+mkdir -p $IMAGE_DEST/lib/i386
 cat >$IMAGE_DEST/lib/i386/jvm.cfg <<EOF
 -client KNOWN
 -server KNOWN
 EOF
 
+ISZ=$(du -sk $IMAGE_DEST | cut -f1)
+
 mkdir -p $IMAGE_ROOT/DEBIAN
 cat >$IMAGE_ROOT/DEBIAN/control <<EOF
 Package: jdk.$MOD
+Installed-Size: $ISZ
 Version: 7_ea
 Maintainer: Jigsaw Team <jigsaw-dev@openjdk.java.net>
-Description: No short description
+Description: Jigsaw JDK 7 boot module
  No long description.
 Architecture: i386
 Section: misc
