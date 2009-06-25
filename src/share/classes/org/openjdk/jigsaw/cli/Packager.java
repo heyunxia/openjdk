@@ -99,6 +99,26 @@ public class Packager {
         }
     }
 
+    static class RPM extends Deb {
+
+	@Override
+        protected void writeMetaData(final Manifest manifest)
+                throws Command.Exception {
+	    throw new Command.Exception("Don't know how to translate metadata to RPM yet!");
+	}
+
+	@Override
+	protected void buildPackage()
+	    throws Command.Exception {
+	    throw new Command.Exception("Don't know how to build an RPM package yet!");
+	}
+
+	@Override
+	protected String getType() {
+	    return "RPM";
+	}
+    }
+
     static class Deb extends Command<SimpleLibrary> {
 
         private File tmp_module_dst;
@@ -224,7 +244,7 @@ public class Packager {
          *
          * @param manifest The module's manifest
          */
-        private void writeMetaData(final Manifest manifest)
+        protected void writeMetaData(final Manifest manifest)
                 throws Command.Exception {
             try {
                 createMetaDataDir();
@@ -358,7 +378,7 @@ public class Packager {
 
         }
 
-        private void buildPackage()
+        protected void buildPackage()
                 throws Command.Exception {
             try {
                 final Process build = (new ProcessBuilder("fakeroot", "dpkg-deb", "-z9", "-Zlzma", "--build",
@@ -453,7 +473,7 @@ public class Packager {
             for (Manifest manifest : mfs) {
 
                 if (verbose) {
-                    System.out.println("Creating binary Debian package for " + manifest.module());
+                    System.out.println("Creating binary " + getType() + " package for " + manifest.module());
                 }
 
                 if (null != includes) {
@@ -470,11 +490,16 @@ public class Packager {
                 cleanup();
             }
         }
+
+	protected String getType() {
+	    return "Debian";
+	}
     }
     private static Map<String, Class<? extends Command<SimpleLibrary>>> commands = new HashMap<String, Class<? extends Command<SimpleLibrary>>>();
 
     static {
         commands.put("deb", Deb.class);
+        commands.put("rpm", RPM.class);
     }
     private OptionParser parser;
 
