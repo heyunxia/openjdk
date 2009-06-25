@@ -120,10 +120,12 @@ public class Packager {
                 throw new Command.Exception("Couldn't create module destination directory " + tmp_module_dst);
             }
 
-            // Delete the modules dir to make SimpleLibrary happy,
-            // it wants to create the jigsaw metadata and the directory
-            // along with it.
-            tmp_module_dst.delete();
+	    // Delete the modules dir to make SimpleLibrary happy,
+	    // it wants to create the jigsaw metadata and the directory
+	    // along with it.
+	    if (!tmp_module_dst.delete()) {
+		throw new Command.Exception("Couldn't delete module destination directory " + tmp_module_dst);
+	    }
         }
 
         private void preinstallModule(final Manifest manifest)
