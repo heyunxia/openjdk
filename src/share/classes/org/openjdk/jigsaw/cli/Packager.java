@@ -152,7 +152,6 @@ public class Packager {
                     mif = new File(mf.classes().get(0), mf.module() + File.separator + "module-info.class");
                 }
 
-                byte[] bs = org.openjdk.jigsaw.Files.load(mif);
                 return jms.parseModuleInfo(Files.load(mif));
             } catch (IOException x) {
                 throw new Command.Exception(x);
