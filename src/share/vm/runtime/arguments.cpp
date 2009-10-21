@@ -45,6 +45,7 @@ bool   Arguments::_xdebug_mode                  = false;
 const char*  Arguments::_java_vendor_url_bug    = DEFAULT_VENDOR_URL_BUG;
 const char*  Arguments::_sun_java_launcher      = DEFAULT_JAVA_LAUNCHER;
 int    Arguments::_sun_java_launcher_pid        = -1;
+const char*  Arguments::_sun_java_launcher_module_boot = NULL;
 
 // These parameters are reset in method parse_vm_init_args(JavaVMInitArgs*)
 bool   Arguments::_AlwaysCompileLoopMethods     = AlwaysCompileLoopMethods;
@@ -110,6 +111,10 @@ void Arguments::process_sun_java_launcher_properties(JavaVMInitArgs* args) {
     }
     if (match_option(option, "-Dsun.java.launcher.pid=", &tail)) {
       _sun_java_launcher_pid = atoi(tail);
+      continue;
+    }
+    if (match_option(option, "-Dsun.java.launcher.module.boot=", &tail)) {
+      _sun_java_launcher_module_boot = strdup(tail);
       continue;
     }
   }
@@ -870,6 +875,12 @@ bool Arguments::add_property(const char* prop) {
       FreeHeap(value);
     }
     return true;
+  } else if (strcmp(key, "sun.java.launcher.module.boot") == 0) {
+    // Another private property
+    FreeHeap(key);
+    if (eq != NULL) {
+      FreeHeap(value);
+    }
   }
   else if (strcmp(key, "java.vendor.url.bug") == 0) {
     // save it in _java_vendor_url_bug, so JVM fatal error handler can access

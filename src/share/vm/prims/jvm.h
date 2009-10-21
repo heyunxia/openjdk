@@ -431,6 +431,12 @@ JVM_DefineClassWithCP(JNIEnv *env, const char *name, jobject loader,
                       jobjectArray constants);
 
 /*
+ * Append a path to the boot class path
+ */
+JNIEXPORT void JNICALL
+JVM_ExtendBootClassPath(JNIEnv *env, const char *path);
+
+/*
  * Reflection support functions
  */
 

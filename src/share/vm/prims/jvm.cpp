@@ -832,6 +832,17 @@ JVM_ENTRY(jclass, JVM_FindLoadedClass(JNIEnv *env, jobject loader, jstring name)
             (jclass) JNIHandles::make_local(env, Klass::cast(k)->java_mirror());
 JVM_END
 
+JVM_ENTRY(void, JVM_ExtendBootClassPath(JNIEnv *env, const char *path))
+  JVMWrapper2("JVM_ExtendBootClassPath(%s)", path)
+  {
+    // cf. SystemDictionary::download_and_retry_class_load
+    HandleMark hm(THREAD);
+    ResourceMark rm(THREAD);
+    Handle loader_lock(THREAD, SystemDictionary::system_loader_lock());
+    ObjectLocker ol(loader_lock, THREAD);
+    ClassLoader::update_class_path_entry_list(path, true);
+  }
+JVM_END
 
 // Reflection support //////////////////////////////////////////////////////////////////////////////
 

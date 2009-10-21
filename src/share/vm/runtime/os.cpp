@@ -865,6 +865,21 @@ bool os::set_boot_path(char fileSep, char pathSep) {
 
     const char* home = Arguments::get_java_home();
     int home_len = (int)strlen(home);
+    const char* sjlmb = Arguments::sun_java_launcher_module_boot();
+
+    if (sjlmb) {
+      // Booting from a module
+      char buf[JVM_MAXPATHLEN];
+      if (!jio_snprintf(buf, sizeof(buf), "%%/%s", sjlmb)) {
+        assert(false, "Failed jio_snprintf");
+      } else {
+        char *scp = format_boot_path(buf, home, home_len,fileSep, pathSep);
+        if (scp) {
+          Arguments::set_sysclasspath(scp);
+          return true;
+        }
+      }
+    }
 
     static const char* meta_index_dir_format = "%/lib/";
     static const char* meta_index_format = "%/lib/meta-index";
@@ -884,6 +899,14 @@ bool os::set_boot_path(char fileSep, char pathSep) {
         "%/lib/jsse.jar:"
         "%/lib/jce.jar:"
         "%/lib/charsets.jar:"
+
+        // ## TEMPORARY hack to keep the legacy launcher working when
+        // ## only the boot module is installed (cf. j.l.ClassLoader)
+        "%/lib/modules/jdk.boot/7-ea/classes:"
+        "%/lib/modules/jdk.boot/7-ea/classes.jar:"
+        "%/lib/modules/jdk.boot/7-ea/resources:"
+        "%/lib/modules/jdk.boot/7-ea/resources.jar:"
+
         "%/classes";
     char* sysclasspath = format_boot_path(classpath_format, home, home_len, fileSep, pathSep);
     if (sysclasspath == NULL) return false;

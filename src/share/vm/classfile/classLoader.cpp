@@ -273,7 +273,10 @@ void ClassLoader::setup_meta_index() {
   const char* known_version = "% VERSION 2";
   char* meta_index_path = Arguments::get_meta_index_path();
   char* meta_index_dir  = Arguments::get_meta_index_dir();
-  FILE* file = fopen(meta_index_path, "r");
+  FILE* file = NULL;
+  if (meta_index_path != NULL) { // Will be null if we booted from a module
+    file = fopen(meta_index_path, "r");
+  }
   int line_no = 0;
   if (file != NULL) {
     ResourceMark rm;
@@ -509,12 +512,15 @@ void ClassLoader::update_class_path_entry_list(const char *path,
     // File or directory found
     ClassPathEntry* new_entry = NULL;
     create_class_path_entry((char *)path, st, &new_entry, LazyBootClassLoader);
-    // The kernel VM adds dynamically to the end of the classloader path and
-    // doesn't reorder the bootclasspath which would break java.lang.Package
-    // (see PackageInfo).
-    // Add new entry to linked list
+    // The kernel VM, and Jigsaw, add dynamically to the end of the classloader
+    // path and don't reorder the bootclasspath, which would break
+    // java.lang.Package (see PackageInfo).
     if (!check_for_duplicates || !contains_entry(new_entry)) {
+      // Add new entry to linked list
       add_to_list(new_entry);
+      if (TraceClassLoading) {
+        print_bootclasspath();
+      }
     }
   }
 }

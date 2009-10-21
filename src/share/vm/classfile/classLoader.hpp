@@ -190,7 +190,7 @@ class ClassLoader: AllStatic {
   // to avoid confusing the zip library
   static bool get_canonical_path(char* orig, char* out, int len);
  public:
-  // Used by the kernel jvm.
+  // Used by the kernel jvm, and by Jigsaw via JVM_ExtendBootClassPath
   static void update_class_path_entry_list(const char *path,
                                            bool check_for_duplicates);
   static void print_bootclasspath();
