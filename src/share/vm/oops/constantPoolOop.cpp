@@ -313,15 +313,6 @@ int constantPoolOopDesc::signature_ref_index_at(int which) {
   return extract_high_short_from_int(ref_index);
 }
 
-int constantPoolOopDesc::module_name_ref_index_at(int which) {
-  jint ref_index = module_info_at(which);
-  return extract_low_short_from_int(ref_index);
-}
-
-int constantPoolOopDesc::module_version_ref_index_at(int which) {
-  jint ref_index = module_info_at(which);
-  return extract_high_short_from_int(ref_index);
-}
 
 klassOop constantPoolOopDesc::klass_ref_at(int which, TRAPS) {
   return klass_at(klass_ref_index_at(which), CHECK_NULL);
@@ -463,14 +454,6 @@ void constantPoolOopDesc::shared_symbols_iterate(OopClosure* closure) {
       }
       break;
 
-    case JVM_CONSTANT_ModuleId_info:
-      {
-        int i = *int_at_addr(index);
-        closure->do_oop(obj_at_addr((unsigned)i >> 16));
-        closure->do_oop(obj_at_addr((unsigned)i & 0xffff));
-      }
-      break;
-
     case JVM_CONSTANT_Class:
     case JVM_CONSTANT_InterfaceMethodref:
     case JVM_CONSTANT_Fieldref:
@@ -522,7 +505,6 @@ void constantPoolOopDesc::shared_strings_iterate(OopClosure* closure) {
 
     case JVM_CONSTANT_UnresolvedClass:
     case JVM_CONSTANT_NameAndType:
-    case JVM_CONSTANT_ModuleId_info:
       // Do nothing!  Not a String.
       break;
 
@@ -669,21 +651,6 @@ bool constantPoolOopDesc::compare_entry_to(int index1, constantPoolHandle cp2,
     if (match) {
       recur1 = signature_ref_index_at(index1);
       recur2 = cp2->signature_ref_index_at(index2);
-      match = compare_entry_to(recur1, cp2, recur2, CHECK_false);
-      if (match) {
-        return true;
-      }
-    }
-  } break;
-
-  case JVM_CONSTANT_ModuleId_info:
-  {
-    int recur1 = name_ref_index_at(index1);
-    int recur2 = cp2->name_ref_index_at(index2);
-    bool match = compare_entry_to(recur1, cp2, recur2, CHECK_false);
-    if (match) {
-      recur1 = module_version_ref_index_at(index1);
-      recur2 = cp2->module_version_ref_index_at(index2);
       match = compare_entry_to(recur1, cp2, recur2, CHECK_false);
       if (match) {
         return true;
@@ -852,13 +819,6 @@ void constantPoolOopDesc::copy_entry_to(int from_i, constantPoolHandle to_cp,
     int name_ref_index = name_ref_index_at(from_i);
     int signature_ref_index = signature_ref_index_at(from_i);
     to_cp->name_and_type_at_put(to_i, name_ref_index, signature_ref_index);
-  } break;
-
-  case JVM_CONSTANT_ModuleId_info:
-  {
-    int module_name_ref_index = module_name_ref_index_at(from_i);
-    int module_version_ref_index = module_version_ref_index_at(from_i);
-    to_cp->module_info_at_put(to_i, module_name_ref_index, module_version_ref_index);
   } break;
 
   case JVM_CONSTANT_String:
@@ -1054,13 +1014,6 @@ static void print_cpool_bytes(jint cnt, u1 *bytes) {
         ent_size = 4;
         break;
       }
-      case JVM_CONSTANT_ModuleId_info: {
-        idx1 = Bytes::get_Java_u2(bytes);
-        idx2 = Bytes::get_Java_u2(bytes+2);
-        printf("ModuleId_info  #%03d, #%03d", idx1, idx2);
-        ent_size = 4;
-        break;
-      }
       case JVM_CONSTANT_ClassIndex: {
         printf("ClassIndex  %s", WARN_MSG);
         break;
@@ -1117,7 +1070,6 @@ jint constantPoolOopDesc::cpool_entry_size(jint idx) {
     case JVM_CONSTANT_Methodref:
     case JVM_CONSTANT_InterfaceMethodref:
     case JVM_CONSTANT_NameAndType:
-    case JVM_CONSTANT_ModuleId_info:
       return 5;
 
     case JVM_CONSTANT_Long:
@@ -1278,14 +1230,6 @@ int constantPoolOopDesc::copy_cpool_bytes(int cpool_size,
         Bytes::put_Java_u2((address) (bytes+1), idx1);
         Bytes::put_Java_u2((address) (bytes+3), idx2);
         DBG(printf("JVM_CONSTANT_NameAndType: %hd %hd", idx1, idx2));
-        break;
-      }
-      case JVM_CONSTANT_ModuleId_info: {
-        idx1 = module_name_ref_index_at(idx);
-        idx2 = module_version_ref_index_at(idx);
-        Bytes::put_Java_u2((address) (bytes+1), idx1);
-        Bytes::put_Java_u2((address) (bytes+3), idx2);
-        DBG(printf("JVM_CONSTANT_ModuleId_info: %hd %hd", idx1, idx2));
         break;
       }
       case JVM_CONSTANT_ClassIndex: {

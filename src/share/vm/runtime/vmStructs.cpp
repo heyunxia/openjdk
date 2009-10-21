@@ -102,7 +102,6 @@ static inline uint64_t cast_uint64_t(size_t x)
   nonstatic_field(instanceKlass,               _protection_domain,                            oop)                                   \
   nonstatic_field(instanceKlass,               _signers,                                      objArrayOop)                           \
   nonstatic_field(instanceKlass,               _source_file_name,                             symbolOop)                             \
-  nonstatic_field(instanceKlass,               _module_name,                                  symbolOop)                             \
   nonstatic_field(instanceKlass,               _source_debug_extension,                       symbolOop)                             \
   nonstatic_field(instanceKlass,               _inner_classes,                                typeArrayOop)                          \
   nonstatic_field(instanceKlass,               _nonstatic_field_size,                         int)                                   \

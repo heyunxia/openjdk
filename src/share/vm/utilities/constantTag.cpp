@@ -74,9 +74,6 @@ void constantTag::print_on(outputStream* st) const {
     case JVM_CONSTANT_StringIndex :
       st->print("Unresolved string index");
       break;
-    case JVM_CONSTANT_ModuleId_info :
-      st->print("ModuleId_info");
-      break;
     default:
       ShouldNotReachHere();
       break;

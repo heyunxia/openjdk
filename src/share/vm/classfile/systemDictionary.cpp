@@ -950,7 +950,6 @@ klassOop SystemDictionary::parse_stream(symbolHandle class_name,
                                         ClassFileStream* st,
                                         KlassHandle host_klass,
                                         GrowableArray<Handle>* cp_patches,
-                                        symbolHandle module_name,
                                         TRAPS) {
   symbolHandle parsed_name;
 
@@ -967,7 +966,6 @@ klassOop SystemDictionary::parse_stream(symbolHandle class_name,
   instanceKlassHandle k = ClassFileParser(st).parseClassFile(class_name,
                                                              class_loader,
                                                              protection_domain,
-                                                             module_name,
                                                              parsed_name,
                                                              THREAD);
 
@@ -1019,14 +1017,11 @@ klassOop SystemDictionary::parse_stream(symbolHandle class_name,
 // JVM_DefineClass).
 // Note: class_name can be NULL. In that case we do not know the name of
 // the class until we have parsed the stream.
-// >= JDK 7: Note: module_name can be NULL. If non-null must check it matches
-// moduleAttribute in classfile (version >=51), otherwise use the passed in value.
 
 klassOop SystemDictionary::resolve_from_stream(symbolHandle class_name,
                                                Handle class_loader,
                                                Handle protection_domain,
                                                ClassFileStream* st,
-                                               symbolHandle module_name,
                                                TRAPS) {
 
   // Classloaders that support parallelism, e.g. bootstrap classloader,
@@ -1056,7 +1051,6 @@ klassOop SystemDictionary::resolve_from_stream(symbolHandle class_name,
   instanceKlassHandle k = ClassFileParser(st).parseClassFile(class_name,
                                                              class_loader,
                                                              protection_domain,
-                                                             module_name,
                                                              parsed_name,
                                                              THREAD);
 
@@ -1150,6 +1144,7 @@ void SystemDictionary::set_shared_dictionary(HashtableBucket* t, int length,
 
 // If there is a shared dictionary, then find the entry for the
 // given shared system class, if any.
+
 klassOop SystemDictionary::find_shared_class(symbolHandle class_name) {
   if (shared_dictionary() != NULL) {
     unsigned int d_hash = dictionary()->compute_hash(class_name, Handle());
@@ -1180,7 +1175,6 @@ instanceKlassHandle SystemDictionary::load_shared_class(
 // MarkAndMoveOrderedReadWrite closures.
 instanceKlassHandle SystemDictionary::load_shared_class(
                  instanceKlassHandle ik, Handle class_loader, TRAPS) {
-    
   assert(class_loader.is_null(), "non-null classloader for shared class?");
   if (ik.not_null()) {
     instanceKlassHandle nh = instanceKlassHandle(); // null Handle
@@ -1316,7 +1310,6 @@ instanceKlassHandle SystemDictionary::load_instance_class(symbolHandle class_nam
 
     if (k.is_null()) {
       // Use VM class loader
-      // Note: VM class loader does not deal with modules
       k = ClassLoader::load_classfile(class_name, CHECK_(nh));
     }
 

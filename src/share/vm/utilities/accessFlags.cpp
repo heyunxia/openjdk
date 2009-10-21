@@ -50,10 +50,8 @@ void AccessFlags::atomic_clear_bits(jint bits) {
 
 void AccessFlags::print_on(outputStream* st) const {
   if (is_public      ()) st->print("public "      );
-  if (is_module      ()) st->print("module "      );
   if (is_private     ()) st->print("private "     );
   if (is_protected   ()) st->print("protected "   );
-  if (is_package_private()) st->print("package_private ");
   if (is_static      ()) st->print("static "      );
   if (is_final       ()) st->print("final "       );
   if (is_synchronized()) st->print("synchronized ");

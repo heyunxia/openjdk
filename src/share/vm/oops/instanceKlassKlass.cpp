@@ -78,7 +78,6 @@ void instanceKlassKlass::oop_follow_contents(oop obj) {
   MarkSweep::mark_and_push(ik->adr_constants());
   MarkSweep::mark_and_push(ik->adr_class_loader());
   MarkSweep::mark_and_push(ik->adr_source_file_name());
-  MarkSweep::mark_and_push(ik->adr_module_name());
   MarkSweep::mark_and_push(ik->adr_source_debug_extension());
   MarkSweep::mark_and_push(ik->adr_inner_classes());
   MarkSweep::mark_and_push(ik->adr_protection_domain());
@@ -119,7 +118,6 @@ void instanceKlassKlass::oop_follow_contents(ParCompactionManager* cm,
   PSParallelCompact::mark_and_push(cm, ik->adr_constants());
   PSParallelCompact::mark_and_push(cm, ik->adr_class_loader());
   PSParallelCompact::mark_and_push(cm, ik->adr_source_file_name());
-  PSParallelCompact::mark_and_push(cm, ik->adr_module_name());
   PSParallelCompact::mark_and_push(cm, ik->adr_source_debug_extension());
   PSParallelCompact::mark_and_push(cm, ik->adr_inner_classes());
   PSParallelCompact::mark_and_push(cm, ik->adr_protection_domain());
@@ -166,7 +164,6 @@ int instanceKlassKlass::oop_oop_iterate(oop obj, OopClosure* blk) {
   blk->do_oop(ik->adr_host_klass());
   blk->do_oop(ik->adr_signers());
   blk->do_oop(ik->adr_source_file_name());
-  blk->do_oop(ik->adr_module_name());
   blk->do_oop(ik->adr_source_debug_extension());
   blk->do_oop(ik->adr_inner_classes());
   for (int i = 0; i < instanceKlass::implementors_limit; i++) {
@@ -223,8 +220,6 @@ int instanceKlassKlass::oop_oop_iterate_m(oop obj, OopClosure* blk,
   if (mr.contains(adr)) blk->do_oop(adr);
   adr = ik->adr_source_file_name();
   if (mr.contains(adr)) blk->do_oop(adr);
-  adr = ik->adr_module_name();
-  if (mr.contains(adr)) blk->do_oop(adr);
   adr = ik->adr_source_debug_extension();
   if (mr.contains(adr)) blk->do_oop(adr);
   adr = ik->adr_inner_classes();
@@ -273,7 +268,6 @@ int instanceKlassKlass::oop_adjust_pointers(oop obj) {
   MarkSweep::adjust_pointer(ik->adr_host_klass());
   MarkSweep::adjust_pointer(ik->adr_signers());
   MarkSweep::adjust_pointer(ik->adr_source_file_name());
-  MarkSweep::adjust_pointer(ik->adr_module_name());
   MarkSweep::adjust_pointer(ik->adr_source_debug_extension());
   MarkSweep::adjust_pointer(ik->adr_inner_classes());
   for (int i = 0; i < instanceKlass::implementors_limit; i++) {
@@ -446,7 +440,6 @@ klassOop instanceKlassKlass::allocate_instance_klass(int vtable_len, int itable_
     ik->set_host_klass(NULL);
     ik->set_signers(NULL);
     ik->set_source_file_name(NULL);
-    ik->set_module_name(NULL);
     ik->set_source_debug_extension(NULL);
     ik->set_inner_classes(NULL);
     ik->set_static_oop_field_size(0);
@@ -555,11 +548,6 @@ void instanceKlassKlass::oop_print_on(oop obj, outputStream* st) {
   if (ik->source_file_name() != NULL) {
     st->print(" - source file:       ");
     ik->source_file_name()->print_value_on(st);
-    st->cr();
-  }
-  if (ik->module_name() != NULL) {
-    st->print(" - module name:       ");
-    ik->module_name()->print_value_on(st);
     st->cr();
   }
   if (ik->source_debug_extension() != NULL) {
@@ -786,10 +774,6 @@ void instanceKlassKlass::oop_verify_on(oop obj, outputStream* st) {
     if (ik->source_file_name() != NULL) {
       guarantee(ik->source_file_name()->is_perm(),   "should be in permspace");
       guarantee(ik->source_file_name()->is_symbol(), "should be symbol");
-    }
-    // module_name can be passed in to defineClass, so it is not always in perm space
-    if (ik->module_name() != NULL) {
-      guarantee(ik->module_name()->is_symbol(), "should be symbol");
     }
     if (ik->source_debug_extension() != NULL) {
       guarantee(ik->source_debug_extension()->is_perm(),   "should be in permspace");

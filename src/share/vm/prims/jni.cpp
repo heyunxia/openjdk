@@ -298,9 +298,8 @@ JNI_ENTRY(jclass, jni_DefineClass(JNIEnv *env, const char *name, jobject loaderR
       ClassLoader::sync_JNIDefineClassLockFreeCounter()->inc();
     }
   }
-  symbolHandle module_name;
   klassOop k = SystemDictionary::resolve_from_stream(class_name, class_loader,
-                                                     Handle(), &st, module_name, CHECK_NULL);
+                                                     Handle(), &st, CHECK_NULL);
 
   cls = (jclass)JNIHandles::make_local(
     env, Klass::cast(k)->java_mirror());

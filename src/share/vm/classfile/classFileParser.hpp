@@ -72,14 +72,12 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
                               u2* generic_signature_index_addr,
                               typeArrayHandle* field_annotations, TRAPS);
   typeArrayHandle parse_fields(constantPoolHandle cp, bool is_interface,
-                               bool* acc_module_seen,
                                struct FieldAllocationCount *fac,
                                objArrayHandle* fields_annotations, TRAPS);
 
   // Method parsing
   methodHandle parse_method(constantPoolHandle cp, bool is_interface,
                             AccessFlags* promoted_flags,
-                            bool* acc_module_seen,
                             typeArrayHandle* method_annotations,
                             typeArrayHandle* method_parameter_annotations,
                             typeArrayHandle* method_default_annotations,
@@ -87,7 +85,6 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
   objArrayHandle parse_methods (constantPoolHandle cp, bool is_interface,
                                 AccessFlags* promoted_flags,
                                 bool* has_final_method,
-                                bool* acc_module_seen,
                                 objArrayOop* methods_annotations_oop,
                                 objArrayOop* methods_parameter_annotations_oop,
                                 objArrayOop* methods_default_annotations_oop,
@@ -116,11 +113,10 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
   void parse_classfile_source_debug_extension_attribute(constantPoolHandle cp,
                                                 instanceKlassHandle k, int length, TRAPS);
   u2   parse_classfile_inner_classes_attribute(constantPoolHandle cp,
-                                               instanceKlassHandle k, bool* acc_module_seen, TRAPS);
-  void parse_classfile_attributes(constantPoolHandle cp, instanceKlassHandle k, symbolHandle module_name, bool* acc_module_seen, TRAPS);
+                                               instanceKlassHandle k, TRAPS);
+  void parse_classfile_attributes(constantPoolHandle cp, instanceKlassHandle k, TRAPS);
   void parse_classfile_synthetic_attribute(constantPoolHandle cp, instanceKlassHandle k, TRAPS);
   void parse_classfile_signature_attribute(constantPoolHandle cp, instanceKlassHandle k, TRAPS);
-  void parse_classfile_module_attribute(constantPoolHandle cp, instanceKlassHandle k, symbolHandle module_name, TRAPS);
 
   // Annotations handling
   typeArrayHandle assemble_annotations(u1* runtime_visible_annotations,
@@ -202,7 +198,6 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
   void verify_legal_field_signature(symbolHandle fieldname, symbolHandle signature, TRAPS);
   int  verify_legal_method_signature(symbolHandle methodname, symbolHandle signature, TRAPS);
   void verify_legal_class_modifiers(jint flags, TRAPS);
-  void verify_legal_class_module_modifier(instanceKlassHandle k_h, TRAPS);
   void verify_legal_field_modifiers(jint flags, bool is_interface, TRAPS);
   void verify_legal_method_modifiers(jint flags, bool is_interface, symbolHandle name, TRAPS);
   bool verify_unqualified_name(char* name, unsigned int length, int type);
@@ -252,16 +247,14 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
   instanceKlassHandle parseClassFile(symbolHandle name,
                                      Handle class_loader,
                                      Handle protection_domain,
-                                     symbolHandle module_name,
                                      symbolHandle& parsed_name,
                                      TRAPS) {
-    return parseClassFile(name, class_loader, protection_domain, NULL, module_name, parsed_name, THREAD);
+    return parseClassFile(name, class_loader, protection_domain, NULL, parsed_name, THREAD);
   }
   instanceKlassHandle parseClassFile(symbolHandle name,
                                      Handle class_loader,
                                      Handle protection_domain,
                                      GrowableArray<Handle>* cp_patches,
-                                     symbolHandle module_name,
                                      symbolHandle& parsed_name,
                                      TRAPS);
 

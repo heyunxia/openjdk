@@ -742,9 +742,8 @@ static void is_lock_held_by_thread(Handle loader, PerfCounter* counter, TRAPS) {
   }
 }
 
-// common code for JVM_DefineClass(), JVM_DefineClassWithSource() and
-// JVM_DefineClassWithModule() 
-static jclass jvm_define_class_common(JNIEnv *env, const char *name, jobject loader, const jbyte *buf, jsize len, jobject pd, const char *source, const char *module, TRAPS) {
+// common code for JVM_DefineClass() and JVM_DefineClassWithSource()
+static jclass jvm_define_class_common(JNIEnv *env, const char *name, jobject loader, const jbyte *buf, jsize len, jobject pd, const char *source, TRAPS) {
   if (source == NULL)  source = "__JVM_DefineClass__";
 
   // Since exceptions can be thrown, class initialization can take place
@@ -760,18 +759,6 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name, jobject loa
     class_name = oopFactory::new_symbol_handle(name, str_len, CHECK_NULL);
   }
 
-  // if module is NULL no check for module name in .class stream has to be made.
-  symbolHandle module_name;
-  if (module != NULL) {
-    const int str_len = (int)strlen(module);
-    if (str_len > symbolOopDesc::max_length()) {
-      // It's impossible to create this class;  the module name cannot fit
-      // into the constant pool.
-      THROW_MSG_0(vmSymbols::java_lang_NoClassDefFoundError(), module);
-    }
-    module_name = oopFactory::new_symbol_handle(module, str_len, CHECK_NULL);
-  }
-
   ResourceMark rm(THREAD);
   ClassFileStream st((u1*) buf, len, (char *)source);
   Handle class_loader (THREAD, JNIHandles::resolve(loader));
@@ -783,7 +770,7 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name, jobject loa
   Handle protection_domain (THREAD, JNIHandles::resolve(pd));
   klassOop k = SystemDictionary::resolve_from_stream(class_name, class_loader,
                                                      protection_domain, &st,
-                                                     module_name, CHECK_NULL);
+                                                     CHECK_NULL);
 
   if (TraceClassResolution && k != NULL) {
     trace_class_resolution(k);
@@ -796,22 +783,16 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name, jobject loa
 JVM_ENTRY(jclass, JVM_DefineClass(JNIEnv *env, const char *name, jobject loader, const jbyte *buf, jsize len, jobject pd))
   JVMWrapper2("JVM_DefineClass %s", name);
 
-  return jvm_define_class_common(env, name, loader, buf, len, pd, NULL, NULL, THREAD);
+  return jvm_define_class_common(env, name, loader, buf, len, pd, NULL, THREAD);
 JVM_END
 
 
 JVM_ENTRY(jclass, JVM_DefineClassWithSource(JNIEnv *env, const char *name, jobject loader, const jbyte *buf, jsize len, jobject pd, const char *source))
   JVMWrapper2("JVM_DefineClassWithSource %s", name);
 
-  return jvm_define_class_common(env, name, loader, buf, len, pd, source, NULL, THREAD);
+  return jvm_define_class_common(env, name, loader, buf, len, pd, source, THREAD);
 JVM_END
 
-/* Define a class with a source and module name (added in JDK1.7) */
-JVM_ENTRY(jclass, JVM_DefineClassWithModule(JNIEnv *env, const char *name, jobject loader, const jbyte *buf, jsize len, jobject pd, const char *source, const char *module))
-  JVMWrapper3("JVM_DEfineClassWithModule class:%s, module:%s", name, module);
-
-  return jvm_define_class_common(env, name, loader, buf, len, pd, source, module, THREAD);
-JVM_END
 
 JVM_ENTRY(jclass, JVM_FindLoadedClass(JNIEnv *env, jobject loader, jstring name))
   JVMWrapper("JVM_FindLoadedClass");
@@ -3070,11 +3051,6 @@ bool force_verify_field_access(klassOop current_class, klassOop field_class, Acc
     return true;
   }
 
-  // Only valid for >= JDK7 which should not get here
-  if (access.is_module() && instanceKlass::cast(current_class)->is_same_class_module(field_class)) {
-    return true;
-  }
-
   if (access.is_protected()) {
     // See if current_class is a subclass of field_class
     if (Klass::cast(current_class)->is_subclass_of(field_class)) {
@@ -4588,3 +4564,4 @@ JVM_ENTRY(void, JVM_GetVersionInfo(JNIEnv* env, jvm_version_info* info, size_t i
 #endif // KERNEL
 }
 JVM_END
+

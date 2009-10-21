@@ -41,6 +41,13 @@ class klassVtable : public ResourceObj {
   int          _verify_count;     // to make verify faster
 #endif
 
+  // Ordering important, so greater_than (>) can be used as an merge operator.
+  enum AccessType {
+    acc_private         = 0,
+    acc_package_private = 1,
+    acc_publicprotected = 2
+  };
+
  public:
   klassVtable(KlassHandle h_klass, void* base, int length) : _klass(h_klass) {
     _tableOffset = (address)base - (address)h_klass(); _length = length;
@@ -63,9 +70,8 @@ class klassVtable : public ResourceObj {
   // conputes vtable length (in words) and the number of miranda methods
   static void compute_vtable_size_and_num_mirandas(int &vtable_length, int &num_miranda_methods,
                                                    klassOop super, objArrayOop methods,
-                                                   AccessFlags class_flags, Handle classloader,
-                                                   symbolHandle classname, objArrayOop local_interfaces,
-                                                   TRAPS);
+                                                   AccessFlags class_flags, oop classloader,
+                                                   symbolOop classname, objArrayOop local_interfaces);
 
   // RedefineClasses() API support:
   // If any entry of this vtable points to any of old_methods,
@@ -105,16 +111,14 @@ class klassVtable : public ResourceObj {
  protected:
   friend class vtableEntry;
  private:
-  enum { VTABLE_TRANSITIVE_OVERRIDE_VERSION = 51 } ;
   void copy_vtable_to(vtableEntry* start);
   int  initialize_from_super(KlassHandle super);
   int  index_of(methodOop m, int len) const; // same as index_of, but search only up to len
   void put_method_at(methodOop m, int index);
-  static bool needs_new_vtable_entry(methodHandle m, klassOop super, Handle classloader, symbolHandle classname, AccessFlags access_flags, TRAPS);
+  static bool needs_new_vtable_entry(methodOop m, klassOop super, oop classloader, symbolOop classname, AccessFlags access_flags);
+  AccessType vtable_accessibility_at(int i);
 
-  bool update_inherited_vtable(instanceKlass* klass, methodHandle target_method, int super_vtable_len, bool checkconstraints, TRAPS);
- instanceKlass* find_transitive_override(instanceKlass* initialsuper, methodHandle target_method, int vtable_index,
-                                         Handle target_loader, symbolHandle target_classname, Thread* THREAD);
+  bool update_super_vtable(instanceKlass* klass, methodHandle target_method, int super_vtable_len, bool checkconstraints, TRAPS);
 
   // support for miranda methods
   bool is_miranda_entry_at(int i);

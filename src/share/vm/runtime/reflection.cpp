@@ -442,8 +442,6 @@ bool Reflection::verify_class_access(klassOop current_class, klassOop new_class,
   if ((current_class == NULL) ||
       (current_class == new_class) ||
       (instanceKlass::cast(new_class)->is_public()) ||
-      (instanceKlass::cast(new_class)->is_module() &&
-      instanceKlass::cast(current_class)->is_same_class_module(new_class)) ||
       is_same_class_package(current_class, new_class)) {
     return true;
   }
@@ -517,10 +515,6 @@ bool Reflection::verify_field_access(klassOop current_class,
   if ((current_class == NULL) ||
       (current_class == field_class) ||
       access.is_public()) {
-    return true;
-  }
-
-  if (access.is_module() && instanceKlass::cast(current_class)->is_same_class_module(field_class)) {
     return true;
   }
 

@@ -955,10 +955,9 @@ Unsafe_DefineAnonymousClass_impl(JNIEnv *env,
   instanceKlassHandle anon_klass;
   {
     symbolHandle no_class_name;
-    symbolHandle no_module_name;
     klassOop anonk = SystemDictionary::parse_stream(no_class_name,
-                                                    host_loader, host_domain, &st,
-                                                    host_klass, cp_patches, no_module_name,
+                                                    host_loader, host_domain,
+                                                    &st, host_klass, cp_patches,
                                                     CHECK_NULL);
     if (anonk == NULL)  return NULL;
     anon_klass = instanceKlassHandle(THREAD, anonk);

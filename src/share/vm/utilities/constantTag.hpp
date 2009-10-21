@@ -27,7 +27,7 @@
 
 enum {
   // See jvm.h for shared JVM_CONSTANT_XXX tags
-  // NOTE: replicated in SA in agent/src/share/classes/sun/jvm/hotspot/utilities/ConstantTag.java
+  // NOTE: replicated in SA in vm/agent/sun/jvm/hotspot/utilities/ConstantTag.java
   // Hotspot specific tags
   JVM_CONSTANT_Invalid                  = 0,    // For bad value initialization
   JVM_CONSTANT_InternalMin              = 100,  // First implementation tag (aside from bad value of course)
@@ -54,7 +54,6 @@ class constantTag VALUE_OBJ_CLASS_SPEC {
   bool is_long() const              { return _tag == JVM_CONSTANT_Long; }
   bool is_double() const            { return _tag == JVM_CONSTANT_Double; }
   bool is_name_and_type() const     { return _tag == JVM_CONSTANT_NameAndType; }
-  bool is_moduleId_info() const     { return _tag == JVM_CONSTANT_ModuleId_info; }
   bool is_utf8() const              { return _tag == JVM_CONSTANT_Utf8; }
 
   bool is_invalid() const           { return _tag == JVM_CONSTANT_Invalid; }
@@ -77,7 +76,7 @@ class constantTag VALUE_OBJ_CLASS_SPEC {
   bool is_symbol() const            { return is_utf8(); }
 
   constantTag(jbyte tag) {
-    assert((tag >= 0 && tag <= JVM_CONSTANT_ModuleId_info) ||
+    assert((tag >= 0 && tag <= JVM_CONSTANT_NameAndType) ||
            (tag >= JVM_CONSTANT_InternalMin && tag <= JVM_CONSTANT_InternalMax), "Invalid constant tag");
     _tag = tag;
   }

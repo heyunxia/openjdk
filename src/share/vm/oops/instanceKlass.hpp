@@ -49,7 +49,6 @@
 //    [protection domain          ]
 //    [signers                    ]
 //    [source file name           ]
-//    [module name                ]
 //    [inner classes              ]
 //    [static field size          ]
 //    [nonstatic field size       ]
@@ -145,9 +144,6 @@ class instanceKlass: public Klass {
   // Constant pool for this class.
   constantPoolOop _constants;
   // Class loader used to load this class, NULL if VM loader used.
-  // With modules, this will NOT be NULL
-  // Class.getClassLoader() has to return NULL for JDK classes, but
-  // this contains the real module loader used
   oop             _class_loader;
   // Protection domain.
   oop             _protection_domain;
@@ -159,8 +155,6 @@ class instanceKlass: public Klass {
   objArrayOop     _signers;
   // Name of source file containing this klass, NULL if not specified.
   symbolOop       _source_file_name;
-  // Name of module containing this klass, NULL if not specified.
-  symbolOop       _module_name;
   // the source debug extension for this klass, NULL if not specified.
   symbolOop       _source_debug_extension;
   // inner_classes attribute.
@@ -309,19 +303,10 @@ class instanceKlass: public Klass {
     inner_class_next_offset = 4
   };
 
-  // method override check
-  bool is_override(methodHandle super_method, Handle targetclassloader, symbolHandle targetclassname, TRAPS);
-
   // package
   bool is_same_class_package(klassOop class2);
   bool is_same_class_package(oop classloader2, symbolOop classname2);
   static bool is_same_class_package(oop class_loader1, symbolOop class_name1, oop class_loader2, symbolOop class_name2);
-
-  // module, added for JDK 7
-  bool is_same_class_module(oop classloader2, symbolOop classname2);
-  bool is_same_class_module(klassOop class2);
-  bool is_same_class_module(oop class_loader1,
-             symbolOop module_name1, oop class_loader2, symbolOop module_name2);
 
   // initialization state
   bool is_loaded() const                   { return _init_state >= loaded; }
@@ -406,10 +391,6 @@ class instanceKlass: public Klass {
   // source file name
   symbolOop source_file_name() const       { return _source_file_name; }
   void set_source_file_name(symbolOop n)   { oop_store_without_check((oop*) &_source_file_name, (oop) n); }
-
-  // module name
-  symbolOop module_name() const            { return _module_name; }
-  void set_module_name(symbolOop n)        { oop_store_without_check((oop*) &_module_name, (oop) n); }
 
   // minor and major version numbers of class file
   u2 minor_version() const                 { return _minor_version; }
@@ -740,7 +721,6 @@ private:
   oop* adr_host_klass() const        { return (oop*)&this->_host_klass;}
   oop* adr_signers() const           { return (oop*)&this->_signers;}
   oop* adr_source_file_name() const  { return (oop*)&this->_source_file_name;}
-  oop* adr_module_name() const       { return (oop*)&this->_module_name;}
   oop* adr_source_debug_extension() const { return (oop*)&this->_source_debug_extension;}
   oop* adr_inner_classes() const     { return (oop*)&this->_inner_classes;}
   oop* adr_implementors() const      { return (oop*)&this->_implementors[0];}

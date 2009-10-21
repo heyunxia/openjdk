@@ -64,10 +64,9 @@ class fieldDescriptor VALUE_OBJ_CLASS_SPEC {
 
   // Access flags
   bool is_public() const                  { return _access_flags.is_public(); }
-  bool is_module() const                  { return _access_flags.is_module(); }
   bool is_private() const                 { return _access_flags.is_private(); }
   bool is_protected() const               { return _access_flags.is_protected(); }
-  bool is_package_private() const         { return _access_flags.is_package_private(); }
+  bool is_package_private() const         { return !is_public() && !is_private() && !is_protected(); }
 
   bool is_static() const                  { return _access_flags.is_static(); }
   bool is_final() const                   { return _access_flags.is_final(); }
