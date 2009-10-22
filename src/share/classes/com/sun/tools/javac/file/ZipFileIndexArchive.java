@@ -248,6 +248,9 @@ public class ZipFileIndexArchive implements Archive {
             else
                 return entry.getName();
         }
+        protected String inferModuleTag(String binaryName) {
+            return removeExtension(zfIndex.getZipFile().getName());
+        }
     }
 
 }

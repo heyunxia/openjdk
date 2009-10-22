@@ -634,6 +634,9 @@ public class Attr extends JCTree.Visitor {
             // JLS ???
             chk.checkOverride(tree, m);
 
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), m);
+
             // Create a new environment with local scope
             // for attributing the method.
             Env<AttrContext> localEnv = memberEnter.methodEnv(tree, env);
@@ -756,6 +759,8 @@ public class Attr extends JCTree.Visitor {
 
         try {
             chk.checkDeprecatedAnnotation(tree.pos(), v);
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), v);
 
             if (tree.init != null) {
                 if ((v.flags_field & FINAL) != 0 && tree.init.getTag() != JCTree.NEWCLASS) {
@@ -2686,6 +2691,26 @@ public class Attr extends JCTree.Visitor {
         result = tree.type = attribType(tree.getUnderlyingType(), env);
     }
 
+    public void visitModuleDef(JCModuleDecl tree) {
+        attribStats(tree.getMetadataList(), env);
+    }
+
+    public void visitModuleRequires(JCModuleRequires tree) {
+    }
+
+    public void visitModulePermits(JCModulePermits tree) {
+    }
+
+    public void visitModuleClass(JCModuleClass tree) {
+        ModuleSymbol msym = env.toplevel.modle;
+        Type t = attribType(tree.qualId, env);
+        if (t.tag == CLASS) {
+            // check duplicates
+            msym.className = (ClassSymbol) tree.qualId.type.tsym;
+            msym.classFlags = tree.flags;
+        }
+    }
+
     public void visitErroneous(JCErroneous tree) {
         if (tree.errs != null)
             for (JCTree err : tree.errs)
@@ -2697,6 +2722,33 @@ public class Attr extends JCTree.Visitor {
      */
     public void visitTree(JCTree tree) {
         throw new AssertionError();
+    }
+
+    public void analyze(Env<AttrContext> env) {
+        switch (env.tree.getTag()) {
+            case JCTree.MODULE:
+                attribModule(env.tree.pos(), ((JCModuleDecl)env.tree).sym);
+                break;
+            default:
+                attribClass(env.tree.pos(), env.enclClass.sym);
+        }
+    }
+
+    public void attribModule(DiagnosticPosition pos, ModuleSymbol m) {
+        try {
+            annotate.flush();
+            attribModule(m);
+        } catch (CompletionFailure ex) {
+            chk.completionError(pos, ex);
+        }
+
+    }
+
+    void attribModule(ModuleSymbol m) {
+        // Get environment current at the point of module definition.
+        Env<AttrContext> env = enter.typeEnvs.get(m);
+        //System.err.println("Attr.attribModule: " + env + " " + env.tree);
+        attribStat(env.tree, env);
     }
 
     /** Main method: attribute class definition associated with given class symbol.
@@ -2800,6 +2852,9 @@ public class Attr extends JCTree.Visitor {
         chk.validate(tree.typarams, env);
         chk.validate(tree.extending, env);
         chk.validate(tree.implementing, env);
+
+        // Module modifier may not be used in unnamed module
+        chk.checkModuleModifier(tree.pos(), c);
 
         // If this is a non-abstract class, check that it has no abstract
         // methods or unimplemented methods of an implemented interface.

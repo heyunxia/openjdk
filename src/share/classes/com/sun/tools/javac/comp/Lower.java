@@ -1983,32 +1983,38 @@ public class Lower extends TreeTranslator {
     }
 
     public void visitTopLevel(JCCompilationUnit tree) {
-        if (tree.packageAnnotations.nonEmpty()) {
-            Name name = names.package_info;
+        if (TreeInfo.isPackageInfo(tree)) {
+            JCPackageDecl pd = TreeInfo.getPackage(tree);
             long flags = Flags.ABSTRACT | Flags.INTERFACE;
             if (target.isPackageInfoSynthetic())
-                // package-info is marked SYNTHETIC in JDK 1.6 and later releases
-                flags = flags | Flags.SYNTHETIC;
-            JCClassDecl packageAnnotationsClass
-                = make.ClassDef(make.Modifiers(flags,
-                                               tree.packageAnnotations),
-                                name, List.<JCTypeParameter>nil(),
-                                null, List.<JCExpression>nil(), List.<JCTree>nil());
-            ClassSymbol c = reader.enterClass(name, tree.packge);
-            c.flatname = names.fromString(tree.packge + "." + name);
-            c.sourcefile = tree.sourcefile;
+                flags |= SYNTHETIC;
+            ClassSymbol c = reader.enterClass(names.package_info, tree.packge);
+            c.sourcefile = attrEnv.toplevel.sourcefile;
             c.completer = null;
             c.members_field = new Scope(c);
             c.flags_field = flags;
-            c.attributes_field = tree.packge.attributes_field;
+            c.attributes_field = pd.sym.attributes_field;
+            c.modle = attrEnv.toplevel.modle;
+            pd.sym.attributes_field = List.nil();
             ClassType ctype = (ClassType) c.type;
             ctype.supertype_field = syms.objectType;
             ctype.interfaces_field = List.nil();
-            packageAnnotationsClass.sym = c;
-
-
-            translated.append(packageAnnotationsClass);
+            createInfoClass(pd.annots, c);
         }
+    }
+
+    public void visitModuleDef(JCModuleDecl tree) {
+        createInfoClass(tree.annots, tree.sym.module_info);
+    }
+
+    private void createInfoClass(List<JCAnnotation> annots, ClassSymbol c) {
+        long flags = Flags.ABSTRACT | Flags.INTERFACE;
+        JCClassDecl infoClass =
+                make.ClassDef(make.Modifiers(flags, annots),
+                    c.name, List.<JCTypeParameter>nil(),
+                    null, List.<JCExpression>nil(), List.<JCTree>nil());
+        infoClass.sym = c;
+        translated.append(infoClass);
     }
 
     public void visitClassDef(JCClassDecl tree) {

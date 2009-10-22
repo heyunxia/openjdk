@@ -119,19 +119,19 @@ public class TreeMaker implements JCTree.Factory {
      * Create given tree node at current position.
      * @param defs a list of ClassDef, Import, and Skip
      */
-    public JCCompilationUnit TopLevel(List<JCAnnotation> packageAnnotations,
-                                      JCExpression pid,
-                                      List<JCTree> defs) {
-        assert packageAnnotations != null;
+    public JCCompilationUnit TopLevel(List<JCTree> defs) {
         for (JCTree node : defs)
             assert node instanceof JCClassDecl
                 || node instanceof JCImport
+                || node instanceof JCPackageDecl
+                || node instanceof JCModuleDecl
+                || node instanceof JCModuleMetadata
                 || node instanceof JCSkip
                 || node instanceof JCErroneous
                 || (node instanceof JCExpressionStatement
                     && ((JCExpressionStatement)node).expr instanceof JCErroneous)
                  : node.getClass().getSimpleName();
-        JCCompilationUnit tree = new JCCompilationUnit(packageAnnotations, pid, defs,
+        JCCompilationUnit tree = new JCCompilationUnit(defs,
                                      null, null, null, null);
         tree.pos = pos;
         return tree;
@@ -495,6 +495,43 @@ public class TreeMaker implements JCTree.Factory {
         return tree;
     }
 
+    public JCModuleDecl Module(List<JCAnnotation> annots, JCModuleId moduleId,
+            List<JCModuleId> provides, List<JCModuleMetadata> metadata) {
+        JCModuleDecl tree = new JCModuleDecl(annots, moduleId, provides, metadata);
+        tree.pos = pos;
+        return tree;
+    }
+
+    public JCModuleClass ModuleClass(List<Name> flags, JCTree qualId) {
+        JCModuleClass tree = new JCModuleClass(flags, qualId);
+        tree.pos = pos;
+        return tree;
+    }
+
+    public JCModuleId ModuleId(JCTree qualId, Name version) {
+        JCModuleId tree = new JCModuleId(qualId, version);
+        tree.pos = pos;
+        return tree;
+    }
+
+    public JCModulePermits ModulePermits(List<JCExpression> qualIds) {
+        JCModulePermits tree = new JCModulePermits(qualIds);
+        tree.pos = pos;
+        return tree;
+    }
+
+    public JCModuleRequires ModuleRequires(List<Name> flags, List<JCModuleId> moduleIds) {
+        JCModuleRequires tree = new JCModuleRequires(flags, moduleIds);
+        tree.pos = pos;
+        return tree;
+    }
+
+    public JCPackageDecl Package(List<JCAnnotation> annots, JCExpression packageId) {
+        JCPackageDecl tree = new JCPackageDecl(annots, packageId);
+        tree.pos = pos;
+        return tree;
+    }
+
     public JCErroneous Erroneous() {
         return Erroneous(List.<JCTree>nil());
     }
@@ -675,10 +712,10 @@ public class TreeMaker implements JCTree.Factory {
     /** Create a list of trees representing given list of types.
      */
     public List<JCExpression> Types(List<Type> ts) {
-        ListBuffer<JCExpression> types = new ListBuffer<JCExpression>();
+        ListBuffer<JCExpression> t = new ListBuffer<JCExpression>();
         for (List<Type> l = ts; l.nonEmpty(); l = l.tail)
-            types.append(Type(l.head));
-        return types.toList();
+            t.append(Type(l.head));
+        return t.toList();
     }
 
     /** Create a variable definition from a variable symbol and an initializer
