@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -64,15 +64,18 @@ bool ParallelTaskTerminator::peek_in_queue_set() {
 }
 
 void ParallelTaskTerminator::yield() {
+  assert(_offered_termination <= _n_threads, "Invariant");
   os::yield();
 }
 
 void ParallelTaskTerminator::sleep(uint millis) {
+  assert(_offered_termination <= _n_threads, "Invariant");
   os::sleep(Thread::current(), millis, false);
 }
 
 bool
 ParallelTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
+  assert(_offered_termination < _n_threads, "Invariant");
   Atomic::inc(&_offered_termination);
 
   uint yield_count = 0;
@@ -96,6 +99,7 @@ ParallelTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
   // Loop waiting for all threads to offer termination or
   // more work.
   while (true) {
+    assert(_offered_termination <= _n_threads, "Invariant");
     // Are all threads offering termination?
     if (_offered_termination == _n_threads) {
       return true;
@@ -151,6 +155,7 @@ ParallelTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
       if (peek_in_queue_set() ||
           (terminator != NULL && terminator->should_exit_termination())) {
         Atomic::dec(&_offered_termination);
+        assert(_offered_termination < _n_threads, "Invariant");
         return false;
       }
     }

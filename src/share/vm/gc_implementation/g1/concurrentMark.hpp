@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2007 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -407,8 +407,6 @@ protected:
   // verbose level
   CMVerboseLevel          _verbose_level;
 
-  COTracker               _cleanup_co_tracker;
-
   // These two fields are used to implement the optimisation that
   // avoids pushing objects on the global/region stack if there are
   // no collection set regions above the lowest finger.
@@ -720,8 +718,6 @@ public:
   // Called to abort the marking cycle after a Full GC takes palce.
   void abort();
 
-  void disable_co_trackers();
-
   // This prints the global/local fingers. It is used for debugging.
   NOT_PRODUCT(void print_finger();)
 
@@ -763,6 +759,7 @@ private:
   CMBitMap*                   _nextMarkBitMap;
   // the task queue of this task
   CMTaskQueue*                _task_queue;
+private:
   // the task queue set---needed for stealing
   CMTaskQueueSet*             _task_queues;
   // indicates whether the task has been claimed---this is only  for
@@ -771,9 +768,6 @@ private:
 
   // number of calls to this task
   int                         _calls;
-
-  // concurrent overhead over a single CPU for this task
-  COTracker                   _co_tracker;
 
   // when the virtual timer reaches this time, the marking step should
   // exit
@@ -926,27 +920,6 @@ public:
   void clear_region_fields();
 
   void set_concurrent(bool concurrent) { _concurrent = concurrent; }
-
-  void enable_co_tracker() {
-    guarantee( !_co_tracker.enabled(), "invariant" );
-    _co_tracker.enable();
-  }
-  void disable_co_tracker() {
-    guarantee( _co_tracker.enabled(), "invariant" );
-    _co_tracker.disable();
-  }
-  bool co_tracker_enabled() {
-    return _co_tracker.enabled();
-  }
-  void reset_co_tracker(double starting_conc_overhead = 0.0) {
-    _co_tracker.reset(starting_conc_overhead);
-  }
-  void start_co_tracker() {
-    _co_tracker.start();
-  }
-  void update_co_tracker(bool force_end = false) {
-    _co_tracker.update(force_end);
-  }
 
   // The main method of this class which performs a marking step
   // trying not to exceed the given duration. However, it might exit

@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2007 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 1997-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -98,10 +98,12 @@ constantPoolCacheOop oopFactory::new_constantPoolCache(int length,
 }
 
 
-klassOop oopFactory::new_instanceKlass(int vtable_len, int itable_len, int static_field_size,
-                                       int nonstatic_oop_map_size, ReferenceType rt, TRAPS) {
+klassOop oopFactory::new_instanceKlass(int vtable_len, int itable_len,
+                                       int static_field_size,
+                                       unsigned int nonstatic_oop_map_count,
+                                       ReferenceType rt, TRAPS) {
   instanceKlassKlass* ikk = instanceKlassKlass::cast(Universe::instanceKlassKlassObj());
-  return ikk->allocate_instance_klass(vtable_len, itable_len, static_field_size, nonstatic_oop_map_size, rt, CHECK_NULL);
+  return ikk->allocate_instance_klass(vtable_len, itable_len, static_field_size, nonstatic_oop_map_count, rt, CHECK_NULL);
 }
 
 

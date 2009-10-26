@@ -1,5 +1,5 @@
 #
-# Copyright 1995-2008 Sun Microsystems, Inc.  All Rights Reserved.
+# Copyright 1995-2009 Sun Microsystems, Inc.  All Rights Reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -169,6 +169,33 @@ jtreg_tests: prep $(JT_HOME) $(PRODUCT_HOME) $(JTREG)
 	$(BUNDLE_UP)
 
 PHONY_LIST += jtreg_tests
+
+################################################################
+
+# clienttest (make sure various basic java client options work)
+
+clienttest: prep $(PRODUCT_HOME)
+	$(PRODUCT_HOME)/bin/java $(JAVA_OPTIONS) -version
+	$(PRODUCT_HOME)/bin/java $(JAVA_OPTIONS) -help
+	$(PRODUCT_HOME)/bin/java $(JAVA_OPTIONS) -X
+	$(RM) $(PRODUCT_HOME)/jre/lib/*/client/classes.jsa
+	$(RM) $(PRODUCT_HOME)/jre/lib/*/client/classes_g.jsa
+	$(RM) $(PRODUCT_HOME)/jre/bin/client/classes.jsa
+	$(RM) $(PRODUCT_HOME)/jre/bin/client/classes_g.jsa
+	$(PRODUCT_HOME)/bin/java $(JAVA_OPTIONS) -Xshare:dump
+
+PHONY_LIST += clienttest
+
+################################################################
+
+# servertest (make sure various basic java server options work)
+
+servertest: prep $(PRODUCT_HOME)
+	$(PRODUCT_HOME)/bin/java $(JAVA_OPTIONS) -version
+	$(PRODUCT_HOME)/bin/java $(JAVA_OPTIONS) -help
+	$(PRODUCT_HOME)/bin/java $(JAVA_OPTIONS) -X
+
+PHONY_LIST += servertest
 
 ################################################################
 

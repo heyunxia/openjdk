@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 1997-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -106,6 +106,7 @@ class Space: public CHeapObj {
   virtual void set_end(HeapWord* value)    { _end = value; }
 
   virtual HeapWord* saved_mark_word() const  { return _saved_mark_word; }
+
   void set_saved_mark_word(HeapWord* p) { _saved_mark_word = p; }
 
   MemRegionClosure* preconsumptionDirtyCardClosure() const {

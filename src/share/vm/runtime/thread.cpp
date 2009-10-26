@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 1997-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -127,8 +127,8 @@ Thread::Thread() {
   debug_only(_owned_locks = NULL;)
   debug_only(_allow_allocation_count = 0;)
   NOT_PRODUCT(_allow_safepoint_count = 0;)
+  NOT_PRODUCT(_skip_gcalot = false;)
   CHECK_UNHANDLED_OOPS_ONLY(_gc_locked_out_count = 0;)
-  _highest_lock = NULL;
   _jvmti_env_iteration_count = 0;
   _vm_operation_started_count = 0;
   _vm_operation_completed_count = 0;
@@ -683,14 +683,15 @@ bool Thread::claim_oops_do_par_case(int strong_roots_parity) {
   return false;
 }
 
-void Thread::oops_do(OopClosure* f) {
+void Thread::oops_do(OopClosure* f, CodeBlobClosure* cf) {
   active_handles()->oops_do(f);
   // Do oop for ThreadShadow
   f->do_oop((oop*)&_pending_exception);
   handle_area()->oops_do(f);
 }
 
-void Thread::nmethods_do() {
+void Thread::nmethods_do(CodeBlobClosure* cf) {
+  // no nmethods in a generic thread...
 }
 
 void Thread::print_on(outputStream* st) const {
@@ -785,23 +786,9 @@ void Thread::check_for_valid_safepoint_state(bool potential_vm_operation) {
       // We could enter a safepoint here and thus have a gc
       InterfaceSupport::check_gc_alot();
     }
-
 #endif
 }
 #endif
-
-bool Thread::lock_is_in_stack(address adr) const {
-  assert(Thread::current() == this, "lock_is_in_stack can only be called from current thread");
-  // High limit: highest_lock is set during thread execution
-  // Low  limit: address of the local variable dummy, rounded to 4K boundary.
-  // (The rounding helps finding threads in unsafe mode, even if the particular stack
-  // frame has been popped already.  Correct as long as stacks are at least 4K long and aligned.)
-  address end = os::current_stack_pointer();
-  if (_highest_lock >= adr && adr >= end) return true;
-
-  return false;
-}
-
 
 bool Thread::is_in_stack(address adr) const {
   assert(Thread::current() == this, "is_in_stack can only be called from current thread");
@@ -818,8 +805,7 @@ bool Thread::is_in_stack(address adr) const {
 // should be revisited, and they should be removed if possible.
 
 bool Thread::is_lock_owned(address adr) const {
-  if (lock_is_in_stack(adr) ) return true;
-  return false;
+  return (_stack_base >= adr && adr >= (_stack_base - _stack_size));
 }
 
 bool Thread::set_as_starting_thread() {
@@ -1664,7 +1650,7 @@ JavaThread* JavaThread::active() {
 }
 
 bool JavaThread::is_lock_owned(address adr) const {
-  if (lock_is_in_stack(adr)) return true;
+  if (Thread::is_lock_owned(adr)) return true;
 
   for (MonitorChunk* chunk = monitor_chunks(); chunk != NULL; chunk = chunk->next()) {
     if (chunk->contains(adr)) return true;
@@ -1957,7 +1943,7 @@ int JavaThread::java_suspend_self() {
 
   MutexLockerEx ml(SR_lock(), Mutex::_no_safepoint_check_flag);
 
-  assert(!this->is_any_suspended(),
+  assert(!this->is_ext_suspended(),
     "a thread trying to self-suspend should not already be suspended");
 
   if (this->is_suspend_equivalent()) {
@@ -2331,12 +2317,12 @@ void JavaThread::gc_prologue() {
 }
 
 
-void JavaThread::oops_do(OopClosure* f) {
+void JavaThread::oops_do(OopClosure* f, CodeBlobClosure* cf) {
   // The ThreadProfiler oops_do is done from FlatProfiler::oops_do
   // since there may be more than one thread using each ThreadProfiler.
 
   // Traverse the GCHandles
-  Thread::oops_do(f);
+  Thread::oops_do(f, cf);
 
   assert( (!has_last_Java_frame() && java_call_counter() == 0) ||
           (has_last_Java_frame() && java_call_counter() > 0), "wrong java_sp info!");
@@ -2362,7 +2348,7 @@ void JavaThread::oops_do(OopClosure* f) {
 
     // Traverse the execution stack
     for(StackFrameStream fst(this); !fst.is_done(); fst.next()) {
-      fst.current()->oops_do(f, fst.register_map());
+      fst.current()->oops_do(f, cf, fst.register_map());
     }
   }
 
@@ -2394,9 +2380,8 @@ void JavaThread::oops_do(OopClosure* f) {
   }
 }
 
-void JavaThread::nmethods_do() {
-  // Traverse the GCHandles
-  Thread::nmethods_do();
+void JavaThread::nmethods_do(CodeBlobClosure* cf) {
+  Thread::nmethods_do(cf);  // (super method is a no-op)
 
   assert( (!has_last_Java_frame() && java_call_counter() == 0) ||
           (has_last_Java_frame() && java_call_counter() > 0), "wrong java_sp info!");
@@ -2404,7 +2389,7 @@ void JavaThread::nmethods_do() {
   if (has_last_Java_frame()) {
     // Traverse the execution stack
     for(StackFrameStream fst(this); !fst.is_done(); fst.next()) {
-      fst.current()->nmethods_do();
+      fst.current()->nmethods_do(cf);
     }
   }
 }
@@ -2443,7 +2428,7 @@ void JavaThread::print_on(outputStream *st) const {
   if (thread_oop != NULL && java_lang_Thread::is_daemon(thread_oop))  st->print("daemon ");
   Thread::print_on(st);
   // print guess for valid stack memory region (assume 4K pages); helps lock debugging
-  st->print_cr("[" INTPTR_FORMAT ".." INTPTR_FORMAT "]", (intptr_t)last_Java_sp() & ~right_n_bits(12), highest_lock());
+  st->print_cr("[" INTPTR_FORMAT "]", (intptr_t)last_Java_sp() & ~right_n_bits(12));
   if (thread_oop != NULL && JDK_Version::is_gte_jdk15x_version()) {
     st->print_cr("   java.lang.Thread.State: %s", java_lang_Thread::thread_status_name(thread_oop));
   }
@@ -2478,7 +2463,7 @@ static void frame_verify(frame* f, const RegisterMap *map) { f->verify(map); }
 
 void JavaThread::verify() {
   // Verify oops in the thread.
-  oops_do(&VerifyOopClosure::verify_oop);
+  oops_do(&VerifyOopClosure::verify_oop, NULL);
 
   // Verify the stack frames.
   frames_do(frame_verify);
@@ -3007,17 +2992,19 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
       }
 
       if (UseStringCache) {
-        // Forcibly initialize java/lang/String and mutate the private
+        // Forcibly initialize java/lang/StringValue and mutate the private
         // static final "stringCacheEnabled" field before we start creating instances
-        klassOop k_o = SystemDictionary::resolve_or_null(vmSymbolHandles::java_lang_String(), Handle(), Handle(), CHECK_0);
-        KlassHandle k = KlassHandle(THREAD, k_o);
-        guarantee(k.not_null(), "Must find java/lang/String");
-        instanceKlassHandle ik = instanceKlassHandle(THREAD, k());
-        ik->initialize(CHECK_0);
-        fieldDescriptor fd;
-        // Possible we might not find this field; if so, don't break
-        if (ik->find_local_field(vmSymbols::stringCacheEnabled_name(), vmSymbols::bool_signature(), &fd)) {
-          k()->bool_field_put(fd.offset(), true);
+        klassOop k_o = SystemDictionary::resolve_or_null(vmSymbolHandles::java_lang_StringValue(), Handle(), Handle(), CHECK_0);
+        // Possible that StringValue isn't present: if so, silently don't break
+        if (k_o != NULL) {
+          KlassHandle k = KlassHandle(THREAD, k_o);
+          instanceKlassHandle ik = instanceKlassHandle(THREAD, k());
+          ik->initialize(CHECK_0);
+          fieldDescriptor fd;
+          // Possible we might not find this field: if so, silently don't break
+          if (ik->find_local_field(vmSymbols::stringCacheEnabled_name(), vmSymbols::bool_signature(), &fd)) {
+            k()->bool_field_put(fd.offset(), true);
+          }
         }
       }
     }
@@ -3615,14 +3602,14 @@ bool Threads::includes(JavaThread* p) {
 // uses the Threads_lock to gurantee this property. It also makes sure that
 // all threads gets blocked when exiting or starting).
 
-void Threads::oops_do(OopClosure* f) {
+void Threads::oops_do(OopClosure* f, CodeBlobClosure* cf) {
   ALL_JAVA_THREADS(p) {
-    p->oops_do(f);
+    p->oops_do(f, cf);
   }
-  VMThread::vm_thread()->oops_do(f);
+  VMThread::vm_thread()->oops_do(f, cf);
 }
 
-void Threads::possibly_parallel_oops_do(OopClosure* f) {
+void Threads::possibly_parallel_oops_do(OopClosure* f, CodeBlobClosure* cf) {
   // Introduce a mechanism allowing parallel threads to claim threads as
   // root groups.  Overhead should be small enough to use all the time,
   // even in sequential code.
@@ -3631,12 +3618,12 @@ void Threads::possibly_parallel_oops_do(OopClosure* f) {
   int cp = SharedHeap::heap()->strong_roots_parity();
   ALL_JAVA_THREADS(p) {
     if (p->claim_oops_do(is_par, cp)) {
-      p->oops_do(f);
+      p->oops_do(f, cf);
     }
   }
   VMThread* vmt = VMThread::vm_thread();
   if (vmt->claim_oops_do(is_par, cp))
-    vmt->oops_do(f);
+    vmt->oops_do(f, cf);
 }
 
 #ifndef SERIALGC
@@ -3657,11 +3644,11 @@ void Threads::create_thread_roots_marking_tasks(GCTaskQueue* q) {
 }
 #endif // SERIALGC
 
-void Threads::nmethods_do() {
+void Threads::nmethods_do(CodeBlobClosure* cf) {
   ALL_JAVA_THREADS(p) {
-    p->nmethods_do();
+    p->nmethods_do(cf);
   }
-  VMThread::vm_thread()->nmethods_do();
+  VMThread::vm_thread()->nmethods_do(cf);
 }
 
 void Threads::gc_epilogue() {
@@ -3731,25 +3718,13 @@ JavaThread *Threads::owning_thread_from_monitor_owner(address owner, bool doLock
   // heavyweight monitors, then the owner is the stack address of the
   // Lock Word in the owning Java thread's stack.
   //
-  // We can't use Thread::is_lock_owned() or Thread::lock_is_in_stack() because
-  // those routines rely on the "current" stack pointer. That would be our
-  // stack pointer which is not relevant to the question. Instead we use the
-  // highest lock ever entered by the thread and find the thread that is
-  // higher than and closest to our target stack address.
-  //
-  address    least_diff = 0;
-  bool       least_diff_initialized = false;
   JavaThread* the_owner = NULL;
   {
     MutexLockerEx ml(doLock ? Threads_lock : NULL);
     ALL_JAVA_THREADS(q) {
-      address addr = q->highest_lock();
-      if (addr == NULL || addr < owner) continue;  // thread has entered no monitors or is too low
-      address diff = (address)(addr - owner);
-      if (!least_diff_initialized || diff < least_diff) {
-        least_diff_initialized = true;
-        least_diff = diff;
+      if (q->is_lock_owned(owner)) {
         the_owner = q;
+        break;
       }
     }
   }

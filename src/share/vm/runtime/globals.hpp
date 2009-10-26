@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 1997-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -47,6 +47,7 @@ define_pd_global(intx, Tier4BackEdgeThreshold,       0);
 define_pd_global(intx, OnStackReplacePercentage,     0);
 define_pd_global(bool, ResizeTLAB,                   false);
 define_pd_global(intx, FreqInlineSize,               0);
+define_pd_global(intx, InlineSmallCode,              0);
 define_pd_global(intx, NewSizeThreadIncrease,        4*K);
 define_pd_global(intx, NewRatio,                     4);
 define_pd_global(intx, InlineClassNatives,           true);
@@ -303,11 +304,14 @@ class CommandLineFlags {
             "Use 32-bit object references in 64-bit VM. "                   \
             "lp64_product means flag is always constant in 32 bit VM")      \
                                                                             \
-  lp64_product(bool, CheckCompressedOops, trueInDebug,                      \
-            "generate checks in encoding/decoding code")                    \
+  notproduct(bool, CheckCompressedOops, true,                               \
+            "generate checks in encoding/decoding code in debug VM")        \
                                                                             \
-  product(bool, UseImplicitNullCheckForNarrowOop, true,                     \
-            "generate implicit null check in indexed addressing mode.")     \
+  product_pd(uintx, HeapBaseMinAddress,                                     \
+            "OS specific low limit for heap base address")                  \
+                                                                            \
+  diagnostic(bool, PrintCompressedOopsMode, false,                          \
+            "Print compressed oops base address and encoding mode")         \
                                                                             \
   /* UseMembar is theoretically a temp flag used for memory barrier         \
    * removal testing.  It was supposed to be removed before FCS but has     \
@@ -487,8 +491,14 @@ class CommandLineFlags {
   develop(bool, SpecialStringIndexOf, true,                                 \
           "special version of string indexOf")                              \
                                                                             \
-  product(bool, SpecialArraysEquals, false,                                 \
+  develop(bool, SpecialStringEquals, true,                                  \
+          "special version of string equals")                               \
+                                                                            \
+  develop(bool, SpecialArraysEquals, true,                                  \
           "special version of Arrays.equals(char[],char[])")                \
+                                                                            \
+  product(bool, UseSSE42Intrinsics, false,                                  \
+          "SSE4.2 versions of intrinsics")                                  \
                                                                             \
   develop(bool, TraceCallFixup, false,                                      \
           "traces all call fixups")                                         \
@@ -662,6 +672,12 @@ class CommandLineFlags {
   product(ccstrlist, OnOutOfMemoryError, "",                                \
           "Run user-defined commands on first java.lang.OutOfMemoryError")  \
                                                                             \
+  manageable(bool, HeapDumpBeforeFullGC, false,                             \
+          "Dump heap to file before any major stop-world GC")               \
+                                                                            \
+  manageable(bool, HeapDumpAfterFullGC, false,                              \
+          "Dump heap to file after any major stop-world GC")                \
+                                                                            \
   manageable(bool, HeapDumpOnOutOfMemoryError, false,                       \
           "Dump heap to file when java.lang.OutOfMemoryError is thrown")    \
                                                                             \
@@ -697,6 +713,11 @@ class CommandLineFlags {
                                                                             \
   diagnostic(bool, TraceNMethodInstalls, false,                             \
              "Trace nmethod intallation")                                   \
+                                                                            \
+  diagnostic(intx, ScavengeRootsInCode, 0,                                  \
+             "0: do not allow scavengable oops in the code cache; "         \
+             "1: allow scavenging from the code cache; "                    \
+             "2: emit as many constants as the compiler can see")           \
                                                                             \
   diagnostic(bool, TraceOSRBreakpoint, false,                               \
              "Trace OSR Breakpoint ")                                       \
@@ -1066,6 +1087,9 @@ class CommandLineFlags {
   product(ccstr, TraceJVMTI, NULL,                                          \
           "Trace flags for JVMTI functions and events")                     \
                                                                             \
+  product(bool, ForceFullGCJVMTIEpilogues, false,                           \
+          "Force 'Full GC' was done semantics for JVMTI GC epilogues")      \
+                                                                            \
   /* This option can change an EMCP method into an obsolete method. */      \
   /* This can affect tests that except specific methods to be EMCP. */      \
   /* This option should be used with caution. */                            \
@@ -1306,6 +1330,12 @@ class CommandLineFlags {
                                                                             \
   product(intx, ParGCArrayScanChunk, 50,                                    \
           "Scan a subset and push remainder, if array is bigger than this") \
+                                                                            \
+  product(bool, ParGCUseLocalOverflow, false,                               \
+          "Instead of a global overflow list, use local overflow stacks")   \
+                                                                            \
+  product(bool, ParGCTrimOverflow, true,                                    \
+          "Eagerly trim the local overflow lists (when ParGCUseLocalOverflow") \
                                                                             \
   notproduct(bool, ParGCWorkQueueOverflowALot, false,                       \
           "Whether we should simulate work queue overflow in ParNew")       \
@@ -1682,6 +1712,9 @@ class CommandLineFlags {
   product(bool, TLABStats, true,                                            \
           "Print various TLAB related information")                         \
                                                                             \
+  product(bool, PrintRevisitStats, false,                                   \
+          "Print revisit (klass and MDO) stack related information")        \
+                                                                            \
   product_pd(bool, NeverActAsServerClassMachine,                            \
           "Never act like a server-class machine")                          \
                                                                             \
@@ -1797,7 +1830,11 @@ class CommandLineFlags {
           "Decay factor to TenuredGenerationSizeIncrement")                 \
                                                                             \
   product(uintx, MaxGCPauseMillis, max_uintx,                               \
-          "Adaptive size policy maximum GC pause time goal in msec")        \
+          "Adaptive size policy maximum GC pause time goal in msec, "       \
+          "or (G1 Only) the max. GC time per MMU time slice")               \
+                                                                            \
+  product(intx, GCPauseIntervalMillis, 500,                                 \
+          "Time slice for MMU specification")                               \
                                                                             \
   product(uintx, MaxGCMinorPauseMillis, max_uintx,                          \
           "Adaptive size policy maximum GC minor pause time goal in msec")  \
@@ -1968,8 +2005,18 @@ class CommandLineFlags {
   product_rw(bool, PrintHeapAtGC, false,                                    \
           "Print heap layout before and after each GC")                     \
                                                                             \
+  product_rw(bool, PrintHeapAtGCExtended, false,                            \
+          "Prints extended information about the layout of the heap "       \
+          "when -XX:+PrintHeapAtGC is set")                                 \
+                                                                            \
   product(bool, PrintHeapAtSIGBREAK, true,                                  \
           "Print heap layout in response to SIGBREAK")                      \
+                                                                            \
+  manageable(bool, PrintClassHistogramBeforeFullGC, false,                  \
+          "Print a class histogram before any major stop-world GC")         \
+                                                                            \
+  manageable(bool, PrintClassHistogramAfterFullGC, false,                   \
+          "Print a class histogram after any major stop-world GC")          \
                                                                             \
   manageable(bool, PrintClassHistogram, false,                              \
           "Print a histogram of class instances")                           \
@@ -2156,6 +2203,12 @@ class CommandLineFlags {
                                                                             \
   diagnostic(bool, PrintIntrinsics, false,                                  \
           "prints attempted and successful inlining of intrinsics")         \
+                                                                            \
+  product(bool, UseCountLeadingZerosInstruction, false,                     \
+          "Use count leading zeros instruction")                            \
+                                                                            \
+  product(bool, UsePopCountInstruction, false,                              \
+          "Use population count instruction")                               \
                                                                             \
   diagnostic(ccstrlist, DisableIntrinsic, "",                               \
           "do not expand intrinsics whose (internal) names appear here")    \
@@ -2598,7 +2651,7 @@ class CommandLineFlags {
   develop(intx, MaxRecursiveInlineLevel, 1,                                 \
           "maximum number of nested recursive calls that are inlined")      \
                                                                             \
-  product(intx, InlineSmallCode, 1000,                                      \
+  product_pd(intx, InlineSmallCode,                                         \
           "Only inline already compiled methods if their code size is "     \
           "less than this")                                                 \
                                                                             \
@@ -2882,12 +2935,6 @@ class CommandLineFlags {
           "how many entries we'll try to leave on the stack during "        \
           "parallel GC")                                                    \
                                                                             \
-  product(intx, DCQBarrierQueueBufferSize, 256,                             \
-          "Number of elements in a dirty card queue buffer")                \
-                                                                            \
-  product(intx, DCQBarrierProcessCompletedThreshold, 5,                     \
-          "Number of completed dirty card buffers to trigger processing.")  \
-                                                                            \
   /* stack parameters */                                                    \
   product_pd(intx, StackYellowPages,                                        \
           "Number of yellow zone (recoverable overflows) pages")            \
@@ -2994,6 +3041,9 @@ class CommandLineFlags {
   develop(intx, CIFireOOMAtDelay, -1,                                       \
           "Wait for this many CI accesses to occur in all compiles before " \
           "beginning to throw OutOfMemoryErrors in each compile")           \
+                                                                            \
+  notproduct(bool, CIObjectFactoryVerify, false,                            \
+          "enable potentially expensive verification in ciObjectFactory")   \
                                                                             \
   /* Priorities */                                                          \
   product_pd(bool, UseThreadPriorities,  "Use native thread priorities")    \
@@ -3245,7 +3295,7 @@ class CommandLineFlags {
   product(uintx, SharedReadWriteSize,  12*M,                                \
           "Size of read-write space in permanent generation (in bytes)")    \
                                                                             \
-  product(uintx, SharedReadOnlySize,    8*M,                                \
+  product(uintx, SharedReadOnlySize,   10*M,                                \
           "Size of read-only space in permanent generation (in bytes)")     \
                                                                             \
   product(uintx, SharedMiscDataSize,    4*M,                                \
@@ -3269,6 +3319,27 @@ class CommandLineFlags {
                                                                             \
   product(bool, AnonymousClasses, false,                                    \
           "support sun.misc.Unsafe.defineAnonymousClass")                   \
+                                                                            \
+  experimental(bool, EnableMethodHandles, false,                            \
+          "support method handles (true by default under JSR 292)")         \
+                                                                            \
+  diagnostic(intx, MethodHandlePushLimit, 3,                                \
+          "number of additional stack slots a method handle may push")      \
+                                                                            \
+  develop(bool, TraceMethodHandles, false,                                  \
+          "trace internal method handle operations")                        \
+                                                                            \
+  diagnostic(bool, VerifyMethodHandles, trueInDebug,                        \
+          "perform extra checks when constructing method handles")          \
+                                                                            \
+  diagnostic(bool, OptimizeMethodHandles, true,                             \
+          "when constructing method handles, try to improve them")          \
+                                                                            \
+  experimental(bool, EnableInvokeDynamic, false,                            \
+          "recognize the invokedynamic instruction")                        \
+                                                                            \
+  develop(bool, TraceInvokeDynamic, false,                                  \
+          "trace internal invoke dynamic operations")                       \
                                                                             \
   product(bool, TaggedStackInterpreter, false,                              \
           "Insert tags in interpreter execution stack for oopmap generaion")\

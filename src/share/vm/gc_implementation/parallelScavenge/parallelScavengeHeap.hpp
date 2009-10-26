@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -217,7 +217,7 @@ class ParallelScavengeHeap : public CollectedHeap {
   virtual void gc_threads_do(ThreadClosure* tc) const;
   virtual void print_tracing_info() const;
 
-  void verify(bool allow_dirty, bool silent);
+  void verify(bool allow_dirty, bool silent, bool /* option */);
 
   void print_heap_change(size_t prev_used);
 
@@ -234,6 +234,13 @@ class ParallelScavengeHeap : public CollectedHeap {
 
   // Mangle the unused parts of all spaces in the heap
   void gen_mangle_unused_area() PRODUCT_RETURN;
+
+  // Call these in sequential code around the processing of strong roots.
+  class ParStrongRootsScope : public MarkingCodeBlobClosure::MarkScope {
+  public:
+    ParStrongRootsScope();
+    ~ParStrongRootsScope();
+  };
 };
 
 inline size_t ParallelScavengeHeap::set_alignment(size_t& var, size_t val)

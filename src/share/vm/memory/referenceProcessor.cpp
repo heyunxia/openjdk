@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1013,12 +1013,19 @@ ReferenceProcessor::add_to_discovered_list_mt(DiscoveredList& refs_list,
   // discovered_addr.
   oop current_head = refs_list.head();
 
-  // Note: In the case of G1, this pre-barrier is strictly
+  // Note: In the case of G1, this specific pre-barrier is strictly
   // not necessary because the only case we are interested in
-  // here is when *discovered_addr is NULL, so this will expand to
-  // nothing. As a result, I am just manually eliding this out for G1.
+  // here is when *discovered_addr is NULL (see the CAS further below),
+  // so this will expand to nothing. As a result, we have manually
+  // elided this out for G1, but left in the test for some future
+  // collector that might have need for a pre-barrier here.
   if (_discovered_list_needs_barrier && !UseG1GC) {
-    _bs->write_ref_field_pre((void*)discovered_addr, current_head); guarantee(false, "Needs to be fixed: YSR");
+    if (UseCompressedOops) {
+      _bs->write_ref_field_pre((narrowOop*)discovered_addr, current_head);
+    } else {
+      _bs->write_ref_field_pre((oop*)discovered_addr, current_head);
+    }
+    guarantee(false, "Need to check non-G1 collector");
   }
   oop retest = oopDesc::atomic_compare_exchange_oop(current_head, discovered_addr,
                                                     NULL);
@@ -1029,9 +1036,8 @@ ReferenceProcessor::add_to_discovered_list_mt(DiscoveredList& refs_list,
     refs_list.set_head(obj);
     refs_list.inc_length(1);
     if (_discovered_list_needs_barrier) {
-      _bs->write_ref_field((void*)discovered_addr, current_head); guarantee(false, "Needs to be fixed: YSR");
+      _bs->write_ref_field((void*)discovered_addr, current_head);
     }
-
   } else {
     // If retest was non NULL, another thread beat us to it:
     // The reference has already been discovered...
@@ -1177,11 +1183,16 @@ bool ReferenceProcessor::discover_reference(oop obj, ReferenceType rt) {
     // pre-value, we can safely elide the pre-barrier here for the case of G1.
     assert(discovered == NULL, "control point invariant");
     if (_discovered_list_needs_barrier && !UseG1GC) { // safe to elide for G1
-      _bs->write_ref_field_pre((oop*)discovered_addr, current_head);
+      if (UseCompressedOops) {
+        _bs->write_ref_field_pre((narrowOop*)discovered_addr, current_head);
+      } else {
+        _bs->write_ref_field_pre((oop*)discovered_addr, current_head);
+      }
+      guarantee(false, "Need to check non-G1 collector");
     }
     oop_store_raw(discovered_addr, current_head);
     if (_discovered_list_needs_barrier) {
-      _bs->write_ref_field((oop*)discovered_addr, current_head);
+      _bs->write_ref_field((void*)discovered_addr, current_head);
     }
     list->set_head(obj);
     list->inc_length(1);
@@ -1220,6 +1231,11 @@ void ReferenceProcessor::preclean_discovered_references(
 
   NOT_PRODUCT(verify_ok_to_handle_reflists());
 
+#ifdef ASSERT
+  bool must_remember_klasses = ClassUnloading && !UseConcMarkSweepGC ||
+                               CMSClassUnloadingEnabled && UseConcMarkSweepGC;
+  RememberKlassesChecker mx(must_remember_klasses);
+#endif
   // Soft references
   {
     TraceTime tt("Preclean SoftReferences", PrintGCDetails && PrintReferenceGC,

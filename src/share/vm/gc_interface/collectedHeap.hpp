@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -239,6 +239,9 @@ class CollectedHeap : public CHeapObj {
     return p == NULL || is_in_closed_subset(p);
   }
 
+  // XXX is_permanent() and is_in_permanent() should be better named
+  // to distinguish one from the other.
+
   // Returns "TRUE" if "p" is allocated as "permanent" data.
   // If the heap does not use "permanent" data, returns the same
   // value is_in_reserved() would return.
@@ -247,13 +250,25 @@ class CollectedHeap : public CHeapObj {
   // space). If you need the more conservative answer use is_permanent().
   virtual bool is_in_permanent(const void *p) const = 0;
 
+  bool is_in_permanent_or_null(const void *p) const {
+    return p == NULL || is_in_permanent(p);
+  }
+
   // Returns "TRUE" if "p" is in the committed area of  "permanent" data.
   // If the heap does not use "permanent" data, returns the same
   // value is_in() would return.
   virtual bool is_permanent(const void *p) const = 0;
 
-  bool is_in_permanent_or_null(const void *p) const {
-    return p == NULL || is_in_permanent(p);
+  bool is_permanent_or_null(const void *p) const {
+    return p == NULL || is_permanent(p);
+  }
+
+  // An object is scavengable if its location may move during a scavenge.
+  // (A scavenge is a GC which is not a full GC.)
+  // Currently, this just means it is not perm (and not null).
+  // This could change if we rethink what's in perm-gen.
+  bool is_scavengable(const void *p) const {
+    return !is_in_permanent_or_null(p);
   }
 
   // Returns "TRUE" if "p" is a method oop in the
@@ -514,6 +529,10 @@ class CollectedHeap : public CHeapObj {
   // Perform any cleanup actions necessary before allowing a verification.
   virtual void prepare_for_verify() = 0;
 
+  // Generate any dumps preceding or following a full gc
+  void pre_full_gc_dump();
+  void post_full_gc_dump();
+
   virtual void print() const = 0;
   virtual void print_on(outputStream* st) const = 0;
 
@@ -529,7 +548,7 @@ class CollectedHeap : public CHeapObj {
   virtual void print_tracing_info() const = 0;
 
   // Heap verification
-  virtual void verify(bool allow_dirty, bool silent) = 0;
+  virtual void verify(bool allow_dirty, bool silent, bool option) = 0;
 
   // Non product verification and debugging.
 #ifndef PRODUCT

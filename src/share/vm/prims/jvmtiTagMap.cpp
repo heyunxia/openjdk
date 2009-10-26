@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2003-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -3126,6 +3126,12 @@ inline bool VM_HeapWalkOperation::collect_simple_roots() {
   // exceptions) will be visible.
   blk.set_kind(JVMTI_HEAP_REFERENCE_OTHER);
   Universe::oops_do(&blk);
+
+  // If there are any non-perm roots in the code cache, visit them.
+  blk.set_kind(JVMTI_HEAP_REFERENCE_OTHER);
+  CodeBlobToOopClosure look_in_blobs(&blk, false);
+  CodeCache::scavenge_root_nmethods_do(&look_in_blobs);
+
   return true;
 }
 

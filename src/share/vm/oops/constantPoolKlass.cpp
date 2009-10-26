@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 1997-2009 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -312,6 +312,7 @@ void constantPoolKlass::oop_print_on(oop obj, outputStream* st) {
   if (cp->flags() != 0) {
     st->print(" - flags : 0x%x", cp->flags());
     if (cp->has_pseudo_string()) st->print(" has_pseudo_string");
+    if (cp->has_invokedynamic()) st->print(" has_invokedynamic");
     st->cr();
   }
 
