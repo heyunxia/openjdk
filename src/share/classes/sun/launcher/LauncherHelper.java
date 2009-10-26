@@ -25,20 +25,6 @@
 
 package sun.launcher;
 
-/*
- *
- *  <p><b>This is NOT part of any API supported by Sun Microsystems.
- *  If you write code that depends on this, you do so at your own
- *  risk.  This code and its internal interfaces are subject to change
- *  or deletion without notice.</b>
- *
- */
-
-/**
- * A utility package for the java(1), javaw(1) launchers.
- * The following are helper methods that the native launcher uses
- * to perform checks etc. using JNI, see src/share/bin/java.c
- */
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -50,28 +36,39 @@ import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
-public enum LauncherHelper {
-    INSTANCE;
+
+/*
+ * <p><b>This is NOT part of any API supported by Sun Microsystems.
+ * If you write code that depends on this, you do so at your own
+ * risk.  This code and its internal interfaces are subject to change
+ * or deletion without notice.</b>
+ */
+
+/**
+ * A utility package for the java(1), javaw(1) launchers.
+ * The following are helper methods that the native launcher uses
+ * to perform checks etc. using JNI, see src/share/bin/java.c
+ */
+
+class LauncherHelper {
+
     private static final String defaultBundleName =
             "sun.launcher.resources.launcher";
-    private static final String MAIN_CLASS = "Main-Class";
 
-    private static StringBuilder outBuf = new StringBuilder();
-
-    private static ResourceBundle javarb = null;
-    private static synchronized ResourceBundle getLauncherResourceBundle() {
-        if (javarb == null) {
-            javarb = ResourceBundle.getBundle(defaultBundleName);
-        }
-        return javarb;
+    private static class ResourceBundleHolder {
+        private static final ResourceBundle RB
+            = ResourceBundle.getBundle(defaultBundleName);
     }
+
+    private static final String MAIN_CLASS = "Main-Class";
+    private static StringBuilder outBuf = new StringBuilder();
 
     /**
      * A private helper method to get a localized message and also
      * apply any arguments that we might pass.
      */
-    private static String getLocalizedMessage(String key, Object... args) {
-        String msg = getLauncherResourceBundle().getString(key);
+    private static String getLocalizedMessage(String key, Object ... args) {
+        String msg = ResourceBundleHolder.RB.getString(key);
         return (args != null) ? MessageFormat.format(msg, args) : msg;
     }
 
@@ -164,50 +161,70 @@ public enum LauncherHelper {
         }
     }
 
+    // From src/share/bin/java.c:
+    //   enum LaunchMode { LM_UNKNOWN = 0, LM_CLASS, LM_JAR, LM_MODULE };
+
+    private static final int LM_UNKNOWN = 0;
+    private static final int LM_CLASS   = 1;
+    private static final int LM_JAR     = 2;
+    private static final int LM_MODULE  = 3;
+
     /**
      * This method does the following:
      * 1. gets the classname from a Jar's manifest, if necessary
      * 2. loads the class using the System ClassLoader
-     * 3. ensures the availability and accessibility of the main method,
-     *    using signatureDiagnostic method.
+     * 3. ensures the availability and accessibility of the main method:
      *    a. does the class exist
      *    b. is there a main
      *    c. is the main public
      *    d. is the main static
      *    c. does the main take a String array for args
      * 4. and off we go......
-     *
-     * @param printToStderr
-     * @param isJar
-     * @param name
-     * @return
-     * @throws java.io.IOException
      */
-    public static Object checkAndLoadMain(boolean printToStderr,
-            boolean isJar, String name) throws IOException {
+    public static Class checkAndLoadMain(int mode, String what)
+        throws IOException
+    {
+
+        ClassLoader ld = ClassLoader.getSystemClassLoader();
+
         // get the class name
-        String classname = (isJar) ? getMainClassFromJar(name) : name;
-        classname = classname.replace('/', '.');
-        ClassLoader loader = ClassLoader.getSystemClassLoader();
-        Class<?> clazz = null;
-        PrintStream ostream = (printToStderr) ? System.err : System.out;
+        String cn = null;
+        switch (mode) {
+        case LM_CLASS:
+            cn = what;
+            break;
+        case LM_JAR:
+            cn = getMainClassFromJar(what);
+            break;
+        case LM_MODULE:
+            cn = org.openjdk.jigsaw.Launcher.mainClass(ld);
+            break;
+        default:
+            throw new InternalError("" + mode + ": Unknown launch mode");
+        }
+        cn = cn.replace('/', '.');
+
+        Class<?> c = null;
         try {
-            clazz = loader.loadClass(classname);
+            c = ld.loadClass(cn);
         } catch (ClassNotFoundException cnfe) {
-            ostream.println(getLocalizedMessage("java.launcher.cls.error1", classname));
-            NoClassDefFoundError ncdfe = new NoClassDefFoundError(classname);
+            System.err.println(getLocalizedMessage("java.launcher.cls.error1",
+                                                   cn));
+            NoClassDefFoundError ncdfe = new NoClassDefFoundError(cn);
             ncdfe.initCause(cnfe);
             throw ncdfe;
         }
-        signatureDiagnostic(ostream, clazz);
-        return clazz;
+        checkMainSignature(System.err, c);
+
+        return c;
+
     }
 
-    static void signatureDiagnostic(PrintStream ostream, Class<?> clazz) {
-        String classname = clazz.getName();
+    static void checkMainSignature(PrintStream ostream, Class<?> c) {
+        String classname = c.getName();
         Method method = null;
         try {
-            method = clazz.getMethod("main", String[].class);
+            method = c.getMethod("main", String[].class);
         } catch (Exception e) {
             ostream.println(getLocalizedMessage("java.launcher.cls.error4",
                     classname));
@@ -235,4 +252,5 @@ public enum LauncherHelper {
         }
         return;
     }
+
 }

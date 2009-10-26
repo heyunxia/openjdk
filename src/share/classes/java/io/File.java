@@ -33,7 +33,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.ArrayList;
 import java.security.AccessController;
-import java.security.SecureRandom;
+import java.util.Random;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileAttribute;
@@ -1764,7 +1764,7 @@ public class File
         }
 
         // file name generation
-        private static final SecureRandom random = new SecureRandom();
+        private static final Random random = new Random();
         static File generateFile(String prefix, String suffix, File dir) {
             long n = random.nextLong();
             if (n == Long.MIN_VALUE) {
