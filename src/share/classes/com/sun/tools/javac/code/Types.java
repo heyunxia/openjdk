@@ -25,6 +25,7 @@
 
 package com.sun.tools.javac.code;
 
+import java.lang.ref.SoftReference;
 import java.util.*;
 
 import com.sun.tools.javac.util.*;
@@ -340,6 +341,14 @@ public class Types {
 
         if (s.tag >= firstPartialTag)
             return isSuperType(s, t);
+
+        if (s.isCompound()) {
+            for (Type s2 : interfaces(s).prepend(supertype(s))) {
+                if (!isSubtype(t, s2, capture))
+                    return false;
+            }
+            return true;
+        }
 
         Type lower = lowerBound(s);
         if (s != lower)
@@ -1238,14 +1247,18 @@ public class Types {
 
             @Override
             public Boolean visitClassType(ClassType t, Void ignored) {
-                if (!t.isParameterized())
-                    return true;
+                if (t.isCompound())
+                    return false;
+                else {
+                    if (!t.isParameterized())
+                        return true;
 
-                for (Type param : t.allparams()) {
-                    if (!param.isUnbound())
-                        return false;
+                    for (Type param : t.allparams()) {
+                        if (!param.isUnbound())
+                            return false;
+                    }
+                    return true;
                 }
-                return true;
             }
 
             @Override
@@ -1432,7 +1445,7 @@ public class Types {
         return (sym.flags() & STATIC) != 0
             ? sym.type
             : memberType.visit(t, sym);
-    }
+        }
     // where
         private SimpleVisitor<Type,Symbol> memberType = new SimpleVisitor<Type,Symbol>() {
 
@@ -1542,7 +1555,7 @@ public class Types {
             return t; /* fast special case */
         else
             return erasure.visit(t, recurse);
-    }
+        }
     // where
         private SimpleVisitor<Type, Boolean> erasure = new SimpleVisitor<Type, Boolean>() {
             public Type visitType(Type t, Boolean recurse) {
@@ -1934,6 +1947,45 @@ public class Types {
     public boolean overrideEquivalent(Type t, Type s) {
         return hasSameArgs(t, s) ||
             hasSameArgs(t, erasure(s)) || hasSameArgs(erasure(t), s);
+    }
+
+    private WeakHashMap<MethodSymbol, SoftReference<Map<TypeSymbol, MethodSymbol>>> implCache_check =
+            new WeakHashMap<MethodSymbol, SoftReference<Map<TypeSymbol, MethodSymbol>>>();
+
+    private WeakHashMap<MethodSymbol, SoftReference<Map<TypeSymbol, MethodSymbol>>> implCache_nocheck =
+            new WeakHashMap<MethodSymbol, SoftReference<Map<TypeSymbol, MethodSymbol>>>();
+
+    public MethodSymbol implementation(MethodSymbol ms, TypeSymbol origin, Types types, boolean checkResult) {
+        Map<MethodSymbol, SoftReference<Map<TypeSymbol, MethodSymbol>>> implCache = checkResult ?
+            implCache_check : implCache_nocheck;
+        SoftReference<Map<TypeSymbol, MethodSymbol>> ref_cache = implCache.get(ms);
+        Map<TypeSymbol, MethodSymbol> cache = ref_cache != null ? ref_cache.get() : null;
+        if (cache == null) {
+            cache = new HashMap<TypeSymbol, MethodSymbol>();
+            implCache.put(ms, new SoftReference<Map<TypeSymbol, MethodSymbol>>(cache));
+        }
+        MethodSymbol impl = cache.get(origin);
+        if (impl == null) {
+            for (Type t = origin.type; t.tag == CLASS || t.tag == TYPEVAR; t = types.supertype(t)) {
+                while (t.tag == TYPEVAR)
+                    t = t.getUpperBound();
+                TypeSymbol c = t.tsym;
+                for (Scope.Entry e = c.members().lookup(ms.name);
+                     e.scope != null;
+                     e = e.next()) {
+                    if (e.sym.kind == Kinds.MTH) {
+                        MethodSymbol m = (MethodSymbol) e.sym;
+                        if (m.overrides(ms, origin, types, checkResult) &&
+                            (m.flags() & SYNTHETIC) == 0) {
+                            impl = m;
+                            cache.put(origin, m);
+                            return impl;
+                        }
+                    }
+                }
+            }
+        }
+        return impl;
     }
 
     /**
@@ -2868,6 +2920,14 @@ public class Types {
     /**
      * Capture conversion as specified by JLS 3rd Ed.
      */
+
+    public List<Type> capture(List<Type> ts) {
+        List<Type> buf = List.nil();
+        for (Type t : ts) {
+            buf = buf.prepend(capture(t));
+        }
+        return buf.reverse();
+    }
     public Type capture(Type t) {
         if (t.tag != CLASS)
             return t;

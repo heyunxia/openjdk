@@ -242,11 +242,6 @@ public class Main {
             return null;
 
         String sourceString = options.get("-source");
-        
-        // TEMP HACK FOR JIGSAW TO AUTO-DEFAULT -source TO 7 WHEN -modulepath 
-        // OR module-info.java USED. REMOVE WHEN -source 7 IS THE DEFAULT
-        if (sourceString == null && options.get("jigsaw.source") != null)
-            options.put("-source", sourceString = options.get("jigsaw.source"));
 
         Source source = (sourceString != null)
             ? Source.lookup(sourceString)
@@ -274,13 +269,18 @@ public class Main {
                     }
                     return null;
                 } else {
-                    options.put("-target", source.requiredTarget().name);
+                    target = source.requiredTarget();
+                    options.put("-target", target.name);
                 }
             } else {
                 if (targetString == null && !source.allowGenerics()) {
-                    options.put("-target", Target.JDK1_4.name);
+                    target = Target.JDK1_4;
+                    options.put("-target", target.name);
                 }
             }
+        }
+        if (target.hasInvokedynamic()) {
+            options.put("invokedynamic",  "invokedynamic");
         }
         return filenames.toList();
     }

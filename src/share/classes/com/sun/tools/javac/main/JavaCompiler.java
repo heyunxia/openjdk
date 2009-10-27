@@ -391,6 +391,8 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
             (options.get("shouldStopPolicy") != null)
             ? CompileState.valueOf(options.get("shouldStopPolicy"))
             : null;
+        if (options.get("oldDiags") == null)
+            log.setDiagnosticFormatter(RichDiagnosticFormatter.instance(context));
     }
 
     /* Switches:
@@ -475,7 +477,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
     public Todo todo;
 
     /** Ordered list of compiler phases for each compilation unit. */
-    protected enum CompileState {
+    public enum CompileState {
         PARSE(1),
         ENTER(2),
         PROCESS(3),
@@ -818,6 +820,9 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
         } catch (Abort ex) {
             if (devVerbose)
                 ex.printStackTrace();
+        } finally {
+            if (procEnvImpl != null)
+                procEnvImpl.close();
         }
     }
 
@@ -941,7 +946,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
     /**
      * Object to handle annotation processing.
      */
-    JavacProcessingEnvironment procEnvImpl = null;
+    private JavacProcessingEnvironment procEnvImpl = null;
 
     /**
      * Check if we should process annotations.
@@ -952,7 +957,8 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
      * @param processors user provided annotation processors to bypass
      * discovery, {@code null} means that no processors were provided
      */
-    public void initProcessAnnotations(Iterable<? extends Processor> processors) {
+    public void initProcessAnnotations(Iterable<? extends Processor> processors)
+                throws IOException {
         // Process annotations if processing is not disabled and there
         // is at least one Processor available.
         Options options = Options.instance(context);
@@ -979,7 +985,8 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
     }
 
     // TODO: called by JavacTaskImpl
-    public JavaCompiler processAnnotations(List<JCCompilationUnit> roots) throws IOException {
+    public JavaCompiler processAnnotations(List<JCCompilationUnit> roots)
+            throws IOException {
         return processAnnotations(roots, List.<String>nil());
     }
 
@@ -1066,10 +1073,14 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
                         return this;
                 }
             }
-            JavaCompiler c = procEnvImpl.doProcessing(context, roots, classSymbols, pckSymbols);
-            if (c != this)
-                annotationProcessingOccurred = c.annotationProcessingOccurred = true;
-            return c;
+            try {
+                JavaCompiler c = procEnvImpl.doProcessing(context, roots, classSymbols, pckSymbols);
+                if (c != this)
+                    annotationProcessingOccurred = c.annotationProcessingOccurred = true;
+                return c;
+            } finally {
+                procEnvImpl.close();
+            }
         } catch (CompletionFailure ex) {
             log.error("cant.access", ex.sym, ex.getDetailValue());
             return this;
@@ -1212,6 +1223,9 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
         return stopIfError(CompileState.FLOW, results);
     }
 
+    HashMap<Env<AttrContext>, Queue<Pair<Env<AttrContext>, JCClassDecl>>> desugaredEnvs =
+            new HashMap<Env<AttrContext>, Queue<Pair<Env<AttrContext>, JCClassDecl>>>();
+
     /**
      * Prepare attributed parse trees, in conjunction with their attribution contexts,
      * for source or code generation. If the file was not listed on the command line,
@@ -1227,10 +1241,17 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
             return;
         }
 
+        if (compileStates.isDone(env, CompileState.LOWER)) {
+            results.addAll(desugaredEnvs.get(env));
+            return;
+        }
+
         /**
-         * As erasure (TransTypes) destroys information needed in flow analysis,
-         * including information in supertypes, we need to ensure that supertypes
-         * are processed through attribute and flow before subtypes are translated.
+         * Ensure that superclasses of C are desugared before C itself. This is
+         * required for two reasons: (i) as erasure (TransTypes) destroys
+         * information needed in flow analysis and (ii) as some checks carried
+         * out during lowering require that all synthetic fields/methods have
+         * already been added to C and its superclasses.
          */
         class ScanNested extends TreeScanner {
             Set<Env<AttrContext>> dependencies = new LinkedHashSet<Env<AttrContext>>();
@@ -1251,8 +1272,8 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
         ScanNested scanner = new ScanNested();
         scanner.scan(env.tree);
         for (Env<AttrContext> dep: scanner.dependencies) {
-            if (!compileStates.isDone(dep, CompileState.FLOW))
-                flow(attribute(dep));
+        if (!compileStates.isDone(dep, CompileState.FLOW))
+            desugaredEnvs.put(dep, desugar(flow(attribute(dep))));
         }
 
         //We need to check for error another time as more classes might
@@ -1303,6 +1324,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
                 return;
 
             env.tree = transTypes.translateTopLevelClass(env.tree, localMake);
+            compileStates.put(env, CompileState.TRANSTYPES);
 
             if (shouldStop(CompileState.LOWER))
                 return;
@@ -1320,6 +1342,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
 
             //translate out inner classes
             List<JCTree> cdefs = lower.translateTopLevelClass(env, env.tree, localMake);
+            compileStates.put(env, CompileState.LOWER);
 
             if (shouldStop(CompileState.LOWER))
                 return;
