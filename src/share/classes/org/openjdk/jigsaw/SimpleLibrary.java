@@ -213,7 +213,7 @@ public final class SimpleLibrary
             this.parent = open(parentPath);
             this.parentPath = this.parent.root();
         }
-        if (!root.mkdir())
+        if (!root.mkdirs())
             throw new IOException(root + ": Cannot create library directory");
         hd = new Header(root, this.parentPath);
         hd.store();
