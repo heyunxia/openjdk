@@ -3,7 +3,6 @@
 /bin/jcontrol
 /bin/keytool
 /bin/orbd
-/bin/pack200
 /bin/policytool
 /bin/rmid
 /bin/rmiregistry
