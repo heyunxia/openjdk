@@ -360,11 +360,11 @@ public class Packager {
 		PrintStream pis = new PrintStream(preinst);
 		pis.format("#!/bin/sh\n" +
 			   "set -e\n" +
-			   "if [ ! -f %s/%%jigsaw-library ]\n" +
+			   "if [ ! -f %1$s/%%jigsaw-library ]\n" +
 			   "then\n" +
-			   "  %s  -L %s create\n" +
+			   "  %2$s  -L %1$s create\n" +
 			   "fi\n",
-			   library, installedJMod, library).close();
+			   library, installedJMod).close();
 		preinst.setExecutable(true, false);
 
 		// After a package is installed,
@@ -396,11 +396,13 @@ public class Packager {
 		pis = new PrintStream(prerm);
 		pis.format("#!/bin/sh\n" +
 			   "set -e\n" +
-			   "if [ -e %s/%s/%s ]\n" +
+			   // Delete unpacked class files.
+			   "if [ -e %1$s/%2$s/%3$s ]\n" +
 			   "then\n" +
-			   "  rm -rf %s/%s/%s\n" +
-			   "fi\n",
-			   library, info.id().name(), info.id().version(),
+			   "  rm -rf %1$s/%2$s/%3$s\n" +
+			   "fi\n" + 
+			   // Delete module library directory if it's empty.
+			   "find %1$s/%2$s/ -maxdepth 0 -type d -empty -delete\n",
 			   library, info.id().name(), info.id().version());
 		pis.close();
 		prerm.setExecutable(true, false);
