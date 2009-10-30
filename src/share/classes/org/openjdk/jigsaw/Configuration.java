@@ -180,4 +180,20 @@ public final class Configuration {
         }
     }
 
+    public int hashCode() {
+        int hc = root.hashCode();
+        hc = hc * 43 + contexts.hashCode();
+        hc = hc * 43 + contextForModule.hashCode();
+        return hc;
+    }
+
+    public boolean equals(Object ob) {
+        if (!(ob instanceof Configuration))
+            return false;
+        Configuration that = (Configuration)ob;
+        return (root.equals(that.root)
+                && contexts.equals(that.contexts)
+                && contextForModule.equals(that.contextForModule));
+    }
+
 }
