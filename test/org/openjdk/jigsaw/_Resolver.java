@@ -75,7 +75,6 @@ public class _Resolver {
 	cf.dump(System.out);
     }
 
-
     private static int testsRun = 0;
     private static int failures = 0;
 
@@ -354,6 +353,8 @@ public class _Resolver {
 	out.format("%n== %d test%s, %d failure%s%n",
 		   testsRun, testsRun != 1 ? "s": "",
 		   failures, failures != 1 ? "s" : "");
+        if (failures > 0)
+            System.exit(failures);
     }
 
 }
