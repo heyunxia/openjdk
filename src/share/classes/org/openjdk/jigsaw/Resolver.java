@@ -409,11 +409,11 @@ public final class Resolver {
 
         // This context's supplying contexts
         //
-        private Set<Context> suppliers = new HashSet<Context>();
+        private Set<Context> suppliers = new IdentityHashSet<>();
 
         // This context's re-exported supplying contexts
         //
-        private Set<Context> reExportedSuppliers = new HashSet<Context>();
+        private Set<Context> reExportedSuppliers = new IdentityHashSet<>();
 
         // The set of packages defined by this context
         //
@@ -428,7 +428,7 @@ public final class Resolver {
 
     // All of our contexts
     //
-    private Set<Context> contexts = new LinkedHashSet<Context>();
+    private Set<Context> contexts = new IdentityHashSet<>();
 
     // For each module, its assigned context; this also serves
     // as the visited-node set during context construction

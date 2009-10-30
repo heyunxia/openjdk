@@ -487,6 +487,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/FileConstants.java \
     org/openjdk/jigsaw/Files.java \
     org/openjdk/jigsaw/Hi.java \
+    org/openjdk/jigsaw/IdentityHashSet.java \
     org/openjdk/jigsaw/Launcher.java \
     org/openjdk/jigsaw/Library.java \
     org/openjdk/jigsaw/Loader.java \
