@@ -24,10 +24,10 @@
  */
 
 /* @test
- * @summary org.openjdk.jigsaw.Resolver unit test
- * @compile _Resolver.java MockLibrary.java ModuleInfoBuilder.java
+ * @summary org.openjdk.jigsaw.Configurator unit test
+ * @compile _Configurator.java MockLibrary.java ModuleInfoBuilder.java
  *          ConfigurationBuilder.java
- * @run main _Resolver
+ * @run main _Configurator
  */
 
 import java.io.*;
@@ -39,7 +39,7 @@ import static java.lang.System.out;
 import static java.lang.module.Dependence.Modifier;
 
 
-public class _Resolver {
+public class _Configurator {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
@@ -47,9 +47,7 @@ public class _Resolver {
 	throws ConfigurationException
     {
 	try {
-	    return (Resolver
-		    .create(lib, jms.parseModuleIdQuery(root))
-		    .run());
+	    return Configurator.run(lib, jms.parseModuleIdQuery(root));
 	} catch (IOException x) {
 	    throw new Error("Unexpected I/O exception", x);
 	}

@@ -700,8 +700,7 @@ public final class SimpleLibrary
         // ## mids not used yet
         for (ModuleInfo mi : listRootModuleInfos()) {
             // ## We could be a lot more clever about this!
-            Configuration cf
-                = Resolver.create(this, mi.id().toQuery()).run();
+            Configuration cf = Configurator.run(this, mi.id().toQuery());
             new StoredConfiguration(moduleDir(mi.id()), cf).store();
         }
     }

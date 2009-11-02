@@ -34,14 +34,14 @@ import java.util.*;
  * <p> A set of named {@linkplain Contexts contexts}, together with a map from
  * module names to contexts. </p>
  *
- * <p> Configurations are the result of {@linkplain Resolver module
- * resolution}; they are computed and stored in a {@linkplain Library module
- * library} during the installation process, and retrieved at run time when an
- * application is launched. </p>
+ * <p> Configurations are the result of the {@linkplain Configurator module
+ * configuration process}; they are computed and stored in a {@linkplain
+ * Library module library} during installation, and retrieved at run time
+ * when an application is launched. </p>
  *
  * @see Context
  * @see Library
- * @see Resolver
+ * @see Configurator
  */
 
 public final class Configuration {
