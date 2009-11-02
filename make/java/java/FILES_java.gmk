@@ -476,6 +476,7 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/VersionQuery.java \
     java/lang/reflect/Module.java \
     sun/launcher/LauncherHelper.java \
+    org/openjdk/jigsaw/BaseContext.java \
     org/openjdk/jigsaw/BootLoader.java \
     org/openjdk/jigsaw/ClassInfo.java \
     org/openjdk/jigsaw/Configuration.java \
