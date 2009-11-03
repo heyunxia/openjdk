@@ -149,7 +149,7 @@ class MockLibrary
 	return rv;
     }
 
-    public Configuration readConfiguration(ModuleId mid) {
+    public Configuration<Context> readConfiguration(ModuleId mid) {
 	throw new UnsupportedOperationException();
     }
 

@@ -56,7 +56,7 @@ public final class Launcher {
         if (cn == null)
             throw new Error(mid + ": Module does not specify"
                             + " a main class");
-        Configuration cf = lb.readConfiguration(mid);
+        Configuration<Context> cf = lb.readConfiguration(mid);
         if (cf == null)
             throw new Error(mid + ": Module not configured");
         Context cx = cf.getContextForModuleName(mid.name());

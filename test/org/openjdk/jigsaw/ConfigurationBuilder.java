@@ -40,7 +40,7 @@ public class ConfigurationBuilder {
     private Map<String,Context> contextForModule
 	= new HashMap<String,Context>();
 
-    private Configuration cf;
+    private Configuration<Context> cf;
 
     private ConfigurationBuilder(String rmid) {
 	root = jms.parseModuleId(rmid);
@@ -58,8 +58,8 @@ public class ConfigurationBuilder {
 	return this;
     }
 
-    public Configuration build() {
-	return new Configuration(root, contexts, contextForModule);
+    public Configuration<Context> build() {
+	return new Configuration<Context>(root, contexts, contextForModule);
     }
 
     public boolean isEmpty() {

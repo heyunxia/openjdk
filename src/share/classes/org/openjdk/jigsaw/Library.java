@@ -269,7 +269,7 @@ public abstract class Library {
      *          If the given module identifier is not a Jigsaw module
      *          identifier
      */
-    public abstract Configuration readConfiguration(ModuleId mid)
+    public abstract Configuration<Context> readConfiguration(ModuleId mid)
         throws IOException;
 
     /**

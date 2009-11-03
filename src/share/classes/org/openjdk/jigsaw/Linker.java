@@ -246,13 +246,15 @@ final class Linker {
 
     // Entry point
     //
-    static Configuration run(ContextSet<Context> cxs)
+    static Configuration<org.openjdk.jigsaw.Context>
+        run(ContextSet<Linker.Context> cxs)
         throws ConfigurationException, IOException
     {
         new Linker(cxs).run();
         ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
-        return new Configuration(root.id(),
-                                 cxs.contexts, cxs.contextForModule);
+        return new Configuration<>(root.id(),
+                                   cxs.contexts,
+                                   cxs.contextForModule);
     }
 
 }

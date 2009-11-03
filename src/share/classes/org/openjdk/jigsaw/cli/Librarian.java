@@ -232,7 +232,7 @@ public class Librarian {
                 ModuleId mid = lib.findLatestModuleId(midq);
                 if (mid == null)
                     throw new Command.Exception(midq + ": No such module");
-                Configuration cf = lib.readConfiguration(mid);
+                Configuration<Context> cf = lib.readConfiguration(mid);
                 if (cf == null)
                     throw new Command.Exception(mid + ": Not a root module");
                 cf.dump(out);

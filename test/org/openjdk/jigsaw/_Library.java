@@ -145,7 +145,7 @@ public class _Library {
 			       "com.foo.bar.Internal$Secret"));
 
 	// Load configuration
-	Configuration cf = lib.readConfiguration(foomid);
+	Configuration<Context> cf = lib.readConfiguration(foomid);
 	cf.dump(System.out);
 	eq(foomid, cf.root());
 	eq(cf.contexts().size(), 2);

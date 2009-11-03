@@ -317,13 +317,13 @@ public final class SimpleLibrary
         private static int MAJOR_VERSION = 0;
         private static int MINOR_VERSION = 1;
 
-        private Configuration cf;
+        private Configuration<Context> cf;
 
         private static void delete(File root) {
             new File(root, FILE).delete();
         }
 
-        private StoredConfiguration(File root, Configuration conf)
+        private StoredConfiguration(File root, Configuration<Context> conf)
         {
             super(MAJOR_VERSION, MINOR_VERSION,
                   FileConstants.Type.LIBRARY_MODULE_CONFIG,
@@ -365,7 +365,7 @@ public final class SimpleLibrary
         {
             String root = in.readUTF();
             ModuleId rmid = jms.parseModuleId(root);
-            cf = new Configuration(rmid);
+            cf = new Configuration<Context>(rmid);
             // Contexts
             int nContexts = in.readInt();
             for (int i = 0; i < nContexts; i++) {
@@ -538,7 +538,7 @@ public final class SimpleLibrary
         return cns;
     }
 
-    public Configuration readConfiguration(ModuleId mid)
+    public Configuration<Context> readConfiguration(ModuleId mid)
         throws IOException
     {
         File md = findModuleDir(mid);
@@ -700,7 +700,8 @@ public final class SimpleLibrary
         // ## mids not used yet
         for (ModuleInfo mi : listRootModuleInfos()) {
             // ## We could be a lot more clever about this!
-            Configuration cf = Configurator.run(this, mi.id().toQuery());
+            Configuration<Context> cf
+                = Configurator.run(this, mi.id().toQuery());
             new StoredConfiguration(moduleDir(mi.id()), cf).store();
         }
     }

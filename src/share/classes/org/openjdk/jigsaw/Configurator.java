@@ -161,7 +161,8 @@ public final class Configurator {
      *
      * @return  The resulting {@linkplain Configuration configuration}
      */
-    public static Configuration run(Library lib, ModuleIdQuery rootQuery)
+    public static Configuration<Context>
+        run(Library lib, ModuleIdQuery rootQuery)
         throws ConfigurationException, IOException
     {
 
@@ -178,7 +179,7 @@ public final class Configurator {
                                          return new Linker.Context();
                                      }});
 
-        Configuration cf = Linker.run(cxs);
+        Configuration<Context> cf = Linker.run(cxs);
 
         if (tracing) {
             ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());

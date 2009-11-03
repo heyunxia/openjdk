@@ -56,7 +56,7 @@ public final class Platform {
     }
 
     // ## We really must do something more secure and robust here!
-    static boolean isPlatformContext(org.openjdk.jigsaw.Context cx) {
+    static boolean isPlatformContext(BaseContext cx) {
         for (ModuleId mid : cx.modules()) {
             if (!isPlatformModuleName(mid.name()))
                 return false;

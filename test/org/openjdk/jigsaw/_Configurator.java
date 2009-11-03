@@ -43,7 +43,7 @@ public class _Configurator {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
-    private static Configuration go(Library lib, String root)
+    private static Configuration<Context> go(Library lib, String root)
 	throws ConfigurationException
     {
 	try {
@@ -69,7 +69,7 @@ public class _Configurator {
 	return ModuleInfoBuilder.module(id);
     }
 
-    private static void dump(Configuration cf) {
+    private static void dump(Configuration<?> cf) {
 	cf.dump(System.out);
     }
 
@@ -108,12 +108,12 @@ public class _Configurator {
 	    String root = init(mlib);
 	    if (expectedToPass) {
 		try {
-		    Configuration cf = go(mlib, root);
+		    Configuration<Context> cf = go(mlib, root);
 		    ConfigurationBuilder cfbd
 			= ConfigurationBuilder.config(root);
 		    ref(cfbd);
 		    if (!cfbd.isEmpty()) {
-			Configuration rcf = cfbd.build();
+			Configuration<Context> rcf = cfbd.build();
 			if (!cf.equals(rcf)) {
 			    fail("Configuration mismatch!");
 			    out.format("-- Expected:%n");

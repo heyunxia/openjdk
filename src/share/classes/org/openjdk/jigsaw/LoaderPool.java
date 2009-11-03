@@ -39,8 +39,8 @@ public final class LoaderPool {
     private Library lib;
     Library library() { return lib; }
 
-    private Configuration config;
-    Configuration config() { return config; }
+    private Configuration<Context> config;
+    Configuration<Context> config() { return config; }
 
     // In the Jigsaw launcher we save the main class here for
     // later retrieval by the sun.launcher.LauncherHelper class
@@ -48,7 +48,7 @@ public final class LoaderPool {
     private String mainClass;
     public String mainClass() { return mainClass; }
 
-    LoaderPool(Library lb, Configuration cf, String cn) {
+    LoaderPool(Library lb, Configuration<Context> cf, String cn) {
         if (lb == null || cf == null)
             throw new IllegalArgumentException();
         lib = lb;
@@ -56,7 +56,7 @@ public final class LoaderPool {
         mainClass = cn;
     }
 
-    LoaderPool(Library lb, Configuration cf) {
+    LoaderPool(Library lb, Configuration<Context> cf) {
         this(lb, cf, null);
     }
 
