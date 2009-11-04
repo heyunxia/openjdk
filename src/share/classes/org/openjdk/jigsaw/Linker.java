@@ -34,6 +34,8 @@ import static java.lang.module.Dependence.Modifier;
 import static org.openjdk.jigsaw.Trace.*;
 
 
+// ## TODO: Implement intra-context dominant-shadow algorithm
+
 final class Linker {
 
     // We extend the plain Context class with additional state for use
@@ -41,9 +43,10 @@ final class Linker {
     //
     static class Context
         extends org.openjdk.jigsaw.Context
+        implements LinkingContext
     {
 
-        Context() { }
+        Context() { }                   // Needed by Configurator
 
         // A context-for-package map that returns actual contexts,
         // rather than context names as in the superclass
@@ -54,6 +57,8 @@ final class Linker {
         // The ModuleInfos of the modules in this context
         //
         Set<ModuleInfo> moduleInfos = new HashSet<ModuleInfo>(); // ## private?
+
+        public Set<ModuleInfo> moduleInfos() { return moduleInfos; }
 
         // This context's supplying contexts
         //
@@ -226,11 +231,6 @@ final class Linker {
         // Compute context import/export/supplier maps
         resolveLocalSuppliers();
         resolveRemoteSuppliers();
-
-        // Freeze context names ## Could this be done earlier?
-        for (Context cx : cxs.contexts) {
-            cx.freeze();
-        }
 
         // Synchronize the context-for-package maps
         for (Context cx : cxs.contexts) {

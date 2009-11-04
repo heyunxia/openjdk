@@ -59,6 +59,8 @@ public class ModuleInfoBuilder {
 	private String mainClass;
 	public String mainClass() { return mainClass; }
 
+        public String toString() { return mid.toString(); }
+
     }
 
     private MI mi;

@@ -465,6 +465,8 @@ JAVA_JAVA_jigsaw = \
     java/lang/Class.java \
     java/lang/System.java \
     sun/misc/JavaLangAccess.java \
+    sun/launcher/LauncherHelper.java \
+    \
     java/lang/module/Dependence.java \
     java/lang/module/ModuleClassLoader.java \
     java/lang/module/ModuleId.java \
@@ -475,7 +477,7 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/Version.java \
     java/lang/module/VersionQuery.java \
     java/lang/reflect/Module.java \
-    sun/launcher/LauncherHelper.java \
+    \
     org/openjdk/jigsaw/BaseContext.java \
     org/openjdk/jigsaw/BootLoader.java \
     org/openjdk/jigsaw/ClassInfo.java \
@@ -498,11 +500,14 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/Loader.java \
     org/openjdk/jigsaw/LoaderPool.java \
     org/openjdk/jigsaw/Manifest.java \
+    org/openjdk/jigsaw/PathContext.java \
+    org/openjdk/jigsaw/PathLinker.java \
     org/openjdk/jigsaw/Platform.java \
     org/openjdk/jigsaw/Resolution.java \
     org/openjdk/jigsaw/Resolver.java \
     org/openjdk/jigsaw/SimpleLibrary.java \
     org/openjdk/jigsaw/Trace.java \
+    \
     org/openjdk/jigsaw/cli/Command.java \
     org/openjdk/jigsaw/cli/Librarian.java \
     org/openjdk/jigsaw/cli/Packager.java 

@@ -144,42 +144,55 @@ public final class Configuration<Cx extends BaseContext> {
         this.contextForName = new HashMap<String,Cx>();
     }
 
+    private void dump(Context cx, PrintStream out) {
+        if (!cx.localClasses().isEmpty()) {
+            out.format("    local");
+            for (Map.Entry<String,ModuleId> me
+                 : cx.moduleForLocalClassMap().entrySet())
+                out.format(" %s:%s", me.getKey(), me.getValue());
+            out.format("%n");
+        }
+        if (!cx.remotePackages().isEmpty()) {
+            out.format("    remote {");
+            boolean first = true;
+            for (Map.Entry<String,String> me
+                 : cx.contextForRemotePackageMap().entrySet())
+            {
+                Cx dcx = getContext(me.getValue());
+                if (Platform.isPlatformContext(dcx))
+                    continue;
+                if (!first)
+                    out.format(", ");
+                else
+                    first = false;
+                out.format("%s=%s", me.getKey(), me.getValue());
+            }
+            out.format("}%n");
+        }
+    }
+
+    private void dump(PathContext cx, PrintStream out) {
+        if (!cx.localPath().isEmpty())
+            out.format("    local  %s%n", cx.localPath());
+        if (!cx.remoteContexts().isEmpty())
+            out.format("    remote %s%n", cx.remoteContexts());
+    }
+
     /**
      * Write a diagnostic summary of this configuration to the given stream.
      */
     public void dump(PrintStream out) {
-        out.format("configuration root = %s%n", root());
-        for (Cx bcx : contexts()) {
-            out.format("  context %s %s%n", bcx, bcx.modules());
-            if (Platform.isPlatformContext(bcx))
+        boolean isPath = contexts().iterator().next() instanceof PathContext;
+        out.format("%sconfiguration root = %s%n",
+                   isPath ? "path " : "", root());
+        for (Cx cx : contexts()) {
+            out.format("  context %s %s%n", cx, cx.modules());
+            if (Platform.isPlatformContext(cx))
                 continue;
-            if (!(bcx instanceof Context))
-                continue;
-            Context cx = (Context)bcx;
-            if (!cx.remotePackages().isEmpty()) {
-                out.format("    remote {");
-                boolean first = true;
-                for (Map.Entry<String,String> me
-                         : cx.contextForRemotePackageMap().entrySet())
-                {
-                    Cx dcx = getContext(me.getValue());
-                    if (Platform.isPlatformContext(dcx))
-                        continue;
-                    if (!first)
-                        out.format(", ");
-                    else
-                        first = false;
-                    out.format("%s=%s", me.getKey(), me.getValue());
-                }
-                out.format("}%n");
-            }
-            if (!cx.localClasses().isEmpty()) {
-                out.format("    local");
-                for (Map.Entry<String,ModuleId> me
-                         : cx.moduleForLocalClassMap().entrySet())
-                    out.format(" %s:%s", me.getKey(), me.getValue());
-                out.format("%n");
-            }
+            if (cx instanceof Context)
+                dump((Context)cx, out);
+            else if (cx instanceof PathContext)
+                dump((PathContext)cx, out);
         }
     }
 

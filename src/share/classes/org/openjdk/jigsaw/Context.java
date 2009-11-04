@@ -138,19 +138,6 @@ public class Context
         return Collections.unmodifiableSet(contextForRemotePackage.keySet());
     }
 
-    public int hashCode() {
-        if (hash != null)
-            return hash;
-        int hc = super.hashCode();
-        hc = hc * 43 + moduleForLocalClass.hashCode();
-        hc = hc * 43 + contextForRemotePackage.hashCode();
-        if (isFrozen()) {
-            // Only cache after the name is frozen
-            hash = hc;
-        }
-        return hc;
-    }
-
     public boolean equals(Object ob) {
         if (!(ob instanceof Context))
             return false;

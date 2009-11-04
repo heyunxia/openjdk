@@ -118,9 +118,8 @@ final class ContextBuilder<Cx extends BaseContext> {
             contexts.add(cx);
         }
         cx.add(mi.id());
-        if (cx instanceof Linker.Context) { // ## Should use an interface instead
-            ((Linker.Context)cx).moduleInfos.add(mi);
-        }
+        if (cx instanceof LinkingContext)
+            ((LinkingContext)cx).moduleInfos().add(mi);
         contextForModule.put(mi.id().name(), cx);
 
         // Forward edges
@@ -167,6 +166,8 @@ final class ContextBuilder<Cx extends BaseContext> {
                 continue;
             build(null, mi);
         }
+        for (Cx cx : contexts)
+            cx.freeze();
     }
 
     // Entry point
@@ -174,11 +175,18 @@ final class ContextBuilder<Cx extends BaseContext> {
     static <Cx extends BaseContext> ContextSet<Cx>
         run(Resolution res, ContextFactory<Cx> cxf)
     {
+
         assert res.moduleForName.get(res.rootQuery.name()) != null;
         ContextBuilder<Cx> cb = new ContextBuilder<Cx>(res, cxf);
         cb.run();
         assert cb.contextForModule.get(res.rootQuery.name()) != null;
-        return new ContextSet<Cx>(res, cb.contexts, cb.contextForModule);
+
+        // Rehash the contexts so that the resulting ContextSet
+        // doesn't contain an IdentityHashSet
+        Set<Cx> rehashedContexts = new HashSet<>(cb.contexts);
+
+        return new ContextSet<Cx>(res, rehashedContexts, cb.contextForModule);
+
     }
 
 }

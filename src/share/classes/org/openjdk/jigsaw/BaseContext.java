@@ -42,7 +42,7 @@ public class BaseContext {
 
     // The set of modules in this context
     //
-    private Set<ModuleId> modules = new HashSet<ModuleId>();
+    protected Set<ModuleId> modules = new HashSet<ModuleId>();
 
     /**
      * Add the given module to this context.
@@ -67,27 +67,17 @@ public class BaseContext {
     private String name;
 
     /**
-     * Freeze this context, so that its name does not change.
+     * Freeze this context so that its name, module set, and hash code
+     * do not change.
      *
      * @throws IllegalStateException
      *         If this context is already frozen
      */
     public void freeze() {
         if (name != null)
-            throw new IllegalStateException();
+            throw new IllegalStateException("Context already frozen");
         name = makeName();
-    }
-
-    /**
-     * Freeze this context, assigning it the given name.
-     *
-     * @throws IllegalStateException
-     *         If this context is already frozen
-     */
-    protected void freeze(String cxn) {
-        if (name != null)
-            throw new IllegalStateException();
-        name = cxn;
+        modules = Collections.unmodifiableSet(modules);
     }
 
     protected boolean isFrozen() {
@@ -123,17 +113,18 @@ public class BaseContext {
         return name;
     }
 
-    protected Integer hash = null;
+    private Integer hash = null;
 
-    public int hashCode() {
+    // The hash code is based only on the module-id set, not on
+    // any additional mutable state defined in subclasses
+    //
+    public final int hashCode() {
         if (hash != null)
             return hash;
-        int hc = (name != null) ? name.hashCode() : 0;
-        hc = hc * 43 + modules.hashCode();
-        if (name != null) {
-            // Only cache after the name is frozen
-            hash = hc;
-        }
+        if (!isFrozen())
+            throw new IllegalStateException("Context not frozen");
+        int hc = modules.hashCode();
+        hash = hc;
         return hc;
     }
 

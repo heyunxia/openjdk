@@ -41,7 +41,7 @@ import static org.openjdk.jigsaw.Trace.*;
  * <p> Each root module (<i>i.e.</i>, a module with a main class) induces a
  * unique configuration.  We can compute a configuration at install time or, if
  * a module is downloaded at run time (<i>e.g.</i>, an applet or web-start
- * app), then dynamically as part of the download process.  The resolution
+ * app), then dynamically as part of the download process.  The configuration
  * algorithm is, in any case, <a
  * href="http://en.wikipedia.org/wiki/Offline_algorithm">offline</a>;
  * <i>i.e.</i>, it produces a complete configuration prior to application
@@ -49,8 +49,8 @@ import static org.openjdk.jigsaw.Trace.*;
  *
  * <p> At most one version of a module can be present in a configuration; we do
  * not support side-by-side versioning at run time.  This vastly simplifies the
- * resolution algorithm and is no less expressive, in practical terms, than the
- * present class-path mechanism. </p>
+ * configuration algorithm and is no less expressive, in practical terms, than
+ * the present class-path mechanism. </p>
  *
  * <p> Multiple modules defining types in the same package must all be assigned
  * to the same context, so that they all wind up in the same class loader at
@@ -62,18 +62,32 @@ import static org.openjdk.jigsaw.Trace.*;
  * in the same context, and the shadowing definition must dominate all other
  * definitions. </p>
  *
- * <p> In a module library we store a root module's entire configuration along
- * with the module itself rather than spread the information amongst the
- * modules upon which it depends.  This allows us to support module libraries
- * in a path-like arrangement, much like LD_LIBRARY_PATH.  The configurations
- * stored in a library will need to be updated whenever libraries later in the
- * path are updated, but this should not be too onerous since we expect such
- * paths to be short, e.g., at most an application library, a user library, and
- * a system library. </p>
+ * <p> Module configuration proceeds in four phases: </p>
  *
- * <p> <i>For further commentary on the details of the resolution algorithm,
+ * <ol>
+ *
+ *   <li><p> Resolve versions -- Determine the version of each module which
+ *   will be part of the resulting configuration. </p></li>
+ * 
+ *   <li><p> Construct contexts -- Assign modules to contexts, ensuring that
+ *   the local dependences of a module are assigned to the same
+ *   context. </p></li>
+ * 
+ *   <li><p> Link local suppliers -- For each class defined in a context,
+ *   determine which of the context's modules will supply it. </p></li>
+ * 
+ *   <li><p> Link remote suppliers -- For each package imported into a context,
+ *   either directly or indirectly (via "requires public"), determine the
+ *   context which will supply it. </p></li>
+ *
+ * </ol>
+ *
+ * <p> The first two phases are the same at both install time and run time.
+ * The linking phases, however, are different as described below. </p>
+ *
+ * <p> <i>For further commentary on the details of the configuration algorithm,
  * please see the <a
- * href="http://hg.openjdk.java.net/jigsaw/jigsaw/jdk/file/tip/src/share/classes/org/openjdk/jigsaw/Resolver.java">source
+ * href="http://hg.openjdk.java.net/jigsaw/jigsaw/jdk/file/tip/src/share/classes/org/openjdk/jigsaw/Configurator.java">source
  * code</a>.</i> </p>
  *
  * @see Library
@@ -82,68 +96,27 @@ import static org.openjdk.jigsaw.Trace.*;
  * @see Linker
  */
 
-// ## TODO: Implement intra-context dominant-shadow algorithm
-// ## TODO: Implement optional dependences
-// ## TODO: Implement provides
-// ## TODO: Improve error messages
-
-// ## TODO: Create an alternate version of phase 3, for use by compilers
-//
-// A Java compiler can't use the full resolution algorithm because it can't
-// determine, at the start of an invocation, exactly which classes are going to
-// be processed, i.e., either compiled anew or read in from the output
-// directory of a previous invocation.
-//
-// A compiler can, however, determine exactly which module-info files will be
-// processed.  As long as all the relevant module-info files are available then
-// we can implement an alternative version of phase 3 which uses a dominator
-// algorithm to compute a linear ordering of the modules in a context.  This
-// ordering will guarantee that if there is any shadowing of a class amongst
-// the modules then the module containing the dominant definition, if there is
-// one, will precede the others.  The result of this algorithm can be reported
-// in, say, a CompileTimeConfiguration object which has a visibleModules()
-// property of type Map<ModuleId,List<ModuleId>>.
-//
-// The use of different algorithms at compile time vs. configuration time does
-// admit slightly different outcomes.  If a class has multiple definitions in
-// a context but no dominant definition then at compile time an arbitrary
-// definition will be visible but at configuration time an error will be
-// reported.  This is unfortunate but acceptable; it's somewhat akin to the
-// {@linkplain java.lang.LinkageError class-linkage errors} which can occur
-// when classes change incompatibly, and is likely to be encountered mainly
-// by advanced developers.
-
 public final class Configurator {
 
     private Configurator() { }
 
-    // --
-    //
-    // Module configuration proceeds in four phases:
-    //
-    //   1. Resolve versions -- Determine the version of each module that will
-    //      be part of the resulting configuration.
-    //
-    //   2. Construct contexts -- Assign modules to contexts, ensuring that the
-    //      local dependences of a module are assigned to the same context.
-    //
-    //   3. Link local suppliers -- For each class defined in a context,
-    //      determine which of the context's modules will supply it.
-    //
-    //   4. Link remote suppliers -- For each package imported into a
-    //      context, either directly or indirectly (via "requires public"),
-    //      determine the context that will supply it.
-    //
-    // --
-
     /**
-     * <p> Compute a {@linkplain Configuration configuration} for a root module
-     * in a given {@linkplain Library module library}. </p>
+     * <p> Compute a full install-time {@linkplain Configuration configuration}
+     * for a root module in a given {@linkplain Library module library}. </p>
      *
      * <p> The configuration root is specified in the form of a {@linkplain
      * java.lang.module.ModuleIdQuery module-id query}.  If more than one
      * module in the given library satisfies the query then the most recent
      * version will be used. </p>
+     *
+     * <p> In a module library we store a root module's entire configuration
+     * along with the module itself rather than spread the information amongst
+     * the modules upon which it depends.  This allows us to support module
+     * libraries in a path-like arrangement, much like LD_LIBRARY_PATH.  The
+     * configurations stored in a library will need to be updated whenever
+     * libraries later in the path are updated, but this should not be too
+     * onerous since we expect such paths to be short, e.g., at most an
+     * application library, a user library, and a system library. </p>
      *
      * @param   lib
      *          The {@linkplain Library module library} against which
@@ -162,7 +135,7 @@ public final class Configurator {
      * @return  The resulting {@linkplain Configuration configuration}
      */
     public static Configuration<Context>
-        run(Library lib, ModuleIdQuery rootQuery)
+        configure(Library lib, ModuleIdQuery rootQuery)
         throws ConfigurationException, IOException
     {
 
@@ -170,8 +143,10 @@ public final class Configurator {
             trace(0, "Configuring %s using library %s",
                   rootQuery, lib.name());
 
+        // 1. Resolve versions
         Resolution res = Resolver.run(lib, rootQuery);
 
+        // 2. Construct contexts
         ContextSet<Linker.Context> cxs
             = ContextBuilder.run(res,
                                  new ContextFactory<Linker.Context>() {
@@ -179,11 +154,94 @@ public final class Configurator {
                                          return new Linker.Context();
                                      }});
 
+        // 3 & 4. Link local and remote suppliers
         Configuration<Context> cf = Linker.run(cxs);
 
         if (tracing) {
             ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
             trace(0, "Configured %s", root.id());
+            if (traceLevel >= 3)
+                cf.dump(System.out);
+        }
+
+        return cf;
+
+    }
+
+    /**
+     * <p> Compute a path-based {@linkplain Configuration configuration} for a
+     * root module in a given {@linkplain Library module library}. </p>
+     *
+     * <p> The configuration root is specified in the form of a {@linkplain
+     * java.lang.module.ModuleIdQuery module-id query}.  If more than one
+     * module in the given library satisfies the query then the most recent
+     * version will be used. </p>
+     *
+     * <p> A Java compiler can't use the full configuration algorithm because
+     * it can't determine, at the start of an invocation, exactly which classes
+     * are going to be processed, <i>i.e.</i>, either compiled anew or read in
+     * from the output directory of a previous invocation. </p>
+     *
+     * <p> A compiler can, however, determine exactly which module-info files
+     * will be processed.  For compile-time we therefore use an alternative
+     * version of phase 3 which uses a dominator algorithm to compute a linear
+     * ordering of the modules in a context.  This ordering guarantees that if
+     * there is any shadowing of a class amongst the modules then the module
+     * containing the dominant definition, if there is one, will precede the
+     * others.  We also use a simpler version of phase 4 which computes remote
+     * contexts rather than maps from package names to contexts. </p>
+     *
+     * <p> The use of different algorithms at compile time vs. configuration
+     * time does admit slightly different outcomes.  If a type has multiple
+     * definitions in a context but no dominant definition then at compile time
+     * an arbitrary definition will be visible but at install time an error
+     * will be reported.  This is unfortunate but acceptable; it's somewhat
+     * akin to the {@linkplain java.lang.LinkageError class-linkage errors}
+     * which can occur when classes change incompatibly, and is likely to be
+     * encountered mainly by advanced developers. </p>
+     * 
+     * @param   lib
+     *          The {@linkplain Library module library} against which
+     *          dependences will be resolved
+     *
+     * @param   rootQuery
+     *          A {@linkplain java.lang.module.ModuleIdQuery module-id query}
+     *          describing the desired root module
+     *
+     * @throws  ConfigurationException
+     *          If a valid configuration cannot be computed
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library
+     *
+     * @return  The resulting {@linkplain Configuration configuration}
+     */
+    public static Configuration<PathContext>
+        configurePaths(Library lib, ModuleIdQuery rootQuery)
+        throws ConfigurationException, IOException
+    {
+
+        if (tracing)
+            trace(0, "Path-configuring %s using library %s",
+                  rootQuery, lib.name());
+
+        // 1. Resolve versions
+        Resolution res = Resolver.run(lib, rootQuery);
+
+        // 2. Construct contexts
+        ContextSet<PathContext> cxs
+            = ContextBuilder.run(res,
+                                 new ContextFactory<PathContext>() {
+                                     public PathContext create() {
+                                         return new PathContext();
+                                     }});
+
+        // 3 & 4. Link local and remote suppliers
+        Configuration<PathContext> cf = PathLinker.run(cxs);
+
+        if (tracing) {
+            ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
+            trace(0, "Configured paths for %s", root.id());
             if (traceLevel >= 3)
                 cf.dump(System.out);
         }

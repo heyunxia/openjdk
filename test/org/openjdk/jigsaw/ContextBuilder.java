@@ -49,12 +49,38 @@ public class ContextBuilder {
 
     private MockContext cx = new MockContext();
 
+    static class MockPathContext extends PathContext {
+	private Map<String,ModuleId> moduleForName
+	    = new HashMap<String,ModuleId>();
+	public void add(ModuleId mid) {
+	    super.add(mid);
+	    moduleForName.put(mid.name(), mid);
+	}
+        private void extend(List<ModuleId> pl, ModuleId mid) {
+            if (pl.size() == 0 || !pl.get(pl.size() - 1).equals(mid))
+                pl.add(mid);
+        }
+        void extendLocalPath(ModuleId mid) {
+            extend(super.localPath(), mid);
+        }
+        private Set<String> remoteContextNames = new HashSet<>();
+        void linkRemoteContexts(Configuration<PathContext> cf) {
+            for (String cxn : remoteContextNames)
+                super.remoteContexts().add(cf.getContext(cxn));
+            remoteContextNames = null;
+        }
+    }
+
+    private MockPathContext pcx = new MockPathContext();
+
     private ContextBuilder(String[] mids) {
 	for (String s : mids) {
 	    ModuleId mid = jms.parseModuleId(s);
 	    if (cx.modules().contains(mid))
 		throw new IllegalArgumentException(mid + ": Duplicate");
 	    cx.add(mid);
+            pcx.add(mid);
+            pcx.extendLocalPath(mid);
 	}
     }
 
@@ -62,19 +88,33 @@ public class ContextBuilder {
 	return new ContextBuilder(mids);
     }
 
-    public ContextBuilder local(String mn, String cn) {
+    public ContextBuilder localClass(String cn, String mn) {
 	cx.putModuleForLocalClass(cn, mn);
 	return this;
     }
 
-    public ContextBuilder remote(String pn, String cxn) {
+    public ContextBuilder remotePackage(String pn, String cxn) {
 	cx.putContextForRemotePackage(pn, cxn);
 	return this;
+    }
+
+    public ContextBuilder remote(String ... cxns) {
+        for (String cxn : cxns) {
+            // We don't necessarily have all the actual contexts module
+            // at this point, so here we just save the context names
+            pcx.remoteContextNames.add(cxn);
+        }
+        return this;
     }
 
     public Context build() {
 	cx.freeze();
 	return cx;
+    }
+
+    public PathContext buildPath() {
+	pcx.freeze();
+	return pcx;
     }
 
 }

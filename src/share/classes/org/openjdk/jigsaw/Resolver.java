@@ -46,6 +46,10 @@ import static org.openjdk.jigsaw.Trace.*;
 // of the dependence graph since different versions of the same module can
 // have completely different dependences.
 
+// ## TODO: Implement optional dependences
+// ## TODO: Implement provides
+// ## TODO: Improve error messages
+
 final class Resolver {
 
     // Variable-name conventions
@@ -95,7 +99,7 @@ final class Resolver {
         return ps.contains(rmi.id().name());
     }
 
-    // A choice that remains to be made.  Choices are arranged in a stack,
+    // A choice which remains to be made.  Choices are arranged in a stack,
     // using the next field.  Initially the stack is primed with the choice of
     // which module to assign as the root module.  When a candidate module is
     // identified for a particular choice then that module's dependences are

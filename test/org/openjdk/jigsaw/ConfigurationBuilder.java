@@ -35,12 +35,12 @@ public class ConfigurationBuilder {
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
     private ModuleId root;
-    private Set<Context> contexts
-	= new HashSet<Context>();
-    private Map<String,Context> contextForModule
-	= new HashMap<String,Context>();
 
-    private Configuration<Context> cf;
+    private Set<Context> contexts = new HashSet<>();
+    private Map<String,Context> contextForModule = new HashMap<>();
+
+    private Set<PathContext> pathContexts = new HashSet<>();
+    private Map<String,PathContext> pathContextForModule = new HashMap<>();
 
     private ConfigurationBuilder(String rmid) {
 	root = jms.parseModuleId(rmid);
@@ -55,11 +55,23 @@ public class ConfigurationBuilder {
 	contexts.add(cx);
 	for (ModuleId mid : cx.modules())
 	    contextForModule.put(mid.name(), cx);
+        PathContext pcx = cb.buildPath();
+        pathContexts.add(pcx);
+        for (ModuleId mid : pcx.modules())
+            pathContextForModule.put(mid.name(), pcx);
 	return this;
     }
 
     public Configuration<Context> build() {
-	return new Configuration<Context>(root, contexts, contextForModule);
+	return new Configuration<>(root, contexts, contextForModule);
+    }
+
+    public Configuration<PathContext> buildPath() {
+        Configuration<PathContext> cf
+            = new Configuration<>(root, pathContexts, pathContextForModule);
+        for (PathContext pcx : pathContexts)
+            ((ContextBuilder.MockPathContext)pcx).linkRemoteContexts(cf);
+        return cf;
     }
 
     public boolean isEmpty() {

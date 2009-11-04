@@ -370,8 +370,7 @@ public final class SimpleLibrary
             int nContexts = in.readInt();
             for (int i = 0; i < nContexts; i++) {
                 Context cx = new Context();
-                cx.freeze(in.readUTF());
-                cf.add(cx);
+                String cxn = in.readUTF();
                 // Module ids
                 int nModules = in.readInt();
                 for (int j = 0; j < nModules; j++) {
@@ -379,6 +378,9 @@ public final class SimpleLibrary
                     cx.add(mid);
                     cf.put(mid.name(), cx);
                 }
+                cx.freeze();
+                assert cx.name().equals(cxn);
+                cf.add(cx);
                 // Local class map
                 int nClasses = in.readInt();
                 for (int j = 0; j < nClasses; j++)
@@ -701,7 +703,7 @@ public final class SimpleLibrary
         for (ModuleInfo mi : listRootModuleInfos()) {
             // ## We could be a lot more clever about this!
             Configuration<Context> cf
-                = Configurator.run(this, mi.id().toQuery());
+                = Configurator.configure(this, mi.id().toQuery());
             new StoredConfiguration(moduleDir(mi.id()), cf).store();
         }
     }

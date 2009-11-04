@@ -26,7 +26,7 @@
 /* @test
  * @summary org.openjdk.jigsaw.Configurator unit test
  * @compile _Configurator.java MockLibrary.java ModuleInfoBuilder.java
- *          ConfigurationBuilder.java
+ *          ConfigurationBuilder.java ContextBuilder.java
  * @run main _Configurator
  */
 
@@ -43,34 +43,8 @@ public class _Configurator {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
-    private static Configuration<Context> go(Library lib, String root)
-	throws ConfigurationException
-    {
-	try {
-	    return Configurator.run(lib, jms.parseModuleIdQuery(root));
-	} catch (IOException x) {
-	    throw new Error("Unexpected I/O exception", x);
-	}
-    }
-
-    private static void fail(Library lib, String root)
-	throws Exception
-    {
-	try {
-	    go(lib, root);
-	} catch (ConfigurationException x) {
-	    out.format("Failed as expected: %s%n", x.getMessage());
-	    return;
-	}
-	throw new Exception("FAIL: Configuration succeeded");
-    }
-
     private static ModuleInfoBuilder module(String id) {
 	return ModuleInfoBuilder.module(id);
-    }
-
-    private static void dump(Configuration<?> cf) {
-	cf.dump(System.out);
     }
 
     private static int testsRun = 0;
@@ -81,6 +55,7 @@ public class _Configurator {
 	failures++;
     }
 
+
     private static List<Test> tests = new ArrayList<Test>();
 
     private static abstract class Test {
@@ -102,16 +77,41 @@ public class _Configurator {
 	    return ContextBuilder.context(mids);
 	}
 
+        private static Configuration<Context> go(Library lib, String root)
+            throws ConfigurationException
+        {
+            try {
+                return Configurator.configure(lib,
+                                              jms.parseModuleIdQuery(root));
+            } catch (IOException x) {
+                throw new Error("Unexpected I/O exception", x);
+            }
+        }
+
+        private static Configuration<PathContext> goPath(Library lib, String root)
+            throws ConfigurationException
+        {
+            try {
+                return Configurator.configurePaths(lib,
+                                                   jms.parseModuleIdQuery(root));
+            } catch (IOException x) {
+                throw new Error("Unexpected I/O exception", x);
+            }
+        }
+
 	void run() {
 	    testsRun++;
 	    MockLibrary mlib = new MockLibrary();
 	    String root = init(mlib);
 	    if (expectedToPass) {
 		try {
-		    Configuration<Context> cf = go(mlib, root);
+
 		    ConfigurationBuilder cfbd
 			= ConfigurationBuilder.config(root);
 		    ref(cfbd);
+
+                    // Installed contexts
+		    Configuration<Context> cf = go(mlib, root);
 		    if (!cfbd.isEmpty()) {
 			Configuration<Context> rcf = cfbd.build();
 			if (!cf.equals(rcf)) {
@@ -119,15 +119,30 @@ public class _Configurator {
 			    out.format("-- Expected:%n");
 			    rcf.dump(out);
 			    out.format("-- Returned:%n");
-			    cf.dump(out);
-			    return;
+                        }
+                    }
+                    cf.dump(out);
+
+                    // Path contexts
+                    Configuration<PathContext> pcf = goPath(mlib, root);
+                    if (!cfbd.isEmpty()) {
+			Configuration<PathContext> prcf = cfbd.buildPath();
+			if (!pcf.equals(prcf)) {
+			    fail("Path configuration mismatch!");
+			    out.format("-- Expected:%n");
+			    prcf.dump(out);
+			    out.format("-- Returned:%n");
 			}
-		    }
-		    dump(cf);
+                    }
+                    pcf.dump(out);
+
 		} catch (ConfigurationException x) {
-		    fail("Unexpected exception: %s", x.getMessage());
+		    fail("Unexpected failure: %s", x.getMessage());
 		    return;
-		}
+                } catch (Throwable x) {
+                    fail("Unexpected exception: %s", x.getMessage());
+                    x.printStackTrace(out);
+                }
 	    } else {
 		try {
 		    go(mlib, root);
@@ -153,7 +168,7 @@ public class _Configurator {
 		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
+		cfbd.add(context("x@1").remote("+y"))
 		    .add(context("y@1"));
 	    }
 	};
@@ -178,8 +193,8 @@ public class _Configurator {
 		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("ll@1", "lc@1"));
+		cfbd.add(context("x@1").remote("+lc+ll"))
+		    .add(context("lc@1", "ll@1"));
 	    }
 	};
 
@@ -192,8 +207,8 @@ public class _Configurator {
 		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("ll@1", "lc@1", "lr@1"));
+		cfbd.add(context("x@1").remote("+lc+ll+lr"))
+		    .add(context("lc@1", "ll@1", "lr@1"));
 	    }
 	};
 
@@ -208,8 +223,8 @@ public class _Configurator {
 		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("ll@1", "lc@1", "lr@1", "lx@1"));
+		cfbd.add(context("x@1").remote("+lc+ll+lr+lx"))
+		    .add(context("lc@1", "ll@1", "lr@1", "lx@1"));
 	    }
 	};
 
@@ -224,10 +239,10 @@ public class _Configurator {
 		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("y@2"))
+		cfbd.add(context("x@1").remote("+w", "+y"))
+		    .add(context("y@2").remote("+z"))
 		    .add(context("z@4"))
-		    .add(context("w@4"));
+		    .add(context("w@4").remote("+z"));
 	    }
 	};
 
@@ -255,13 +270,13 @@ public class _Configurator {
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
 		cfbd.add(context("x@1")
-			 .local("x", "x.A").local("x", "x.B")
-			 .remote("y", "+y"))
+                         .remote("+y")
+			 .localClass("x.A", "x").localClass("x.B", "x")
+			 .remotePackage("y", "+y"))
 		    .add(context("y@1")
-			 .local("y", "y.D").local("y", "y.C"));
+			 .localClass("y.D", "y").localClass("y.C", "y"));
 	    }
 	};
-
 
         new Test("publicity", true) {
 	    String init(MockLibrary mlib) {
@@ -283,13 +298,21 @@ public class _Configurator {
 		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("z@1").local("z", "z.P").local("z", "z.O"))
-		    .add(context("y@1").local("y", "y.P").local("y", "y.O")
-			 .remote("w", "+w").remote("z", "+z"))
-		    .add(context("x@1").local("x", "x.O").local("x", "x.P")
-			 .remote("v", "+v").remote("z", "+z").remote("y", "+y"))
-		    .add(context("w@1").local("w", "w.P").local("w", "w.O"))
-		    .add(context("v@1").local("v", "v.O").local("v", "v.P"));
+		cfbd.add(context("z@1")
+                         .localClass("z.P", "z").localClass("z.O", "z"))
+		    .add(context("y@1")
+                         .remote("+w", "+z")
+                         .localClass("y.P", "y").localClass("y.O", "y")
+			 .remotePackage("w", "+w").remotePackage("z", "+z"))
+		    .add(context("x@1")
+                         .remote("+v", "+y", "+z")
+                         .localClass("x.O", "x").localClass("x.P", "x")
+			 .remotePackage("v", "+v").remotePackage("z", "+z")
+                         .remotePackage("y", "+y"))
+		    .add(context("w@1")
+                         .localClass("w.P", "w").localClass("w.O", "w"))
+		    .add(context("v@1")
+                         .localClass("v.O", "v").localClass("v.P", "v"));
 	    }
 	};
 
