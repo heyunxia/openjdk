@@ -42,6 +42,30 @@ public abstract class Library
     extends Catalog
 {
 
+    private static File systemLibraryPath = null;
+
+    /**
+     * <p> The system module library's path </p>
+     */
+    public static synchronized File systemLibraryPath() {
+        if (systemLibraryPath == null) {
+            systemLibraryPath
+                = new File(new File(System.getProperty("java.home"),
+                                    "lib"),
+                           "modules");
+        }
+        return systemLibraryPath;
+    }
+
+    /**
+     * <p> Open the system module library </p>
+     */
+    public static Library openSystemLibrary()
+        throws IOException
+    {
+        return SimpleLibrary.open(systemLibraryPath());
+    }
+
     private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
