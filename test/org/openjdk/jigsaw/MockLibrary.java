@@ -98,7 +98,7 @@ class MockLibrary
         return null;
     }
 
-    public List<ModuleId> listModuleIds(boolean parents) {
+    protected void gatherLocalModuleIds(String mn, Set<ModuleId> mids) {
 	throw new UnsupportedOperationException();
     }
 
@@ -121,7 +121,7 @@ class MockLibrary
 	return infoForId.get(mid);
     }
 
-    public byte[] readModuleInfoBytes(ModuleId mid) {
+    public byte[] readLocalModuleInfoBytes(ModuleId mid) {
 	throw new UnsupportedOperationException();
     }
 

@@ -31,18 +31,15 @@ import java.lang.module.*;
 
 final class Resolution {
 
-    final Library library;
-
     final ModuleIdQuery rootQuery;
 
     final Set<ModuleInfo> modules;
 
     final Map<String,ModuleInfo> moduleForName;
 
-    Resolution(Library lib, ModuleIdQuery rq,
+    Resolution(ModuleIdQuery rq,
                Set<ModuleInfo> mis, Map<String,ModuleInfo> mfn)
     {
-        library = lib;
         rootQuery = rq;
         modules = mis;
         moduleForName = mfn;

@@ -79,7 +79,7 @@ public class _Library {
 	// Enumerate
 	lib = SimpleLibrary.open(libPath);
 	int n = 0;
-        for (ModuleId mid : lib.listModuleIds(false)) {
+        for (ModuleId mid : lib.listLocalModuleIds()) {
             checkFooModuleInfo(lib.readModuleInfo(mid));
             n++;
         }

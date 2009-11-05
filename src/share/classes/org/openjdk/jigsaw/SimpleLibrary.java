@@ -38,6 +38,8 @@ import static org.openjdk.jigsaw.Trace.*;
  * @see Library
  */
 
+// ## TODO: Move remaining parent-searching logic upward into Library class
+
 // On-disk library layout
 //
 //   $LIB/%jigsaw-library
@@ -404,59 +406,41 @@ public final class SimpleLibrary
 
     }
 
-    public void gatherModuleIds(boolean parents, Set<ModuleId> mids)
+    private void gatherLocalModuleIds(File mnd, Set<ModuleId> mids)
+        throws IOException
+    {
+        if (!mnd.isDirectory())
+            throw new IOException(mnd + ": Not a directory");
+        if (!mnd.canRead())
+            throw new IOException(mnd + ": Not readable");
+        for (String v : mnd.list()) {
+            // ## Need a MS.parseModuleId(String, Version) method
+            mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
+        }
+    }
+
+    private void gatherLocalModuleIds(Set<ModuleId> mids)
         throws IOException
     {
         File[] mnds = root.listFiles();
-        Arrays.sort(mnds);
         for (File mnd : mnds) {
             if (mnd.getName().startsWith(FileConstants.META_PREFIX))
                 continue;
-            for (String v : mnd.list()) {
-                ModuleId mid = jms.parseModuleId(mnd.getName() + "@" + v);
-                mids.add(mid);
-            }
+            gatherLocalModuleIds(mnd, mids);
         }
-        if (parents && parent != null)
-            parent.gatherModuleIds(parents, mids);
     }
 
-    public List<ModuleId> listModuleIds(boolean parents)
+    protected void gatherLocalModuleIds(String moduleName,
+                                        Set<ModuleId> mids)
         throws IOException
     {
-        Set<ModuleId> mids = new HashSet<ModuleId>();
-        gatherModuleIds(parents, mids);
-        List<ModuleId> rv = new ArrayList<ModuleId>(mids);
-        Collections.sort(rv);
-        return rv;
-    }
-
-    private void gatherModuleIds(String moduleName, Set<ModuleId> mids)
-        throws IOException
-    {
+        if (moduleName == null) {
+            gatherLocalModuleIds(mids);
+            return;
+        }
         File mnd = new File(root, moduleName);
-        if (mnd.exists()) {
-            if (!mnd.isDirectory())
-                throw new IOException(mnd + ": Not a directory");
-            if (!mnd.canRead())
-                throw new IOException(mnd + ": Not readable");
-            for (String v : mnd.list()) {
-                // ## Need a MS.parseModuleId(String, Version) method
-                mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
-            }
-        }
-        if (parent != null)
-            parent.gatherModuleIds(moduleName, mids);
-    }
-
-    public List<ModuleId> findModuleIds(String moduleName)
-        throws IOException
-    {
-        ModuleSystem.checkModuleName(moduleName);
-        Set<ModuleId> mids = new HashSet<ModuleId>();
-        gatherModuleIds(moduleName, mids);
-        // ## Perhaps this method should return a set after all?
-        return new ArrayList<ModuleId>(mids);
+        if (mnd.exists())
+            gatherLocalModuleIds(mnd, mids);
     }
 
     private void checkModuleId(ModuleId mid) {
@@ -493,15 +477,12 @@ public final class SimpleLibrary
         return md;
     }
 
-    public byte[] readModuleInfoBytes(ModuleId mid)
+    public byte[] readLocalModuleInfoBytes(ModuleId mid)
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null) {
-            if (parent != null)
-                return parent.readModuleInfoBytes(mid);
+        if (md == null)
             return null;
-        }
         return Files.load(new File(md, "info"));
     }
 
@@ -700,7 +681,7 @@ public final class SimpleLibrary
         throws ConfigurationException, IOException
     {
         // ## mids not used yet
-        for (ModuleInfo mi : listRootModuleInfos()) {
+        for (ModuleInfo mi : listLocalRootModuleInfos()) {
             // ## We could be a lot more clever about this!
             Configuration<Context> cf
                 = Configurator.configure(this, mi.id().toQuery());

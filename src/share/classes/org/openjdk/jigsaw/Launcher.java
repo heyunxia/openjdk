@@ -80,7 +80,7 @@ public final class Launcher {
         try {
             ld = loadModule(ml, jms.parseModuleIdQuery(midqs));
         } catch (FileNotFoundException x) {
-            throw new Error(ml + ": No such library");
+            throw new Error(ml + ": No such library", x);
         } catch (IOException x) {
             Error y = new InternalError("Cannot create root module loader");
             y.initCause(x);

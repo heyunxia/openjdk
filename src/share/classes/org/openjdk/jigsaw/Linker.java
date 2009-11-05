@@ -79,9 +79,11 @@ final class Linker {
 
     }
 
+    private final Library lib;
     private final ContextSet<Context> cxs;
 
-    private Linker(ContextSet<Context> c) {
+    private Linker(Library l, ContextSet<Context> c) {
+        lib = l;
         cxs = c;
      }
 
@@ -116,7 +118,7 @@ final class Linker {
     {
         for (Context cx : cxs.contexts) {
             for (ModuleInfo mi : cx.moduleInfos) {
-                for (String cn : cxs.library.listClasses(mi.id(), true)) {
+                for (String cn : lib.listClasses(mi.id(), true)) {
                     ModuleId smid = cx.findModuleForLocalClass(cn);
                     if (smid != null) {
                         // ## Do something more clever here: It should be possible
@@ -195,7 +197,7 @@ final class Linker {
         // Prepare export and supplier sets
         for (Context cx : cxs.contexts) {
             for (ModuleInfo mi : cx.moduleInfos) {
-                for (String cn : cxs.library.listClasses(mi.id(), false)) {
+                for (String cn : lib.listClasses(mi.id(), false)) {
                     String pn = packageName(cn);
                     cx.packages.add(pn);
                     cx.exports.add(pn);
@@ -247,10 +249,10 @@ final class Linker {
     // Entry point
     //
     static Configuration<org.openjdk.jigsaw.Context>
-        run(ContextSet<Linker.Context> cxs)
+        run(Library lib, ContextSet<Linker.Context> cxs)
         throws ConfigurationException, IOException
     {
-        new Linker(cxs).run();
+        new Linker(lib, cxs).run();
         ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
         return new Configuration<>(root.id(),
                                    cxs.contexts,

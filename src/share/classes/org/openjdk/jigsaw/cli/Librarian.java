@@ -191,7 +191,9 @@ public class Librarian {
             finishArgs();
             int n = 0;
             try {
-                for (ModuleId mid : lib.listModuleIds(parents)) {
+                java.util.List<ModuleId> mids
+                    = parents ? lib.listModuleIds() : lib.listLocalModuleIds();
+                for (ModuleId mid : mids) {
                     if (midq != null && !midq.matches(mid))
                         continue;
                     ModuleInfo mi = lib.readModuleInfo(mid);

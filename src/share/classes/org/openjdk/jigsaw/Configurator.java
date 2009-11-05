@@ -119,11 +119,10 @@ public final class Configurator {
      * application library, a user library, and a system library. </p>
      *
      * @param   lib
-     *          The {@linkplain Library module library} against which
-     *          dependences will be resolved
+     *          The {@link Library} against which dependences will be resolved
      *
      * @param   rootQuery
-     *          A {@linkplain java.lang.module.ModuleIdQuery module-id query}
+     *          A {@linkplain java.lang.module.ModuleIdQuery ModuleIdQuery}
      *          describing the desired root module
      *
      * @throws  ConfigurationException
@@ -132,7 +131,7 @@ public final class Configurator {
      * @throws  IOException
      *          If an I/O error occurs while accessing the module library
      *
-     * @return  The resulting {@linkplain Configuration configuration}
+     * @return  The resulting {@link Configuration}
      */
     public static Configuration<Context>
         configure(Library lib, ModuleIdQuery rootQuery)
@@ -155,7 +154,7 @@ public final class Configurator {
                                      }});
 
         // 3 & 4. Link local and remote suppliers
-        Configuration<Context> cf = Linker.run(cxs);
+        Configuration<Context> cf = Linker.run(lib, cxs);
 
         if (tracing) {
             ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
@@ -170,20 +169,21 @@ public final class Configurator {
 
     /**
      * <p> Compute a path-based {@linkplain Configuration configuration} for a
-     * root module in a given {@linkplain Library module library}. </p>
+     * root module in a given {@link Catalog}. </p>
      *
      * <p> The configuration root is specified in the form of a {@linkplain
      * java.lang.module.ModuleIdQuery module-id query}.  If more than one
      * module in the given library satisfies the query then the most recent
      * version will be used. </p>
      *
-     * <p> A Java compiler can't use the full configuration algorithm because
-     * it can't determine, at the start of an invocation, exactly which classes
-     * are going to be processed, <i>i.e.</i>, either compiled anew or read in
-     * from the output directory of a previous invocation. </p>
+     * <p> A Java compiler can't use the full library-based configuration
+     * algorithm because it can't determine, at the start of an invocation,
+     * exactly which classes are going to be processed, <i>i.e.</i>, either
+     * compiled anew or read in from the output directory of a previous
+     * invocation. </p>
      *
      * <p> A compiler can, however, determine exactly which module-info files
-     * will be processed.  For compile-time we therefore use an alternative
+     * will be processed.  At compile-time we therefore use an alternative
      * version of phase 3 which uses a dominator algorithm to compute a linear
      * ordering of the modules in a context.  This ordering guarantees that if
      * there is any shadowing of a class amongst the modules then the module
@@ -191,14 +191,14 @@ public final class Configurator {
      * others.  We also use a simpler version of phase 4 which computes remote
      * contexts rather than maps from package names to contexts. </p>
      *
-     * <p> The use of different algorithms at compile time vs. configuration
-     * time does admit slightly different outcomes.  If a type has multiple
-     * definitions in a context but no dominant definition then at compile time
-     * an arbitrary definition will be visible but at install time an error
-     * will be reported.  This is unfortunate but acceptable; it's somewhat
-     * akin to the {@linkplain java.lang.LinkageError class-linkage errors}
-     * which can occur when classes change incompatibly, and is likely to be
-     * encountered mainly by advanced developers. </p>
+     * <p> The use of different algorithms at compile time <it>vs.</it>
+     * configuration time does admit slightly different outcomes.  If a type
+     * has multiple definitions in a context but no dominant definition then at
+     * compile time an arbitrary definition will be visible but at install time
+     * an error will be reported.  This is unfortunate but acceptable; it's
+     * somewhat akin to the {@linkplain java.lang.LinkageError class-linkage
+     * errors} which can occur when classes change incompatibly, and is likely
+     * to be encountered mainly by advanced developers. </p>
      * 
      * @param   lib
      *          The {@linkplain Library module library} against which
@@ -217,16 +217,16 @@ public final class Configurator {
      * @return  The resulting {@linkplain Configuration configuration}
      */
     public static Configuration<PathContext>
-        configurePaths(Library lib, ModuleIdQuery rootQuery)
+        configurePaths(Catalog cat, ModuleIdQuery rootQuery)
         throws ConfigurationException, IOException
     {
 
         if (tracing)
-            trace(0, "Path-configuring %s using library %s",
-                  rootQuery, lib.name());
+            trace(0, "Path-configuring %s using catalog %s",
+                  rootQuery, cat.name());
 
         // 1. Resolve versions
-        Resolution res = Resolver.run(lib, rootQuery);
+        Resolution res = Resolver.run(cat, rootQuery);
 
         // 2. Construct contexts
         ContextSet<PathContext> cxs

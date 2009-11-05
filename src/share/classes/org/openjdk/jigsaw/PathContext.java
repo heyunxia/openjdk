@@ -41,7 +41,7 @@ public class PathContext
     implements LinkingContext
 {
 
-    protected PathContext() { }         // Needed by PathConfigurator
+    protected PathContext() { }
 
     // The ModuleInfos of the modules in this context
     //

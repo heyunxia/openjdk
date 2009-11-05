@@ -62,11 +62,11 @@ final class Resolver {
     //
     // Prefixes: 'r' for a requesting module, 's' for a supplying module
 
-    private final Library lib;
+    private final Catalog cat;
     private ModuleIdQuery rootQuery;
 
-    private Resolver(Library l, ModuleIdQuery rq) {
-        lib = l;
+    private Resolver(Catalog c, ModuleIdQuery rq) {
+        cat = c;
         rootQuery = rq;
     }
 
@@ -163,7 +163,7 @@ final class Resolver {
         // No resolved module of this name yet, so go try to find one.
         // We prefer newer versions to older versions.
         //
-        List<ModuleId> candidates = lib.findModuleIds(mn);
+        List<ModuleId> candidates = cat.findModuleIds(mn);
         Collections.sort(candidates, Collections.reverseOrder());
         for (ModuleId mid : candidates) {
             if (!dep.query().matches(mid))
@@ -192,7 +192,7 @@ final class Resolver {
         assert dep.query().matches(mid);
         assert moduleForName.get(mid.name()) == null;
 
-        ModuleInfo mi = lib.readModuleInfo(mid);
+        ModuleInfo mi = cat.readModuleInfo(mid);
         Platform.adjustPlatformDependences(mi);
 
         // Check this module's permits constraints
@@ -245,13 +245,13 @@ final class Resolver {
 
     // Entry point
     //
-    static Resolution run(Library lib, ModuleIdQuery rootQuery)
+    static Resolution run(Catalog cat, ModuleIdQuery rootQuery)
         throws ConfigurationException, IOException
     {
-        Resolver r = new Resolver(lib, rootQuery);
+        Resolver r = new Resolver(cat, rootQuery);
         if (!r.run())
             fail("%s: Cannot resolve", rootQuery);
-        return new Resolution(lib, rootQuery, r.modules, r.moduleForName);
+        return new Resolution(rootQuery, r.modules, r.moduleForName);
     }
 
 }
