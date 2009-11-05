@@ -23,8 +23,4 @@
  * have any questions.
  */
 
-/**
- * @new
- */
-
 package org.openjdk.jigsaw;

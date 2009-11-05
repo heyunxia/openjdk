@@ -23,8 +23,5 @@
  * have any questions.
  */
 
-/**
- * @new
- */
 
 package java.lang.module;

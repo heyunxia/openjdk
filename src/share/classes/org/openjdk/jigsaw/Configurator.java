@@ -121,9 +121,9 @@ public final class Configurator {
      * @param   lib
      *          The {@link Library} against which dependences will be resolved
      *
-     * @param   rootQuery
-     *          A {@linkplain java.lang.module.ModuleIdQuery ModuleIdQuery}
-     *          describing the desired root module
+     * @param   rootQueries
+     *          A collection of {@linkplain java.lang.module.ModuleIdQuery
+     *          ModuleIdQuerys} describing the desired root modules
      *
      * @throws  ConfigurationException
      *          If a valid configuration cannot be computed
@@ -209,13 +209,13 @@ public final class Configurator {
      * errors} which can occur when classes change incompatibly, and is likely
      * to be encountered mainly by advanced developers. </p>
      * 
-     * @param   lib
-     *          The {@linkplain Library module library} against which
+     * @param   cat
+     *          The {@linkplain Catalog module catalog} against which
      *          dependences will be resolved
      *
-     * @param   rootQuery
-     *          A {@linkplain java.lang.module.ModuleIdQuery module-id query}
-     *          describing the desired root module
+     * @param   rootQueries
+     *          A collection of {@linkplain java.lang.module.ModuleIdQuery
+     *          ModuleIdQuerys} describing the desired root modules
      *
      * @throws  ConfigurationException
      *          If a valid configuration cannot be computed
