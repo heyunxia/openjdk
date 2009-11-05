@@ -253,8 +253,10 @@ final class Linker {
         throws ConfigurationException, IOException
     {
         new Linker(lib, cxs).run();
-        ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
-        return new Configuration<>(root.id(),
+        List<ModuleId> rids = new ArrayList<>();
+        for (ModuleIdQuery rq : cxs.rootQueries)
+            rids.add(cxs.moduleForName.get(rq.name()).id());
+        return new Configuration<>(rids,
                                    cxs.contexts,
                                    cxs.contextForModule);
     }

@@ -34,7 +34,7 @@ public class ConfigurationBuilder {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
-    private ModuleId root;
+    private List<ModuleId> roots = new ArrayList<>();
 
     private Set<Context> contexts = new HashSet<>();
     private Map<String,Context> contextForModule = new HashMap<>();
@@ -42,12 +42,13 @@ public class ConfigurationBuilder {
     private Set<PathContext> pathContexts = new HashSet<>();
     private Map<String,PathContext> pathContextForModule = new HashMap<>();
 
-    private ConfigurationBuilder(String rmid) {
-	root = jms.parseModuleId(rmid);
+    private ConfigurationBuilder(String[] rmids) {
+        for (String s : rmids)
+            roots.add(jms.parseModuleId(s));
     }
 
-    public static ConfigurationBuilder config(String rmid) {
-	return new ConfigurationBuilder(rmid);
+    public static ConfigurationBuilder config(String ... rmids) {
+	return new ConfigurationBuilder(rmids);
     }
 
     public ConfigurationBuilder add(ContextBuilder cb) {
@@ -63,12 +64,12 @@ public class ConfigurationBuilder {
     }
 
     public Configuration<Context> build() {
-	return new Configuration<>(root, contexts, contextForModule);
+	return new Configuration<>(roots, contexts, contextForModule);
     }
 
     public Configuration<PathContext> buildPath() {
         Configuration<PathContext> cf
-            = new Configuration<>(root, pathContexts, pathContextForModule);
+            = new Configuration<>(roots, pathContexts, pathContextForModule);
         for (PathContext pcx : pathContexts)
             ((ContextBuilder.MockPathContext)pcx).linkRemoteContexts(cf);
         return cf;

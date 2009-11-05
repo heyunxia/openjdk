@@ -147,7 +147,8 @@ public class _Library {
 	// Load configuration
 	Configuration<Context> cf = lib.readConfiguration(foomid);
 	cf.dump(System.out);
-	eq(foomid, cf.root());
+        eq(cf.roots().size(), 1);
+	eq(foomid, cf.roots().iterator().next());
 	eq(cf.contexts().size(), 2);
 	Context cx = cf.getContext("+com.foo.bar");
         //ModuleId jdkmid = ms.parseModuleId("jdk@7-ea");
@@ -168,7 +169,8 @@ public class _Library {
 	// Then check its configuration
 	cf = lib.readConfiguration(ms.parseModuleId("net.baz.aar@9"));
 	cf.dump(System.out);
-	eq(bazmid, cf.root());
+        eq(cf.roots().size(), 1);
+	eq(bazmid, cf.roots().iterator().next());
 	eq(cf.contexts().size(), 3);
 	int cb = 0;
 	for (Context dx : cf.contexts()) {

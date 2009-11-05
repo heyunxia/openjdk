@@ -176,10 +176,12 @@ final class ContextBuilder<Cx extends BaseContext> {
         run(Resolution res, ContextFactory<Cx> cxf)
     {
 
-        assert res.moduleForName.get(res.rootQuery.name()) != null;
+        for (ModuleIdQuery rq : res.rootQueries)
+            assert res.moduleForName.get(rq.name()) != null : rq;
         ContextBuilder<Cx> cb = new ContextBuilder<Cx>(res, cxf);
         cb.run();
-        assert cb.contextForModule.get(res.rootQuery.name()) != null;
+        for (ModuleIdQuery rq : res.rootQueries)
+            assert cb.contextForModule.get(rq.name()) != null : rq;
 
         // Rehash the contexts so that the resulting ContextSet
         // doesn't contain an IdentityHashSet

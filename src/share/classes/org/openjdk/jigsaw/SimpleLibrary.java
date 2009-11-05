@@ -336,7 +336,8 @@ public final class SimpleLibrary
         protected void storeRest(DataOutputStream out)
             throws IOException
         {
-            out.writeUTF(cf.root().toString());
+            assert cf.roots().size() == 1;
+            out.writeUTF(cf.roots().iterator().next().toString());
             // Contexts
             out.writeInt(cf.contexts().size());
             for (Context cx : cf.contexts()) {

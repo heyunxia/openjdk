@@ -94,9 +94,13 @@ public class PathContext
         if (!(ob instanceof PathContext))
             return false;
         PathContext that = (PathContext)ob;
-        return (super.equals(that)
-                && localPath.equals(that.localPath)
-                && suppliers.equals(that.suppliers));
+        if (!super.equals(that))
+            return false;
+        if (!localPath.equals(that.localPath))
+            return false;
+        if (!suppliers.equals(that.suppliers)) // ## Can't cope with cycles!
+            return false;
+        return true;
     }
 
 }

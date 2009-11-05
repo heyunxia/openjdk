@@ -53,11 +53,11 @@ public abstract class Library
     public abstract Library parent();
 
     /**
-     * <p> List all of the root modules installed in this catalog.  A root module
-     * is any module that declares a main class. </p>
+     * <p> List all of the root modules installed in this library.  A root
+     * module is any module that declares a main class. </p>
      *
      * <p> This method does not include root modules installed in this
-     * catalog's parent, if any. </p>
+     * library's parent, if any. </p>
      *
      * @return  An unsorted list of module-info objects
      */

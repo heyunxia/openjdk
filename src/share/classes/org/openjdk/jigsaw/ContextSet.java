@@ -31,7 +31,7 @@ import java.lang.module.*;
 
 final class ContextSet<Cx extends BaseContext> {
 
-    final ModuleIdQuery rootQuery;
+    final Collection<ModuleIdQuery> rootQueries;
 
     final Set<ModuleInfo> modules;
 
@@ -42,7 +42,7 @@ final class ContextSet<Cx extends BaseContext> {
     final Map<String,Cx> contextForModule;
 
     ContextSet(Resolution res, Set<Cx> cxs, Map<String,Cx> cxfm) {
-        rootQuery = res.rootQuery;
+        rootQueries = res.rootQueries;
         modules = res.modules;
         moduleForName = res.moduleForName;
         contexts = cxs;

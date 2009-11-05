@@ -63,11 +63,11 @@ final class Resolver {
     // Prefixes: 'r' for a requesting module, 's' for a supplying module
 
     private final Catalog cat;
-    private ModuleIdQuery rootQuery;
+    private Collection<ModuleIdQuery> rootQueries;
 
-    private Resolver(Catalog c, ModuleIdQuery rq) {
+    private Resolver(Catalog c, Collection<ModuleIdQuery> rqs) {
         cat = c;
-        rootQuery = rq;
+        rootQueries = rqs;
     }
 
     private Set<ModuleInfo> modules = new HashSet<ModuleInfo>();
@@ -238,20 +238,27 @@ final class Resolver {
     private boolean run()
         throws IOException
     {
-        Dependence dep = new Dependence(EnumSet.noneOf(Modifier.class),
-                                        rootQuery);
-        return resolve(0, new Choice(null, dep,  null));
+        Choice ch = null;
+        for (ModuleIdQuery midq : rootQueries) {
+            Dependence dep = new Dependence(EnumSet.noneOf(Modifier.class),
+                                            midq);
+            ch = new Choice(null, dep,  ch);
+        }
+        return resolve(0, ch);
     }
 
     // Entry point
     //
-    static Resolution run(Catalog cat, ModuleIdQuery rootQuery)
+    static Resolution run(Catalog cat, Collection<ModuleIdQuery> rootQueries)
         throws ConfigurationException, IOException
     {
-        Resolver r = new Resolver(cat, rootQuery);
+        Resolver r = new Resolver(cat, rootQueries);
         if (!r.run())
-            fail("%s: Cannot resolve", rootQuery);
-        return new Resolution(rootQuery, r.modules, r.moduleForName);
+            fail("%s: Cannot resolve",
+                 (rootQueries.size() == 1
+                  ? rootQueries.iterator().next()
+                  : rootQueries));
+        return new Resolution(rootQueries, r.modules, r.moduleForName);
     }
 
 }

@@ -46,12 +46,12 @@ import java.util.*;
 
 public final class Configuration<Cx extends BaseContext> {
 
-    private final ModuleId root;
+    private final Set<ModuleId> roots;
 
     /**
-     * Return the root module of this configuration.
+     * Return the root modules of this configuration.
      */
-    public ModuleId root() { return root; }
+    public Set<ModuleId> roots() { return roots; }
 
     private Set<Cx> contexts;
     private Map<String,Cx> contextForName;
@@ -121,11 +121,11 @@ public final class Configuration<Cx extends BaseContext> {
      * Construct a new configuration from an existing context set and
      * module-name-to-context map.
      */
-    public Configuration(ModuleId root,
+    public Configuration(Collection<ModuleId> roots,
                          Set<? extends Cx> contexts,
                          Map<String,? extends Cx> contextForModule)
     {
-        this.root = root;
+        this.roots = new HashSet<>(roots);
         this.contexts = new HashSet<Cx>(contexts);
         this.contextForModule = new HashMap<String,Cx>(contextForModule);
         this.contextForName = new HashMap<String,Cx>();
@@ -138,7 +138,7 @@ public final class Configuration<Cx extends BaseContext> {
      * Construct a new, empty configuration for the given root module.
      */
     public Configuration(ModuleId root) {
-        this.root = root;
+        this.roots = Collections.singleton(root);
         this.contexts = new HashSet<Cx>();
         this.contextForModule = new HashMap<String,Cx>();
         this.contextForName = new HashMap<String,Cx>();
@@ -183,8 +183,8 @@ public final class Configuration<Cx extends BaseContext> {
      */
     public void dump(PrintStream out) {
         boolean isPath = contexts().iterator().next() instanceof PathContext;
-        out.format("%sconfiguration root = %s%n",
-                   isPath ? "path " : "", root());
+        out.format("%sconfiguration roots = %s%n",
+                   isPath ? "path " : "", roots());
         for (Cx cx : contexts()) {
             out.format("  context %s %s%n", cx, cx.modules());
             if (Platform.isPlatformContext(cx))
@@ -197,7 +197,7 @@ public final class Configuration<Cx extends BaseContext> {
     }
 
     public int hashCode() {
-        int hc = root.hashCode();
+        int hc = roots.hashCode();
         hc = hc * 43 + contexts.hashCode();
         hc = hc * 43 + contextForModule.hashCode();
         return hc;
@@ -207,7 +207,7 @@ public final class Configuration<Cx extends BaseContext> {
         if (!(ob instanceof Configuration))
             return false;
         Configuration that = (Configuration)ob;
-        return (root.equals(that.root)
+        return (roots.equals(that.roots)
                 && contexts.equals(that.contexts)
                 && contextForModule.equals(that.contextForModule));
     }

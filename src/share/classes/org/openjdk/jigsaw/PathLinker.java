@@ -198,8 +198,10 @@ final class PathLinker {
             cx.suppliers = Collections.unmodifiableSet(new HashSet<PathContext>(cx.suppliers));
         }
 
-        ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
-        return new Configuration<>(root.id(),
+        List<ModuleId> rids = new ArrayList<>();
+        for (ModuleIdQuery rq : cxs.rootQueries)
+            rids.add(cxs.moduleForName.get(rq.name()).id());
+        return new Configuration<>(rids,
                                    cxs.contexts,
                                    cxs.contextForModule);
 

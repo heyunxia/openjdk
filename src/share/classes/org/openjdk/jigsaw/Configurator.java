@@ -134,16 +134,16 @@ public final class Configurator {
      * @return  The resulting {@link Configuration}
      */
     public static Configuration<Context>
-        configure(Library lib, ModuleIdQuery rootQuery)
+        configure(Library lib, Collection<ModuleIdQuery> rootQueries)
         throws ConfigurationException, IOException
     {
 
         if (tracing)
             trace(0, "Configuring %s using library %s",
-                  rootQuery, lib.name());
+                  rootQueries, lib.name());
 
         // 1. Resolve versions
-        Resolution res = Resolver.run(lib, rootQuery);
+        Resolution res = Resolver.run(lib, rootQueries);
 
         // 2. Construct contexts
         ContextSet<Linker.Context> cxs
@@ -157,14 +157,23 @@ public final class Configurator {
         Configuration<Context> cf = Linker.run(lib, cxs);
 
         if (tracing) {
-            ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
-            trace(0, "Configured %s", root.id());
+            List<ModuleId> rids = new ArrayList<>();
+            for (ModuleIdQuery midq : rootQueries)
+                rids.add(cxs.moduleForName.get(midq.name()).id());
+            trace(0, "Configured for %s", rids);
             if (traceLevel >= 3)
                 cf.dump(System.out);
         }
 
         return cf;
 
+    }
+
+    public static Configuration<Context>
+        configure(Library lib, ModuleIdQuery rootQuery)
+        throws ConfigurationException, IOException
+    {
+        return configure(lib, Collections.singleton(rootQuery));
     }
 
     /**
@@ -217,16 +226,16 @@ public final class Configurator {
      * @return  The resulting {@linkplain Configuration configuration}
      */
     public static Configuration<PathContext>
-        configurePaths(Catalog cat, ModuleIdQuery rootQuery)
+        configurePaths(Catalog cat, Collection<ModuleIdQuery> rootQueries)
         throws ConfigurationException, IOException
     {
 
         if (tracing)
             trace(0, "Path-configuring %s using catalog %s",
-                  rootQuery, cat.name());
+                  rootQueries, cat.name());
 
         // 1. Resolve versions
-        Resolution res = Resolver.run(cat, rootQuery);
+        Resolution res = Resolver.run(cat, rootQueries);
 
         // 2. Construct contexts
         ContextSet<PathContext> cxs
@@ -240,8 +249,10 @@ public final class Configurator {
         Configuration<PathContext> cf = PathLinker.run(cxs);
 
         if (tracing) {
-            ModuleInfo root = cxs.moduleForName.get(cxs.rootQuery.name());
-            trace(0, "Configured paths for %s", root.id());
+            List<ModuleId> rids = new ArrayList<>();
+            for (ModuleIdQuery midq : rootQueries)
+                rids.add(cxs.moduleForName.get(midq.name()).id());
+            trace(0, "Configured paths for %s", rids);
             if (traceLevel >= 3)
                 cf.dump(System.out);
         }
