@@ -20,8 +20,24 @@
  *
  * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
  * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * have any questions.30
  */
 
+package org.openjdk.jigsaw;
 
-package java.lang.module;
+import java.util.*;
+import java.lang.module.*;
+
+
+/**
+ * Contexts used during linking always have a full set of
+ * {@linkplain java.lang.module.ModuleInfo module-info} objects.
+ */
+
+interface LinkingContext {
+
+    // The ModuleInfos of the modules in this context
+    //
+    public Set<ModuleInfo> moduleInfos();
+
+}

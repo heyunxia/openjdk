@@ -29,6 +29,8 @@ import java.lang.module.*;
 import java.io.*;
 import java.util.*;
 
+import static org.openjdk.jigsaw.Trace.*;
+
 
 /**
  * The abstract base class for module libraries
@@ -36,72 +38,58 @@ import java.util.*;
  * @see SimpleLibrary
  */
 
-public abstract class Library {
+public abstract class Library
+    extends Catalog
+{
+
+    private static File systemLibraryPath = null;
+
+    /**
+     * <p> The system module library's path </p>
+     */
+    public static synchronized File systemLibraryPath() {
+        if (systemLibraryPath == null) {
+            systemLibraryPath
+                = new File(new File(System.getProperty("java.home"),
+                                    "lib"),
+                           "modules");
+        }
+        return systemLibraryPath;
+    }
+
+    /**
+     * <p> Open the system module library </p>
+     */
+    public static Library openSystemLibrary()
+        throws IOException
+    {
+        return SimpleLibrary.open(systemLibraryPath());
+    }
 
     private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
     protected Library() { }
 
-    /**
-     * This library's name, not guaranteed to be unique.
-     */
-    public abstract String name();
-
     public abstract int majorVersion();
     public abstract int minorVersion();
 
-    /**
-     * <p> This library's parent library, for delegation </p>
-     *
-     * <p> If a library has a parent then every module in the parent library
-     * that is not also present in the child appears to be in the child, except
-     * that it cannot be installed, uninstalled, or configured.  This property
-     * is recursive: A library may have a parent which in turn has a parent,
-     * which would be the first library's grandparent, and so on. </p>
-     *
-     * <p> When searching for modules the child library is always considered
-     * first; this is the opposite of the old class-loader delegation
-     * model. </p>
-     *
-     * @return  This library's parent library, or {@code null}
-     *          if it has no parent
-     */
     public abstract Library parent();
 
     /**
-     * <p> List all of the modules installed in this library, optionally
-     * including the modules installed in this library's parent if it has
-     * one. </p>
-     *
-     * @param   listParents
-     *          Whether or not modules installed in this library's parent,
-     *          if defined, should be included
-     *
-     * @param   visitor
-     *          The visitor to be applied to each {@link
-     *          java.lang.module.ModuleInfo ModuleInfo}
-     *
-     * @return  The list of requested module ids, sorted in their natural
-     *          order
-     */
-    public abstract List<ModuleId> listModuleIds(boolean listParents)
-        throws IOException;
-
-    /**
-     * <p> List all of the root modules installed in this library.  A root module
-     * is any module that declares a main class. </p>
+     * <p> List all of the root modules installed in this library.  A root
+     * module is any module that declares a main class. </p>
      *
      * <p> This method does not include root modules installed in this
      * library's parent, if any. </p>
      *
      * @return  An unsorted list of module-info objects
      */
-    public List<ModuleInfo> listRootModuleInfos()
+    public List<ModuleInfo> listLocalRootModuleInfos()
         throws IOException
     {
         final List<ModuleInfo> mis = new ArrayList<ModuleInfo>();
-        for (ModuleId mid : listModuleIds(false)) {
+        for (ModuleId mid : listLocalModuleIds()) {
             ModuleInfo mi = readModuleInfo(mid);
             if (mi.mainClass() != null)
                 mis.add(mi);
@@ -110,75 +98,8 @@ public abstract class Library {
     }
 
     /**
-     * Find all modules with the given name in this library.
-     *
-     * @param   moduleName
-     *          The name of the modules being sought
-     *
-     * @return  An unsorted list containing the module identifiers of the
-     *          found modules; if no modules were found then the list will
-     *          be empty
-     */
-    public abstract List<ModuleId> findModuleIds(String moduleName)
-        throws IOException;
-
-    /**
-     * Find all modules matching the given query in this library.
-     *
-     * @param   midq
-     *          The query to match against
-     *
-     * @return  An unsorted list containing the module identifiers of the
-     *          found modules; if no modules were found then the list will
-     *          be empty
-     *
-     * @throws  IllegalArgumentException
-     *          If the given module-identifier query is not a Jigsaw
-     *          module-identifier query
-     */
-    public List<ModuleId> findModuleIds(ModuleIdQuery midq)
-        throws IOException
-    {
-        List<ModuleId> ans = findModuleIds(midq.name());
-        if (ans.isEmpty() || midq.versionQuery() == null)
-            return ans;
-        for (Iterator<ModuleId> i = ans.iterator(); i.hasNext();) {
-            ModuleId mid = i.next();
-            if (!midq.matches(mid))
-                i.remove();
-        }
-        return ans;
-    }
-
-    /**
-     * Find the most recently-versioned module matching the given query in this
-     * library.
-     *
-     * @param   midq
-     *          The query to match against
-     *
-     * @return  The identification of the latest module matching the given
-     *          query, or {@code null} if none is found
-     *
-     * @throws  IllegalArgumentException
-     *          If the given module-identifier query is not a Jigsaw
-     *          module-identifier query
-     */
-    public ModuleId findLatestModuleId(ModuleIdQuery midq)
-        throws IOException
-    {
-        List<ModuleId> mids = findModuleIds(midq);
-        if (mids.isEmpty())
-            return null;
-        if (mids.size() == 1)
-            return mids.get(0);
-        Collections.sort(mids);
-        return mids.get(0);
-    }
-
-    /**
-     * Read the module-info class bytes for the module with the given
-     * identifier.
+     * <p> Read the module-info class bytes for the module with the given
+     * identifier, from this library only. </p>
      *
      * @param   mid
      *          The identifier of the module being sought
@@ -191,30 +112,29 @@ public abstract class Library {
      *          If the given module identifier is not a Jigsaw module
      *          identifier
      */
-    public abstract byte[] readModuleInfoBytes(ModuleId mid)
+    protected abstract byte[] readLocalModuleInfoBytes(ModuleId mid)
         throws IOException;
 
-    /**
-     * Find the {@link java.lang.module.ModuleInfo ModuleInfo} object for the
-     * module with the given identifier.
-     *
-     * @param   mid
-     *          The identifier of the module being sought
-     *
-     * @return  The requested {@link java.lang.module.ModuleInfo ModuleInfo},
-     *          or {@code null} if no such module is present in this library
-     *
-     * @throws  IllegalArgumentException
-     *          If the given module identifier is not a Jigsaw module
-     *          identifier
-     */
-    public ModuleInfo readModuleInfo(ModuleId mid)
+    public byte[] readModuleInfoBytes(ModuleId mid)
         throws IOException
     {
-        byte[] bs = readModuleInfoBytes(mid);
-        if (bs == null)
-            return null;
-        return jms.parseModuleInfo(bs);
+        Library lib = this;
+        while (lib != null) {
+            byte[] bs = lib.readLocalModuleInfoBytes(mid);
+            if (bs != null)
+                return bs;
+            lib = lib.parent();
+        }
+        return null;
+    }
+
+    public ModuleInfo readLocalModuleInfo(ModuleId mid)
+        throws IOException
+    {
+        byte[] bs = readLocalModuleInfoBytes(mid);
+        if (bs != null)
+            return jms.parseModuleInfo(bs);
+        return null;
     }
 
     /**
@@ -257,7 +177,7 @@ public abstract class Library {
         throws IOException;
 
     /**
-     * Read the {@link Configuration} of the named module.
+     * Read the stored {@link Configuration} of the named module.
      *
      * @param   mid
      *          The module's identifier
@@ -269,7 +189,7 @@ public abstract class Library {
      *          If the given module identifier is not a Jigsaw module
      *          identifier
      */
-    public abstract Configuration readConfiguration(ModuleId mid)
+    public abstract Configuration<Context> readConfiguration(ModuleId mid)
         throws IOException;
 
     /**

@@ -38,6 +38,8 @@ import static org.openjdk.jigsaw.Trace.*;
  * @see Library
  */
 
+// ## TODO: Move remaining parent-searching logic upward into Library class
+
 // On-disk library layout
 //
 //   $LIB/%jigsaw-library
@@ -317,13 +319,13 @@ public final class SimpleLibrary
         private static int MAJOR_VERSION = 0;
         private static int MINOR_VERSION = 1;
 
-        private Configuration cf;
+        private Configuration<Context> cf;
 
         private static void delete(File root) {
             new File(root, FILE).delete();
         }
 
-        private StoredConfiguration(File root, Configuration conf)
+        private StoredConfiguration(File root, Configuration<Context> conf)
         {
             super(MAJOR_VERSION, MINOR_VERSION,
                   FileConstants.Type.LIBRARY_MODULE_CONFIG,
@@ -334,7 +336,8 @@ public final class SimpleLibrary
         protected void storeRest(DataOutputStream out)
             throws IOException
         {
-            out.writeUTF(cf.root().toString());
+            assert cf.roots().size() == 1;
+            out.writeUTF(cf.roots().iterator().next().toString());
             // Contexts
             out.writeInt(cf.contexts().size());
             for (Context cx : cf.contexts()) {
@@ -365,13 +368,12 @@ public final class SimpleLibrary
         {
             String root = in.readUTF();
             ModuleId rmid = jms.parseModuleId(root);
-            cf = new Configuration(rmid);
+            cf = new Configuration<Context>(rmid);
             // Contexts
             int nContexts = in.readInt();
             for (int i = 0; i < nContexts; i++) {
                 Context cx = new Context();
-                cx.freeze(in.readUTF());
-                cf.add(cx);
+                String cxn = in.readUTF();
                 // Module ids
                 int nModules = in.readInt();
                 for (int j = 0; j < nModules; j++) {
@@ -379,6 +381,9 @@ public final class SimpleLibrary
                     cx.add(mid);
                     cf.put(mid.name(), cx);
                 }
+                cx.freeze();
+                assert cx.name().equals(cxn);
+                cf.add(cx);
                 // Local class map
                 int nClasses = in.readInt();
                 for (int j = 0; j < nClasses; j++)
@@ -402,59 +407,41 @@ public final class SimpleLibrary
 
     }
 
-    public void gatherModuleIds(boolean parents, Set<ModuleId> mids)
+    private void gatherLocalModuleIds(File mnd, Set<ModuleId> mids)
+        throws IOException
+    {
+        if (!mnd.isDirectory())
+            throw new IOException(mnd + ": Not a directory");
+        if (!mnd.canRead())
+            throw new IOException(mnd + ": Not readable");
+        for (String v : mnd.list()) {
+            // ## Need a MS.parseModuleId(String, Version) method
+            mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
+        }
+    }
+
+    private void gatherLocalModuleIds(Set<ModuleId> mids)
         throws IOException
     {
         File[] mnds = root.listFiles();
-        Arrays.sort(mnds);
         for (File mnd : mnds) {
             if (mnd.getName().startsWith(FileConstants.META_PREFIX))
                 continue;
-            for (String v : mnd.list()) {
-                ModuleId mid = jms.parseModuleId(mnd.getName() + "@" + v);
-                mids.add(mid);
-            }
+            gatherLocalModuleIds(mnd, mids);
         }
-        if (parents && parent != null)
-            parent.gatherModuleIds(parents, mids);
     }
 
-    public List<ModuleId> listModuleIds(boolean parents)
+    protected void gatherLocalModuleIds(String moduleName,
+                                        Set<ModuleId> mids)
         throws IOException
     {
-        Set<ModuleId> mids = new HashSet<ModuleId>();
-        gatherModuleIds(parents, mids);
-        List<ModuleId> rv = new ArrayList<ModuleId>(mids);
-        Collections.sort(rv);
-        return rv;
-    }
-
-    private void gatherModuleIds(String moduleName, Set<ModuleId> mids)
-        throws IOException
-    {
+        if (moduleName == null) {
+            gatherLocalModuleIds(mids);
+            return;
+        }
         File mnd = new File(root, moduleName);
-        if (mnd.exists()) {
-            if (!mnd.isDirectory())
-                throw new IOException(mnd + ": Not a directory");
-            if (!mnd.canRead())
-                throw new IOException(mnd + ": Not readable");
-            for (String v : mnd.list()) {
-                // ## Need a MS.parseModuleId(String, Version) method
-                mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
-            }
-        }
-        if (parent != null)
-            parent.gatherModuleIds(moduleName, mids);
-    }
-
-    public List<ModuleId> findModuleIds(String moduleName)
-        throws IOException
-    {
-        ModuleSystem.checkModuleName(moduleName);
-        Set<ModuleId> mids = new HashSet<ModuleId>();
-        gatherModuleIds(moduleName, mids);
-        // ## Perhaps this method should return a set after all?
-        return new ArrayList<ModuleId>(mids);
+        if (mnd.exists())
+            gatherLocalModuleIds(mnd, mids);
     }
 
     private void checkModuleId(ModuleId mid) {
@@ -491,15 +478,12 @@ public final class SimpleLibrary
         return md;
     }
 
-    public byte[] readModuleInfoBytes(ModuleId mid)
+    public byte[] readLocalModuleInfoBytes(ModuleId mid)
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null) {
-            if (parent != null)
-                return parent.readModuleInfoBytes(mid);
+        if (md == null)
             return null;
-        }
         return Files.load(new File(md, "info"));
     }
 
@@ -538,7 +522,7 @@ public final class SimpleLibrary
         return cns;
     }
 
-    public Configuration readConfiguration(ModuleId mid)
+    public Configuration<Context> readConfiguration(ModuleId mid)
         throws IOException
     {
         File md = findModuleDir(mid);
@@ -698,10 +682,10 @@ public final class SimpleLibrary
         throws ConfigurationException, IOException
     {
         // ## mids not used yet
-        for (ModuleInfo mi : listRootModuleInfos()) {
+        for (ModuleInfo mi : listLocalRootModuleInfos()) {
             // ## We could be a lot more clever about this!
-            Configuration cf
-                = Resolver.create(this, mi.id().toQuery()).run();
+            Configuration<Context> cf
+                = Configurator.configure(this, mi.id().toQuery());
             new StoredConfiguration(moduleDir(mi.id()), cf).store();
         }
     }

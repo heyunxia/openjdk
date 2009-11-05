@@ -56,7 +56,7 @@ public final class Launcher {
         if (cn == null)
             throw new Error(mid + ": Module does not specify"
                             + " a main class");
-        Configuration cf = lb.readConfiguration(mid);
+        Configuration<Context> cf = lb.readConfiguration(mid);
         if (cf == null)
             throw new Error(mid + ": Module not configured");
         Context cx = cf.getContextForModuleName(mid.name());
@@ -71,16 +71,15 @@ public final class Launcher {
     public static ClassLoader launch(String midqs) {
         // ## What about the extension class loader?
         // ## Delete these and other sjlm properties when done with them
-        String mlpath = System.getProperty("sun.java.launcher.module.library");
-        File ml = ((mlpath != null)
-                   ? new File(mlpath)
-                   : new File(new File(System.getProperty("java.home"), "lib"),
-                              "modules"));
+        String lmlp = System.getProperty("sun.java.launcher.module.library");
+        File mlp = ((lmlp != null)
+                    ? new File(lmlp)
+                    : Library.systemLibraryPath());
         Loader ld = null;
         try {
-            ld = loadModule(ml, jms.parseModuleIdQuery(midqs));
+            ld = loadModule(mlp, jms.parseModuleIdQuery(midqs));
         } catch (FileNotFoundException x) {
-            throw new Error(ml + ": No such library");
+            throw new Error(mlp + ": No such library", x);
         } catch (IOException x) {
             Error y = new InternalError("Cannot create root module loader");
             y.initCause(x);

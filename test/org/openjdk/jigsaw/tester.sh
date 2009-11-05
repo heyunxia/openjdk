@@ -168,7 +168,9 @@ run() {
 if [ $tests = 1 ]; then
   run singleton || /bin/true
 else
-  if ! [ $TESTSRC ]; then BIN=../$BIN; fi
+  if [ -z "$TESTSRC" -a "$(echo $BIN | cut -c1-3)" = ../ ]; then
+    BIN=../$BIN;
+  fi
   for t in *; do
     cd $t
     run $(echo $t | cut -c4-) || /bin/true

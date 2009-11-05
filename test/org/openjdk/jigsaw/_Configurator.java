@@ -24,10 +24,10 @@
  */
 
 /* @test
- * @summary org.openjdk.jigsaw.Resolver unit test
- * @compile _Resolver.java MockLibrary.java ModuleInfoBuilder.java
- *          ConfigurationBuilder.java
- * @run main _Resolver
+ * @summary org.openjdk.jigsaw.Configurator unit test
+ * @compile _Configurator.java MockLibrary.java ModuleInfoBuilder.java
+ *          ConfigurationBuilder.java ContextBuilder.java
+ * @run main _Configurator
  */
 
 import java.io.*;
@@ -39,42 +39,13 @@ import static java.lang.System.out;
 import static java.lang.module.Dependence.Modifier;
 
 
-public class _Resolver {
+public class _Configurator {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
-
-    private static Configuration go(Library lib, String root)
-	throws ConfigurationException
-    {
-	try {
-	    return (Resolver
-		    .create(lib, jms.parseModuleIdQuery(root))
-		    .run());
-	} catch (IOException x) {
-	    throw new Error("Unexpected I/O exception", x);
-	}
-    }
-
-    private static void fail(Library lib, String root)
-	throws Exception
-    {
-	try {
-	    go(lib, root);
-	} catch (ConfigurationException x) {
-	    out.format("Failed as expected: %s%n", x.getMessage());
-	    return;
-	}
-	throw new Exception("FAIL: Configuration succeeded");
-    }
 
     private static ModuleInfoBuilder module(String id) {
 	return ModuleInfoBuilder.module(id);
     }
-
-    private static void dump(Configuration cf) {
-	cf.dump(System.out);
-    }
-
 
     private static int testsRun = 0;
     private static int failures = 0;
@@ -84,20 +55,26 @@ public class _Resolver {
 	failures++;
     }
 
+
     private static List<Test> tests = new ArrayList<Test>();
 
     private static abstract class Test {
 
 	final String name;
 	final boolean expectedToPass;
+        final String[] roots;
+        List<ModuleIdQuery> rootQueries = new ArrayList<>();
 
-	Test(String n, boolean p) {
+	Test(String n, boolean p, String ... rs) {
 	    name = n;
 	    expectedToPass = p;
+            roots = rs;
+            for (String r : rs)
+                rootQueries.add(jms.parseModuleIdQuery(r));
 	    tests.add(this);
 	}
 
-	abstract String init(MockLibrary mlib);
+	abstract void init(MockLibrary mlib);
 
 	void ref(ConfigurationBuilder cb) { }
 
@@ -105,35 +82,73 @@ public class _Resolver {
 	    return ContextBuilder.context(mids);
 	}
 
+        private Configuration<Context> go(Library lib)
+            throws ConfigurationException
+        {
+            try {
+                return Configurator.configure(lib, rootQueries);
+            } catch (IOException x) {
+                throw new Error("Unexpected I/O exception", x);
+            }
+        }
+
+        private Configuration<PathContext> goPath(Library lib)
+            throws ConfigurationException
+        {
+            try {
+                return Configurator.configurePaths(lib, rootQueries);
+            } catch (IOException x) {
+                throw new Error("Unexpected I/O exception", x);
+            }
+        }
+
 	void run() {
 	    testsRun++;
 	    MockLibrary mlib = new MockLibrary();
-	    String root = init(mlib);
+	    init(mlib);
 	    if (expectedToPass) {
 		try {
-		    Configuration cf = go(mlib, root);
+
 		    ConfigurationBuilder cfbd
-			= ConfigurationBuilder.config(root);
+			= ConfigurationBuilder.config(roots);
 		    ref(cfbd);
+
+                    // Installed contexts
+		    Configuration<Context> cf = go(mlib);
 		    if (!cfbd.isEmpty()) {
-			Configuration rcf = cfbd.build();
+			Configuration<Context> rcf = cfbd.build();
 			if (!cf.equals(rcf)) {
 			    fail("Configuration mismatch!");
 			    out.format("-- Expected:%n");
 			    rcf.dump(out);
 			    out.format("-- Returned:%n");
-			    cf.dump(out);
-			    return;
+                        }
+                    }
+                    cf.dump(out);
+
+                    // Path contexts
+                    Configuration<PathContext> pcf = goPath(mlib);
+                    if (!cfbd.isEmpty()) {
+			Configuration<PathContext> prcf = cfbd.buildPath();
+			if (!pcf.equals(prcf)) {
+			    fail("Path configuration mismatch!");
+			    out.format("-- Expected:%n");
+			    prcf.dump(out);
+			    out.format("-- Returned:%n");
 			}
-		    }
-		    dump(cf);
+                    }
+                    pcf.dump(out);
+
 		} catch (ConfigurationException x) {
-		    fail("Unexpected exception: %s", x.getMessage());
+		    fail("Unexpected failure: %s", x.getMessage());
 		    return;
-		}
+                } catch (Throwable x) {
+                    fail("Unexpected exception: %s", x.getMessage());
+                    x.printStackTrace(out);
+                }
 	    } else {
 		try {
-		    go(mlib, root);
+		    go(mlib);
 		} catch (ConfigurationException x) {
 		    out.format("Failed as expected: %s%n", x.getMessage());
 		    return;
@@ -149,125 +164,117 @@ public class _Resolver {
 
     static {
 
-        new Test("trivial", true) {
-	    String init(MockLibrary mlib) {
+        new Test("trivial", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requires("y@1"))
 		    .add(module("y@1"));
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
+		cfbd.add(context("x@1").remote("+y"))
 		    .add(context("y@1"));
 	    }
 	};
 
-	new Test("trivialLocal", true) {
-	    String init(MockLibrary mlib) {
+	new Test("trivialLocal", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requiresLocal("y@1"))
 		    .add(module("y@1").permits("x"));
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
 		cfbd.add(context("x@1", "y@1"));
 	    }
 	};
 
-        new Test("local-left", true) {
-	    String init(MockLibrary mlib) {
+        new Test("local-left", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("ll@1").requiresLocal("lc@1"))
 		    .add(module("lc@1").permits("ll").permits("lr"))
 		    .add(module("lr@1").requiresLocal("lc@1"))
 		    .add(module("x@1").requires("ll@1"));
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("ll@1", "lc@1"));
+		cfbd.add(context("x@1").remote("+lc+ll"))
+		    .add(context("lc@1", "ll@1"));
 	    }
 	};
 
-        new Test("local-left-right", true) {
-	    String init(MockLibrary mlib) {
+        new Test("local-left-right", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("ll@1").requiresLocal("lc@1"))
 		    .add(module("lc@1").permits("ll").permits("lr"))
 		    .add(module("lr@1").requiresLocal("lc@1"))
 		    .add(module("x@1").requires("ll@1").requires("lr@1"));
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("ll@1", "lc@1", "lr@1"));
+		cfbd.add(context("x@1").remote("+lc+ll+lr"))
+		    .add(context("lc@1", "ll@1", "lr@1"));
 	    }
 	};
 
-        new Test("local-x", true) {
-	    String init(MockLibrary mlib) {
+        new Test("local-x", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("ll@1").requiresLocal("lc@1"))
 		    .add(module("lc@1").permits("ll").permits("lr")
 			 .requiresLocal("lx@1"))
 		    .add(module("lr@1").requiresLocal("lc@1"))
 		    .add(module("lx@1").permits("lc"))
 		    .add(module("x@1").requires("ll@1").requires("lr@1"));
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("ll@1", "lc@1", "lr@1", "lx@1"));
+		cfbd.add(context("x@1").remote("+lc+ll+lr+lx"))
+		    .add(context("lc@1", "ll@1", "lr@1", "lx@1"));
 	    }
 	};
 
-        new Test("diamond", true) {
-	    String init(MockLibrary mlib) {
+        new Test("diamond", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requires("y@2").requires("w@4"))
 		    .add(module("y@2").requires("z@>=3"))
 		    .add(module("z@9"))
 		    .add(module("z@4"))
 		    .add(module("z@3"))
 		    .add(module("w@4").requires("z@<=4"));
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("x@1"))
-		    .add(context("y@2"))
+		cfbd.add(context("x@1").remote("+w", "+y"))
+		    .add(context("y@2").remote("+z"))
 		    .add(context("z@4"))
-		    .add(context("w@4"));
+		    .add(context("w@4").remote("+z"));
 	    }
 	};
 
-        new Test("diamond-fail", false) {
-	    String init(MockLibrary mlib) {
+        new Test("diamond-fail", false, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requires("y@2").requires("w@4"))
 		    .add(module("y@2").requires("z@<=3"))
 		    .add(module("z@4"))
 		    .add(module("z@3"))
 		    .add(module("z@9"))
 		    .add(module("w@4").requires("z@>=4"));
-		return "x@1";
 	    }
 	};
 
-	new Test("simple", true) {
-	    String init(MockLibrary mlib) {
+	new Test("simple", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requiresPublic("y@1"))
 		    .add(module("y@1"))
 		    .addPublic("x@1", "x.A")
 		    .addOther("x@1", "x.B")
 		    .addPublic("y@1", "y.C")
 		    .addOther("y@1", "y.D");
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
 		cfbd.add(context("x@1")
-			 .local("x", "x.A").local("x", "x.B")
-			 .remote("y", "+y"))
+                         .remote("+y")
+			 .localClass("x.A", "x").localClass("x.B", "x")
+			 .remotePackage("y", "+y"))
 		    .add(context("y@1")
-			 .local("y", "y.D").local("y", "y.C"));
+			 .localClass("y.D", "y").localClass("y.C", "y"));
 	    }
 	};
 
-
-        new Test("publicity", true) {
-	    String init(MockLibrary mlib) {
+        new Test("publicity", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requires("y@1").requires("v@1"))
 		    .add(module("y@1").requiresPublic("z@1").requires("w@1"))
 		    .add(module("z@1"))
@@ -283,37 +290,74 @@ public class _Resolver {
 		    .addOther("w@1", "w.O")
 		    .addPublic("v@1", "v.P")
 		    .addOther("v@1", "v.O");
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
-		cfbd.add(context("z@1").local("z", "z.P").local("z", "z.O"))
-		    .add(context("y@1").local("y", "y.P").local("y", "y.O")
-			 .remote("w", "+w").remote("z", "+z"))
-		    .add(context("x@1").local("x", "x.O").local("x", "x.P")
-			 .remote("v", "+v").remote("z", "+z").remote("y", "+y"))
-		    .add(context("w@1").local("w", "w.P").local("w", "w.O"))
-		    .add(context("v@1").local("v", "v.O").local("v", "v.P"));
+		cfbd.add(context("z@1")
+                         .localClass("z.P", "z").localClass("z.O", "z"))
+		    .add(context("y@1")
+                         .remote("+w", "+z")
+                         .localClass("y.P", "y").localClass("y.O", "y")
+			 .remotePackage("w", "+w").remotePackage("z", "+z"))
+		    .add(context("x@1")
+                         .remote("+v", "+y", "+z")
+                         .localClass("x.O", "x").localClass("x.P", "x")
+			 .remotePackage("v", "+v").remotePackage("z", "+z")
+                         .remotePackage("y", "+y"))
+		    .add(context("w@1")
+                         .localClass("w.P", "w").localClass("w.O", "w"))
+		    .add(context("v@1")
+                         .localClass("v.O", "v").localClass("v.P", "v"));
 	    }
 	};
 
-        new Test("dup", false) {
-	    String init(MockLibrary mlib) {
+        new Test("dup", false, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requires("y@1").requires("z@1"))
 		    .add(module("y@1"))
 		    .add(module("z@1"))
 		    .addPublic("y@1", "a.B")
 		    .addPublic("z@1", "a.B");
-		return "x@1";
 	    }
 	};
 
+        new Test("multi", true, "x@1", "y@1", "z@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requires("a@1").requires("b@1"))
+                    .add(module("y@1").requires("c@1"))
+                    .add(module("z@1").requires("b@1"))
+                    .add(module("a@1").requires("b@1"))
+                    .add(module("b@1").requires("c@1"))
+                    .add(module("c@1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1").remote("+a", "+b"))
+                    .add(context("y@1").remote("+c"))
+                    .add(context("z@1").remote("+b"))
+                    .add(context("a@1").remote("+b"))
+                    .add(context("b@1").remote("+c"))
+                    .add(context("c@1"));
+            }
+        };
+
 	/* ## Not yet
-        new Test("optional-satisfied", true) {
-	    String init(MockLibrary mlib) {
+
+        new Test("cycle", true, "x@1") {
+            // ## Context.equals can't deal with cycles
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requires("y@1"))
+                    .add(module("y@1").requires("x@1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1").remote("+y"))
+                    .add(context("y@1").remote("+x"));
+            }
+        };
+
+        new Test("optional-satisfied", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requiresOptional("y@1"))
 		    .add(module("y@1"))
 		    .addPublic("y@1", "y.Z");
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
 		cfbd.add(context("x@1"))
@@ -321,21 +365,21 @@ public class _Resolver {
 	    }
 	};
 
-        new Test("optional-unsatisfied", true) {
-	    String init(MockLibrary mlib) {
+        new Test("optional-unsatisfied", true, "x@1") {
+	    void init(MockLibrary mlib) {
 		mlib.add(module("x@1").requiresOptional("y@1"));
-		return "x@1";
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
 		cfbd.add(context("x@1"));
 	    }
 	};
+
 	*/
 
 	/*
-        new Test("template", true) {
-	    String init(MockLibrary mlib) {
-		return "root";
+        new Test("template", true, "root") {
+	    void init(MockLibrary mlib) {
+		...
 	    }
 	    void ref(ConfigurationBuilder cfbd) {
 		cfbd.add(...);
@@ -354,6 +398,8 @@ public class _Resolver {
 	out.format("%n== %d test%s, %d failure%s%n",
 		   testsRun, testsRun != 1 ? "s": "",
 		   failures, failures != 1 ? "s" : "");
+        if (failures > 0)
+            System.exit(failures);
     }
 
 }

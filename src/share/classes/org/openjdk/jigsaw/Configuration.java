@@ -31,35 +31,35 @@ import java.util.*;
 
 
 /**
- * <p> A set of named {@linkplain Contexts contexts}, together with a map from
+ * <p> A set of named {@linkplain Context contexts}, together with a map from
  * module names to contexts. </p>
  *
- * <p> Configurations are the result of {@linkplain Resolver module
- * resolution}; they are computed and stored in a {@linkplain Library module
- * library} during the installation process, and retrieved at run time when an
- * application is launched. </p>
+ * <p> Configurations are the result of the {@linkplain Configurator module
+ * configuration process}; they are computed and stored in a {@linkplain
+ * Library module library} during installation, and retrieved at run time
+ * when an application is launched. </p>
  *
  * @see Context
  * @see Library
- * @see Resolver
+ * @see Configurator
  */
 
-public final class Configuration {
+public final class Configuration<Cx extends BaseContext> {
 
-    private final ModuleId root;
+    private final Set<ModuleId> roots;
 
     /**
-     * Return the root module of this configuration.
+     * Return the root modules of this configuration.
      */
-    public ModuleId root() { return root; }
+    public Set<ModuleId> roots() { return roots; }
 
-    private Set<Context> contexts;
-    private Map<String,Context> contextForName;
+    private Set<Cx> contexts;
+    private Map<String,Cx> contextForName;
 
     /**
      * Add the given context to this configuration.
      */
-    protected void add(Context cx) {
+    protected void add(Cx cx) {
         contexts.add(cx);
         contextForName.put(cx.name(), cx);
     }
@@ -67,7 +67,7 @@ public final class Configuration {
     /**
      * Return the set of contexts in this configuration.
      */
-    public Set<Context> contexts() {
+    public Set<Cx> contexts() {
         return contexts;
     }
 
@@ -77,19 +77,19 @@ public final class Configuration {
      * @throws  IllegalArgumentException
      *          If there is no context of that name in this configuration
      */
-    public Context getContext(String cxn) {
-        Context cx = contextForName.get(cxn);
+    public Cx getContext(String cxn) {
+        Cx cx = contextForName.get(cxn);
         if (cx == null)
             throw new IllegalArgumentException(cxn + ": Unknown context");
         return cx;
     }
 
-    private Map<String,Context> contextForModule;
+    private Map<String,Cx> contextForModule;
 
     /**
      * Associate the given context with the given module name.
      */
-    protected void put(String mn, Context cx) {
+    protected void put(String mn, Cx cx) {
         contextForModule.put(mn, cx);
     }
 
@@ -99,7 +99,7 @@ public final class Configuration {
      * @return  The found context, or {@code null} if no such
      *          context exists in this configuration
      */
-    public Context findContextForModuleName(String mn) {
+    public Cx findContextForModuleName(String mn) {
         return contextForModule.get(mn);
     }
 
@@ -110,8 +110,8 @@ public final class Configuration {
      *          If there is no context for that module name
      *          in this configuration
      */
-    public Context getContextForModuleName(String mn) {
-        Context cx = contextForModule.get(mn);
+    public Cx getContextForModuleName(String mn) {
+        Cx cx = contextForModule.get(mn);
         if (cx == null)
             throw new IllegalArgumentException(mn + ": Unknown module");
         return cx;
@@ -121,15 +121,15 @@ public final class Configuration {
      * Construct a new configuration from an existing context set and
      * module-name-to-context map.
      */
-    public Configuration(ModuleId root,
-                         Set<? extends Context> contexts,
-                         Map<String,? extends Context> contextForModule)
+    public Configuration(Collection<ModuleId> roots,
+                         Set<? extends Cx> contexts,
+                         Map<String,? extends Cx> contextForModule)
     {
-        this.root = root;
-        this.contexts = new HashSet<Context>(contexts);
-        this.contextForModule = new HashMap<String,Context>(contextForModule);
-        this.contextForName = new HashMap<String,Context>();
-        for (Context cx : contexts) {
+        this.roots = new HashSet<>(roots);
+        this.contexts = new HashSet<Cx>(contexts);
+        this.contextForModule = new HashMap<String,Cx>(contextForModule);
+        this.contextForName = new HashMap<String,Cx>();
+        for (Cx cx : contexts) {
             this.contextForName.put(cx.name(), cx);
         }
     }
@@ -138,46 +138,78 @@ public final class Configuration {
      * Construct a new, empty configuration for the given root module.
      */
     public Configuration(ModuleId root) {
-        this.root = root;
-        this.contexts = new HashSet<Context>();
-        this.contextForModule = new HashMap<String,Context>();
-        this.contextForName = new HashMap<String,Context>();
+        this.roots = Collections.singleton(root);
+        this.contexts = new HashSet<Cx>();
+        this.contextForModule = new HashMap<String,Cx>();
+        this.contextForName = new HashMap<String,Cx>();
+    }
+
+    private void dump(Context cx, PrintStream out) {
+        if (!cx.localClasses().isEmpty()) {
+            out.format("    local");
+            for (Map.Entry<String,ModuleId> me
+                 : cx.moduleForLocalClassMap().entrySet())
+                out.format(" %s:%s", me.getKey(), me.getValue());
+            out.format("%n");
+        }
+        if (!cx.remotePackages().isEmpty()) {
+            out.format("    remote {");
+            boolean first = true;
+            for (Map.Entry<String,String> me
+                 : cx.contextForRemotePackageMap().entrySet())
+            {
+                Cx dcx = getContext(me.getValue());
+                if (Platform.isPlatformContext(dcx))
+                    continue;
+                if (!first)
+                    out.format(", ");
+                else
+                    first = false;
+                out.format("%s=%s", me.getKey(), me.getValue());
+            }
+            out.format("}%n");
+        }
+    }
+
+    private void dump(PathContext cx, PrintStream out) {
+        if (!cx.localPath().isEmpty())
+            out.format("    local  %s%n", cx.localPath());
+        if (!cx.remoteContexts().isEmpty())
+            out.format("    remote %s%n", cx.remoteContexts());
     }
 
     /**
      * Write a diagnostic summary of this configuration to the given stream.
      */
     public void dump(PrintStream out) {
-        out.format("configuration root = %s%n", root());
-        for (Context cx : contexts()) {
+        boolean isPath = contexts().iterator().next() instanceof PathContext;
+        out.format("%sconfiguration roots = %s%n",
+                   isPath ? "path " : "", roots());
+        for (Cx cx : contexts()) {
             out.format("  context %s %s%n", cx, cx.modules());
             if (Platform.isPlatformContext(cx))
                 continue;
-            if (!cx.remotePackages().isEmpty()) {
-                out.format("    remote {");
-                boolean first = true;
-                for (Map.Entry<String,String> me
-                         : cx.contextForRemotePackageMap().entrySet())
-                {
-                    Context dcx = getContext(me.getValue());
-                    if (Platform.isPlatformContext(dcx))
-                        continue;
-                    if (!first)
-                        out.format(", ");
-                    else
-                        first = false;
-                    out.format("%s=%s", me.getKey(), me.getValue());
-                }
-                out.format("}%n");
-            }
-            if (!cx.localClasses().isEmpty()) {
-                out.format("    local");
-                for (Map.Entry<String,ModuleId> me
-                         : cx.moduleForLocalClassMap().entrySet())
-                    out.format(" %s:%s", me.getKey(), me.getValue());
-                out.format("%n");
-            }
+            if (cx instanceof Context)
+                dump((Context)cx, out);
+            else if (cx instanceof PathContext)
+                dump((PathContext)cx, out);
         }
+    }
+
+    public int hashCode() {
+        int hc = roots.hashCode();
+        hc = hc * 43 + contexts.hashCode();
+        hc = hc * 43 + contextForModule.hashCode();
+        return hc;
+    }
+
+    public boolean equals(Object ob) {
+        if (!(ob instanceof Configuration))
+            return false;
+        Configuration that = (Configuration)ob;
+        return (roots.equals(that.roots)
+                && contexts.equals(that.contexts)
+                && contextForModule.equals(that.contextForModule));
     }
 
 }

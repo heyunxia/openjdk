@@ -23,5 +23,26 @@
  * have any questions.
  */
 
+package org.openjdk.jigsaw;
 
-package java.lang.module;
+import java.util.*;
+import java.lang.module.*;
+
+
+final class Resolution {
+
+    final Collection<ModuleIdQuery> rootQueries;
+
+    final Set<ModuleInfo> modules;
+
+    final Map<String,ModuleInfo> moduleForName;
+
+    Resolution(Collection<ModuleIdQuery> rqs,
+               Set<ModuleInfo> mis, Map<String,ModuleInfo> mfn)
+    {
+        rootQueries = rqs;
+        modules = mis;
+        moduleForName = mfn;
+    }
+
+}

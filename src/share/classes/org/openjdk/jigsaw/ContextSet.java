@@ -23,5 +23,30 @@
  * have any questions.
  */
 
+package org.openjdk.jigsaw;
 
-package java.lang.module;
+import java.util.*;
+import java.lang.module.*;
+
+
+final class ContextSet<Cx extends BaseContext> {
+
+    final Collection<ModuleIdQuery> rootQueries;
+
+    final Set<ModuleInfo> modules;
+
+    final Map<String,ModuleInfo> moduleForName;
+
+    final Set<Cx> contexts;
+
+    final Map<String,Cx> contextForModule;
+
+    ContextSet(Resolution res, Set<Cx> cxs, Map<String,Cx> cxfm) {
+        rootQueries = res.rootQueries;
+        modules = res.modules;
+        moduleForName = res.moduleForName;
+        contexts = cxs;
+        contextForModule = cxfm;
+    }
+
+}

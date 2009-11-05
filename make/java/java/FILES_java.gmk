@@ -465,6 +465,8 @@ JAVA_JAVA_jigsaw = \
     java/lang/Class.java \
     java/lang/System.java \
     sun/misc/JavaLangAccess.java \
+    sun/launcher/LauncherHelper.java \
+    \
     java/lang/module/Dependence.java \
     java/lang/module/ModuleClassLoader.java \
     java/lang/module/ModuleId.java \
@@ -475,27 +477,38 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/Version.java \
     java/lang/module/VersionQuery.java \
     java/lang/reflect/Module.java \
-    sun/launcher/LauncherHelper.java \
+    \
+    org/openjdk/jigsaw/BaseContext.java \
     org/openjdk/jigsaw/BootLoader.java \
+    org/openjdk/jigsaw/Catalog.java \
     org/openjdk/jigsaw/ClassInfo.java \
     org/openjdk/jigsaw/Configuration.java \
     org/openjdk/jigsaw/ConfigurationException.java \
+    org/openjdk/jigsaw/Configurator.java \
     org/openjdk/jigsaw/Context.java \
-    org/openjdk/jigsaw/JigsawModuleSystem.java \
-    org/openjdk/jigsaw/JigsawVersion.java \
-    org/openjdk/jigsaw/JigsawVersionQuery.java \
+    org/openjdk/jigsaw/ContextBuilder.java \
+    org/openjdk/jigsaw/ContextFactory.java \
+    org/openjdk/jigsaw/ContextSet.java \
     org/openjdk/jigsaw/FileConstants.java \
     org/openjdk/jigsaw/Files.java \
     org/openjdk/jigsaw/Hi.java \
+    org/openjdk/jigsaw/JigsawModuleSystem.java \
+    org/openjdk/jigsaw/JigsawVersion.java \
+    org/openjdk/jigsaw/JigsawVersionQuery.java \
     org/openjdk/jigsaw/Launcher.java \
     org/openjdk/jigsaw/Library.java \
+    org/openjdk/jigsaw/Linker.java \
     org/openjdk/jigsaw/Loader.java \
     org/openjdk/jigsaw/LoaderPool.java \
     org/openjdk/jigsaw/Manifest.java \
+    org/openjdk/jigsaw/PathContext.java \
+    org/openjdk/jigsaw/PathLinker.java \
     org/openjdk/jigsaw/Platform.java \
+    org/openjdk/jigsaw/Resolution.java \
     org/openjdk/jigsaw/Resolver.java \
     org/openjdk/jigsaw/SimpleLibrary.java \
     org/openjdk/jigsaw/Trace.java \
+    \
     org/openjdk/jigsaw/cli/Command.java \
     org/openjdk/jigsaw/cli/Librarian.java \
     org/openjdk/jigsaw/cli/Packager.java 

@@ -148,6 +148,8 @@ public class Loader
         } else {
             try {
                 byte[] bs = pool.library().readModuleInfoBytes(mid);
+                if (bs == null)
+                    throw new AssertionError();
                 m = defineModule(mid, bs);
                 if (tracing)
                     trace(0, "%s: define %s", this, mid);

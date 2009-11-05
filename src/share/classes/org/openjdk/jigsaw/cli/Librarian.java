@@ -191,7 +191,9 @@ public class Librarian {
             finishArgs();
             int n = 0;
             try {
-                for (ModuleId mid : lib.listModuleIds(parents)) {
+                java.util.List<ModuleId> mids
+                    = parents ? lib.listModuleIds() : lib.listLocalModuleIds();
+                for (ModuleId mid : mids) {
                     if (midq != null && !midq.matches(mid))
                         continue;
                     ModuleInfo mi = lib.readModuleInfo(mid);
@@ -232,7 +234,7 @@ public class Librarian {
                 ModuleId mid = lib.findLatestModuleId(midq);
                 if (mid == null)
                     throw new Command.Exception(midq + ": No such module");
-                Configuration cf = lib.readConfiguration(mid);
+                Configuration<Context> cf = lib.readConfiguration(mid);
                 if (cf == null)
                     throw new Command.Exception(mid + ": Not a root module");
                 cf.dump(out);

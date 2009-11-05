@@ -23,5 +23,11 @@
  * have any questions.
  */
 
+package org.openjdk.jigsaw;
 
-package java.lang.module;
+
+interface ContextFactory<Cx extends BaseContext> {
+
+    Cx create();
+
+}

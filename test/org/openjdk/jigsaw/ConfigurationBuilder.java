@@ -34,20 +34,21 @@ public class ConfigurationBuilder {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
-    private ModuleId root;
-    private Set<Context> contexts
-	= new HashSet<Context>();
-    private Map<String,Context> contextForModule
-	= new HashMap<String,Context>();
+    private List<ModuleId> roots = new ArrayList<>();
 
-    private Configuration cf;
+    private Set<Context> contexts = new HashSet<>();
+    private Map<String,Context> contextForModule = new HashMap<>();
 
-    private ConfigurationBuilder(String rmid) {
-	root = jms.parseModuleId(rmid);
+    private Set<PathContext> pathContexts = new HashSet<>();
+    private Map<String,PathContext> pathContextForModule = new HashMap<>();
+
+    private ConfigurationBuilder(String[] rmids) {
+        for (String s : rmids)
+            roots.add(jms.parseModuleId(s));
     }
 
-    public static ConfigurationBuilder config(String rmid) {
-	return new ConfigurationBuilder(rmid);
+    public static ConfigurationBuilder config(String ... rmids) {
+	return new ConfigurationBuilder(rmids);
     }
 
     public ConfigurationBuilder add(ContextBuilder cb) {
@@ -55,11 +56,23 @@ public class ConfigurationBuilder {
 	contexts.add(cx);
 	for (ModuleId mid : cx.modules())
 	    contextForModule.put(mid.name(), cx);
+        PathContext pcx = cb.buildPath();
+        pathContexts.add(pcx);
+        for (ModuleId mid : pcx.modules())
+            pathContextForModule.put(mid.name(), pcx);
 	return this;
     }
 
-    public Configuration build() {
-	return new Configuration(root, contexts, contextForModule);
+    public Configuration<Context> build() {
+	return new Configuration<>(roots, contexts, contextForModule);
+    }
+
+    public Configuration<PathContext> buildPath() {
+        Configuration<PathContext> cf
+            = new Configuration<>(roots, pathContexts, pathContextForModule);
+        for (PathContext pcx : pathContexts)
+            ((ContextBuilder.MockPathContext)pcx).linkRemoteContexts(cf);
+        return cf;
     }
 
     public boolean isEmpty() {
