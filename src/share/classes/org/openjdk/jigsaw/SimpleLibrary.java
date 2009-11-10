@@ -415,8 +415,7 @@ public final class SimpleLibrary
         if (!mnd.canRead())
             throw new IOException(mnd + ": Not readable");
         for (String v : mnd.list()) {
-            // ## Need a MS.parseModuleId(String, Version) method
-            mids.add(jms.parseModuleId(mnd.getName() + "@" + v));
+            mids.add(jms.parseModuleId(mnd.getName(), v));
         }
     }
 

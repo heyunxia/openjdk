@@ -67,6 +67,10 @@ public abstract class ModuleSystem {
         return ModuleId.parse(this, mid);
     }
 
+    public final ModuleId parseModuleId(String name, String version) {
+        return ModuleId.parse(this, name, version);
+    }
+
     public final ModuleIdQuery parseModuleIdQuery(String midq) {
 	int i = midq.indexOf('@');
 	String mn;

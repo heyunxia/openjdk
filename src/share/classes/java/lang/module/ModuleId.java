@@ -47,6 +47,10 @@ public final class ModuleId
                 + ((version != null) ? version.hashCode() : 0));
     }
 
+    /* package */ static ModuleId parse(ModuleSystem ms, String nm, String v) {
+        return new ModuleId(nm, ms.parseVersion(v));
+    }
+
     /* package */ static ModuleId parse(ModuleSystem ms, String s) {
         if (s == null)
             throw new IllegalArgumentException();
@@ -73,8 +77,7 @@ public final class ModuleId
             i++;
         if (i >= n)
             throw new IllegalArgumentException();
-        Version v = ms.parseVersion(s.substring(i));
-        return new ModuleId(nm, v);
+        return parse(ms, nm, s.substring(i));
     }
 
     public String name() { return name; }

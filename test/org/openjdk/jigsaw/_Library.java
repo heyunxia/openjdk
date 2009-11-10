@@ -98,7 +98,7 @@ public class _Library {
 	out.format("find: %s%n", mids);
 	Set<ModuleId> emids = new HashSet<ModuleId>();
 	for (String v : multiVersions)
-	    emids.add(ms.parseModuleId("org.multi@" + v));
+	    emids.add(ms.parseModuleId("org.multi", v));
 	eq(mids, emids);
 
 	// Find module ids by query
@@ -109,7 +109,7 @@ public class _Library {
 	for (String v : multiVersions) {
 	    if (v.equals("1"))
 		continue;
-	    emids.add(ms.parseModuleId("org.multi@" + v));
+	    emids.add(ms.parseModuleId("org.multi", v));
 	}
 	eq(mids, emids);
 
