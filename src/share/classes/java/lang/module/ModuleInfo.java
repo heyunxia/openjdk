@@ -27,16 +27,46 @@ package java.lang.module;
 
 import java.util.Set;
 
+
+/**
+ * <p> Information about a module, as found in a {@code module-info.java}
+ * source file or a {@code module-info.class} class file </p>
+ */
+
 public interface ModuleInfo {
 
+    /**
+     * This module's identifier
+     */
     public ModuleId id();
 
+    /**
+     * <p> The identifiers of the virtual modules provided by this module </p>
+     *
+     * @return  A possibly-empty set of {@link ModuleId ModuleIds}
+     */
     public Set<ModuleId> provides();
 
+    /**
+     * <p> The dependences of this module </p>
+     *
+     * @return  A possibly-empty set of {@link Dependence Dependences}
+     */
     public Set<Dependence> requires();
 
+    /**
+     * <p> The names of modules that are permitted to require this module </p>
+     *
+     * @return  A possibly-empty set of module names
+     */
     public Set<String> permits();
 
+    /**
+     * <p> The name of the main class of this module </p>
+     *
+     * @return  The name of the main class of this module, or {@code null}
+     *          if this module does not have a main class
+     */
     public String mainClass();
 
 }
