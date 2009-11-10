@@ -40,9 +40,9 @@ public final class ModuleId
 
     // ## Why do we allow ModuleIds to have null versions, anyway?
 
-    /* package */ ModuleId(String nm, Version v) {
-        name = ModuleSystem.checkModuleName(nm);
-        version = v;
+    public ModuleId(String name, Version version) {
+        this.name = ModuleSystem.checkModuleName(name);
+        this.version = version;
         hash = (43 * name.hashCode()
                 + ((version != null) ? version.hashCode() : 0));
     }
