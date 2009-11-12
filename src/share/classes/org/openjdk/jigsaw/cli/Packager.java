@@ -51,6 +51,7 @@ jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] 
   -s           : short description
   -l           : long description
   -x           : additional metadata - for Debian packages, a file whose contents gets appended to DEBIAN/control
+  --fast       : use fastest, rather then best compression
 */
 
 public class Packager {
@@ -77,6 +78,8 @@ public class Packager {
     private static File javaHome = new File(System.getProperty("java.home"));
 
     private static boolean verbose;
+
+    private static boolean fast;
 
     /** Command launcher for main class */
     private static String bincmd;
@@ -419,7 +422,7 @@ public class Packager {
 	private void buildPackage()
 	    throws Command.Exception 
 	{
-            String dashz = "-z" + (jigsawDevMode ? 1 : 9);
+            String dashz = "-z" + ((fast || jigsawDevMode) ? 1 : 9);
 	    try {
 		Process build 
 		    = (new ProcessBuilder("fakeroot", "dpkg-deb", dashz, "-Zlzma", "--build", 
@@ -480,7 +483,7 @@ public class Packager {
 		    throw new Command.Exception("Failed to remove META-INF directory from jar module " + br.readLine());
 
 		// Compress the jar file with pack200.
-                String dashE = "-E" + (jigsawDevMode ? "0" : "9");
+                String dashE = "-E" + ((fast || jigsawDevMode) ? "0" : "9");
 		Process pack200
 		    = (new ProcessBuilder("pack200", dashE, "-S-1", "--no-gzip",
 					  getPackFile(manifest).toString(),
@@ -636,6 +639,9 @@ public class Packager {
                .describedAs("description")
                .ofType(String.class));
 
+        parser.acceptsAll(Arrays.asList("fast"),
+			  "Use fastest compression");
+
         OptionSpec<Integer> isize
             = (parser.acceptsAll(Arrays.asList("installed-size"),
                                  "Installed size in kilobytes")
@@ -666,6 +672,8 @@ public class Packager {
                 usage();
 	    if (opts.has("v"))
 		verbose = true;
+	    if (opts.has("fast"))
+		fast = true;
             java.util.List<String> words = opts.nonOptionArguments();
             if (words.isEmpty())
                 usage();
