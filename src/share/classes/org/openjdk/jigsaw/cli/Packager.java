@@ -324,6 +324,10 @@ public class Packager {
                 if (installedSize != null)
                     control.format("Installed-Size: %d\n", installedSize);
 
+		// All jpkg generated packages depend on a boot package being installed
+		// at time of installation to be able to run jmod.
+		control.format("Pre-Depends: jdk.boot\n");
+
 		control.close();
 
 		// Generate the launcher script, if a main class exists
