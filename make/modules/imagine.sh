@@ -55,6 +55,10 @@ $RSYNC --exclude /lib/modules \
 
 if [ $MOD != boot ]; then exit 0; fi
 
+for f in LICENSE ASSEMBLY_EXCEPTION; do
+  cp -p ../../$f $IMAGE_DEST
+done
+
 mkdir -p $IMAGE_DEST/lib/modules
 $RSYNC --include '/%*' --include '*/' --include '/jdk.boot/***' --exclude '*' \
        $BUILD/lib/modules/ $IMAGE_DEST/lib/modules
