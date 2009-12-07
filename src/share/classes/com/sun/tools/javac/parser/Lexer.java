@@ -139,4 +139,15 @@ public interface Lexer {
      * Sets the current token.
      */
     void token(Token token);
+
+    /**
+     * Very simple mark/reset support. At most one position may be marked.
+     */
+    void mark();
+
+    /**
+     * Reset the lexer back to the last marked position. No-op if no position
+     * has been set.
+     */
+    void reset();
 }

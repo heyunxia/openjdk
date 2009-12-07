@@ -71,9 +71,13 @@ public class Kinds {
      */
     public final static int MTH = 1 << 4;
 
+    /** The kind of modules.
+     */
+    public final static int MDL = 1 << 5;
+
     /** The error kind, which includes all other kinds.
      */
-    public final static int ERR = (1 << 5) - 1;
+    public final static int ERR = (1 << 6) - 1;
 
     /** The set of all kinds.
      */
@@ -103,7 +107,8 @@ public class Kinds {
         VAL("kindname.value"),
         METHOD("kindname.method"),
         CLASS("kindname.class"),
-        PACKAGE("kindname.package");
+        PACKAGE("kindname.package"),
+        MODULE("kindname.module");
 
         private String name;
 

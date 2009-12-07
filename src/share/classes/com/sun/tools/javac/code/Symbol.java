@@ -25,9 +25,11 @@
 
 package com.sun.tools.javac.code;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.lang.model.element.*;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.util.*;
@@ -37,12 +39,14 @@ import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.jvm.*;
+import com.sun.tools.javac.jvm.ClassFile.ModuleId;
 import com.sun.tools.javac.model.*;
 import com.sun.tools.javac.tree.JCTree;
 
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.Flags.MODULE; // disambiguate
 
 /** Root class for Java symbols. It contains subclasses
  *  for specific sorts of symbols, such as variables, methods and operators,
@@ -305,6 +309,13 @@ public abstract class Symbol implements Element {
         return (PackageSymbol) sym;
     }
 
+    /** The module which indirectly owns this symbol.
+     */
+    public ModuleSymbol modle() {
+        ClassSymbol c = outermostClass();
+        return c == null ? null : c.modle;
+    }
+
     /** Is this symbol a subclass of `base'? Only defined for ClassSymbols.
      */
     public boolean isSubClass(Symbol base, Types types) {
@@ -383,6 +394,20 @@ public abstract class Symbol implements Element {
                     return false;
             }
             return (clazz.flags() & INTERFACE) == 0;
+        case MODULE:
+            ModuleSymbol thisModule = this.modle();
+            for (Symbol sup = clazz;
+                 sup != null && sup != this.owner;
+                 sup = types.supertype(sup.type).tsym) {
+                if (sup.type.isErroneous())
+                    return true; // error recovery
+                if ((sup.flags() & COMPOUND) != 0)
+                    continue;
+                if (sup.modle() != thisModule)
+                    return false;
+            }
+            return true;
+
         }
     }
 
@@ -612,6 +637,78 @@ public abstract class Symbol implements Element {
         }
     }
 
+    public static class ModuleRequires implements ModuleElement.ModuleRequires {
+        public ModuleId moduleId;
+        public List<Name> flags;
+
+        public ModuleRequires(ModuleId moduleIdQuery, List<Name> flags) {
+            this.moduleId = moduleIdQuery;
+            this.flags = flags;
+        }
+
+        public ModuleElement.ModuleId getModuleId() {
+            return moduleId;
+        }
+
+        public java.util.List<? extends CharSequence> getFlags() {
+            return flags;
+        }
+
+    }
+
+    /** A class for module symbols.
+     */
+    public static class ModuleSymbol extends TypeSymbol implements ModuleElement // JIGSAW need TypeSymbol?
+            /*implements ModuleElement*/ {
+        public Name fullname;
+        public Name version;
+
+        public ClassSymbol module_info;
+
+        public ClassSymbol className;
+        public List<Name> classFlags;
+        public ListBuffer<Name> permits;
+        public ListBuffer<ClassFile.ModuleId> provides;
+        public Map<ClassFile.ModuleId,Symbol.ModuleRequires> requires;
+        public JavaFileManager.Location location;
+
+        public ModuleSymbol() {
+            super(0, null, null, null);
+            this.kind = MDL;
+            this.type = new ModuleType(this);
+        }
+
+        public ModuleSymbol(Name name, Symbol owner) {
+            super(0, name, null, owner);
+            this.kind = MDL;
+            this.type = new ModuleType(this);
+            this.fullname = formFullName(name, owner);
+        }
+
+        public java.util.List<Symbol.ModuleRequires> getRequires() {
+            List<Symbol.ModuleRequires> l = List.nil();
+            for (Symbol.ModuleRequires mr: requires.values()) {
+                l = l.prepend(mr);
+            }
+            return l.reverse();
+        }
+
+        @Override
+        public String toString() {
+            String n = fullname== null ? "<unknown>" : String.valueOf(fullname); // null-safe
+            return (version == null) ? n : n + "@" + version;
+        }
+
+        @Override
+        public Name getQualifiedName() {
+            return fullname;
+        }
+
+        public boolean isUnnamed() {
+            return name.isEmpty() && owner != null;
+        }
+    }
+
     /** A class for package symbols
      */
     public static class PackageSymbol extends TypeSymbol
@@ -688,6 +785,10 @@ public abstract class Symbol implements Element {
     /** A class for class symbols
      */
     public static class ClassSymbol extends TypeSymbol implements TypeElement {
+        /**
+         * The module for the class.
+         */
+        public ModuleSymbol modle;
 
         /** a scope for all class members; variables, methods and inner classes
          *  type parameters are not part of this scope

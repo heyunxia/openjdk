@@ -380,6 +380,34 @@ public class TreeScanner<R,P> implements TreeVisitor<R,P> {
        return r;
    }
 
+    public R visitModule(ModuleTree node, P p) {
+        R r = scan(node.getAnnotations(), p);
+        r = scanAndReduce(node.getId(), p, r);
+        return r;
+    }
+
+    public R visitModuleClass(ModuleClassTree node, P p) {
+        return scan(node.getClassName(), p);
+    }
+
+    public R visitModuleId(ModuleIdTree node, P p) {
+        return scan(node.getModuleName(), p);
+    }
+
+    public R visitModulePermits(ModulePermitsTree node, P p) {
+        return scan(node.getModuleNames(), p);
+    }
+
+    public R visitModuleRequires(ModuleRequiresTree node, P p) {
+        return scan(node.getModuleIds(), p);
+    }
+
+    public R visitPackage(PackageTree node, P p) {
+        R r = scan(node.getAnnotations(), p);
+        r = scanAndReduce(node.getPackageId(), p, r);
+        return r;
+    }
+
     public R visitOther(Tree node, P p) {
         return null;
     }

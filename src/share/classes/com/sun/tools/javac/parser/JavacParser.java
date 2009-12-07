@@ -133,6 +133,8 @@ public class JavacParser implements Parser {
         this.allowAnnotations = source.allowAnnotations();
         this.allowDiamond = source.allowDiamond();
         this.allowTypeAnnotations = source.allowTypeAnnotations();
+        this.allowModules = source.allowModules();
+        this.allowImportsBeforePackage = source.allowImportsBeforePackage();
         this.keepDocComments = keepDocComments;
         if (keepDocComments)
             docComments = new HashMap<JCTree,String>();
@@ -180,6 +182,14 @@ public class JavacParser implements Parser {
     /** Switch: should we recognize type annotations?
      */
     boolean allowTypeAnnotations;
+
+    /** Switch: should we recognize modules?
+     */
+    boolean allowModules;
+
+    /** Switch: should we recognize import before package?
+     */
+    boolean allowImportsBeforePackage;
 
     /** Switch: should we keep docComments?
      */
@@ -478,13 +488,27 @@ public class JavacParser implements Parser {
             accept(IDENTIFIER);
             return names.error;
         }
-}
+    }
 
     /**
      * Qualident = Ident { DOT Ident }
      */
     public JCExpression qualident() {
         JCExpression t = toP(F.at(S.pos()).Ident(ident()));
+        while (S.token() == DOT) {
+            int pos = S.pos();
+            S.nextToken();
+            t = toP(F.at(pos).Select(t, ident()));
+        }
+        return t;
+    }
+
+    /**
+     * Qualident = Ident { DOT Ident }
+     * (used when we've had to lookahead at the first identifier)
+     */
+    public JCExpression qualident(JCExpression head) {
+        JCExpression t = head;
         while (S.token() == DOT) {
             int pos = S.pos();
             S.nextToken();
@@ -1642,7 +1666,7 @@ public class JavacParser implements Parser {
         JCClassDecl body = null;
         if (S.token() == LBRACE) {
             int pos = S.pos();
-            List<JCTree> defs = classOrInterfaceBody(names.empty, false);
+            List<JCTree> defs = classOrInterfaceBody(names.empty, CLASS);
             JCModifiers mods = F.at(Position.NOPOS).Modifiers(0);
             body = toP(F.at(pos).AnonymousClassDef(mods, defs));
         }
@@ -1729,7 +1753,7 @@ public class JavacParser implements Parser {
             case MONKEYS_AT:
             case FINAL: {
                 String dc = S.docComment();
-                JCModifiers mods = modifiersOpt();
+                JCModifiers mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
                 if (S.token() == INTERFACE ||
                     S.token() == CLASS ||
                     allowEnums && S.token() == ENUM) {
@@ -1746,13 +1770,13 @@ public class JavacParser implements Parser {
             }
             case ABSTRACT: case STRICTFP: {
                 String dc = S.docComment();
-                JCModifiers mods = modifiersOpt();
+                JCModifiers mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
                 stats.append(classOrInterfaceOrEnumDeclaration(mods, dc));
                 break;
             }
             case INTERFACE:
             case CLASS:
-                stats.append(classOrInterfaceOrEnumDeclaration(modifiersOpt(),
+                stats.append(classOrInterfaceOrEnumDeclaration(modifiersOpt(ModuleModifierKind.DISALLOWED),
                                                                S.docComment()));
                 break;
             case ENUM:
@@ -1760,7 +1784,7 @@ public class JavacParser implements Parser {
                 if (allowEnums && S.token() == ENUM) {
                     log.error(S.pos(), "local.enum");
                     stats.
-                        append(classOrInterfaceOrEnumDeclaration(modifiersOpt(),
+                        append(classOrInterfaceOrEnumDeclaration(modifiersOpt(ModuleModifierKind.DISALLOWED),
                                                                  S.docComment()));
                     break;
                 } else if (allowAsserts && S.token() == ASSERT) {
@@ -2066,7 +2090,7 @@ public class JavacParser implements Parser {
             JCExpression t = term(EXPR | TYPE);
             if ((lastmode & TYPE) != 0 &&
                 (S.token() == IDENTIFIER || S.token() == ASSERT || S.token() == ENUM))
-                return variableDeclarators(modifiersOpt(), t, stats).toList();
+                return variableDeclarators(modifiersOpt(ModuleModifierKind.DISALLOWED), t, stats).toList();
             else
                 return moreStatementExpressions(pos, t, stats).toList();
         }
@@ -2108,15 +2132,23 @@ public class JavacParser implements Parser {
         return List.convert(JCTypeAnnotation.class, annotations);
     }
 
+    enum ModuleModifierKind { DISALLOWED, LOOKAHEAD, ALLOWED };
+
     /** ModifiersOpt = { Modifier }
      *  Modifier = PUBLIC | PROTECTED | PRIVATE | STATIC | ABSTRACT | FINAL
      *           | NATIVE | SYNCHRONIZED | TRANSIENT | VOLATILE | "@"
      *           | "@" Annotation
      */
-    JCModifiers modifiersOpt() {
-        return modifiersOpt(null);
+    JCModifiers modifiersOpt(ModuleModifierKind mmk) {
+        return modifiersOpt(mmk, null, null);
     }
-    JCModifiers modifiersOpt(JCModifiers partial) {
+
+    JCModifiers modifiersOpt(ModuleModifierKind mmk, Name constrName) {
+        return modifiersOpt(mmk, null, constrName);
+    }
+
+    @SuppressWarnings("fallthrough")
+    JCModifiers modifiersOpt(ModuleModifierKind mmk, JCModifiers partial, Name constrName) {
         long flags = (partial == null) ? 0 : partial.flags;
         if (S.deprecatedFlag()) {
             flags |= Flags.DEPRECATED;
@@ -2124,7 +2156,7 @@ public class JavacParser implements Parser {
         }
         ListBuffer<JCAnnotation> annotations = new ListBuffer<JCAnnotation>();
         if (partial != null) annotations.appendList(partial.annotations);
-        int pos = S.pos();
+        int pos = (partial != null ? partial.pos : S.pos());
         int lastPos = Position.NOPOS;
     loop:
         while (true) {
@@ -2142,20 +2174,56 @@ public class JavacParser implements Parser {
             case SYNCHRONIZED: flag = Flags.SYNCHRONIZED; break;
             case STRICTFP    : flag = Flags.STRICTFP; break;
             case MONKEYS_AT  : flag = Flags.ANNOTATION; break;
+            case IDENTIFIER:
+                if (S.name() != names.module)
+                    break loop;
+                switch (mmk) {
+                    case DISALLOWED:
+                        break loop;
+                    case LOOKAHEAD: {
+                        if ((flags & (Flags.AccessFlags)) != 0)
+                            break loop;
+                        S.mark();
+                        try {
+                            S.nextToken();
+                            if (S.token() == IDENTIFIER) {
+                                Name ident = S.name();
+                                S.nextToken();
+                                switch (S.token()) {
+                                    case SEMI:
+                                    case EQ:
+                                    case LBRACKET:
+                                        break loop;
+                                    case LPAREN:
+                                        if (ident == constrName)
+                                            break;
+                                        break loop;
+                                }
+                            }
+                        } finally {
+                            S.reset();
+                        }
+                    }
+                    case ALLOWED:
+                        break;
+                }
+                flag = Flags.MODULE;
+                break;
             default: break loop;
             }
-            if ((flags & flag) != 0) log.error(S.pos(), "repeated.modifier");
+            if ((flags & flag) != 0)
+                log.error(S.pos(), "repeated.modifier");
             lastPos = S.pos();
             S.nextToken();
             if (flag == Flags.ANNOTATION) {
                 checkAnnotations();
                 if (S.token() != INTERFACE) {
                 JCAnnotation ann = annotation(lastPos, AnnotationKind.DEFAULT_ANNO);
-                // if first modifier is an annotation, set pos to annotation's.
-                if (flags == 0 && annotations.isEmpty())
-                    pos = ann.pos;
-                annotations.append(ann);
-                lastPos = ann.pos;
+                    // if first modifier is an annotation, set pos to annotation's.
+                    if (flags == 0 && annotations.isEmpty())
+                        pos = ann.pos;
+                    annotations.append(ann);
+                    lastPos = ann.pos;
                     flag = 0;
                 }
             }
@@ -2336,28 +2404,58 @@ public class JavacParser implements Parser {
         return toP(F.at(pos).VarDef(mods, name, type, null));
     }
 
-    /** CompilationUnit = [ { "@" Annotation } PACKAGE Qualident ";"] {ImportDeclaration} {TypeDeclaration}
+    /** CompilationUnit =
+     *      {ImportDeclaration} [ModuleDeclaration]
+     *      [ { "@" Annotation } PACKAGE Qualident ";"]
+     *      {ImportDeclaration}
+     *      {TypeDeclaration}
      */
     public JCTree.JCCompilationUnit parseCompilationUnit() {
-        int pos = S.pos();
-        JCExpression pid = null;
+        ListBuffer<JCTree> defs = new ListBuffer<JCTree>();
+        int cu_pos = S.pos();
+        boolean seenImport = false;
+
+        String toplevel_dc = S.docComment();
+
+        while (S.token() == IMPORT) {
+            defs.append(importDeclaration());
+            seenImport = true;
+        }
+
         String dc = S.docComment();
+
         JCModifiers mods = null;
-        List<JCAnnotation> packageAnnotations = List.nil();
-        if (S.token() == MONKEYS_AT)
-            mods = modifiersOpt();
+        if (S.token() == MONKEYS_AT)  {
+            mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
+        }
+
+        if (S.token() == IDENTIFIER && S.name() == names.module) {
+            defs.append(moduleDecl(mods, dc));
+            dc = null;
+        }
+
+        if (mods == null && S.token() == MONKEYS_AT) {
+            dc = S.docComment();
+            mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
+        }
 
         if (S.token() == PACKAGE) {
+            int pos = S.pos();
+            if (seenImport && !allowImportsBeforePackage)
+                log.error(pos, "imports.not.allowed.before.package.in.source", source.name);
+            List<JCAnnotation> annots = List.nil();
             if (mods != null) {
                 checkNoMods(mods.flags);
-                packageAnnotations = mods.annotations;
+                annots = mods.annotations;
                 mods = null;
+                dc = null;
             }
             S.nextToken();
-            pid = qualident();
+            JCExpression pid = qualident();
             accept(SEMI);
+            defs.append(toP(F.at(pos).Package(annots, pid)));
         }
-        ListBuffer<JCTree> defs = new ListBuffer<JCTree>();
+
         boolean checkForImports = true;
         while (S.token() != EOF) {
             if (S.pos() <= errorEndPos) {
@@ -2369,17 +2467,19 @@ public class JavacParser implements Parser {
             if (checkForImports && mods == null && S.token() == IMPORT) {
                 defs.append(importDeclaration());
             } else {
-                JCTree def = typeDeclaration(mods);
+                JCTree def = typeDeclaration(mods, dc);
                 if (def instanceof JCExpressionStatement)
                     def = ((JCExpressionStatement)def).expr;
                 defs.append(def);
                 if (def instanceof JCClassDecl)
                     checkForImports = false;
                 mods = null;
+                dc = null;
             }
         }
-        JCTree.JCCompilationUnit toplevel = F.at(pos).TopLevel(packageAnnotations, pid, defs.toList());
-        attach(toplevel, dc);
+
+        JCTree.JCCompilationUnit toplevel = F.at(cu_pos).TopLevel(defs.toList());
+        attach(toplevel, toplevel_dc);
         if (defs.elems.isEmpty())
             storeEnd(toplevel, S.prevEndPos());
         if (keepDocComments)
@@ -2387,6 +2487,152 @@ public class JavacParser implements Parser {
         if (keepLineMap)
             toplevel.lineMap = S.getLineMap();
         return toplevel;
+    }
+
+    /**
+     * ModuleDecl = { "@" Annotation } MODULE ModuleId [ ModuleProvides ] '{' { ModuleMetadata } '}'
+     * ModuleProvides = PROVIDES ModuleIdList
+     *
+     * called after MODULE has been seen
+     */
+    JCModuleDecl moduleDecl(JCModifiers mods, String dc) {
+        int pos = S.pos();
+        if (!allowModules)
+            log.error(pos, "modules.not.supported.in.source", source.name);
+        List<JCAnnotation> annots = List.nil();
+        if (mods != null) {
+            checkNoMods(mods.flags);
+            annots = mods.annotations;
+            mods = null;
+        }
+        S.nextToken();
+        JCModuleId mid = moduleId();
+        List<JCModuleId> provides = null;
+        List<JCModuleMetadata> metadataList = null;
+
+        if (S.token() == IDENTIFIER && S.name() == names.provides) {
+            S.nextToken();
+            provides = moduleIdList();
+        } else
+            provides = List.nil();
+        accept(LBRACE);
+        metadataList = moduleMetadataList();
+        accept(RBRACE);
+
+        JCModuleDecl result = toP(F.at(pos).Module(annots, mid, provides, metadataList));
+        attach(result, dc);
+        return result;
+    }
+
+    /**
+     * ModuleMetadataList = ModuleMetadata*
+     * ModuleMetadata = ModuleRequires | ModulePermits | ModuleProvides
+     * ModuleRequires = REQUIRES Identifier* ModuleId {',' ModuleId}
+     * ModulePermits  = PERMITS  QualifiedIdentifier {',' QualifiedIdentifier}
+     */
+    List<JCModuleMetadata> moduleMetadataList() {
+        ListBuffer<JCModuleMetadata> defs = new ListBuffer<JCModuleMetadata>();
+
+        while (S.token() == IDENTIFIER || S.token() == CLASS) {
+            int pos = S.pos();
+            if (S.token() == CLASS) {
+                S.nextToken();
+                ListBuffer<Name> flags = new ListBuffer<Name>();
+                JCExpression qualIdHead = null;
+                while (S.token() == IDENTIFIER) {
+                    int id_pos = S.pos();
+                    Name id = S.name();
+                    S.nextToken();
+                    if (S.token() == DOT || S.token() == SEMI) {
+                        qualIdHead = toP(F.at(id_pos).Ident(id));
+                        break;
+                    }
+                    flags.append(id);
+                }
+                if (qualIdHead == null) {
+                    log.error(pos, "class.id.expected");
+                } else {
+                    JCExpression qualId = qualident(qualIdHead);
+                    accept(SEMI);
+                    defs.append(toP(F.at(pos).ModuleClass(flags.toList(), qualId)));
+                }
+            } else if (S.name() == names.requires) {
+                ListBuffer<Name> flags = new ListBuffer<Name>();
+                List<JCModuleId> moduleIds;
+                S.nextToken();
+                JCExpression moduleIdHead = null;
+                while (S.token() == IDENTIFIER ||
+                        S.token().name != null && Character.isLetter(S.token().name.charAt(0))) {
+                    int id_pos = S.pos();
+                    Name id = S.name();
+                    S.nextToken();
+                    if (S.token() == DOT || S.token() == MONKEYS_AT || S.token() == COMMA || S.token() == SEMI) {
+                        moduleIdHead = toP(F.at(id_pos).Ident(id));
+                        break;
+                    }
+                    flags.append(id);
+                }
+                if (moduleIdHead == null) {
+                    log.error(pos, "module.id.expected");
+                } else {
+                    moduleIds = moduleIdList(moduleIdHead);
+                    accept(SEMI);
+                    defs.append(toP(F.at(pos).ModuleRequires(flags.toList(), moduleIds)));
+                }
+            } else if (S.name() == names.permits) {
+                S.nextToken();
+                List<JCExpression> qualIds = qualidentList();
+                accept(SEMI);
+                defs.append(toP(F.at(pos).ModulePermits(qualIds)));
+            } else
+                break;
+        }
+
+        return defs.toList();
+    }
+
+    /** ModuleIdList = ModuleId {"," ModuleId}
+     */
+    List<JCModuleId> moduleIdList() {
+        ListBuffer<JCModuleId> ts = new ListBuffer<JCModuleId>();
+        ts.append(moduleId());
+        while (S.token() == COMMA) {
+            S.nextToken();
+            ts.append(moduleId());
+        }
+        return ts.toList();
+    }
+
+    /** ModuleIdList = ModuleId {"," ModuleId}
+     *  used when we've peeked ahead at the first identifier
+     */
+    List<JCModuleId> moduleIdList(JCExpression head) {
+        ListBuffer<JCModuleId> ts = new ListBuffer<JCModuleId>();
+        ts.append(moduleId(head));
+        while (S.token() == COMMA) {
+            S.nextToken();
+            ts.append(moduleId());
+        }
+        return ts.toList();
+    }
+
+    JCModuleId moduleId() {
+        return moduleId(toP(F.at(S.pos()).Ident(ident())));
+    }
+
+    JCModuleId moduleId(JCExpression head) {
+        int pos = S.pos();
+        JCTree qualId = qualident(head);
+        Name version = null;
+        if (S.token() == MONKEYS_AT) {
+            S.nextToken();
+            if (S.token() == MODULEVERSIONLITERAL || S.token() == STRINGLITERAL) {
+                version = names.fromString(S.stringVal());
+            } else
+               log.error(pos, "modules.version.literal.expected");
+            S.nextToken();
+        }
+        return toP(F.at(pos).ModuleId(qualId, version));
     }
 
     /** ImportDeclaration = IMPORT [ STATIC ] Ident { "." Ident } [ "." "*" ] ";"
@@ -2419,14 +2665,17 @@ public class JavacParser implements Parser {
     /** TypeDeclaration = ClassOrInterfaceOrEnumDeclaration
      *                  | ";"
      */
-    JCTree typeDeclaration(JCModifiers mods) {
+    JCTree typeDeclaration(JCModifiers mods, String dc) {
         int pos = S.pos();
         if (mods == null && S.token() == SEMI) {
             S.nextToken();
             return toP(F.at(pos).Skip());
         } else {
-            String dc = S.docComment();
-            return classOrInterfaceOrEnumDeclaration(modifiersOpt(mods), dc);
+            if (mods == null) {
+                assert dc == null;
+                dc = S.docComment();
+            }
+            return classOrInterfaceOrEnumDeclaration(modifiersOpt(ModuleModifierKind.ALLOWED, mods, null), dc);
         }
     }
 
@@ -2496,7 +2745,7 @@ public class JavacParser implements Parser {
             S.nextToken();
             implementing = typeList();
         }
-        List<JCTree> defs = classOrInterfaceBody(name, false);
+        List<JCTree> defs = classOrInterfaceBody(name, CLASS);
         JCClassDecl result = toP(F.at(pos).ClassDef(
             mods, name, typarams, extending, implementing, defs));
         attach(result, dc);
@@ -2520,7 +2769,7 @@ public class JavacParser implements Parser {
             S.nextToken();
             extending = typeList();
         }
-        List<JCTree> defs = classOrInterfaceBody(name, true);
+        List<JCTree> defs = classOrInterfaceBody(name, INTERFACE);
         JCClassDecl result = toP(F.at(pos).ClassDef(
             mods, name, typarams, null, extending, defs));
         attach(result, dc);
@@ -2577,7 +2826,7 @@ public class JavacParser implements Parser {
             S.nextToken();
             while (S.token() != RBRACE && S.token() != EOF) {
                 defs.appendList(classOrInterfaceBodyDeclaration(enumName,
-                                                                false));
+                                                                ENUM));
                 if (S.pos() <= errorEndPos) {
                     // error recovery
                    skip(false, true, true, false);
@@ -2609,7 +2858,7 @@ public class JavacParser implements Parser {
         JCClassDecl body = null;
         if (S.token() == LBRACE) {
             JCModifiers mods1 = F.at(Position.NOPOS).Modifiers(Flags.ENUM | Flags.STATIC);
-            List<JCTree> defs = classOrInterfaceBody(names.empty, false);
+            List<JCTree> defs = classOrInterfaceBody(names.empty, CLASS);
             body = toP(F.at(identPos).AnonymousClassDef(mods1, defs));
         }
         if (args.isEmpty() && body == null)
@@ -2639,7 +2888,7 @@ public class JavacParser implements Parser {
     /** ClassBody     = "{" {ClassBodyDeclaration} "}"
      *  InterfaceBody = "{" {InterfaceBodyDeclaration} "}"
      */
-    List<JCTree> classOrInterfaceBody(Name className, boolean isInterface) {
+    List<JCTree> classOrInterfaceBody(Name className, Token encl) {
         accept(LBRACE);
         if (S.pos() <= errorEndPos) {
             // error recovery
@@ -2649,7 +2898,7 @@ public class JavacParser implements Parser {
         }
         ListBuffer<JCTree> defs = new ListBuffer<JCTree>();
         while (S.token() != RBRACE && S.token() != EOF) {
-            defs.appendList(classOrInterfaceBodyDeclaration(className, isInterface));
+            defs.appendList(classOrInterfaceBodyDeclaration(className, encl));
             if (S.pos() <= errorEndPos) {
                // error recovery
                skip(false, true, true, false);
@@ -2676,14 +2925,15 @@ public class JavacParser implements Parser {
      *    | ModifiersOpt Type Ident
      *      ( ConstantDeclaratorsRest | InterfaceMethodDeclaratorRest ";" )
      */
-    List<JCTree> classOrInterfaceBodyDeclaration(Name className, boolean isInterface) {
+    List<JCTree> classOrInterfaceBodyDeclaration(Name className, Token encl) {
         if (S.token() == SEMI) {
             S.nextToken();
             return List.<JCTree>of(F.at(Position.NOPOS).Block(0, List.<JCStatement>nil()));
         } else {
+            boolean isInterface = (encl == INTERFACE);
             String dc = S.docComment();
             int pos = S.pos();
-            JCModifiers mods = modifiersOpt();
+            JCModifiers mods = modifiersOpt(ModuleModifierKind.LOOKAHEAD, (encl == CLASS ? className : null));
             if (S.token() == CLASS ||
                 S.token() == INTERFACE ||
                 allowEnums && S.token() == ENUM) {
@@ -2923,7 +3173,7 @@ public class JavacParser implements Parser {
     }
 
     JCModifiers optFinal(long flags) {
-        JCModifiers mods = modifiersOpt();
+        JCModifiers mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
         checkNoMods(mods.flags & ~(Flags.FINAL | Flags.DEPRECATED));
         mods.flags |= flags;
         return mods;
