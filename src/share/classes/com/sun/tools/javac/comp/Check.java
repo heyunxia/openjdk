@@ -44,6 +44,7 @@ import com.sun.tools.javac.code.Symbol.*;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.Flags.MODULE; // resolve ambiguity
 
 /** Type checking helper class for the attribution phase.
  *
@@ -665,7 +666,7 @@ public class Check {
     }
 
     /** Check that given modifiers are legal for given symbol and
-     *  return modifiers together with any implicit modififiers for that symbol.
+     *  return modifiers together with any implicit modifiers for that symbol.
      *  Warning: we can't use flags() here since this method
      *  is called during class enter, when flags() would cause a premature
      *  completion.
@@ -680,8 +681,12 @@ public class Check {
         case VAR:
             if (sym.owner.kind != TYP)
                 mask = LocalVarFlags;
-            else if ((sym.owner.flags_field & INTERFACE) != 0)
-                mask = implicit = InterfaceVarFlags;
+            else if ((sym.owner.flags_field & INTERFACE) != 0) {
+                mask = InterfaceVarFlags;
+                implicit = STATIC | FINAL;
+                if ((flags & MODULE) == 0)
+                    implicit |= PUBLIC;
+            }
             else
                 mask = VarFlags;
             break;
@@ -695,8 +700,12 @@ public class Check {
                     mask = PRIVATE;
                 } else
                     mask = ConstructorFlags;
-            }  else if ((sym.owner.flags_field & INTERFACE) != 0)
-                mask = implicit = InterfaceMethodFlags;
+            }  else if ((sym.owner.flags_field & INTERFACE) != 0) {
+                mask = InterfaceMethodFlags;
+                implicit = ABSTRACT;
+                if ((flags & MODULE) == 0)
+                    implicit |= PUBLIC;
+            }
             else {
                 mask = MethodFlags;
             }
@@ -724,13 +733,19 @@ public class Check {
                     mask |= STATIC;
                 else if ((flags & ENUM) != 0)
                     log.error(pos, "enums.must.be.static");
+                if ((sym.owner.flags_field & INTERFACE) != 0) {
+                    if ((flags & MODULE) == 0)
+                        implicit |= PUBLIC;
+                }
                 // Nested interfaces and enums are always STATIC (Spec ???)
-                if ((flags & (INTERFACE | ENUM)) != 0 ) implicit = STATIC;
+                if ((flags & (INTERFACE | ENUM)) != 0 )
+                    implicit = STATIC;
             } else {
                 mask = ClassFlags;
             }
             // Interfaces are always ABSTRACT
-            if ((flags & INTERFACE) != 0) implicit |= ABSTRACT;
+            if ((flags & INTERFACE) != 0)
+                implicit |= ABSTRACT;
 
             if ((flags & ENUM) != 0) {
                 // enums can't be declared abstract or final
@@ -750,8 +765,7 @@ public class Check {
                 mask |= INTERFACE;
             }
             else {
-                log.error(pos,
-                          "mod.not.allowed.here", asFlagSet(illegal));
+                log.error(pos, "mod.not.allowed.here", asFlagSet(illegal));
             }
         }
         else if ((sym.kind == TYP ||
@@ -767,11 +781,15 @@ public class Check {
                  &&
                  checkDisjoint(pos, flags,
                                PUBLIC,
-                               PRIVATE | PROTECTED)
+                               PRIVATE | PROTECTED | MODULE)
                  &&
                  checkDisjoint(pos, flags,
                                PRIVATE,
-                               PUBLIC | PROTECTED)
+                               PUBLIC | PROTECTED | MODULE)
+                 &&
+                 checkDisjoint(pos, flags,
+                               PROTECTED,
+                               PUBLIC | PRIVATE | MODULE)
                  &&
                  checkDisjoint(pos, flags,
                                FINAL,
@@ -784,6 +802,16 @@ public class Check {
             // skip
         }
         return flags & (mask | ~StandardFlags) | implicit;
+    }
+
+    /**
+     * Determine if module modifier is legal here.
+     */
+    void checkModuleModifier(DiagnosticPosition pos, Symbol sym) {
+        // JIGSAW FIXME
+//        if (Flags.isModuleAccess(sym) && sym.packge().modle == syms.unnamedModule) {
+//            log.error(pos, "module.not.allowed.here");
+//        }
     }
 
 
@@ -1620,8 +1648,8 @@ public class Check {
                         MethodSymbol implmeth = absmeth.implementation(impl, types, true);
                         if (implmeth == null || implmeth == absmeth)
                             undef = absmeth;
+                        }
                     }
-                }
                 if (undef == null) {
                     Type st = types.supertype(c.type);
                     if (st.tag == CLASS)

@@ -26,7 +26,6 @@
 package com.sun.tools.javac.parser;
 
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 
@@ -51,12 +50,10 @@ public class Keywords {
         return instance;
     }
 
-    private final Log log;
     private final Names names;
 
     protected Keywords(Context context) {
         context.put(keywordsKey, this);
-        log = Log.instance(context);
         names = Names.instance(context);
 
         for (Token t : Token.values()) {

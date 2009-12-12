@@ -250,6 +250,12 @@ public class ZipArchive implements Archive {
             String entryName = entry.getName();
             return removeExtension(entryName).replace('/', '.');
         }
+        
+        @Override
+        protected String inferModuleTag(String binaryName) {
+            File zf = new File(zarch.zfile.getName());
+            return removeExtension(zf.getName());
+        }
 
         @Override
         public boolean isNameCompatible(String cn, JavaFileObject.Kind k) {
