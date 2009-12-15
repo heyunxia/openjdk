@@ -120,6 +120,11 @@ public class TreeTranslator extends JCTree.Visitor {
         result = tree;
     }
 
+    public void visitPackageDef(JCPackageDecl tree) {
+        tree.packageId = translate(tree.packageId);
+        result = tree;
+    }
+
     public void visitImport(JCImport tree) {
         tree.qualid = translate(tree.qualid);
         result = tree;
