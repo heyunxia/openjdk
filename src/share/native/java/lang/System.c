@@ -70,12 +70,22 @@ Java_java_lang_System_identityHashCode(JNIEnv *env, jobject this, jobject x)
 #define PUTPROP_ForPlatformCString(props, key, val) \
     if (1) { \
         jstring jkey = JNU_NewStringPlatform(env, key); \
-        jstring jval = JNU_NewStringPlatform(env, val); \
-        jobject r = (*env)->CallObjectMethod(env, props, putID, jkey, jval); \
-        if ((*env)->ExceptionOccurred(env)) return NULL; \
-        (*env)->DeleteLocalRef(env, jkey); \
-        (*env)->DeleteLocalRef(env, jval); \
-        (*env)->DeleteLocalRef(env, r); \
+        if (jkey == NULL) { \
+            JNU_ThrowInternalError(env, "Cannot decode property key"); \
+            return; \
+        } else { \
+            jstring jval = JNU_NewStringPlatform(env, val); \
+            if (jval == NULL) { \
+                JNU_ThrowInternalError(env, "Cannot decode property value"); \
+                return; \
+            } else { \
+                jobject r = (*env)->CallObjectMethod(env, props, putID, jkey, jval); \
+                if ((*env)->ExceptionOccurred(env)) return NULL; \
+                (*env)->DeleteLocalRef(env, jkey); \
+                (*env)->DeleteLocalRef(env, jval); \
+                (*env)->DeleteLocalRef(env, r); \
+            } \
+        } \
     } else ((void) 0)
 
 #ifndef VENDOR /* Third party may overwrite this. */

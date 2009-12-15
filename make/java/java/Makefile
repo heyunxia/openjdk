@@ -140,6 +140,7 @@ vpath %.c $(SHARE_SRC)/native/sun/reflect
 vpath %.c $(SHARE_SRC)/native/java/sql
 vpath %.c $(SHARE_SRC)/native/java/util
 vpath %.c $(SHARE_SRC)/native/java/util/concurrent/atomic
+vpath %.c $(SHARE_SRC)/native/org/openjdk/jigsaw
 vpath %.c $(PLATFORM_SRC)/native/common
 vpath %.c $(PLATFORM_SRC)/native/java/util
 vpath %.c $(PLATFORM_SRC)/native/sun/security/provider

@@ -234,12 +234,12 @@ import_product:
 	$(MAKE) VARIANT=OPT FASTDEBUG=false import
 
 #
-# Core.
+# Core
 #
 
 all build:: sanity-all post-sanity-all
 
-SUBDIRS    = tools java javax org sun sunw com jpda mkdemo mksample launchers
+SUBDIRS    = tools java javax org sun sunw com jpda mkdemo mksample launchers modules
 all build::
 	$(SUBDIRS-loop)
 
