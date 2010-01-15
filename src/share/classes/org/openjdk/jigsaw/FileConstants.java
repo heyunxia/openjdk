@@ -38,13 +38,71 @@ public final class FileConstants {
 
         LIBRARY_HEADER(0),
         LIBRARY_MODULE_INDEX(1),
-        LIBRARY_MODULE_CONFIG(2);
+        LIBRARY_MODULE_CONFIG(2),
+        MODULE_FILE(3);
 
         private final int value;
         public int value() { return value; }
 
         private Type(int v) {
             value = v;
+        }
+
+    }
+
+    public static final class ModuleFile {
+
+        public static final int MAJOR_VERSION = 0;
+        public static final int MINOR_VERSION = 0;
+
+        public static enum SectionType {
+
+            MODULE_INFO(0, false),
+            CLASSES(1, false),
+            RESOURCES(2, true),
+            NATIVE_LIBS(3, true),
+            NATIVE_CMDS(4, true),
+            CONFIG(5, true);
+
+            private final int value;
+            public int value() { return value; }
+
+            private final boolean hasFiles;
+            public boolean hasFiles() { return hasFiles; }
+
+            private SectionType(int v, boolean hf) {
+                value = v;
+                hasFiles = hf;
+            }
+
+        }
+
+        public static enum Compressor {
+
+            NONE(0),
+            GZIP(1),
+            PACK200_GZIP(2);
+
+            private final int value;
+            public int value() { return value; }
+
+            private Compressor(int v) {
+                value = v;
+            }
+
+        }
+
+        public static enum HashType {
+
+            SHA256(0);
+
+            private final int value;
+            public int value() { return value; }
+
+            private HashType(int v) {
+                value = v;
+            }
+
         }
 
     }
