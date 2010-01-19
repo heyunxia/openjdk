@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,7 @@ package org.openjdk.jigsaw;
 
 import java.lang.module.*;
 import java.io.*;
+import java.net.URI;
 import java.util.*;
 import java.util.regex.*;
 
@@ -120,6 +121,15 @@ final class ContextBuilder<Cx extends BaseContext> {
         cx.add(mi.id());
         if (cx instanceof LinkingContext)
             ((LinkingContext)cx).moduleInfos().add(mi);
+        if (cx instanceof Context) {
+            URI lp = res.locationForName.get(mi.id().name());
+            if (lp != null) {
+                String s = lp.getScheme();
+                if (s == null || !s.equals("file"))
+                    throw new AssertionError();
+                ((Context)cx).putLibraryPathForModule(mi.id(), new File(lp));
+            }
+        }
         contextForModule.put(mi.id().name(), cx);
 
         // Forward edges

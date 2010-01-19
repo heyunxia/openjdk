@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -39,7 +39,7 @@ import static org.openjdk.jigsaw.Trace.*;
  */
 
 public abstract class Library
-    extends Catalog
+    extends LocatableCatalog
 {
 
     private static File systemLibraryPath = null;
@@ -138,7 +138,8 @@ public abstract class Library
     }
 
     /**
-     * Read the class bytes of the given class within the given module.
+     * Read the class bytes of the given class within the given module in this
+     * library.
      *
      * @param   mid
      *          The module's identifier
@@ -153,12 +154,40 @@ public abstract class Library
      *          If the given module identifier is not a Jigsaw module
      *          identifier
      */
-    public abstract byte[] readClass(ModuleId mid, String className)
+    public abstract byte[] readLocalClass(ModuleId mid, String className)
         throws IOException;
 
     /**
+     * Read the class bytes of the given class within the given module, in this
+     * library or in a parent library.
+     *
+     * @param   mid
+     *          The module's identifier
+     *
+     * @param   className
+     *          The binary name of the requested class
+     *
+     * @return  The requested bytes, or {@code null} if the named module does
+     *          not define such a class
+     *
+     * @throws  IllegalArgumentException
+     *          If the given module identifier is not a Jigsaw module
+     *          identifier
+     */
+    public byte[] readClass(ModuleId mid, String className)
+        throws IOException
+    {
+        for (Library l = this; l != null; l = l.parent()) {
+            byte [] bs = l.readLocalClass(mid, className);
+            if (bs != null)
+                return bs;
+        }
+        return null;
+    }
+
+    /**
      * Return a list of the public and, optionally, all other classes defined
-     * by the named module.
+     * by the named module in this library.
      *
      * @param   mid
      *          The module's identifier
@@ -173,7 +202,7 @@ public abstract class Library
      *          If the given module identifier is not a Jigsaw module
      *          identifier
      */
-    public abstract List<String> listClasses(ModuleId mid, boolean all)
+    public abstract List<String> listLocalClasses(ModuleId mid, boolean all)
         throws IOException;
 
     /**
@@ -207,7 +236,7 @@ public abstract class Library
         throws ConfigurationException, IOException;
 
     /**
-     * Find a resource within the given module.
+     * Find a resource within the given module in this library.
      *
      * @param   mid
      *          The module's identifier
@@ -221,7 +250,7 @@ public abstract class Library
      *          resource
      */
     // ## Returning file paths here is EVIL!
-    public abstract File findResource(ModuleId mid, String rn)
+    public abstract File findLocalResource(ModuleId mid, String rn)
         throws IOException;
 
     /**

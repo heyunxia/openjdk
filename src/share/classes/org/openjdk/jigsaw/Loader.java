@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -141,18 +141,36 @@ public class Loader
             return c;
         }
 
+        // Have we defined this class's module yet?
+        //
         Module m = moduleForName.get(mid.name());
         if (m != null) {
             if (!m.getModuleId().equals(mid))
                 throw new AssertionError("Duplicate module in loader");
-        } else {
+        }
+
+        // Find the library from which we'll load the class
+        //
+        Library lib = null;
+        try {
+            lib = pool.library(context, mid);
+        } catch (IOException x) {
+            ClassNotFoundException cnfx
+                = new ClassNotFoundException(mid.name() + ":" + cn);
+            cnfx.initCause(x);
+            throw cnfx;
+        }
+
+        // Define the module
+        //
+        if (m == null) {
             try {
-                byte[] bs = pool.library().readModuleInfoBytes(mid);
+                byte[] bs = lib.readLocalModuleInfoBytes(mid);
                 if (bs == null)
                     throw new AssertionError();
                 m = defineModule(mid, bs);
                 if (tracing)
-                    trace(0, "%s: define %s", this, mid);
+                    trace(0, "%s: define %s [%s]", this, mid, lib.name());
             } catch (IOException x) {
                 throw cnf(m, cn, x);
             }
@@ -161,21 +179,21 @@ public class Loader
         // The last step, of actually locating the class, is in a
         // separate method so that the kernel loader can override it
         //
-        return finishFindingClass(mid, m, cn);
+        return finishFindingClass(lib, mid, m, cn);
 
     }
 
-    Class<?> finishFindingClass(ModuleId mid, Module m, String cn)
+    Class<?> finishFindingClass(Library lib, ModuleId mid, Module m, String cn)
         throws ClassNotFoundException
     {
 
         try {
-            byte[] bs = pool.library().readClass(mid, cn);
+            byte[] bs = lib.readLocalClass(mid, cn);
             if (bs == null)
                 throw new ClassNotFoundException(mid + ":" + cn);
             Class<?> c = defineClass(m, cn, bs, 0, bs.length);
             if (tracing)
-                trace(0, "%s: define %s:%s", this, mid, cn);
+                trace(0, "%s: define %s:%s [%s]", this, mid, cn, lib.name());
             return c;
         } catch (IOException x) {
             throw cnf(m, cn, x);
@@ -216,7 +234,7 @@ public class Loader
         throws IOException
     {
         for (ModuleId mid : context.modules()) {
-            File f = pool.library().findResource(mid, rn);
+            File f = pool.library(context, mid).findLocalResource(mid, rn);
             if (f != null) {
                 f = rv.accept(f);
                 if (f != null)

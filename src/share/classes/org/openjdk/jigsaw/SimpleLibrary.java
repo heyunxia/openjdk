@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,7 @@ package org.openjdk.jigsaw;
 
 import java.lang.module.*;
 import java.io.*;
+import java.net.URI;
 import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -187,6 +188,13 @@ public final class SimpleLibrary
     public int minorVersion() { return hd.minorVersion; }
     public SimpleLibrary parent() { return parent; }
 
+    private URI location = null;
+    public URI location() {
+        if (location == null)
+            location = root().toURI();
+        return location;
+    }
+
     @Override
     public String toString() {
         return (this.getClass().getName()
@@ -217,7 +225,7 @@ public final class SimpleLibrary
         }
         if (!root.mkdirs())
             throw new IOException(root + ": Cannot create library directory");
-        hd = new Header(root, this.parentPath);
+        hd = new Header(canonicalRoot, this.parentPath);
         hd.store();
     }
 
@@ -344,8 +352,14 @@ public final class SimpleLibrary
                 out.writeUTF(cx.name());
                 // Module ids
                 out.writeInt(cx.modules().size());
-                for (ModuleId mid : cx.modules())
+                for (ModuleId mid : cx.modules()) {
                     out.writeUTF(mid.toString());
+                    File lp = cx.findLibraryPathForModule(mid);
+                    if (lp == null)
+                        out.writeUTF("");
+                    else
+                        out.writeUTF(lp.toString());
+                }
                 // Local class map
                 out.writeInt(cx.localClasses().size());
                 for (Map.Entry<String,ModuleId> me
@@ -380,6 +394,9 @@ public final class SimpleLibrary
                     ModuleId mid = jms.parseModuleId(in.readUTF());
                     cx.add(mid);
                     cf.put(mid.name(), cx);
+                    String lps = in.readUTF();
+                    if (lps.length() > 0)
+                        cx.putLibraryPathForModule(mid, new File(lps));
                 }
                 cx.freeze();
                 assert cx.name().equals(cxn);
@@ -486,15 +503,12 @@ public final class SimpleLibrary
         return Files.load(new File(md, "info"));
     }
 
-    public byte[] readClass(ModuleId mid, String className)
+    public byte[] readLocalClass(ModuleId mid, String className)
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null) {
-            if (parent != null)
-                return parent.readClass(mid, className);
+        if (md == null)
             return null;
-        }
         File cf = new File(new File(md, "classes"),
                            className.replace('.', '/') + ".class");
         if (!cf.exists())
@@ -502,15 +516,12 @@ public final class SimpleLibrary
         return Files.load(cf);
     }
 
-    public List<String> listClasses(ModuleId mid, boolean all)
+    public List<String> listLocalClasses(ModuleId mid, boolean all)
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null) {
-            if (parent != null)
-                return parent.listClasses(mid, all);
+        if (md == null)
             return null;
-        }
         Index ix = Index.load(md);
         int os = all ? ix.otherClasses().size() : 0;
         ArrayList<String> cns
@@ -689,15 +700,12 @@ public final class SimpleLibrary
         }
     }
 
-    public File findResource(ModuleId mid, String name)
+    public File findLocalResource(ModuleId mid, String name)
         throws IOException
     {
         File md = findModuleDir(mid);
-        if (md == null) {
-            if (parent != null)
-                return parent.findResource(mid, name);
+        if (md == null)
             return null;
-        }
         File f = new File(new File(md, "resources"), name);
         if (!f.exists())
             return null;

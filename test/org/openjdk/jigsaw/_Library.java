@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -139,9 +139,9 @@ public class _Library {
 	    throw new AssertionError();
 
 	// List classes
-	List<String> pcns = lib.listClasses(foomid, false);
+	List<String> pcns = lib.listLocalClasses(foomid, false);
 	eq(pcns, Arrays.asList("com.foo.bar.Main"));
-	List<String> acns = lib.listClasses(foomid, true);
+	List<String> acns = lib.listLocalClasses(foomid, true);
 	eq(acns, Arrays.asList("com.foo.bar.Main",
 			       "com.foo.bar.Internal",
 			       "com.foo.bar.Internal$Secret"));

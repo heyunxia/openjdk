@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,30 +25,26 @@
 
 package org.openjdk.jigsaw;
 
-import java.lang.module.*;
-import java.util.*;
 import java.net.URI;
 
 
-final class Resolution {
+/**
+ * <p> A catalog with a known location </p>
+ *
+ * @see Library
+ * @see SimpleLibrary
+ */
 
-    final Collection<ModuleIdQuery> rootQueries;
+public abstract class LocatableCatalog
+    extends Catalog
+{
 
-    final Set<ModuleInfo> modules;
-
-    final Map<String,ModuleInfo> moduleForName;
-
-    final Map<String,URI> locationForName;
-
-    Resolution(Collection<ModuleIdQuery> rqs,
-               Set<ModuleInfo> mis,
-               Map<String,ModuleInfo> mfn,
-               Map<String,URI> lfn)
-    {
-        rootQueries = rqs;
-        modules = mis;
-        moduleForName = mfn;
-        locationForName = lfn;
-    }
+    /**
+     * <p> The physical location of this catalog </p>
+     *
+     * @return  The absolute URI identifying this catalog's location
+     *          (never null)
+     */
+    public abstract URI location();
 
 }

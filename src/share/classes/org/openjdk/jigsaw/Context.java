@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@
 package org.openjdk.jigsaw;
 
 import java.lang.module.*;
+import java.io.File;
 import java.util.*;
 
 
@@ -44,6 +45,20 @@ public class Context
      * Construct a new, empty context.
      */
     public Context() { }
+
+    // For each module in this context, the location of its catalog,
+    // or null if the module is defined in the catalog from which the
+    // containing configuration was read
+    //
+    private Map<ModuleId,File> libraryForModule = new HashMap<>();
+
+    public final File findLibraryPathForModule(ModuleId mid) {
+        return libraryForModule.get(mid);
+    }
+
+    protected void putLibraryPathForModule(ModuleId mid, File path) {
+        libraryForModule.put(mid, path);
+    }
 
     // For each type defined by this context,
     // the id of the module that defines it

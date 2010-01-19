@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -81,9 +81,11 @@ final class Linker {
 
     private final Library lib;
     private final ContextSet<Context> cxs;
+    private final LibraryPool libPool;
 
     private Linker(Library l, ContextSet<Context> c) {
         lib = l;
+        libPool = new LibraryPool(lib);
         cxs = c;
      }
 
@@ -118,7 +120,8 @@ final class Linker {
     {
         for (Context cx : cxs.contexts) {
             for (ModuleInfo mi : cx.moduleInfos) {
-                for (String cn : lib.listClasses(mi.id(), true)) {
+                Library l = libPool.get(cx, mi.id());
+                for (String cn : l.listLocalClasses(mi.id(), true)) {
                     ModuleId smid = cx.findModuleForLocalClass(cn);
                     if (smid != null) {
                         // ## Do something more clever here: It should be possible
@@ -197,7 +200,8 @@ final class Linker {
         // Prepare export and supplier sets
         for (Context cx : cxs.contexts) {
             for (ModuleInfo mi : cx.moduleInfos) {
-                for (String cn : lib.listClasses(mi.id(), false)) {
+                Library l = libPool.get(cx, mi.id());
+                for (String cn : l.listLocalClasses(mi.id(), false)) {
                     String pn = packageName(cn);
                     cx.packages.add(pn);
                     cx.exports.add(pn);

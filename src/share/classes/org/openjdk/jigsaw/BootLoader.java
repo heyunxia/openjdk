@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -76,7 +76,7 @@ public final class BootLoader    // ## TEMPORARY should be package-private
     }
 
     @Override
-    Class<?> finishFindingClass(ModuleId mid, Module m, String cn)
+    Class<?> finishFindingClass(Library lib, ModuleId mid, Module m, String cn)
         throws ClassNotFoundException
     {
         Class<?> c = findBootClass(cn);

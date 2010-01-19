@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,6 +24,7 @@
  */
 
 import java.io.*;
+import java.net.URI;
 import java.util.*;
 import java.lang.module.*;
 import org.openjdk.jigsaw.*;
@@ -90,6 +91,10 @@ class MockLibrary
     public int majorVersion() { return 0; }
     public int minorVersion() { return 1; }
 
+    public URI location() {
+	throw new UnsupportedOperationException();
+    }
+
     public void install(Collection<Manifest> mf) {
 	throw new UnsupportedOperationException();
     }
@@ -117,7 +122,7 @@ class MockLibrary
 	throw new UnsupportedOperationException();
     }
 
-    public ModuleInfo readModuleInfo(ModuleId mid) {
+    public ModuleInfo readLocalModuleInfo(ModuleId mid) {
 	return infoForId.get(mid);
     }
 
@@ -125,7 +130,7 @@ class MockLibrary
 	throw new UnsupportedOperationException();
     }
 
-    public byte[] readClass(ModuleId mid, String className) {
+    public byte[] readLocalClass(ModuleId mid, String className) {
 	throw new UnsupportedOperationException();
     }
 
@@ -136,7 +141,7 @@ class MockLibrary
 	throw new UnsupportedOperationException();
     }
 
-    public List<String> listClasses(ModuleId mid, boolean all) {
+    public List<String> listLocalClasses(ModuleId mid, boolean all) {
 	List<String> rv = new ArrayList<String>();
 	List<String> pcns = publicClassesForId.get(mid);
 	if (pcns != null)
@@ -153,7 +158,7 @@ class MockLibrary
 	throw new UnsupportedOperationException();
     }
 
-    public File findResource(ModuleId mid, String name) {
+    public File findLocalResource(ModuleId mid, String name) {
         throw new UnsupportedOperationException();
     }
 

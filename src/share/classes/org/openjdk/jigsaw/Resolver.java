@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,7 @@ package org.openjdk.jigsaw;
 
 import java.lang.module.*;
 import java.io.*;
+import java.net.URI;
 import java.util.*;
 import java.util.regex.*;
 
@@ -74,6 +75,8 @@ final class Resolver {
 
     private Map<String,ModuleInfo> moduleForName
         = new HashMap<String,ModuleInfo>();
+
+    private Map<String,URI> locationForName = new HashMap<>();
 
     private static void fail(String fmt, Object ... args) // cf. Linker.fail
         throws ConfigurationException
@@ -161,7 +164,9 @@ final class Resolver {
         }
 
         // No resolved module of this name yet, so go try to find one.
-        // We prefer newer versions to older versions.
+        // We prefer newer versions to older versions, and we consider
+        // all modules of the given name in our catalog and its parent
+        // catalog(s), if any.
         //
         List<ModuleId> candidates = cat.findModuleIds(mn);
         Collections.sort(candidates, Collections.reverseOrder());
@@ -192,7 +197,22 @@ final class Resolver {
         assert dep.query().matches(mid);
         assert moduleForName.get(mid.name()) == null;
 
-        ModuleInfo mi = cat.readModuleInfo(mid);
+        // Find and read the ModuleInfo, saving its location if any
+        //
+        ModuleInfo mi = null;
+        URI ml = null;
+        for (Catalog c = cat; c != null; c = c.parent()) {
+            mi = c.readLocalModuleInfo(mid);
+            if (mi != null) {
+                if (c != cat && c instanceof LocatableCatalog)
+                    ml = ((LocatableCatalog)c).location();
+                break;
+            }
+        }
+        if (mi == null)
+            throw new AssertionError("No ModuleInfo for " + mid
+                                     + "; initial catalog " + cat.name());
+
         Platform.adjustPlatformDependences(mi);
 
         // Check this module's permits constraints
@@ -209,6 +229,11 @@ final class Resolver {
         modules.add(mi);
         moduleForName.put(mid.name(), mi);
 
+        // Save the module's location, if known
+        //
+        if (ml != null)
+            locationForName.put(mid.name(), ml);
+
         // Push this module's dependences onto the choice stack,
         // in reverse order so that the choices are examined in
         // forward order
@@ -223,9 +248,11 @@ final class Resolver {
         // Recursively examine the next choice
         //
         if (!resolve(depth + 1, ch)) {
-            // Revert map, then fail
+            // Revert maps, then fail
             modules.remove(mi);
             moduleForName.remove(mid.name());
+            if (ml != null)
+                locationForName.remove(mid.name());
             if (tracing)
                 trace(1, depth, "fail: %s", mid);
             return false;
@@ -258,7 +285,8 @@ final class Resolver {
                  (rootQueries.size() == 1
                   ? rootQueries.iterator().next()
                   : rootQueries));
-        return new Resolution(rootQueries, r.modules, r.moduleForName);
+        return new Resolution(rootQueries, r.modules,
+                              r.moduleForName, r.locationForName);
     }
 
 }

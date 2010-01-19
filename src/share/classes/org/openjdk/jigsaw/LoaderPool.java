@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -39,6 +39,14 @@ public final class LoaderPool {
     private Library lib;
     Library library() { return lib; }
 
+    private LibraryPool libPool;
+
+    Library library(Context cx, ModuleId mid)
+        throws IOException
+    {
+        return libPool.get(cx, mid);
+    }
+
     private Configuration<Context> config;
     Configuration<Context> config() { return config; }
 
@@ -52,6 +60,7 @@ public final class LoaderPool {
         if (lb == null || cf == null)
             throw new IllegalArgumentException();
         lib = lb;
+        libPool = new LibraryPool(lib);
         config = cf;
         mainClass = cn;
     }
