@@ -62,7 +62,8 @@ public final class FileConstants {
             RESOURCES(2, true),
             NATIVE_LIBS(3, true),
             NATIVE_CMDS(4, true),
-            CONFIG(5, true);
+            CONFIG(5, true),
+            FILE(6, false);
 
             private final int value;
             public int value() { return value; }
