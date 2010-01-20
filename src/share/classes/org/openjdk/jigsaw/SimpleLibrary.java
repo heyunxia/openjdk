@@ -350,7 +350,7 @@ public final class SimpleLibrary
             out.writeInt(cf.contexts().size());
             for (Context cx : cf.contexts()) {
                 out.writeUTF(cx.name());
-                // Module ids
+                // Module ids, and their libraries
                 out.writeInt(cx.modules().size());
                 for (ModuleId mid : cx.modules()) {
                     out.writeUTF(mid.toString());

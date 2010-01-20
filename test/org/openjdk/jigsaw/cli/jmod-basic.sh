@@ -1,6 +1,6 @@
 #! /bin/sh
 
-# Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+# Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -73,5 +73,5 @@ $BIN/jmod install z.modules com.foo.bar
 $BIN/jmod install z.modules com.foo.byz
 $BIN/jmod list
 $BIN/jmod list -v
-$BIN/jmod dump com.foo.bar@1.2.3_01-4a com.foo.bar.Main >z
+$BIN/jmod dump-class com.foo.bar@1.2.3_01-4a com.foo.bar.Main z
 cmp z z.modules/com.foo.bar/com/foo/bar/Main.class

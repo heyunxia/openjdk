@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -68,7 +68,7 @@ public class Librarian {
         }
     }
 
-    static class Dump extends Command<SimpleLibrary> {
+    static class DumpClass extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -80,23 +80,28 @@ public class Librarian {
                 throw new Command.Exception(x.getMessage());
             }
             String cn = takeArg();
+            String ops = takeArg();
             finishArgs();
             byte[] bs = null;
             try {
                 bs = lib.readClass(mid, cn);
+                if (bs == null)
+                    throw new Command.Exception("%s: No such class in module %s",
+                                                cn, mid);
+                OutputStream fout = null;
+                try {
+                    fout = (ops.equals("-")
+                            ? System.out
+                            : new FileOutputStream(ops));
+                    fout.write(bs);
+                } finally {
+                    if (fout != null)
+                        fout.close();
+                }
             } catch (IllegalArgumentException x) {
                 throw new Command.Exception(x.getMessage());
             } catch (IOException x) {
                 throw new Command.Exception(x);
-            }
-            if (bs == null)
-                throw new Command.Exception("%s: No such class in module %s",
-                                            cn, mid);
-            int n = bs.length;
-            for (int i = 0; i < n;) {
-                int d = Math.min(n - i, 8192);
-                out.write(bs, i, d);
-                i += d;
             }
         }
     }
@@ -248,7 +253,7 @@ public class Librarian {
         }
     }
 
-    static class Show extends Command<SimpleLibrary> {
+    static class DumpConfig extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
@@ -267,7 +272,7 @@ public class Librarian {
                 Configuration<Context> cf = lib.readConfiguration(mid);
                 if (cf == null)
                     throw new Command.Exception(mid + ": Not a root module");
-                cf.dump(out);
+                cf.dump(out, verbose);
             } catch (IOException x) {
                 throw new Command.Exception(x);
             }
@@ -323,7 +328,8 @@ public class Librarian {
     static {
         commands.put("config", Config.class);
         commands.put("create", Create.class);
-        commands.put("dump", Dump.class);
+        commands.put("dump-class", DumpClass.class);
+        commands.put("dump-config", DumpConfig.class);
         commands.put("id", Identify.class);
         commands.put("identify", Identify.class);
         commands.put("install", Install.class);
@@ -332,7 +338,6 @@ public class Librarian {
         commands.put("ls", List.class);
         commands.put("preinstall", PreInstall.class);
         commands.put("reindex", ReIndex.class);
-        commands.put("show", Show.class);
     }
 
     private OptionParser parser;
@@ -343,14 +348,14 @@ public class Librarian {
         out.format("%n");
         out.format("usage: jmod config [<module-id> ...]%n");
         out.format("       jmod create [-L <library>] [-P <parent>]%n");
-        out.format("       jmod dump <module-id> <class-name>%n");
+        out.format("       jmod dump-class <module-id> <class-name> <output-file>%n");
+        out.format("       jmod dump-config <module-id>%n");
         out.format("       jmod identify%n");
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
 	out.format("       jmod extract modulefile ...%n");
         out.format("       jmod list [-v] [-p] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
         out.format("       jmod reindex [<module-id> ...]%n");
-        out.format("       jmod show <module-id>%n");
         out.format("%n");
         try {
             parser.printHelpOn(out);

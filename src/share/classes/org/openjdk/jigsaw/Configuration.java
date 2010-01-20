@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -144,30 +144,29 @@ public final class Configuration<Cx extends BaseContext> {
         this.contextForName = new HashMap<String,Cx>();
     }
 
-    private void dump(Context cx, PrintStream out) {
+    private void dump(Context cx, boolean all, PrintStream out) {
         if (!cx.localClasses().isEmpty()) {
-            out.format("    local");
-            for (Map.Entry<String,ModuleId> me
-                 : cx.moduleForLocalClassMap().entrySet())
-                out.format(" %s:%s", me.getKey(), me.getValue());
-            out.format("%n");
+            Set<Map.Entry<String,ModuleId>> mflcmes
+                = cx.moduleForLocalClassMap().entrySet();
+            out.format("    local (%d)", mflcmes.size());
+            if (!all && Platform.isPlatformContext(cx)) {
+                out.format(" ...%n");
+            } else {
+                out.format("%n");
+                for (Map.Entry<String,ModuleId> me : mflcmes)
+                    out.format("      %s:%s%n", me.getKey(), me.getValue());
+            }
         }
         if (!cx.remotePackages().isEmpty()) {
-            out.format("    remote {");
-            boolean first = true;
-            for (Map.Entry<String,String> me
-                 : cx.contextForRemotePackageMap().entrySet())
-            {
+            Set<Map.Entry<String,String>> cfrpes
+                = cx.contextForRemotePackageMap().entrySet();
+            out.format("    remote (%d)%n", cfrpes.size());
+            for (Map.Entry<String,String> me : cfrpes) {
                 Cx dcx = getContext(me.getValue());
-                if (Platform.isPlatformContext(dcx))
+                if (!all && Platform.isPlatformContext(dcx))
                     continue;
-                if (!first)
-                    out.format(", ");
-                else
-                    first = false;
-                out.format("%s=%s", me.getKey(), me.getValue());
+                out.format("      %s=%s%n", me.getKey(), me.getValue());
             }
-            out.format("}%n");
         }
     }
 
@@ -181,19 +180,30 @@ public final class Configuration<Cx extends BaseContext> {
     /**
      * Write a diagnostic summary of this configuration to the given stream.
      */
-    public void dump(PrintStream out) {
+    public void dump(PrintStream out, boolean all) {
         boolean isPath = contexts().iterator().next() instanceof PathContext;
         out.format("%sconfiguration roots = %s%n",
                    isPath ? "path " : "", roots());
         for (Cx cx : contexts()) {
-            out.format("  context %s %s%n", cx, cx.modules());
-            if (Platform.isPlatformContext(cx))
-                continue;
+            out.format("  context %s%n", cx);
+            for (ModuleId mid : cx.modules()) {
+                out.format("    module %s", mid);
+                if (cx instanceof Context) {
+                    File lp = ((Context)cx).findLibraryPathForModule(mid);
+                    if (lp != null)
+                        out.format(" [%s]", lp);
+                }
+                out.format("%n");
+            }
             if (cx instanceof Context)
-                dump((Context)cx, out);
+                dump((Context)cx, all, out);
             else if (cx instanceof PathContext)
                 dump((PathContext)cx, out);
         }
+    }
+
+    public void dump(PrintStream out) {
+        dump(out, false);
     }
 
     public int hashCode() {

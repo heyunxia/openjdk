@@ -503,6 +503,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/FileConstants.java \
     org/openjdk/jigsaw/Files.java \
     org/openjdk/jigsaw/Hi.java \
+    org/openjdk/jigsaw/IdentityHashSet.java \
     org/openjdk/jigsaw/JigsawModuleSystem.java \
     org/openjdk/jigsaw/JigsawVersion.java \
     org/openjdk/jigsaw/JigsawVersionQuery.java \
