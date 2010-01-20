@@ -62,8 +62,7 @@ public final class FileConstants {
             RESOURCES(2, true),
             NATIVE_LIBS(3, true),
             NATIVE_CMDS(4, true),
-            CONFIG(5, true),
-            FILE(6, false);
+            CONFIG(5, true);
 
             private final int value;
             public int value() { return value; }
@@ -74,6 +73,19 @@ public final class FileConstants {
             private SectionType(int v, boolean hf) {
                 value = v;
                 hasFiles = hf;
+            }
+
+        }
+
+        public static enum SubSectionType {
+
+            FILE(0);
+
+            private final int value;
+            public int value() { return value; }
+
+            private SubSectionType(int v) {
+                value = v;
             }
 
         }
