@@ -4,7 +4,9 @@
 #
 # This code is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License version 2 only, as
-# published by the Free Software Foundation.
+# published by the Free Software Foundation.  Sun designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Sun in the LICENSE file that accompanied this code.
 #
 # This code is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -21,70 +23,112 @@
 # have any questions.
 #
 
-BUILDDIR=..
+BUILDDIR = ..
 include $(BUILDDIR)/common/Defs.gmk
 
-SRC = $(SHARE_SRC)/modules
-BIN = $(BINDIR)
-CLASSES = $(CLASSBINDIR)
-TMP=$(TEMPDIR)/jigsaw
-MLIB = $(LIBDIR)/modules
-PKGS = $(OUTPUTDIR)/jigsaw-pkgs
-
-MODULES = boot base awt swing tools
-
-all: mods pkgs
-
-# For faster builds, during development only
-dev-%: ; MODULARIZE_DEV=1 JIGSAW_DEV_MODE=1 $(MAKE) --no-print-directory $*
-
-mods:
-	SRC=$(SRC) BIN=$(BIN) CLASSES=$(CLASSES) TMP=$(TMP) MLIB=$(MLIB) \
-	JIGSAW_TRACE=3 sh modularize.sh $(MODULES)
-
-%-image:
-	OUTPUTDIR=$(OUTPUTDIR) TMP=$(TMP) sh imagine.sh $*
-
-images: $(MODULES:%=%-image) jdk-image
-
-$(PKGS): ; mkdir -p $@
-
-ifndef JIGSAW_DEV_MODE
-  BOOT_Z = -z9
-endif
-
-# The boot package gets special treatment,
-# both here and in {imagine,modularize}.sh
 #
-boot-deb: boot-image $(PKGS)
-	fakeroot dpkg-deb $(BOOT_Z) -Zlzma --build \
-	  $(OUTPUTDIR)/jigsaw-images/boot $(PKGS)
+# Modularizing the JDK
+# - Post jdk build process until the source tree is restructured
+#   for modules build
+# - <outputdir>/modules/<module> will be created for each module.
+#
+# Steps:
+# 0. During jdk build before this makefile is invoked, classes, 
+#    resource files, and other non-class files such as native libraries,
+#    properties file, images, etc are created.
+#
+#    Non-class files are copied to <outputdir>/tmp/modules/<MODULE>
+#    directory in this step to prepare for the post-build modularization. 
+#
+#    The MODULE variable defined in other makefiles specifies 
+#    the lowest-level module that the non-class files belong to.
+#    The name might or might not be the same as the name of the modules 
+#    in the resulting <outputdir>/modules directory.
+#    
+# 1. Unpack all jars in the <builddir>/lib directory to a temporary 
+#    location (<outputdir>/tmp/modules/classes) to prepare for modules
+#    creation.
+#
+# 2. Run ClassAnalyzer tool to analyze all jdk classes and generate
+#    class list for all modules and also perform dependency analysis. 
+#
+#    Input configuration files :-
+#
+#    modules.config : defines the low-level modules and specifies 
+#       what classes and resource files each module includes.
+#    modules.group  : defines the module groups and its members.
+#    jdk7.depconfig : lists the dynamic dependencies including
+#       use of reflection Class.forName and JNI FindClass and
+#       service provider.
+#    optional.depconfig : lists the optional dependencies
+#
+# 3. Create one directory for each module (<outputdir>/modules/<module>)
+#    based on the output files from (2).
+#       
+#    modules.list lists the modules to be created for the modules
+#    build and its members. For each module (m) in modules.list,
+#    a. create $m/lib/$m.jar with all classes and resource files
+#       listed in $m.classlist and $m.resources respectively.
+#    b. copy all non-class files from its members to 
+#       <outputdir>/modules/$m.
 
-%-deb: %-image $(PKGS)
-	mkdir -p $(OUTPUTDIR)/jigsaw-images/$*
-	(M=$$(if [ $* != jdk ]; then echo jdk.$*; else echo jdk; fi); \
-         ISZ=$$(expr $$(du -s $(TMP)/module-classes/$$M | cut -f1) \
-                   + $$(du -s $(OUTPUTDIR)/jigsaw-images/$* | cut -f1)); \
-         LD="$$(if [ -e ld.$$M ]; then cat ld.$$M; fi)"; \
-         if ! [ -z "$$LD" ]; then LD="-l '$$LD'"; fi; \
-	 PATH=$(BINDIR):$(PATH) $(BINDIR)/jpkg -v -m $(TMP)/module-classes \
-	   -i $(OUTPUTDIR)/jigsaw-images/$* \
-           --java-home /usr/local/jigsaw -L /usr/local/jigsaw/lib/modules \
-           -n 'Jigsaw Team' -e 'jigsaw-dev@openjdk.java.net' \
-           -s 'Jigsaw JDK 7 $* module' --installed-size $$ISZ \
-           -d $(PKGS) -c jigsaw-jdk-$* deb $$M)
 
-debs: $(MODULES:%=%-deb)
+MAINMANIFEST=$(JDK_TOPDIR)/make/tools/manifest.mf
+MODULE_JAR_MANIFEST_FILE=$(ABS_TEMPDIR)/manifest.tmp
 
-all-debs: debs jdk-deb
+TMP = $(ABS_MODULES_TEMPDIR)
+MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
+MODULE_CLASSES = $(ABS_MODULES_TEMPDIR)/classes
+MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
 
-pkgs: all-debs
+all:: unpack-jars gen-classlist modularize
 
-clean-image:
-	rm -rf $(OUTPUTDIR)/jigsaw-images
+JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
+unpack-jars:
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	$(RM) -rf $(MODULE_CLASSES)
+	$(MKDIR) -p $(MODULE_CLASSES)
+	$(CP) -rf $(CLASSBINDIR)/* $(MODULE_CLASSES)
+	@for jf in  $(JAR_LIST) ; do \
+	   $(CD) $(MODULE_CLASSES) && $(BOOT_JAR_CMD) xf $$jf $(BOOT_JAR_JFLAGS);\
+	done
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-clean-pkgs: clean-image
-	rm -rf $(OUTPUTDIR)/jigsaw-pkgs
+gen-classlist:
+	$(CD) tools && $(MAKE) all
 
-clean: clean-pkgs
-	rm -rf $(MLIB) $(TMP)
+modularize: $(MODULE_JAR_MANIFEST_FILE)
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	@$(RM) -rf $(MODULES_DIR)
+
+	@# create jar file for modules and
+	@# copy other files from all members of this module 
+	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
+   	   $(ECHO) "Creating module $$m" ; \
+   	   $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.classlist > $(TMP)/tmp.cf ; \
+	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
+   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.resources >> $(TMP)/tmp.cf ; \
+           fi ; \
+           $(MKDIR) -p $(ABS_MODULES_DIR)/$$m/lib; \
+	   $(CD) $(MODULE_CLASSES) && \
+               $(BOOT_JAR_CMD) c0mf $(MODULE_JAR_MANIFEST_FILE) \
+		   $(ABS_MODULES_DIR)/$$m/lib/$$m.jar \
+	           @$(TMP)/tmp.cf \
+                   $(BOOT_JAR_JFLAGS); \
+	   for s in `$(GREP) "^$$m" $(MODULES_LIST)` ; do \
+               if [ -d $(TMP)/$$s ] ; then \
+               	   $(CP) -rf $(TMP)/$$s/*  $(ABS_MODULES_DIR)/$$m; \
+		   $(RM) -rf $(ABS_MODULES_DIR)/$$m/classes; \
+	       fi \
+	   done \
+        done
+	@$(CD) $(MODULE_CLASSES) && $(java-vm-cleanup)
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
+
+$(MODULE_JAR_MANIFEST_FILE):
+	$(SED) -e "s/@@RELEASE@@/$(RELEASE)/" $(MAINMANIFEST) > $@
+
+clean clobber::
+	$(RM) -rf $(MODULE_CLASSLIST)
+	$(RM) -rf $(MODULES_DIR)
+	$(RM) $(MODULE_JAR_MANIFEST_FILE)

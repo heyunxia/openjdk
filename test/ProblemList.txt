@@ -499,10 +499,6 @@ javax/management/monitor/AttributeArbitraryDataTypeTest.java	generic-all
 # Problems with rounding add failures on solaris-sparcv9 and -server
 java/math/BigDecimal/AddTests.java			 	solaris-sparcv9
 
-# Problems on windows with samevm, missing inputstream close()?
-# Also times out on solaris-sparcv9 -server
-java/math/BigInteger/BigIntegerTest.java		 	generic-all
-
 # Should be samevm? But seems problematic with samevm on windows
 java/math/BigInteger/ModPow65537.java			 	generic-all
 
@@ -575,6 +571,7 @@ javax/print/attribute/ChromaticityValues.java			generic-all
 javax/print/attribute/GetCopiesSupported.java			generic-all
 javax/print/attribute/SidesPageRangesTest.java			generic-all
 javax/print/attribute/SupportedPrintableAreas.java		generic-all
+javax/print/attribute/AttributeTest.java                        generic-all
 
 # Only print test left, excluding just because all print tests have been
 javax/print/attribute/MediaMappingsTest.java 			generic-all
