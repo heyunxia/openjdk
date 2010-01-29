@@ -1048,13 +1048,38 @@ public abstract class ClassLoader {
     }
 
     /**
+     * Finds a class with the specified <a href="#name">binary name</a>,
+     * loading it if necessary, using the bootstrap class loader.
+     *
+     * @param   name
+     *          The <a href="#name">binary name</a> of the class
+     *
+     * @return  The <tt>Class</tt> object for the specified <tt>name</tt>
+     *
+     * @throws  ClassNotFoundException
+     *          If the class could not be found
+     */
+    // ## This should be named findBootstrapClass, and findBootstrapClass
+    // ## should be renamed findBootstrapClass0, but that won't link, for
+    // ## reasons unknown
+    protected Class findBootClass(String name)
+        throws ClassNotFoundException
+    {
+        if (!checkName(name))
+            throw new ClassNotFoundException(name);
+        Class c = findBootstrapClass(name);
+        if (c == null)
+            throw new ClassNotFoundException(name);
+        return c;
+    }
+
+    /**
      * Returns a class loaded by the bootstrap class loader;
      * or return null if not found.
      */
     private Class findBootstrapClassOrNull(String name)
     {
         if (!checkName(name)) return null;
-
         return findBootstrapClass(name);
     }
 
@@ -1477,34 +1502,72 @@ public abstract class ClassLoader {
         return scl;
     }
 
+    private static int initDepth = 0;
+
     private static synchronized void initSystemClassLoader() {
-        if (!sclSet) {
-            if (scl != null)
-                throw new IllegalStateException("recursive invocation");
-            sun.misc.Launcher l = sun.misc.Launcher.getLauncher();
-            if (l != null) {
-                Throwable oops = null;
-                scl = l.getClassLoader();
-                try {
-                    scl = AccessController.doPrivileged(
-                        new SystemClassLoaderAction(scl));
-                } catch (PrivilegedActionException pae) {
-                    oops = pae.getCause();
-                    if (oops instanceof InvocationTargetException) {
-                        oops = oops.getCause();
-                    }
-                }
-                if (oops != null) {
-                    if (oops instanceof Error) {
-                        throw (Error) oops;
-                    } else {
-                        // wrap the exception
-                        throw new Error(oops);
-                    }
+        if (sclSet)
+            return;
+        if (initDepth > 0 || scl != null) {
+            // Java object locks are re-entrant!
+            throw new InternalError("Recursive initialization"
+                                    + " of system class loader");
+        }
+        initDepth++;
+        try {
+            String midq = System.getProperty("sun.java.launcher.module");
+            if (midq != null)
+                initModularSystemClassLoader(midq);
+            else
+                initLegacySystemClassLoader();
+            sclSet = true;
+        } finally {
+            initDepth--;
+        }
+    }
+
+    // Temporary hack to add all non-boot modules to the boot class path,
+    // so that the legacy launcher works.  The long-term solution will be
+    // to create an adaptor class loader which delegates to Jigsaw module
+    // loaders but otherwise behaves like the present "application" class
+    // loader created by the legacy launcher.
+    //
+    private static void hackBootPath() {    // ## TEMPORARY
+        String[] mods = { "jdk.awt", "jdk.swing", "jdk.tools", "jdk" };
+        String jhlm = System.getProperty("java.home") + "/lib/modules/";
+        for (String m : mods) {
+            File f = new File(jhlm + m + "/7-ea/classes");
+            org.openjdk.jigsaw.BootLoader.extendBootPath(f);
+        }
+    }
+
+    private static void initLegacySystemClassLoader() {
+        sun.misc.Launcher l = sun.misc.Launcher.getLauncher();
+        if (l != null) {
+            Throwable oops = null;
+            scl = l.getClassLoader();
+            try {
+                scl = AccessController.doPrivileged(
+                          new SystemClassLoaderAction(scl));
+            } catch (PrivilegedActionException pae) {
+                oops = pae.getCause();
+                if (oops instanceof InvocationTargetException) {
+                    oops = oops.getCause();
                 }
             }
-            sclSet = true;
+            hackBootPath();
+            if (oops != null) {
+                if (oops instanceof Error) {
+                    throw (Error) oops;
+                } else {
+                    // wrap the exception
+                    throw new Error(oops);
+                }
+            }
         }
+    }
+
+    private static void initModularSystemClassLoader(String midq) {
+        scl = org.openjdk.jigsaw.Launcher.launch(midq);
     }
 
     // Returns true if the specified class loader can be found in this class

@@ -130,6 +130,7 @@ SUNWprivate_1.1 {
 		Java_java_lang_ClassLoader_defineClass0;
 		Java_java_lang_ClassLoader_defineClass1;
 		Java_java_lang_ClassLoader_defineClass2;
+		Java_java_lang_ClassLoader_extendBootPath0;
 		Java_java_lang_ClassLoader_findLoadedClass0;
 		Java_java_lang_ClassLoader_resolveClass0;
 		Java_java_lang_ClassLoader_00024NativeLibrary_find;
@@ -242,6 +243,7 @@ SUNWprivate_1.1 {
 		Java_java_util_prefs_FileSystemPreferences_lockFile0;
 		Java_java_util_prefs_FileSystemPreferences_unlockFile0;
 		Java_java_util_logging_FileHandler_isSetUID;
+                Java_org_openjdk_jigsaw_BootLoader_extendBootPath0;
 		Java_sun_misc_MessageUtils_toStderr;
 		Java_sun_misc_MessageUtils_toStdout;
 		Java_sun_misc_NativeSignalHandler_handle0;
