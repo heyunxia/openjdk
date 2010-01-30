@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -307,6 +307,10 @@ module jpkg {
     class org.openjdk.jigsaw.cli.Packager;
 }
 
+module jrepo {
+    class org.openjdk.jigsaw.cli.Repositor;
+}
+
 /*
  * This module is for the pack200 binary.
  * Can't include com.sun.java.util.jar.pack.Driver due to its
@@ -327,6 +331,7 @@ module jdk.base.tools {
     requires javah;
     requires javadoc;
     requires jpkg;
+    requires jrepo;
 }
 
 // JRE tools to be included in the jdk-module-image and jre-module-image

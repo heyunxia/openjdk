@@ -5,7 +5,9 @@
 #
 # This code is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License version 2 only, as
-# published by the Free Software Foundation.
+# published by the Free Software Foundation.  Sun designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Sun in the LICENSE file that accompanied this code.
 #
 # This code is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -22,25 +24,32 @@
 # have any questions.
 
 # @test
-# @summary Module-file installation
+# @summary Unit test for remote repositories
 
 set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
 
+## Share setup code with pubrepo.sh
+
 cat $SRC/maze.sh \
 | sed -e 's/^: zork pass/: zork pass compile/' \
 | /bin/sh $SRC/tester.sh -
 
+mkdir -p z.classes
+$BIN/javac -d z.classes \
+  $SRC/_PublishedRepository.java \
+  $SRC/_RemoteRepository.java \
+  $SRC/TrivialWebServer.java
+
 mns=$(cd z.test/modules; echo *)
+echo $mns
 
 mkdir -p z.test/module-files
 for mn in $mns; do
   $BIN/jpkg -d z.test/module-files --fast -m z.test/modules/$mn jmod $mn
 done
 
-rm -rf z.lib
-$BIN/jmod -J-ea -L z.lib create
-$BIN/jmod -J-ea -L z.lib install z.test/module-files/*
-$BIN/java -ea -L z.lib -m you
+rm -rf z.repo z.remote
+$BIN/java -ea -cp z.classes _RemoteRepository z.test/module-files/*

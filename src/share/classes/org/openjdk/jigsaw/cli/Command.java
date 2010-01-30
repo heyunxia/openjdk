@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@
 package org.openjdk.jigsaw.cli;
 
 import java.io.*;
+import java.nio.file.*;
 import java.util.*;
 import org.openjdk.internal.joptsimple.OptionSet;
 
@@ -42,8 +43,35 @@ import org.openjdk.internal.joptsimple.OptionSet;
             super(String.format(fmt, args));
         }
 
+        private static String summarize(String what, IOException x) {
+            String msg = null;
+            if (x instanceof FileSystemException) {
+                FileSystemException y = (FileSystemException)x;
+                // ## There should be a better way to do this!
+                msg = (y.getClass().getName()
+                       .replace("Exception", "")
+                       .replace("java.nio.file.", "")
+                       .replaceAll("(\\p{Lower})(\\p{Upper})",
+                                   "$1 $2"));
+                msg = msg.charAt(0) + msg.substring(1).toLowerCase();
+                if (what == null)
+                    what = y.getFile();
+            } else {
+                msg = x.getMessage();
+            }
+            if (what != null)
+                return String.format("%s: %s", what, msg);
+            return String.format("I/O error: %s", x.getMessage());
+        }
+
         public Exception(IOException x) {
-            super(String.format("I/O error: %s", x.getMessage()));
+            super(summarize(null, x));
+            initCause(x);
+        }
+
+        public Exception(String what, IOException x) {
+            super(summarize(what, x));
+            initCause(x);
         }
 
         public Exception(java.lang.Exception x) {
@@ -53,12 +81,16 @@ import org.openjdk.internal.joptsimple.OptionSet;
     }
 
     protected boolean verbose;
+    protected boolean force;
+    protected boolean dry;
     protected String command;
     protected LinkedList<String> args;
     protected OptionSet opts;
 
     final void run(C context, OptionSet opts) throws Command.Exception {
         verbose = opts.has("verbose");
+        force = opts.has("force");
+        dry = opts.has("dry-run");
         args = new LinkedList<String>(opts.nonOptionArguments());
         command = args.remove();
         this.opts = opts;
@@ -89,6 +121,15 @@ import org.openjdk.internal.joptsimple.OptionSet;
             throw new Command.Exception("%s: Extraneous arguments:%s",
                                         command, sb.toString());
         }
+    }
+
+    protected void noDry()
+        throws Command.Exception
+    {
+        if (dry)
+            throw new Command.Exception("%s: Option -n (--dry-run)"
+                                        + " not supported",
+                                        command);
     }
 
 }

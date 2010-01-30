@@ -76,7 +76,8 @@ public class _Library {
 	eq(lib.minorVersion(), 1);
 
 	// Install
-	lib.install(Arrays.asList(Manifest.create("com.foo.bar", testModules)));
+	lib.installFromManifests(Arrays.asList(Manifest.create("com.foo.bar",
+                                                               testModules)));
 
 	// Enumerate
 	lib = SimpleLibrary.open(libPath);
@@ -91,8 +92,8 @@ public class _Library {
 	// Install multiple versions of a module
 	String[] multiVersions = new String[] { "1", "1.2", "2", "3" };
 	for (String v : multiVersions) {
-	    lib.install(Arrays.asList(Manifest.create("org.multi")
-                                      .addClasses(new File("z.modules.org.multi@" + v))));
+	    lib.installFromManifests(Arrays.asList(Manifest.create("org.multi")
+                                                   .addClasses(new File("z.modules.org.multi@" + v))));
 	}
 
 	// Find module ids by name
@@ -167,7 +168,8 @@ public class _Library {
         }
 
 	// Install a root module that has a supplier
-	lib.install(Arrays.asList(Manifest.create("net.baz.aar", testModules)));
+	lib.installFromManifests(Arrays.asList(Manifest.create("net.baz.aar",
+                                                               testModules)));
 	ModuleId bazmid = ms.parseModuleId("net.baz.aar@9");
 
 	// Then check its configuration
@@ -185,7 +187,7 @@ public class _Library {
             "appletviewer", "apt", "attach", "corba.tools", "deprecated.tools",
             "debugging", "extcheck", "idlj", "jar", "jarsigner", "javac", "javadoc",
             "javah", "javap", "jaxws.tools", "jconsole", "jdb", "jhat",
-            "jinfo", "jmap", "jpkg", "jps", "jrunscript", "jsadebugd",
+            "jinfo", "jmap", "jpkg", "jrepo", "jps", "jrunscript", "jsadebugd",
             "jstack", "jstat", "jstatd", "jvmstat", "keytool", "native2ascii",
             "orbd", "pack200", "policytool", "rmi.tools", "rmic",
             "rmid", "rmiregistry", "sajdi", "schemagen", "serialver",
@@ -194,7 +196,7 @@ public class _Library {
         };
 	for (Context dx : cf.contexts()) {
             if (dx.toString().startsWith("+jdk") || 
-                    dx.toString().startsWith("+sun"))
+                dx.toString().startsWith("+sun"))
                 continue;
             boolean skip = false;
             for (String s : jdkModules) {

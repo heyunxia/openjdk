@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,7 +36,7 @@ public final class Dependence {
     private final Set<Modifier> mods;
     private final ModuleIdQuery midq;
 
-    public Dependence(EnumSet<Modifier> mods, ModuleIdQuery midq) {
+    public Dependence(Set<Modifier> mods, ModuleIdQuery midq) {
         this.mods = (mods != null) ? mods : EnumSet.noneOf(Modifier.class);
         this.midq = midq;
     }

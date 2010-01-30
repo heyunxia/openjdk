@@ -501,7 +501,10 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/ContextFactory.java \
     org/openjdk/jigsaw/ContextSet.java \
     org/openjdk/jigsaw/FileConstants.java \
+    org/openjdk/jigsaw/FileHeader.java \
+    org/openjdk/jigsaw/FileHeader.java \
     org/openjdk/jigsaw/Files.java \
+    org/openjdk/jigsaw/FilePaths.java \
     org/openjdk/jigsaw/Hi.java \
     org/openjdk/jigsaw/IdentityHashSet.java \
     org/openjdk/jigsaw/JigsawModuleSystem.java \
@@ -519,13 +522,21 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/PathContext.java \
     org/openjdk/jigsaw/PathLinker.java \
     org/openjdk/jigsaw/Platform.java \
+    org/openjdk/jigsaw/PublishedRepository.java \
+    org/openjdk/jigsaw/RemoteRepository.java \
+    org/openjdk/jigsaw/RemoteRepositoryList.java \
+    org/openjdk/jigsaw/Repository.java \
+    org/openjdk/jigsaw/RepositoryCatalog.java \
+    org/openjdk/jigsaw/RepositoryCatalog.java \
     org/openjdk/jigsaw/Resolution.java \
     org/openjdk/jigsaw/Resolver.java \
     org/openjdk/jigsaw/SimpleLibrary.java \
     org/openjdk/jigsaw/Trace.java \
     \
     org/openjdk/jigsaw/cli/Command.java \
+    org/openjdk/jigsaw/cli/Commands.java \
     org/openjdk/jigsaw/cli/Librarian.java \
-    org/openjdk/jigsaw/cli/Packager.java 
+    org/openjdk/jigsaw/cli/Packager.java \
+    org/openjdk/jigsaw/cli/Repositor.java
 
 FILES_java = $(JAVA_JAVA_java) $(JAVA_JAVA_jigsaw)

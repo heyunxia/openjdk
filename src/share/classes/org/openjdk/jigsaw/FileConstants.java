@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,8 @@
 
 package org.openjdk.jigsaw;
 
+import java.util.*;
+
 
 public final class FileConstants {
 
@@ -39,7 +41,10 @@ public final class FileConstants {
         LIBRARY_HEADER(0),
         LIBRARY_MODULE_INDEX(1),
         LIBRARY_MODULE_CONFIG(2),
-        MODULE_FILE(3);
+        MODULE_FILE(3),
+        STREAM_CATALOG(4),
+        REMOTE_REPO_META(5),
+        REMOTE_REPO_LIST(6);
 
         private final int value;
         public int value() { return value; }
@@ -66,6 +71,14 @@ public final class FileConstants {
 
             private final int value;
             public int value() { return value; }
+
+            public static SectionType valueOf(int v) {
+                for (SectionType st : values()) {
+                    if (st.value() == v)
+                        return st;
+                }
+                throw new IllegalArgumentException();
+            }
 
             private final boolean hasFiles;
             public boolean hasFiles() { return hasFiles; }
@@ -99,6 +112,14 @@ public final class FileConstants {
             private final int value;
             public int value() { return value; }
 
+            public static Compressor valueOf(int v) {
+                for (Compressor ct : values()) {
+                    if (ct.value() == v)
+                        return ct;
+                }
+                throw new IllegalArgumentException();
+            }
+
             private Compressor(int v) {
                 value = v;
             }
@@ -107,13 +128,23 @@ public final class FileConstants {
 
         public static enum HashType {
 
-            SHA256(0);
+            SHA256(0, "SHA-256");
 
             private final int value;
             public int value() { return value; }
 
-            private HashType(int v) {
+            public static HashType valueOf(int v) {
+                if (v == SHA256.value)
+                    return SHA256;
+                throw new IllegalArgumentException();
+            }
+
+            private final String algorithm;
+            public String algorithm() { return algorithm; }
+
+            private HashType(int v, String a) {
                 value = v;
+                algorithm = a;
             }
 
         }

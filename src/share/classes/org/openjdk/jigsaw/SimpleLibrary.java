@@ -655,7 +655,7 @@ public final class SimpleLibrary
             install(mf, dst);
     }
 
-    public void install(Collection<Manifest> mfs)
+    public void installFromManifests(Collection<Manifest> mfs)
         throws ConfigurationException, IOException
     {
         install(mfs, root);
@@ -702,7 +702,7 @@ public final class SimpleLibrary
         return install(new FileInputStream(mf));
     }
 
-    public void installFiles(Collection<File> mfs)
+    public void install(Collection<File> mfs)
         throws ConfigurationException, IOException
     {
         List<ModuleId> mids = new ArrayList<>();
@@ -829,6 +829,186 @@ public final class SimpleLibrary
         for (ModuleId mid : mids)
             reIndex(mid);
         configure(mids);
+    }
+
+
+    // -- Repositories --
+
+    private static class RepoList
+        implements RemoteRepositoryList
+    {
+
+        private static final int MINOR_VERSION = 0;
+        private static final int MAJOR_VERSION = 0;
+
+        private final File root;
+        private final File listFile;
+
+        private RepoList(File r) {
+            root = new File(r, FileConstants.META_PREFIX + "repos");
+            listFile = new File(root, FileConstants.META_PREFIX + "list");
+        }
+
+        private static FileHeader fileHeader() {
+            return (new FileHeader()
+                    .type(FileConstants.Type.REMOTE_REPO_LIST)
+                    .majorVersion(MAJOR_VERSION)
+                    .minorVersion(MINOR_VERSION));
+        }
+
+        private List<RemoteRepository> repos = null;
+        private long nextRepoId = 0;
+
+        private File repoDir(long id) {
+            return new File(root, Long.toHexString(id));
+        }
+
+        private void load() throws IOException {
+            repos = new ArrayList<>();
+            if (!root.exists() || !listFile.exists())
+                return;
+            FileInputStream fin = new FileInputStream(listFile);
+            DataInputStream in
+                = new DataInputStream(new BufferedInputStream(fin));
+            try {
+                FileHeader fh = fileHeader();
+                fh.read(in);
+                nextRepoId = in.readLong();
+                int n = in.readInt();
+                for (int i = 0; i < n; i++) {
+                    long id = in.readLong();
+                    repos.add(RemoteRepository.open(repoDir(id), id));
+                }
+            } finally {
+                in.close();
+            }
+        }
+
+        private List<RemoteRepository> roRepos = null;
+
+        // Unmodifiable
+        public List<RemoteRepository> repositories() throws IOException {
+            if (repos == null) {
+                load();
+                roRepos = Collections.unmodifiableList(repos);
+            }
+            return roRepos;
+        }
+
+        private void store() throws IOException {
+            File newfn = new File(root, "list.new");
+            FileOutputStream fout = new FileOutputStream(newfn);
+            DataOutputStream out
+                = new DataOutputStream(new BufferedOutputStream(fout));
+            try {
+                try {
+                    fileHeader().write(out);
+                    out.writeLong(nextRepoId);
+                    out.writeInt(repos.size());
+                    for (RemoteRepository rr : repos)
+                        out.writeLong(rr.id());
+                } finally {
+                    out.close();
+                }
+            } catch (IOException x) {
+                newfn.delete();
+                throw x;
+            }
+            if (!newfn.renameTo(listFile))  // ## Not guaranteed atomic
+                throw new IOException(newfn + ": Cannot rename to " + listFile);
+        }
+
+        public RemoteRepository add(URI u, int position)
+            throws IOException
+        {
+
+            if (repos == null)
+                load();
+            for (RemoteRepository rr : repos) {
+                if (rr.location().equals(u)) // ## u not canonical
+                    throw new IllegalStateException(u + ": Already in"
+                                                    + " repository list");
+            }
+            if (!root.exists()) {
+                if (!root.mkdir())
+                    throw new IOException(root + ": Cannot create directory");
+            }
+
+            if (repos.size() == Integer.MAX_VALUE)
+                throw new IllegalStateException("Too many repositories");
+            if (position < 0)
+                throw new IllegalArgumentException("Invalid index");
+
+            long id = nextRepoId++;
+            RemoteRepository rr = RemoteRepository.create(repoDir(id), u, id);
+            try {
+                rr.updateCatalog(true);
+            } catch (IOException x) {
+                repoDir(id).delete();
+                throw x;
+            }
+
+            if (position >= repos.size()) {
+                repos.add(rr);
+            } else if (position >= 0) {
+                List<RemoteRepository> prefix
+                    = new ArrayList<>(repos.subList(0, position));
+                List<RemoteRepository> suffix
+                    = new ArrayList<>(repos.subList(position, repos.size()));
+                repos.clear();
+                repos.addAll(prefix);
+                repos.add(rr);
+                repos.addAll(suffix);
+            }
+            store();
+
+            return rr;
+
+        }
+
+        public boolean remove(RemoteRepository rr)
+            throws IOException
+        {
+            if (!repos.remove(rr))
+                return false;
+            store();
+            File rd = repoDir(rr.id());
+            for (File f : rd.listFiles()) {
+                if (!f.delete())
+                    throw new IOException(f + ": Cannot delete");
+            }
+            if (!rd.delete())
+                throw new IOException(rd + ": Cannot delete");
+            return true;
+        }
+
+        public boolean areCatalogsStale() throws IOException {
+            for (RemoteRepository rr : repos) {
+                if (rr.isCatalogStale())
+                    return true;
+            }
+            return false;
+        }
+
+        public boolean updateCatalogs(boolean force) throws IOException {
+            boolean updated = false;
+            for (RemoteRepository rr : repos) {
+                if (rr.updateCatalog(force))
+                    updated = true;
+            }
+            return updated;
+        }
+
+    }
+
+    private RemoteRepositoryList repoList = null;
+
+    public RemoteRepositoryList repositoryList()
+        throws IOException
+    {
+        if (repoList == null)
+            repoList = new RepoList(root);
+        return repoList;
     }
 
 }

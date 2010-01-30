@@ -232,7 +232,16 @@ public abstract class Library
      *          The manifests describing the contents of the modules to be
      *          installed
      */
-    public abstract void install(Collection<Manifest> mfs)
+    public abstract void installFromManifests(Collection<Manifest> mfs)
+        throws ConfigurationException, IOException;
+
+    /**
+     * <p> Install one or more module files into this library. </p>
+     *
+     * @param   mfs
+     *          The module files to be installed
+     */
+    public abstract void install(Collection<File> mfs)
         throws ConfigurationException, IOException;
 
     /**
@@ -264,5 +273,14 @@ public abstract class Library
      */
     public abstract File classPath(ModuleId mid)
         throws IOException;
+
+
+    public abstract RemoteRepositoryList repositoryList() throws IOException;
+
+    /*
+
+    InstallState install(ModuleIdQuery midq) throws InstallException;
+
+    */
 
 }

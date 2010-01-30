@@ -95,7 +95,11 @@ class MockLibrary
 	throw new UnsupportedOperationException();
     }
 
-    public void install(Collection<Manifest> mf) {
+    public void installFromManifests(Collection<Manifest> mf) {
+	throw new UnsupportedOperationException();
+    }
+
+    public void install(Collection<File> mf) {
 	throw new UnsupportedOperationException();
     }
 
@@ -163,6 +167,10 @@ class MockLibrary
     }
 
     public File classPath(ModuleId mid) {
+        throw new UnsupportedOperationException();
+    }
+
+    public RemoteRepositoryList repositoryList() throws IOException {
         throw new UnsupportedOperationException();
     }
 

@@ -1,5 +1,5 @@
 #
-# Copyright 2004-2005 Sun Microsystems, Inc.  All Rights Reserved.
+# Copyright 2004-2010 Sun Microsystems, Inc.  All Rights Reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -59,6 +59,7 @@ $(call make-launcher, jar, sun.tools.jar.Main, , )
 $(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
 $(call make-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, -J-Xmode:legacy, )
 $(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , )
+$(call make-launcher, jrepo, org.openjdk.jigsaw.cli.Repositor, , )
 $(call make-launcher, jarsigner, sun.security.tools.JarSigner, , )
 $(call make-launcher, javac, com.sun.tools.javac.Main, -J-Xmode:legacy, )
 $(call make-launcher, javadoc, com.sun.tools.javadoc.Main, -J-Xmode:legacy, )

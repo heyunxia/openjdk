@@ -27,6 +27,7 @@ package org.openjdk.jigsaw.cli;
 
 import java.lang.module.*;
 import java.io.*;
+import java.net.*;
 import java.util.*;
 import java.util.regex.*;
 
@@ -42,28 +43,11 @@ public class Librarian {
     private static JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
-    private static void formatCommaList(PrintStream out,
-                                        String prefix, Collection<?> list)
-    {
-        if (list.isEmpty())
-            return;
-        out.format("  %s", prefix);
-        boolean first = true;
-        for (Object ob : list) {
-            if (first) {
-                out.format(" %s", ob);
-                first = false;
-            } else {
-                out.format(", %s", ob);
-            }
-        }
-        out.format("%n");
-    }
-
     static class Create extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
+            noDry();
             finishArgs();
         }
     }
@@ -72,6 +56,7 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
+            noDry();
             String mids = takeArg();
             ModuleId mid = null;
             try {
@@ -110,6 +95,7 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
+            noDry();
             finishArgs();
             out.format("path %s%n", lib.root());
             out.format("version %d.%d%n",
@@ -126,14 +112,13 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
+            noDry();
             while (hasArg()) {
 		File module = new File(takeArg());
-
 		try { 
 		    File classes = File.createTempFile("jigsaw",null);
 		    classes.toPath().delete();
 		    classes.toPath().createDirectory();
-		    
 		    FileInputStream fis = new FileInputStream(module);
 		    DataInputStream dis = new DataInputStream(fis);
 		    ModuleFileFormat.Reader reader = 
@@ -156,6 +141,7 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
+            noDry();
             String key = takeArg();
             File kf = new File(key);
 
@@ -167,7 +153,7 @@ public class Librarian {
             // Old form: install <classes-dir> <module-name> ...
             //
             if (kf.isDirectory()) {
-                java.util.List<Manifest> mfs = new ArrayList<Manifest>();
+                List<Manifest> mfs = new ArrayList<Manifest>();
                 while (hasArg())
                     mfs.add(Manifest.create(takeArg(), kf));
                 finishArgs();
@@ -177,7 +163,7 @@ public class Librarian {
                     mfs.get(0).addResources(opts.valueOf(resourcePath));
                 }
                 try {
-                    lib.install(mfs);
+                    lib.installFromManifests(mfs);
                 } catch (ConfigurationException x) {
                     throw new Command.Exception(x);
                 } catch (IOException x) {
@@ -189,13 +175,13 @@ public class Librarian {
             // Install one or more module file(s)
             //
             if (kf.isFile()) {
-                java.util.List<File> fs = new ArrayList<>();
+                List<File> fs = new ArrayList<>();
                 fs.add(kf);
                 while (hasArg())
                     fs.add(new File(takeArg()));
                 finishArgs();
                 try {
-                    lib.installFiles(fs);
+                    lib.install(fs);
                 } catch (ConfigurationException x) {
                     throw new Command.Exception(x);
                 } catch (IOException x) {
@@ -214,9 +200,10 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
+            noDry();
             File classes = new File(takeArg());
             File dst = new File(takeArg());
-            java.util.List<Manifest> mfs = new ArrayList<Manifest>();
+            List<Manifest> mfs = new ArrayList<Manifest>();
             while (hasArg())
                 mfs.add(Manifest.create(takeArg(), classes));
             if (!mfs.isEmpty() && opts.has(resourcePath)) {
@@ -233,64 +220,11 @@ public class Librarian {
         }
     }
 
-    private static Pattern MIDQ_PATTERN
-        = Pattern.compile("([a-zA-Z0-9_\\.]+)(@(.*))?");
-
-    private static ModuleIdQuery parseModuleIdQuery(String s)
-        throws Command.Exception
-    {
-        Matcher m = MIDQ_PATTERN.matcher(s);
-        if (!m.matches())
-            throw new Command.Exception("%s: Malformed module-id query", s);
-        String vq = (m.group(3) != null) ? m.group(3) : null;
-        return new ModuleIdQuery(m.group(1),
-                                 jms.parseVersionQuery(vq));
-    }
-
-    static class List extends Command<SimpleLibrary> {
-        protected void go(SimpleLibrary lib)
-            throws Command.Exception
-        {
-            final ModuleIdQuery midq;
-            if (hasArg())
-                midq = parseModuleIdQuery(takeArg());
-            else
-                midq = null;
-            boolean parents = opts.has("p");
-            finishArgs();
-            int n = 0;
-            try {
-                java.util.List<ModuleId> mids
-                    = parents ? lib.listModuleIds() : lib.listLocalModuleIds();
-                for (ModuleId mid : mids) {
-                    if (midq != null && !midq.matches(mid))
-                        continue;
-                    ModuleInfo mi = lib.readModuleInfo(mid);
-                    if (verbose)
-                        out.format("%n");
-                    out.format("%s%n", mi.id());
-                    n++;
-                    if (verbose) {
-                        formatCommaList(out, "provides", mi.provides());
-                        Platform.adjustPlatformDependences(mi); // ##
-                        for (Dependence d : mi.requires()) {
-                            out.format("  %s%n", d);
-                        }
-                        formatCommaList(out, "permits", mi.permits());
-                    }
-                }
-            } catch (IOException x) {
-                throw new Command.Exception(x);
-            }
-            if (verbose && n > 0)
-                out.format("%n");
-        }
-    }
-
     static class DumpConfig extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
+            noDry();
             String midqs = takeArg();
             ModuleIdQuery midq = null;
             try {
@@ -317,7 +251,8 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
-            java.util.List<ModuleId> mids = new ArrayList<ModuleId>();
+            noDry();
+            List<ModuleId> mids = new ArrayList<ModuleId>();
             try {
                 while (hasArg())
                     mids.add(jms.parseModuleId(takeArg()));
@@ -338,7 +273,8 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
-            java.util.List<ModuleId> mids = new ArrayList<ModuleId>();
+            noDry();
+            List<ModuleId> mids = new ArrayList<ModuleId>();
             try {
                 while (hasArg())
                     mids.add(jms.parseModuleId(takeArg()));
@@ -355,41 +291,167 @@ public class Librarian {
         }
     }
 
+    static class Repos extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            noDry();
+            finishArgs();
+            try {
+                RemoteRepositoryList rl = lib.repositoryList();
+                int i = 0;
+                for (RemoteRepository rr : rl.repositories())
+                    out.format("%d %s%n", i++, rr.location());
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
+
+    static URI parseURI(String s)
+        throws Command.Exception
+    {
+        try {
+            return new URI(s);
+        } catch (URISyntaxException x) {
+            throw new Command.Exception("URI syntax error: "
+                                        + x.getMessage());
+        }
+    }
+
+    static class AddRepo extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            noDry();
+            URI u = parseURI(takeArg());
+            int i = (opts.has(repoIndex)
+                     ? opts.valueOf(repoIndex)
+                     : Integer.MAX_VALUE);
+            finishArgs();
+            try {
+                RemoteRepositoryList rl = lib.repositoryList();
+                rl.add(u, i);
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
+
+    static class DelRepo extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            noDry();
+            URI u = null;
+            int i = -1;
+            if (hasArg()) {
+                String s = takeArg();
+                if (!s.endsWith("/"))
+                    s += "/";
+                u = parseURI(s);
+                finishArgs();
+            }
+            if (opts.has(repoIndex))
+                i = opts.valueOf(repoIndex);
+            if (u != null && i != -1) {
+                throw new Command.Exception("del-repo: Cannot specify"
+                                            + " both -i and a URL");
+            }
+            if (u == null && i == -1) {
+                throw new Command.Exception("del-repo: One of -i <index>"
+                                            + " or a URL required");
+            }
+            try {
+                RemoteRepositoryList rl = lib.repositoryList();
+                if (i != -1) {
+                    rl.remove(rl.repositories().get(i));
+                    return;
+                }
+                for (RemoteRepository rr : rl.repositories()) {
+                    if (rr.location().equals(u)) {
+                        rl.remove(rr);
+                        return;
+                    }
+                }
+                throw new Command.Exception("No repository found for deletion");
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
+
+    static class Refresh extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            finishArgs();
+            try {
+                RemoteRepositoryList rl = lib.repositoryList();
+                int n = 0;
+                for (RemoteRepository rr : rl.repositories()) {
+                    out.format("%s - ", rr.location());
+                    out.flush();
+                    boolean stale
+                        = dry ? rr.isCatalogStale() : rr.updateCatalog(force);
+                    if (stale) {
+                        n++;
+                        out.format(dry ? "out of date%n" : "updated%n");
+                    } else {
+                        out.format("up to date%n");
+                    }
+                }
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
+
 
     private static Map<String,Class<? extends Command<SimpleLibrary>>> commands
-        = new HashMap<String,Class<? extends Command<SimpleLibrary>>>();
+        = new HashMap<>();
 
     static {
+        commands.put("add-repo", AddRepo.class);
         commands.put("config", Config.class);
         commands.put("create", Create.class);
+        commands.put("del-repo", DelRepo.class);
         commands.put("dump-class", DumpClass.class);
         commands.put("dump-config", DumpConfig.class);
+        commands.put("extract", Extract.class);
         commands.put("id", Identify.class);
         commands.put("identify", Identify.class);
         commands.put("install", Install.class);
-        commands.put("extract", Extract.class);
-        commands.put("list", List.class);
-        commands.put("ls", List.class);
+        commands.put("list", Commands.ListLibrary.class);
+        commands.put("ls", Commands.ListLibrary.class);
         commands.put("preinstall", PreInstall.class);
+        commands.put("refresh", Refresh.class);
         commands.put("reindex", ReIndex.class);
+        commands.put("repos", Repos.class);
     }
 
     private OptionParser parser;
 
     private static OptionSpec<File> resourcePath; // ##
+    private static OptionSpec<Integer> repoIndex; // ##
 
     private void usage() {
         out.format("%n");
-        out.format("usage: jmod config [<module-id> ...]%n");
+        out.format("usage: jmod add-repo [-i <index>] URL%n");
+        out.format("       jmod extract <module-file> ...%n");
+        out.format("       jmod config [<module-id> ...]%n");
         out.format("       jmod create [-L <library>] [-P <parent>]%n");
+        out.format("       jmod del-repo URL%n");
         out.format("       jmod dump-class <module-id> <class-name> <output-file>%n");
         out.format("       jmod dump-config <module-id>%n");
         out.format("       jmod identify%n");
+        out.format("       jmod install <module-file> ...%n");
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
-	out.format("       jmod extract <module-file> ...%n");
-        out.format("       jmod list [-v] [-p] [<module-id-query>]%n");
+        out.format("       jmod list [-v] [-p] [-R] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
+        out.format("       jmod refresh [-f] [-v]%n");
         out.format("       jmod reindex [<module-id> ...]%n");
+        out.format("       jmod repos [-v]%n");
         out.format("%n");
         try {
             parser.printHelpOn(out);
@@ -436,7 +498,18 @@ public class Librarian {
                .withRequiredArg()
                .describedAs("path")
                .ofType(File.class));
-            
+        repoIndex
+            = (parser.acceptsAll(Arrays.asList("i"),
+                                 "Repository-list index")
+               .withRequiredArg()
+               .describedAs("index")
+               .ofType(Integer.class));
+        parser.acceptsAll(Arrays.asList("f", "force"),
+                          "Force the requested operation");
+        parser.acceptsAll(Arrays.asList("n", "dry-run"),
+                          "Dry-run the requested operation");
+        parser.acceptsAll(Arrays.asList("R", "repos"),
+                          "List contents of associated repositories");
 
         if (args.length == 0)
             usage();
@@ -447,7 +520,7 @@ public class Librarian {
 	OptionSet opts = parser.parse(args);
 	if (opts.has("h"))
 	    usage();
-	java.util.List<String> words = opts.nonOptionArguments();
+	List<String> words = opts.nonOptionArguments();
 	if (words.isEmpty())
 	    usage();
 	String verb = words.get(0);
