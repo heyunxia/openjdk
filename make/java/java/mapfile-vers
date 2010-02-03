@@ -130,7 +130,6 @@ SUNWprivate_1.1 {
 		Java_java_lang_ClassLoader_defineClass0;
 		Java_java_lang_ClassLoader_defineClass1;
 		Java_java_lang_ClassLoader_defineClass2;
-		Java_java_lang_ClassLoader_extendBootPath0;
 		Java_java_lang_ClassLoader_findLoadedClass0;
 		Java_java_lang_ClassLoader_resolveClass0;
 		Java_java_lang_ClassLoader_00024NativeLibrary_find;

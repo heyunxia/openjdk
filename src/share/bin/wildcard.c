@@ -366,6 +366,38 @@ wildcardFileList(const char *wildcard)
     return fl;
 }
 
+/*
+ * Temporary support for getting the directories under
+ * lib/modules.  Will be removed when the legacy mode support
+ * is implemented.
+ */
+static FileList
+wildcardModuleDirList(const char *wildcard)
+{
+    const char separator[] = { FILE_SEPARATOR, '\0' };
+    char pathname[MAXPATHLEN];
+    char* s;
+    char* filename;
+
+    const char *basename;
+    FileList fl = FileList_new(16);
+    WildcardIterator it = WildcardIterator_for(wildcard);
+    if (it == NULL)
+        return NULL;
+    while ((basename = WildcardIterator_next(it)) != NULL) {
+        s = wildcardConcat(wildcard, basename);
+        sprintf(pathname, "%s%s7-ea%sclasses", s, separator, separator);
+        if (exists(pathname)) {
+            FileList_add(fl, JLI_StringDup(pathname));
+            sprintf(pathname, "%s%s7-ea%sresources", s, separator, separator);
+            if (exists(pathname))
+               FileList_add(fl, JLI_StringDup(pathname));
+        }
+    }
+    WildcardIterator_close(it);
+    return fl;
+}
+
 static int
 isWildcard(const char *filename)
 {
@@ -400,6 +432,35 @@ FileList_expandWildcards(FileList fl)
     }
 }
 
+/*
+ * Temporary support for getting the directories under
+ * lib/modules.  Will be removed when the legacy mode support
+ * is implemented.
+ */
+static void
+DirList_expandWildcards(FileList fl)
+{
+    int i, j;
+    for (i = 0; i < fl->size; i++) {
+        if (isWildcard(fl->files[i])) {
+            FileList expanded = wildcardModuleDirList(fl->files[i]);
+            if (expanded != NULL && expanded->size > 0) {
+                JLI_MemFree(fl->files[i]);
+                FileList_ensureCapacity(fl, fl->size + expanded->size);
+                for (j = fl->size - 1; j >= i+1; j--)
+                    fl->files[j+expanded->size-1] = fl->files[j];
+                for (j = 0; j < expanded->size; j++)
+                    fl->files[i+j] = expanded->files[j];
+                i += expanded->size - 1;
+                fl->size += expanded->size - 1;
+                /* fl expropriates expanded's elements. */
+                expanded->size = 0;
+            }
+            FileList_free(expanded);
+        }
+    }
+}
+
 const char *
 JLI_WildcardExpandClasspath(const char *classpath)
 {
@@ -410,6 +471,31 @@ JLI_WildcardExpandClasspath(const char *classpath)
         return classpath;
     fl = FileList_split(classpath, PATH_SEPARATOR);
     FileList_expandWildcards(fl);
+    expanded = FileList_join(fl, PATH_SEPARATOR);
+    FileList_free(fl);
+    if (getenv("_JAVA_LAUNCHER_DEBUG") != 0)
+        printf("Expanded wildcards:\n"
+               "    before: \"%s\"\n"
+               "    after : \"%s\"\n",
+               classpath, expanded);
+    return expanded;
+}
+
+/*
+ * Temporary support for getting the directories under
+ * lib/modules.  Will be removed when the legacy mode support
+ * is implemented.
+ */
+const char *
+JLI_WildcardExpandDirectory(const char *classpath)
+{
+    char *expanded;
+    FileList fl;
+
+    if (JLI_StrChr(classpath, '*') == NULL)
+        return classpath;
+    fl = FileList_split(classpath, PATH_SEPARATOR);
+    DirList_expandWildcards(fl);
     expanded = FileList_join(fl, PATH_SEPARATOR);
     FileList_free(fl);
     if (getenv("_JAVA_LAUNCHER_DEBUG") != 0)

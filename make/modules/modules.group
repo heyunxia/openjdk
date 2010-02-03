@@ -27,3 +27,346 @@
  *        include jdbc-base, jdbc-enterprise, jdbc-odbc;
  *    }
  */
+
+// Workaround: jigsaw depends on the existence of
+// both jdk.boot and jdk.base modules.
+//
+// Move classes and resources from the base module
+// to the boot module.  The module-info.java for
+// the boot module is already output in the
+// platform module list.
+
+module jdk.boot {
+    include base;
+    include nio;
+    include jmod;
+    class org.openjdk.jigsaw.Hi;    // testing
+}
+
+// base module
+module jdk.base {
+    // Workaround: include the policy files for now.
+    // They have to be bundled in signed jars.
+    include US_export_policy;
+    include local_policy;
+    requires jdk.boot;
+    class org.openjdk.jigsaw.Hi;    // testing
+}
+
+/*
+ * Names of jdk platform modules must start with "jdk." or "sun."
+ * ("sun." prefix is added as a temporary solution for now until
+ * we decide if we want to name the private platform modules with
+ * "jdk." prefix as well).
+ *
+ * For each public platform module, there is a corresponding
+ * internal module with "sun." prefix.  The internal module
+ * only permits the platform modules to require.  This is needed
+ * because if any platform module is a local dependence of 
+ * another module, it would only permit its requesting modules
+ * to require. In other words, that platform module would
+ * not permit applications to use.
+ *
+ * Rename all private internal modules with "sun." prefix
+ */
+module sun.desktop {
+    include beans;
+    include client;
+}
+
+module sun.xml {
+    include other;
+    include jaxp-api;
+    include jaxp-parsers-api;
+}
+
+module sun.management {
+    include management;
+}
+
+module sun.jmx.connectors {
+    include management-iiop;
+    include management-snmp;
+}
+
+module sun.corba {
+    include corba;
+}
+
+module sun.jdbc {
+    include jdbc-enterprise;
+    include jdbc-base;
+    include jdbc-odbc;
+}
+
+module sun.kerberos {
+    include security-kerberos;
+}
+
+module sun.legacy {
+    include private-legacy;
+    include net-compat;
+    include deprecated;
+    include inputmethods-ext;
+}
+
+module sun.sunpkcs11 {
+    include security-sunpkcs11;
+}
+
+module sun.sunjce {
+    include security-sunjce;
+}
+
+module sun.sunec {
+    include security-sunec;
+}
+
+module sun.sunmscapi {
+    include security-sunmscapi;
+}
+
+module sun.smartcardio {
+    include security-smartcardio;
+}
+
+
+module sun.xmldsig {
+    include security-xmldsig;
+}
+
+module sun.xalan {
+    include jaxp-xalan;
+    include jaxp-xerces-impl;
+    include jaxp-xerces-resolver;
+}
+
+module sun.jndi.cosnaming {
+    include jndi-cosnaming;
+}
+
+module sun.jndi.providers {
+    include jndi-dns;
+    include jndi-ldap;
+}
+
+module sun.enterprise {
+    include enterprise-base;
+    include jndi-rmiregistry;
+}
+
+module sun.rmi {
+    include rmi;
+    include rmi-activation;
+}
+
+module sun.security.misc {
+    include security-misc;
+}
+
+module sun.security {
+    include security-sasl;
+    include security-jsse;
+    include security-resources;
+}
+
+module sun.security.compat {
+    include security-compat;
+}
+
+module sun.deploy {
+    include deploy;
+}
+
+module sun.httpserver {
+    include httpserver;
+}
+
+module sun.instrument {
+    include instrument;
+}
+
+module sun.jaxws {
+    include jaxws;
+}
+
+module sun.jndi {
+    include jndi;
+}
+
+module sun.scripting {
+    include scripting;
+    include scripting-rhino;
+}
+
+module sun.langtools {
+    include langtools;
+}
+
+module sun.localedata {
+    include localedata;
+}
+
+module sun.logging {
+    include logging;
+}
+
+module sun.prefs {
+    include prefs;
+}
+
+module sun.charsets {
+    include charsets;
+}
+
+module sun.resources {
+    include resources;
+}
+
+module sun.sctp {
+    include sctp;
+}
+
+module sun.servicetag {
+    include servicetag;
+}
+
+module sun.security.tools {
+    include security-tools;
+}
+
+// Modules for jdk launchers that contain only the entry point
+// The main class is put in another module as it is referenced 
+// by classes from other module or needed to be loaded by 
+// the boot loader.
+//
+// Several other tools that include classes are defined in
+// modules.config.
+//
+// TODO: should do another pass to check if these modules should
+//       include classes.
+module appletviewer {
+    class sun.applet.Main;
+}
+
+module kinit {
+    class sun.security.krb5.internal.tools.Kinit;
+}
+
+module klist {
+    class sun.security.krb5.internal.tools.Klist;
+}
+
+module ktab {
+    class sun.security.krb5.internal.tools.Ktab;
+}
+
+module rmic {
+    class sun.rmi.rmic.Main;
+}
+
+module rmiregistry {
+    class sun.rmi.registry.RegistryImpl;
+}
+
+module rmid {
+    class sun.rmi.server.Activation;
+}
+
+module schemagen {
+    class com.sun.tools.internal.jxc.SchemaGenerator;
+}
+
+module xjc {
+    class com.sun.tools.internal.xjc.Driver;
+}
+
+module wsgen {
+    class com.sun.tools.internal.ws.WsGen;
+}
+
+module wsimport {
+    class com.sun.tools.internal.ws.WsImport;
+}
+
+module idlj {
+    class com.sun.tools.corba.se.idl.toJavaPortable.Compile;
+}
+
+module orbd {
+    class com.sun.corba.se.impl.activation.ORBD;
+}
+
+module servertool {
+    class com.sun.corba.se.impl.activation.ServerTool;
+}
+
+module tnameserv {
+    class com.sun.corba.se.impl.naming.cosnaming.TransientNameServer;
+}
+
+module jmod {
+    class org.openjdk.jigsaw.cli.Librarian;
+}
+
+module jpkg {
+    class org.openjdk.jigsaw.cli.Packager;
+}
+
+// developer tools to be included in the jdk-base-image
+module jdk.base.tools {
+    requires javac;
+    requires javap;
+    requires javah;
+    requires javadoc;
+    requires jpkg;
+}
+
+// JRE tools to be included in the jdk-module-image and jre-module-image
+module jdk.jre.tools {
+    requires jar;
+    requires pack200;
+    requires orbd;
+    requires policytool;
+    requires rmiregistry;
+    requires tnameserv;
+    requires keytool;
+    requires rmid;
+    requires servertool;
+    // windows only
+    requires kinit;
+    requires klist;
+    requires ktab;
+}
+
+// developer tools to be included in the jdk-module-image
+module jdk.tools {
+    requires appletviewer;
+    requires apt;
+    requires extcheck;
+    requires idlj;
+    requires jarsigner;
+    requires jconsole;
+    requires jdb;
+    requires jhat;
+    requires jinfo;
+    requires jmap;
+    requires jps;
+    requires jrunscript;
+    requires jsadebugd;
+    requires jstack;
+    requires jstat;
+    requires jstatd;
+    requires native2ascii;
+    requires rmic;
+    requires rmid;
+    requires rmiregistry;
+    requires schemagen;
+    requires serialver;
+    requires xjc;
+    requires wsgen;
+    requires wsimport;
+    requires orbd;
+    requires servertool;
+    requires tnameserv;
+}

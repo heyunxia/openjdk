@@ -46,7 +46,12 @@
 
 
 #ifdef JAVA_ARGS
+#ifdef PROGNAME
+static const char* const_progname = PROGNAME;
+#else
 static const char* const_progname = "java";
+#endif
+
 static const char* const_jargs[] = JAVA_ARGS;
 /*
  * ApplicationHome is prepended to each of these entries; the resulting
@@ -58,13 +63,14 @@ static const char* const_jargs[] = JAVA_ARGS;
 #endif /* APP_CLASSPATH */
 static const char* const_appclasspath[] = APP_CLASSPATH;
 #else  /* !JAVA_ARGS */
+static const char** const_jargs = NULL;
+static const char** const_appclasspath = NULL;
+
 #ifdef PROGNAME
 static const char* const_progname = PROGNAME;
 #else
 static char* const_progname = NULL;
 #endif
-static const char** const_jargs = NULL;
-static const char** const_appclasspath = NULL;
 #endif /* JAVA_ARGS */
 
 #ifdef LAUNCHER_NAME
@@ -72,6 +78,12 @@ static const char* const_launcher = LAUNCHER_NAME;
 #else  /* LAUNCHER_NAME */
 static char* const_launcher = NULL;
 #endif /* LAUNCHER_NAME */
+
+#ifdef MODULE_NAME
+static const char* const_modulename = MODULE_NAME;
+#else  /* MODULE_NAME */
+static char* const_modulename = NULL;
+#endif /* MODULE_NAME */
 
 #ifdef EXPAND_CLASSPATH_WILDCARDS
 static const jboolean const_cpwildcard = JNI_TRUE;

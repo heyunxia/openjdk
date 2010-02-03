@@ -26,6 +26,7 @@
 #include <stdlib.h>
 
 #include "jni.h"
+#include "jni_util.h"
 #include "jvm.h"
 #include "org_openjdk_jigsaw_BootLoader.h"
 
@@ -34,9 +35,12 @@ JNIEXPORT void JNICALL
 Java_org_openjdk_jigsaw_BootLoader_extendBootPath0(JNIEnv *env, jclass cls,
                                                    jstring path)
 {
+    const char *p = (path == NULL ? NULL : 
+                        (*env)->GetStringUTFChars(env, path, NULL));
+
     if (path == NULL)
         return;
-    const char *p = (*env)->GetStringUTFChars(env, path, NULL);
+
     if (p == NULL) {
         JNU_ThrowOutOfMemoryError(env, NULL);
         return;

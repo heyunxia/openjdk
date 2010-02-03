@@ -108,6 +108,7 @@ main(int argc, char ** argv)
                    DOT_VERSION,
                    (const_progname != NULL) ? const_progname : *margv,
                    (const_launcher != NULL) ? const_launcher : *margv,
+                   const_modulename,
                    (const_jargs != NULL) ? JNI_TRUE : JNI_FALSE,
                    const_cpwildcard, const_javaw, const_ergo_class);
 }

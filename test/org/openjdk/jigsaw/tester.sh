@@ -36,7 +36,7 @@ rm -rf z.*
 mkdir z.test
 cd z.test
 
-awk <$tsrc '
+gawk <$tsrc '
 
   /^:/ {
     test = $2; status = $3; how = $4;

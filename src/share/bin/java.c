@@ -68,6 +68,7 @@ static jboolean printXUsage = JNI_FALSE;  /* print and exit*/
 
 static const char *_program_name;
 static const char *_launcher_name;
+static const char *_module_name;
 static jboolean _is_java_args = JNI_FALSE;
 static const char *_fVersion;
 static const char *_dVersion;
@@ -93,6 +94,7 @@ static int numOptions, maxOptions;
  * Prototypes for functions internal to launcher.
  */
 static void SetClassPath(const char *s);
+static void SetModulesBootClassPath(const char *s);
 static void SelectVersion(int argc, char **argv, char **main_class);
 static jboolean ParseArguments(int *pargc, char ***pargv,
                                int *pmode, char **pwhat,
@@ -196,6 +198,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         const char* dotversion,                 /* dot version defined */
         const char* pname,                      /* program name */
         const char* lname,                      /* launcher name */
+        const char* mname,                      /* module name */
         jboolean javaargs,                      /* JAVA_ARGS */
         jboolean cpwildcard,                    /* classpath wildcard*/
         jboolean javaw,                         /* windows-only javaw */
@@ -211,11 +214,15 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     jlong start, end;
     char jrepath[MAXPATHLEN], jvmpath[MAXPATHLEN];
     char ** original_argv = argv;
+    struct stat statbuf;
+    char buf[MAXPATHLEN];
+    const char separator[] = { FILE_SEPARATOR, '\0' };
 
     _fVersion = fullversion;
     _dVersion = dotversion;
     _launcher_name = lname;
     _program_name = pname;
+    _module_name = mname;
     _is_java_args = javaargs;
     _wc_enabled = cpwildcard;
     _ergo_policy = ergo;
@@ -295,14 +302,34 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         return(ret);
     }
 
+    // module for this launcher
+    if (_module_name != NULL) {
+        // For bootstrapping (if "classes" exists), run in legacy mode;
+        // otherwise, run in module mode
+        sprintf(buf, "%s%sclasses", jrepath, separator);
+        if (mode == LM_CLASS && stat(buf, &statbuf) != 0) {
+            mode = LM_MODULE;
+            strcpy(buf, _module_name);
+            strcat(buf, "@7-ea");
+            what = buf; 
+        }
+        JLI_TraceLauncher("%s runs in %s mode (%s)\n",
+                _program_name, 
+                (mode == LM_MODULE ? "module" : "legacy"),
+                what);
+    }
+
     /* Make adjustments based on what we parsed */
-    if (mode == LM_JAR) {
-        SetClassPath(what);     /* Override class path */
-    } else if (mode == LM_MODULE) {
+    if (mode == LM_MODULE) {
         SetClassPath("");       /* Hah! */
         SetModuleProp(what);    /* sun.java.launcher.module */
         // ## Store boot module in %jigsaw-library?
-        SetModuleBootProp("lib/modules/jdk.boot/7-ea/classes"); /* s.j.l.m.boot */
+        SetModuleBootProp("lib/modules/jdk.boot/7-ea/classes:lib/modules/jdk.boot/7-ea/resources"); /* s.j.l.m.boot */
+    } else {
+        if (mode == LM_JAR) {
+            SetClassPath(what);     /* Override class path */
+        }
+        SetModulesBootClassPath(jrepath);  /* set boot class path for legacy mode */
     }
 
     /* set the -Dsun.java.command pseudo property */
@@ -707,6 +734,46 @@ SetClassPath(const char *s)
                        - 2 /* strlen("%s") */
                        + JLI_StrLen(s));
     sprintf(def, format, s);
+    AddOption(def, NULL);
+    if (s != orig)
+        JLI_MemFree((char *) s);
+}
+
+/*
+ * Set the bootclasspath for installed modules.
+ * A temporary workaround until jigsaw legacy support is
+ * implemented.
+ */
+static void
+SetModulesBootClassPath(const char *jrepath)
+{
+    char *def, *s;
+    char pathname[MAXPATHLEN];
+    const char separator[] = { FILE_SEPARATOR, '\0' };
+    const char *orig = jrepath;
+    static const char format[] = "-Xbootclasspath/p:%s";
+    struct stat statbuf;
+
+    /* return if jre/lib/rt.jar exists */
+    sprintf(pathname, "%s%slib%srt.jar", jrepath, separator, separator);
+    if (stat(pathname, &statbuf) == 0) {
+        return;
+    }
+
+    /* return if jre/classes exists */
+    sprintf(pathname, "%s%sclasses", jrepath, separator);
+    if (stat(pathname, &statbuf) == 0) {
+        return;
+    }
+
+    /* modularized jre */
+    sprintf(pathname, "%s%slib%smodules%s*", jrepath, separator, separator, separator);
+    s = (char *) JLI_WildcardExpandDirectory(pathname);
+    def = JLI_MemAlloc(sizeof(format)
+                       - 2 /* strlen("%s") */
+                       + JLI_StrLen(s));
+    sprintf(def, format, s);
+    JLI_TraceLauncher("Modules bootclasspath %s\n", s);
     AddOption(def, NULL);
     if (s != orig)
         JLI_MemFree((char *) s);
@@ -1853,6 +1920,13 @@ GetLauncherName()
 {
     return _launcher_name;
 }
+
+const char*
+GetModuleName()
+{
+    return _module_name;
+}
+
 
 jint
 GetErgoPolicy()

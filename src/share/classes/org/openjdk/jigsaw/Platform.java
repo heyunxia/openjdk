@@ -53,7 +53,8 @@ public final class Platform {
     public static ModuleId bootModule() { return BOOT_MID; }
 
     public static boolean isPlatformModuleName(String mn) {
-        return (mn.equals("jdk") || mn.startsWith("jdk."));
+        return (mn.equals("jdk") || mn.startsWith("jdk.") ||
+            mn.startsWith("sun."));
     }
 
     // ## We really must do something more secure and robust here!
