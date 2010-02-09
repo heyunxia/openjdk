@@ -747,11 +747,13 @@ SetClassPath(const char *s)
 static void
 SetModulesBootClassPath(const char *jrepath)
 {
-    char *def, *s;
-    char pathname[MAXPATHLEN];
     const char separator[] = { FILE_SEPARATOR, '\0' };
+    static const char vmoption[] = "-Xbootclasspath/p:";
+    const int vmoption_len = JLI_StrLen(vmoption);
     const char *orig = jrepath;
-    static const char format[] = "-Xbootclasspath/p:%s";
+    char pathname[MAXPATHLEN];
+    char *def, *s;
+    int slen = 0;
     struct stat statbuf;
 
     /* return if jre/lib/rt.jar exists */
@@ -769,11 +771,12 @@ SetModulesBootClassPath(const char *jrepath)
     /* modularized jre */
     sprintf(pathname, "%s%slib%smodules%s*", jrepath, separator, separator, separator);
     s = (char *) JLI_WildcardExpandDirectory(pathname);
-    def = JLI_MemAlloc(sizeof(format)
-                       - 2 /* strlen("%s") */
-                       + JLI_StrLen(s));
-    sprintf(def, format, s);
-    JLI_TraceLauncher("Modules bootclasspath %s\n", s);
+    slen = JLI_StrLen(s);
+    def = JLI_MemAlloc(vmoption_len+slen+1);
+    memcpy(def, vmoption, vmoption_len);
+    memcpy(def+vmoption_len, s, slen);
+    def[vmoption_len+slen+1] = '\0';
+    JLI_TraceLauncher("Modules bootclasspath %s\n", def);
     AddOption(def, NULL);
     if (s != orig)
         JLI_MemFree((char *) s);

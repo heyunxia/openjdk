@@ -374,24 +374,35 @@ wildcardFileList(const char *wildcard)
 static FileList
 wildcardModuleDirList(const char *wildcard)
 {
-    const char separator[] = { FILE_SEPARATOR, '\0' };
+    const char separator[] = { FILE_SEPARATOR, '\0'};
+    char *basename;
+    int baselen = 0;
+    int wildlen = JLI_StrLen(wildcard);
+    int len = 0;
     char pathname[MAXPATHLEN];
-    char* s;
+    char classes[MAXPATHLEN];
+    char resources[MAXPATHLEN];
     char* filename;
 
-    const char *basename;
     FileList fl = FileList_new(16);
     WildcardIterator it = WildcardIterator_for(wildcard);
     if (it == NULL)
         return NULL;
+
+    memcpy(pathname, wildcard, wildlen-1);
     while ((basename = WildcardIterator_next(it)) != NULL) {
-        s = wildcardConcat(wildcard, basename);
-        sprintf(pathname, "%s%s7-ea%sclasses", s, separator, separator);
-        if (exists(pathname)) {
-            FileList_add(fl, JLI_StringDup(pathname));
-            sprintf(pathname, "%s%s7-ea%sresources", s, separator, separator);
-            if (exists(pathname))
-               FileList_add(fl, JLI_StringDup(pathname));
+        /* Replace the trailing '*' with basename */
+        baselen = JLI_StrLen(basename);
+        memcpy(pathname+wildlen-1, basename, baselen+1);
+        sprintf(classes, "%s%s7-ea%sclasses", pathname, separator, separator);
+        sprintf(resources, "%s%s7-ea%sresources", pathname, separator, separator);
+        if (exists(classes)) {
+            filename = (char *) JLI_StringDup(classes);
+            FileList_add(fl, filename);
+        }
+        if (exists(resources)) {
+            filename = (char *) JLI_StringDup(resources);
+            FileList_add(fl, filename);
         }
     }
     WildcardIterator_close(it);
