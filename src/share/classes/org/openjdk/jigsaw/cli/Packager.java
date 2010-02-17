@@ -112,7 +112,7 @@ public class Packager {
     private static String long_description;
 
     /** Default long description of the package */
-    private static String default_long_description 
+    private static String default_long_description
 	= " This package was automatically generated from the corresponding Jigsaw module.\n"
 	+ " Information on Jigsaw is available at http://openjdk.java.net/projects/jigsaw.";
 
@@ -121,6 +121,9 @@ public class Packager {
 
     // Installed size
     private static Integer installedSize = null;
+
+    // Platform boot module
+    private static final String BOOT_MODULE = "jdk.boot";
 
     private static void createTempWorkDir()
 	throws Command.Exception
@@ -154,7 +157,7 @@ public class Packager {
 	    tmp_module_dst = new File(tmp_dst, library.toString());
 
 	    if (!tmp_module_dst.mkdirs())
-		throw new Command.Exception("Couldn't create module destination directory " 
+		throw new Command.Exception("Couldn't create module destination directory "
 					    + tmp_module_dst);  
 
 	    // Delete the modules dir to make SimpleLibrary happy,
@@ -167,15 +170,22 @@ public class Packager {
 	    throws Command.Exception
 	{
 	    try {
+
 		createModuleLibraryWorkDir();
 
-		// We need to create a throwaway SimpleLibrary to work with it,
-		// As there is no static preInstall method
-		File scratchlib_dst = new File(tmp_dst, "scratchlib");
-		SimpleLibrary.open(scratchlib_dst, true).preInstall(manifest, tmp_module_dst);
-		Files.deleteTree(scratchlib_dst);
-
+                if (BOOT_MODULE.equals(manifest.module())) {
+                    // Create a module library to the boot module package
+		    SimpleLibrary.open(tmp_module_dst, true, null).install(Collections.singleton(manifest));
+                } else {
+		    // We need to create a throwaway SimpleLibrary to work with it,
+		    // As there is no static preInstall method
+		    File scratchlib_dst = new File(tmp_dst, "scratchlib");
+		    SimpleLibrary.open(scratchlib_dst, true, null).preInstall(manifest, tmp_module_dst);
+		    Files.deleteTree(scratchlib_dst);
+                }
 	    } catch (IOException x) {
+                throw new Command.Exception(x);
+	    } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
             }
 	}
@@ -275,6 +285,8 @@ public class Packager {
 	private void writeMetaData(Manifest manifest)
 	    throws Command.Exception
 	{
+            boolean bootmodule = BOOT_MODULE.equals(manifest.module());
+
 	    try {
 		createMetaDataDir();
 
@@ -318,7 +330,7 @@ public class Packager {
 				   default_long_description);
 		}
 
-		if (!info.requires().isEmpty())
+		if (!bootmodule && !info.requires().isEmpty())
 		    control.format("Depends: %s\n", computeDependencies(info));
 		if (!info.provides().isEmpty())
 		    control.format("Provides: %s\n", computeProvides(info));
@@ -327,14 +339,15 @@ public class Packager {
                 if (installedSize != null)
                     control.format("Installed-Size: %d\n", installedSize);
 
-		// All jpkg generated packages depend on a boot package being installed
-		// at time of installation to be able to run jmod.
-		control.format("Pre-Depends: jdk.boot\n");
+		// All jpkg generated packages (except boot) depend on a boot
+                // package being installed at time of installation to be able to run jmod.
+                if (!bootmodule) 
+		    control.format("Pre-Depends: %s\n", BOOT_MODULE);
 
 		control.close();
 
 		// Generate the launcher script, if a main class exists
-		if (info.mainClass() != null) {
+		if (!bootmodule && info.mainClass() != null) {
 		    // If no command name is given, use module name
 		    if (null == bincmd)
 			bincmd = info.id().name();
@@ -363,39 +376,42 @@ public class Packager {
 
 		// Before a package is installed, 
 		//   check if the jigsaw module library needs to be created first
-		File preinst = new File(tmp_metadata_dst, "preinst");
-		PrintStream pis = new PrintStream(preinst);
-		pis.format("#!/bin/sh\n" +
-			   "set -e\n" +
-			   "if [ ! -f %1$s/%%jigsaw-library ]\n" +
-			   "then\n" +
-			   "  %2$s  -L %1$s create\n" +
-			   "fi\n",
-			   library, installedJMod).close();
-		preinst.setExecutable(true, false);
-
-		// After a package is installed,
-		//  reconfigure the jigsaw module library for the module
-		File postinst = new File(tmp_metadata_dst, "postinst");
-		pis = new PrintStream(postinst);
-		pis.format("#!/bin/sh\n" +
-			   "set -e\n" +
-			   "if [ -f %s/%s.pack ] ; then\n" +
-			   " for i in %s/*.pack ; do\n" +
-			   "   %s/bin/unpack200 -r $i %s/tmp.jar\n" +
-			   "   unzip -o -q -d / %s/tmp.jar\n" +
-			   "   rm %s/tmp.jar\n" +
-			   " done\n" +
-			   "fi\n" +
-			   "%s -L %s config %s\n",
-			   library, manifest.module(),
-			   library,
-			   javaHome, library,
-			   library,
-			   library,
-			   installedJMod, library, info.id());
-		pis.close();
-		postinst.setExecutable(true, false);
+                PrintStream pis;
+                if (!bootmodule) {
+                    File preinst = new File(tmp_metadata_dst, "preinst");
+                    pis = new PrintStream(preinst);
+                    pis.format("#!/bin/sh\n" +
+                    	   "set -e\n" +
+                    	   "if [ ! -f %1$s/%%jigsaw-library ]\n" +
+                    	   "then\n" +
+                    	   "  %2$s  -L %1$s create\n" +
+                    	   "fi\n",
+                    	   library, installedJMod).close();
+                    preinst.setExecutable(true, false);
+                
+                    // After a package is installed,
+                    //  reconfigure the jigsaw module library for the module
+                    File postinst = new File(tmp_metadata_dst, "postinst");
+                    pis = new PrintStream(postinst);
+                    pis.format("#!/bin/sh\n" +
+                    	   "set -e\n" +
+                    	   "if [ -f %s/%s.pack ] ; then\n" +
+                    	   " for i in %s/*.pack ; do\n" +
+                    	   "   %s/bin/unpack200 -r $i %s/tmp.jar\n" +
+                    	   "   unzip -o -q -d / %s/tmp.jar\n" +
+                    	   "   rm %s/tmp.jar\n" +
+                    	   " done\n" +
+                    	   "fi\n" +
+                    	   "%s -L %s config %s\n",
+                    	   library, manifest.module(),
+                    	   library,
+                    	   javaHome, library,
+                    	   library,
+                    	   library,
+                    	   installedJMod, library, info.id());
+                    pis.close();
+                    postinst.setExecutable(true, false);
+                }
 
 		// Before a package is removed,
 		//  remove the generated jigsaw module configuration
@@ -445,6 +461,7 @@ public class Packager {
 	    try {
 		Files.deleteTree(tmp_module_dst);
 		Files.deleteTree(tmp_metadata_dst);
+		Files.deleteTree(tmp_dst);
 	    } catch (IOException x) {
                 throw new Command.Exception(x);
 	    }
@@ -458,6 +475,10 @@ public class Packager {
 	private void packModule(Manifest manifest)
 	    throws Command.Exception
 	{
+            // Can't pack the boot module since unpack200 tool may not exist
+            if (BOOT_MODULE.equals(manifest.module())) 
+                return;
+
 	    try {
 		File tmp_jar = new File(tmp_dst, "module.jar");
 

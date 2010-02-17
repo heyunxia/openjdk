@@ -87,7 +87,10 @@ JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
 # FIXME: need to determine at build time
 MODULE_VERSION = 7-ea 
 
-all:: unpack-jars gen-classlist modularize install-modules
+# Rules for building packages
+include BuildPackages.gmk
+
+all:: unpack-jars gen-classlist modularize install-modules pkgs
 
 JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
 unpack-jars:

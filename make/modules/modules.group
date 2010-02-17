@@ -39,6 +39,7 @@
 module jdk.boot {
     include base;
     include nio;
+    include unpack200-tool;
     include jmod;
     class org.openjdk.jigsaw.Hi;    // testing
 }
@@ -312,6 +313,19 @@ module jmod {
 module jpkg {
     class org.openjdk.jigsaw.cli.Packager;
 }
+
+/*
+ * This module is for the pack200 binary.
+ * Can't include com.sun.java.util.jar.pack.Driver due to its
+ * dependency with other runtime classes.
+ *
+ * Driver is made to be public in com.sun.java.util.jar.pack
+ * as a workaround until we clean up the dependency.
+ */
+module pack200 {
+    class com.sun.java.util.jar.pack.Driver;
+}
+
 
 // developer tools to be included in the jdk-base-image
 module jdk.base.tools {

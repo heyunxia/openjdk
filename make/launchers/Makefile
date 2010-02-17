@@ -27,6 +27,17 @@
 # Makefile for building simple launchers
 #
 
+# Each launcher built by make-launcher or make-legacy-launcher
+# is a single module whose name is same as the binary name.
+#
+# make/modules/modules.group contains a module definition
+# that specifies its entry point for each binary.
+# The launcher (java.c) will launch the tool in module mode 
+# or legacy mode as how it is built.
+#
+# NOTE: when a new launcher is added, a module definition
+# for this launcher needs to be added in make/modules/modules.group. 
+
 BUILDDIR = ..
 PACKAGE = launchers
 PRODUCT = sun
@@ -45,12 +56,14 @@ $(MAKE) -f Makefile.launcher \
 endef
 
 # Run MAKE $@ for all generic launchers
+
 define make-all-launchers
 $(call make-launcher, appletviewer, sun.applet.Main, , )
 $(call make-launcher, apt, com.sun.tools.apt.Main, , )
 $(call make-launcher, extcheck, com.sun.tools.extcheck.Main, , )
 $(call make-launcher, idlj, com.sun.tools.corba.se.idl.toJavaPortable.Compile, , )
 $(call make-launcher, jar, sun.tools.jar.Main, , )
+$(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
 $(call make-legacy-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, , )
 $(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , )
 $(call make-launcher, jarsigner, sun.security.tools.JarSigner, , )
