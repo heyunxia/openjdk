@@ -156,23 +156,57 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
-            File classes = new File(takeArg());
-            java.util.List<Manifest> mfs = new ArrayList<Manifest>();
-            while (hasArg())
-                mfs.add(Manifest.create(takeArg(), classes));
-            finishArgs();
-            if (!mfs.isEmpty() && opts.has(resourcePath)) {
-                // ## Single -r option only applies to first module
-                // ## Should support one -r option for each module
-                mfs.get(0).addResources(opts.valueOf(resourcePath));
+            String key = takeArg();
+            File kf = new File(key);
+
+            if (!kf.exists()) {
+                throw new Command.Exception("%s: No such file or directory",
+                                            kf);
             }
-            try {
-                lib.install(mfs);
-            } catch (ConfigurationException x) {
-                throw new Command.Exception(x);
-            } catch (IOException x) {
-                throw new Command.Exception(x);
+
+            // Old form: install <classes-dir> <module-name> ...
+            //
+            if (kf.isDirectory()) {
+                java.util.List<Manifest> mfs = new ArrayList<Manifest>();
+                while (hasArg())
+                    mfs.add(Manifest.create(takeArg(), kf));
+                finishArgs();
+                if (!mfs.isEmpty() && opts.has(resourcePath)) {
+                    // ## Single -r option only applies to first module
+                    // ## Should support one -r option for each module
+                    mfs.get(0).addResources(opts.valueOf(resourcePath));
+                }
+                try {
+                    lib.install(mfs);
+                } catch (ConfigurationException x) {
+                    throw new Command.Exception(x);
+                } catch (IOException x) {
+                    throw new Command.Exception(x);
+                }
+                return;
             }
+
+            // Install one or more module file(s)
+            //
+            if (kf.isFile()) {
+                java.util.List<File> fs = new ArrayList<>();
+                fs.add(kf);
+                while (hasArg())
+                    fs.add(new File(takeArg()));
+                finishArgs();
+                try {
+                    lib.installFiles(fs);
+                } catch (ConfigurationException x) {
+                    throw new Command.Exception(x);
+                } catch (IOException x) {
+                    throw new Command.Exception(x);
+                }
+                return;
+            }
+
+            throw new Command.Exception("%s: Neither a directory"
+                                        + " nor a module file");
+
         }
     }
 
@@ -352,7 +386,7 @@ public class Librarian {
         out.format("       jmod dump-config <module-id>%n");
         out.format("       jmod identify%n");
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
-	out.format("       jmod extract modulefile ...%n");
+	out.format("       jmod extract <module-file> ...%n");
         out.format("       jmod list [-v] [-p] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
         out.format("       jmod reindex [<module-id> ...]%n");

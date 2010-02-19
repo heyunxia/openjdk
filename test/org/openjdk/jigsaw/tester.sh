@@ -25,8 +25,9 @@ set -e
 
 tsrc=$1
 case $tsrc in
+  -)  tsrc="";;
   /*) ;;
-  *)  tsrc=../$tsrc;;
+  *)  tsrc="../$tsrc";;
 esac
 
 BIN=${TESTJAVA:-../../../../../build}/bin
@@ -36,7 +37,7 @@ rm -rf z.*
 mkdir z.test
 cd z.test
 
-gawk <$tsrc '
+gawk '
 
   /^:/ {
     test = $2; status = $3; how = $4;
@@ -93,7 +94,7 @@ gawk <$tsrc '
 
   /.+/ { if (module || class) print $0; }
 
-'
+' $tsrc
 
 tests=$(echo * | wc -w)
 if [ $tests = 1 ]; then

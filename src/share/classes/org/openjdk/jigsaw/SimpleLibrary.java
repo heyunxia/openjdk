@@ -494,6 +494,20 @@ public final class SimpleLibrary
         return md;
     }
 
+    private void deleteModuleDir(ModuleId mid)
+        throws IOException
+    {
+        File md = findModuleDir(mid);
+        if (md == null)
+            return;
+        Files.deleteTree(md);
+        File mnd = md.getParentFile();
+        if (mnd.list().length == 0) {
+            if (!mnd.delete())
+                throw new IOException(mnd + ": Cannot delete");
+        }
+    }
+
     public byte[] readLocalModuleInfoBytes(ModuleId mid)
         throws IOException
     {
@@ -646,6 +660,77 @@ public final class SimpleLibrary
     {
         install(mfs, root);
         configure(null);
+    }
+
+    private ModuleId install(InputStream is)
+        throws ConfigurationException, IOException
+    {
+        BufferedInputStream bin = new BufferedInputStream(is);
+        DataInputStream in = new DataInputStream(bin);
+        ModuleFileFormat.Reader mr = new ModuleFileFormat.Reader(in);
+        File md = null;
+        try {
+            byte[] mib = mr.readStart();
+            ModuleInfo mi = jms.parseModuleInfo(mib);
+            md = moduleDir(mi.id());
+            ModuleId mid = mi.id();
+            if (md.exists())
+                throw new ConfigurationException(mid + ": Already installed");
+            if (!md.mkdirs())
+                throw new IOException(md + ": Cannot create");
+            mr.readRest(md);
+            reIndex(mid);         // ## Could do this while reading module file
+            return mid;
+        } catch (IOException x) {
+            if (md != null && md.exists()) {
+                try {
+                    Files.deleteTree(md);
+                } catch (IOException y) {
+                    y.initCause(x);
+                    throw y;
+                }
+            }
+            throw x;
+        } finally {
+            mr.close();
+        }
+    }
+
+    private ModuleId install(File mf)
+        throws ConfigurationException, IOException
+    {
+        return install(new FileInputStream(mf));
+    }
+
+    public void installFiles(Collection<File> mfs)
+        throws ConfigurationException, IOException
+    {
+        List<ModuleId> mids = new ArrayList<>();
+        boolean complete = false;
+        Throwable ox = null;
+        try {
+            for (File mf : mfs)
+                mids.add(install(mf));
+            configure(mids);
+            complete = true;
+        } catch (IOException x) {
+            ox = x;
+            throw x;
+        } catch (ConfigurationException x) {
+            ox = x;
+            throw x;
+        } finally {
+            if (!complete) {
+                try {
+                    for (ModuleId mid : mids)
+                        deleteModuleDir(mid);
+                } catch (IOException x) {
+                    if (ox != null)
+                        x.initCause(ox);
+                    throw x;
+                }
+            }
+        }
     }
 
     /**
