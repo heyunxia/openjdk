@@ -103,6 +103,14 @@ class MockLibrary
 	throw new UnsupportedOperationException();
     }
 
+    public Resolution resolve(Collection<ModuleIdQuery> midqs) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void install(Resolution res) {
+	throw new UnsupportedOperationException();
+    }
+
     public Library parent() {
         return null;
     }
@@ -171,7 +179,32 @@ class MockLibrary
     }
 
     public RemoteRepositoryList repositoryList() throws IOException {
-        throw new UnsupportedOperationException();
+        return new RemoteRepositoryList() {
+            public List<RemoteRepository> repositories() {
+                return Collections.emptyList();
+            }
+
+            public RemoteRepository firstRepository() {
+                return null;
+            }
+
+            public RemoteRepository add(URI uri, int position) {
+                throw new UnsupportedOperationException();
+            }
+
+            public boolean remove(RemoteRepository rr) {
+                throw new UnsupportedOperationException();
+            }
+
+            public boolean areCatalogsStale() {
+                throw new UnsupportedOperationException();
+            }
+
+            public boolean updateCatalogs(boolean force) {
+                throw new UnsupportedOperationException();
+            }
+
+        };
     }
 
 }

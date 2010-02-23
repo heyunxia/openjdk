@@ -54,6 +54,7 @@ public class RemoteRepository
 
     public String name() { return null; }
 
+    private final RemoteRepository parent;
     public RemoteRepository parent() { return null; }
 
     private URI uri;
@@ -90,9 +91,10 @@ public class RemoteRepository
     private File metaFile;
     private File catFile;
 
-    private RemoteRepository(File d, long i) {
+    private RemoteRepository(File d, long i, RemoteRepository p) {
         dir = d;
         id = i;
+        parent = p;
         metaFile = new File(dir, "meta");
         catFile = new File(dir, "catalog");
     }
@@ -161,7 +163,7 @@ public class RemoteRepository
     {
         if (u.isOpaque())
             throw new IllegalArgumentException(u + ": Opaque URIs not supported");
-        RemoteRepository rr = new RemoteRepository(dir, id);
+        RemoteRepository rr = new RemoteRepository(dir, id, null);
         if (dir.exists())
             throw new IllegalStateException(dir + ": Already exists");
         if (!dir.mkdir())
@@ -177,16 +179,23 @@ public class RemoteRepository
         return create(dir, u, -1);
     }
 
-    public static RemoteRepository open(File dir, long id)
+    public static RemoteRepository open(File dir, long id,
+                                        RemoteRepository parent)
         throws IOException
     {
-        RemoteRepository rr = new RemoteRepository(dir, id);
+        RemoteRepository rr = new RemoteRepository(dir, id, parent);
         if (!dir.exists())
             throw new IllegalStateException(dir + ": No such directory");
         if (!dir.isDirectory())
             throw new IOException(dir + ": Not a directory");
         rr.loadMeta();
         return rr;
+    }
+
+    public static RemoteRepository open(File dir, long id)
+        throws IOException
+    {
+        return open(dir, id, null);
     }
 
     public static RemoteRepository open(File dir)
@@ -315,6 +324,13 @@ public class RemoteRepository
         if (rc != HttpURLConnection.HTTP_OK)
             throw new IOException(u + ": " + co.getResponseMessage());
         return co.getInputStream();
+    }
+
+    public ModuleSize sizeof(ModuleId mid) throws IOException {
+        RepositoryCatalog.Entry e = catalog().get(mid);
+        if (e == null)
+            throw new IllegalArgumentException(mid.toString());
+        return new ModuleSize(e.csize, e.usize);
     }
 
 }

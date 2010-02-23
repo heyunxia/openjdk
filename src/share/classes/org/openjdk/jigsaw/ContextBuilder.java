@@ -126,7 +126,7 @@ final class ContextBuilder<Cx extends BaseContext> {
             if (lp != null) {
                 String s = lp.getScheme();
                 if (s == null || !s.equals("file"))
-                    throw new AssertionError();
+                    throw new AssertionError(s);
                 ((Context)cx).putLibraryPathForModule(mi.id(), new File(lp));
             }
         }

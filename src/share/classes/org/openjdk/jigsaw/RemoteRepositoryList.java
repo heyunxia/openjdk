@@ -36,6 +36,8 @@ public interface RemoteRepositoryList {
     // Unmodifiable
     public List<RemoteRepository> repositories() throws IOException;
 
+    public RemoteRepository firstRepository() throws IOException;
+
     // position = i to insert at index i, i >= size to insert at end
     public RemoteRepository add(URI uri, int position) throws IOException;
 

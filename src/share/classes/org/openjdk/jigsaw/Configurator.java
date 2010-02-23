@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -66,7 +66,7 @@ import static org.openjdk.jigsaw.Trace.*;
  *
  * <ol>
  *
- *   <li><p> Resolve versions -- Determine the version of each module which
+ *   <li><p> Resolve versions -- Determine the version of each module that
  *   will be part of the resulting configuration. </p></li>
  * 
  *   <li><p> Construct contexts -- Assign modules to contexts, ensuring that
@@ -122,8 +122,8 @@ public final class Configurator {
      *          The {@link Library} against which dependences will be resolved
      *
      * @param   rootQueries
-     *          A collection of {@linkplain java.lang.module.ModuleIdQuery
-     *          ModuleIdQuerys} describing the desired root modules
+     *          A collection of {@link java.lang.module.ModuleIdQuery
+     *          ModuleIdQuery}s describing the desired root modules
      *
      * @throws  ConfigurationException
      *          If a valid configuration cannot be computed
@@ -145,6 +145,36 @@ public final class Configurator {
         // 1. Resolve versions
         Resolution res = Resolver.run(lib, rootQueries);
 
+        // 2, 3, & 4
+        return configure(lib, res);
+
+    }
+
+    /**
+     * <p> Compute a full install-time {@linkplain Configuration configuration}
+     * for previously-computed {@linkplain Resolution resolution} in a given
+     * {@linkplain Library module library}. </p>
+     *
+     * @param   lib
+     *          The {@link Library} against which dependences will be resolved
+     *
+     * @param   res
+     *          A {@link Resolution} previously computed by invoking the
+     *          {@link Resolver}
+     *
+     * @throws  ConfigurationException
+     *          If a valid configuration cannot be computed
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library
+     *
+     * @return  The resulting {@link Configuration}
+     */
+    public static Configuration<Context>
+        configure(Library lib, Resolution res)
+        throws ConfigurationException, IOException
+    {
+
         // 2. Construct contexts
         ContextSet<Linker.Context> cxs
             = ContextBuilder.run(res,
@@ -158,7 +188,7 @@ public final class Configurator {
 
         if (tracing) {
             List<ModuleId> rids = new ArrayList<>();
-            for (ModuleIdQuery midq : rootQueries)
+            for (ModuleIdQuery midq : res.rootQueries)
                 rids.add(cxs.moduleForName.get(midq.name()).id());
             trace(0, "Configured for %s", rids);
             if (traceLevel >= 3)

@@ -245,6 +245,41 @@ public abstract class Library
         throws ConfigurationException, IOException;
 
     /**
+     * <p> Resolve the given collection of {@linkplain
+     * java.lang.module.ModuleIdQuery module-id queries} against this
+     * library. </p>
+     *
+     * @param   midqs
+     *          A non-empty collection of {@link java.lang.module.ModuleIdQuery
+     *          ModuleIdQuery objects}
+     *
+     * @throws  ConfigurationException
+     *          If a valid {@link Resolution} cannot be computed
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library
+     */
+    public abstract Resolution resolve(Collection<ModuleIdQuery> midqs)
+        throws ConfigurationException, IOException;
+
+    /**
+     * <p> Install any modules required by the given {@linkplain Resolution
+     * resolution}, and configure all of its root modules. </p>
+     * 
+     * @param   res
+     *          A {@link Resolution} previously computed by the
+     *          {@link Library#install() install()} method
+     *
+     * @throws  ConfigurationException
+     *          If a valid configuration cannot be computed
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library
+     */
+    public abstract void install(Resolution res)
+        throws ConfigurationException, IOException;
+
+    /**
      * Find a resource within the given module in this library.
      *
      * @param   mid
@@ -276,11 +311,5 @@ public abstract class Library
 
 
     public abstract RemoteRepositoryList repositoryList() throws IOException;
-
-    /*
-
-    InstallState install(ModuleIdQuery midq) throws InstallException;
-
-    */
 
 }

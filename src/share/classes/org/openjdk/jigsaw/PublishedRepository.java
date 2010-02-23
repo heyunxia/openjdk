@@ -188,10 +188,11 @@ public class PublishedRepository
         bb.position(4                   // magic
                     + 2                 // type
                     + 2                 // major
-                    + 2                 // minor
-                    + 8                 // csize
-                    + 8                 // usize
-                    + 2);               // sections
+                    + 2);               // minor
+
+        long csize = bb.getLong();
+        long usize = bb.getLong();
+        bb.getShort();                  // sections
 
         // Hash
         HashType ht = HashType.valueOf(bb.getShort());
@@ -201,17 +202,17 @@ public class PublishedRepository
 
         SectionType st = SectionType.valueOf(bb.getShort());
         Compressor ct = Compressor.valueOf(bb.getShort());
-        int csize = bb.getInt();
+        int misize = bb.getInt();
         int subsections = bb.getShort();
 
         hl = bb.getShort();
         byte[] hb = new byte[hl];
         bb.get(hb);
 
-        if (bb.remaining() < csize)
+        if (bb.remaining() < misize)
             throw new AssertionError("module-info buffer too small"); // ##
 
-        byte[] mibs = new byte[csize];
+        byte[] mibs = new byte[misize];
         bb.get(mibs);
 
         MessageDigest md = getDigest(ht);
@@ -220,7 +221,7 @@ public class PublishedRepository
         if (!Arrays.equals(hb, rhb))
             throw new IOException("Hash mismatch");
 
-        return new Entry(mibs, ht, fhb);
+        return new Entry(mibs, csize, usize, ht, fhb);
 
     }
 
@@ -279,6 +280,14 @@ public class PublishedRepository
         if (e == null)
             throw new IllegalArgumentException(mid + ": No such module");
         return modulePath(mid).newInputStream();
+    }
+
+    public ModuleSize sizeof(ModuleId mid) throws IOException {
+        RepositoryCatalog cat = loadCatalog();
+        Entry e = cat.get(mid);
+        if (e == null)
+            throw new IllegalArgumentException(mid + ": No such module");
+        return new ModuleSize(e.csize, e.usize);
     }
 
     public boolean remove(ModuleId mid) throws IOException {

@@ -63,6 +63,7 @@ public class _RepositoryCatalog {
                 if (n != s)
                     throw new IOException("Mis-sized read");
                 rc.add(Arrays.copyOfRange(bb.array(), 0, n),
+                       42, 93,
                        HashType.SHA256, new byte[0]);
                 modules.put(ms.parseModuleInfo(bb.array()).id(),
                             Arrays.copyOfRange(bb.array(), 0, n));

@@ -53,11 +53,15 @@ public abstract class RepositoryCatalog {
     static class Entry {
 
         final byte[] mibs;
+        final long csize;
+        final long usize;
         final HashType hashType;
         final byte[] hash;
 
-        Entry(byte[] m, HashType ht, byte[] h) {
+        Entry(byte[] m, long cs, long us, HashType ht, byte[] h) {
             mibs = m;
+            csize = cs;
+            usize = us;
             hashType = ht;
             hash = h;
         }
@@ -66,8 +70,10 @@ public abstract class RepositoryCatalog {
 
     abstract void add(Entry e);
 
-    public void add(byte[] mibs, HashType hashType, byte[] hash) {
-        add(new Entry(mibs, hashType, hash));
+    public void add(byte[] mibs, long cs, long us,
+                    HashType hashType, byte[] hash)
+    {
+        add(new Entry(mibs, cs, us, hashType, hash));
     }
 
     public abstract boolean remove(ModuleId mid);
@@ -142,6 +148,8 @@ public abstract class RepositoryCatalog {
             for (Map.Entry<ModuleId,Entry> me : modules.entrySet()) {
                 out.writeUTF(me.getKey().toString()); // ## Redundant
                 Entry e = me.getValue();
+                out.writeLong(e.csize);
+                out.writeLong(e.usize);
                 out.writeShort(e.hashType.value());
                 out.writeShort(e.hash.length);
                 out.write(e.hash);
@@ -161,6 +169,8 @@ public abstract class RepositoryCatalog {
             int nms = in.readInt();
             for (int i = 0; i < nms; i++) {
                 ModuleId mid = jms.parseModuleId(in.readUTF());
+                long cs = in.readLong();
+                long us = in.readLong();
                 HashType ht = HashType.valueOf(in.readShort());
                 int nb = in.readShort();
                 byte[] hash = new byte[nb];
@@ -168,7 +178,7 @@ public abstract class RepositoryCatalog {
                 nb = in.readShort();
                 byte[] mibs = new byte[nb];
                 in.readFully(mibs);
-                modules.put(mid, new Entry(mibs, ht, hash));
+                modules.put(mid, new Entry(mibs, cs, us, ht, hash));
             }
             return this;
         }

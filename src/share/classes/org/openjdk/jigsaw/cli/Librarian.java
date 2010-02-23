@@ -141,18 +141,13 @@ public class Librarian {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
-            noDry();
             String key = takeArg();
             File kf = new File(key);
 
-            if (!kf.exists()) {
-                throw new Command.Exception("%s: No such file or directory",
-                                            kf);
-            }
-
             // Old form: install <classes-dir> <module-name> ...
             //
-            if (kf.isDirectory()) {
+            if (kf.exists() && kf.isDirectory()) {
+                noDry();
                 List<Manifest> mfs = new ArrayList<Manifest>();
                 while (hasArg())
                     mfs.add(Manifest.create(takeArg(), kf));
@@ -174,7 +169,8 @@ public class Librarian {
 
             // Install one or more module file(s)
             //
-            if (kf.isFile()) {
+            if (kf.exists() && kf.isFile()) {
+                noDry();
                 List<File> fs = new ArrayList<>();
                 fs.add(kf);
                 while (hasArg())
@@ -190,8 +186,46 @@ public class Librarian {
                 return;
             }
 
-            throw new Command.Exception("%s: Neither a directory"
-                                        + " nor a module file");
+            // Otherwise treat args as module-id queries
+            List<ModuleIdQuery> midqs = new ArrayList<>();
+            String s = key;
+            for (;;) {
+                ModuleIdQuery mq = null;
+                try {
+                    mq = jms.parseModuleIdQuery(s);
+                } catch (IllegalArgumentException x) {
+                    throw new Command.Exception(x);
+                }
+                midqs.add(mq);
+                if (!hasArg())
+                    break;
+                s = takeArg();
+            }
+            try {
+                boolean quiet = false;  // ## Need -q
+                Resolution res = lib.resolve(midqs);
+                if (res.modulesNeeded().isEmpty()) {
+                    if (!quiet)
+                        out.format("Nothing to install%n");
+                    return;
+                }
+                if (!quiet) {
+                    out.format("To install: %s%n",
+                               res.modulesNeeded()
+                               .toString().replaceAll("^\\[|\\]$", ""));
+                    out.format("%d bytes to download%n",
+                               res.downloadRequired());
+                    out.format("%d bytes to store%n",
+                               res.spaceRequired());
+                }
+                if (dry)
+                    return;
+                lib.install(res);
+            } catch (ConfigurationException x) {
+                throw new Command.Exception(x);
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
 
         }
     }
@@ -445,11 +479,12 @@ public class Librarian {
         out.format("       jmod dump-class <module-id> <class-name> <output-file>%n");
         out.format("       jmod dump-config <module-id>%n");
         out.format("       jmod identify%n");
+        out.format("       jmod install [-n] <module-id-query> ...%n");
         out.format("       jmod install <module-file> ...%n");
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
         out.format("       jmod list [-v] [-p] [-R] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
-        out.format("       jmod refresh [-f] [-v]%n");
+        out.format("       jmod refresh [-f] [-n] [-v]%n");
         out.format("       jmod reindex [<module-id> ...]%n");
         out.format("       jmod repos [-v]%n");
         out.format("%n");

@@ -30,7 +30,7 @@ import java.util.*;
 import java.net.URI;
 
 
-final class Resolution {
+public final class Resolution {
 
     final Collection<ModuleIdQuery> rootQueries;
 
@@ -40,15 +40,49 @@ final class Resolution {
 
     final Map<String,URI> locationForName;
 
+    private final Set<ModuleId> modulesNeeded;
+
+    /**
+     * <p> The ids of the modules that must be installed in order for this
+     * resolution to be configured </p>
+     */
+    public Set<ModuleId> modulesNeeded() { return modulesNeeded; }
+
+    final long downloadRequired;
+
+    /**
+     * <p> The total number of bytes that must be downloaded in order to
+     * install the needed modules </p>
+     */
+    public long downloadRequired() { return downloadRequired; }
+
+    final long spaceRequired;
+
+    /**
+     * <p> An upper bound on the total number of bytes of storage required to
+     * install the needed modules </p>
+     */
+    public long spaceRequired() { return spaceRequired; }
+
     Resolution(Collection<ModuleIdQuery> rqs,
                Set<ModuleInfo> mis,
                Map<String,ModuleInfo> mfn,
-               Map<String,URI> lfn)
+               Map<String,URI> lfn,
+               long dr, long sr)
     {
         rootQueries = rqs;
         modules = mis;
         moduleForName = mfn;
         locationForName = lfn;
+        downloadRequired = dr;
+        spaceRequired = sr;
+        Set<ModuleId> nmids = new HashSet<>();
+        for (ModuleInfo mi : modules) {
+            URI u = locationForName.get(mi.id().name());
+            if (u != null && !u.getScheme().equals("file"))
+                nmids.add(mi.id());
+        }
+        modulesNeeded = Collections.unmodifiableSet(nmids);
     }
 
 }

@@ -733,6 +733,50 @@ public final class SimpleLibrary
         }
     }
 
+    // Public entry point, since the Resolver itself is package-private
+    //
+    public Resolution resolve(Collection<ModuleIdQuery> midqs)
+        throws ConfigurationException, IOException
+    {
+        return Resolver.run(this, midqs);
+    }
+
+    public void install(Resolution res)
+        throws ConfigurationException, IOException
+    {
+
+        // ## Handle case of installing multiple root modules
+        assert res.rootQueries.size() == 1;
+        ModuleIdQuery midq = res.rootQueries.iterator().next();
+        ModuleInfo root = null;
+        for (ModuleInfo mi : res.modules) {
+            if (midq.matches(mi.id())) {
+                root = mi;
+                break;
+            }
+        }
+        assert root != null;
+
+        // Download
+        //
+        for (ModuleId mid : res.modulesNeeded()) {
+            URI u = res.locationForName.get(mid.name());
+            assert u != null;
+            RemoteRepository rr = repositoryList().firstRepository();
+            assert rr != null;
+            install(rr.fetch(mid));
+            res.locationForName.put(mid.name(), location());
+            // ## If something goes wrong, delete all our modules
+        }
+
+        // Configure
+        //
+        Configuration<Context> cf
+            = Configurator.configure(this, res);
+        new StoredConfiguration(moduleDir(root.id()), cf).store();
+
+    }
+
     /**
      * <p> Pre-install one or more modules to an arbitrary destination
      * directory. </p>
@@ -864,6 +908,7 @@ public final class SimpleLibrary
         }
 
         private void load() throws IOException {
+
             repos = new ArrayList<>();
             if (!root.exists() || !listFile.exists())
                 return;
@@ -871,17 +916,30 @@ public final class SimpleLibrary
             DataInputStream in
                 = new DataInputStream(new BufferedInputStream(fin));
             try {
+
                 FileHeader fh = fileHeader();
                 fh.read(in);
                 nextRepoId = in.readLong();
                 int n = in.readInt();
-                for (int i = 0; i < n; i++) {
-                    long id = in.readLong();
-                    repos.add(RemoteRepository.open(repoDir(id), id));
+                long[] ids = new long[n];
+                for (int i = 0; i < n; i++)
+                    ids[i] = in.readLong();
+                RemoteRepository parent = null;
+
+                // Load in reverse order so that parents are correct
+                for (int i = n - 1; i >= 0; i--) {
+                    long id = ids[i];
+                    RemoteRepository rr
+                        = RemoteRepository.open(repoDir(id), id, parent);
+                    repos.add(rr);
+                    parent = rr;
                 }
+                Collections.reverse(repos);
+
             } finally {
                 in.close();
             }
+
         }
 
         private List<RemoteRepository> roRepos = null;
@@ -893,6 +951,11 @@ public final class SimpleLibrary
                 roRepos = Collections.unmodifiableList(repos);
             }
             return roRepos;
+        }
+
+        public RemoteRepository firstRepository() throws IOException {
+            repositories();
+            return repos.isEmpty() ? null : repos.get(0);
         }
 
         private void store() throws IOException {

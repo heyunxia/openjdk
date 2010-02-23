@@ -32,6 +32,7 @@ import java.util.*;
 import java.util.regex.*;
 
 import static java.lang.module.Dependence.Modifier;
+import static org.openjdk.jigsaw.Repository.ModuleSize;
 import static org.openjdk.jigsaw.Trace.*;
 
 
@@ -77,6 +78,9 @@ final class Resolver {
         = new HashMap<String,ModuleInfo>();
 
     private Map<String,URI> locationForName = new HashMap<>();
+
+    private long spaceRequired = 0;
+    private long downloadRequired = 0;
 
     private static void fail(String fmt, Object ... args) // cf. Linker.fail
         throws ConfigurationException
@@ -173,8 +177,33 @@ final class Resolver {
         for (ModuleId mid : candidates) {
             if (!dep.query().matches(mid))
                 continue;
-            if (resolve(depth + 1, choice.next, rmi, dep, mid))
+            if (resolve(depth + 1, choice.next, rmi, dep, cat, mid))
                 return true;
+        }
+
+        // No local module found, so if this catalog is a library then
+        // consider its remote repositories, if any
+        //
+        // ## Policy issues: Anywhere vs. local, child vs. parent, ...
+        //
+        if (cat instanceof Library) {
+            Library lib = (Library)cat;
+            RemoteRepositoryList rrl = lib.repositoryList();
+            RemoteRepository rr = rrl.firstRepository();
+            if (rr != null) {
+                candidates = rr.findModuleIds(mn);
+                Collections.sort(candidates, Collections.reverseOrder());
+                if (tracing)
+                    trace(1, depth,
+                          "considering candidates from repos of %s: %s",
+                          lib.name(), candidates);
+                for (ModuleId mid : candidates) {
+                    if (!dep.query().matches(mid))
+                        continue;
+                    if (resolve(depth + 1, choice.next, rmi, dep, rr, mid))
+                        return true;
+                }
+            }
         }
 
         if (tracing)
@@ -187,25 +216,36 @@ final class Resolver {
     // dependence
     //
     private boolean resolve(int depth, Choice nextChoice,
-                            ModuleInfo rmi, Dependence dep, ModuleId mid)
+                            ModuleInfo rmi, Dependence dep,
+                            Catalog cat, ModuleId mid)
         throws IOException
     {
 
-        if (tracing)
-            trace(1, depth, "trying %s", mid);
+        if (tracing) {
+            String loc = "";
+            if (cat instanceof RemoteRepository)
+                loc = " " + ((LocatableCatalog)cat).location();
+            trace(1, depth, "trying %s%s", mid, loc);
+        }
 
         assert dep.query().matches(mid);
         assert moduleForName.get(mid.name()) == null;
 
-        // Find and read the ModuleInfo, saving its location if any
+        // Find and read the ModuleInfo, saving its location
+        // and size data, if any
         //
         ModuleInfo mi = null;
         URI ml = null;
+        ModuleSize ms = null;
         for (Catalog c = cat; c != null; c = c.parent()) {
             mi = c.readLocalModuleInfo(mid);
             if (mi != null) {
-                if (c != cat && c instanceof LocatableCatalog)
+                if (c != this.cat && c instanceof LocatableCatalog) {
                     ml = ((LocatableCatalog)c).location();
+                    assert ml != null;
+                }
+                if (c instanceof RemoteRepository)
+                    ms = ((RemoteRepository)c).sizeof(mid);
                 break;
             }
         }
@@ -234,6 +274,13 @@ final class Resolver {
         if (ml != null)
             locationForName.put(mid.name(), ml);
 
+        // Save the module's download and install sizes, if any
+        //
+        if (ms != null) {
+            downloadRequired += ms.download();
+            spaceRequired += ms.install();
+        }
+
         // Push this module's dependences onto the choice stack,
         // in reverse order so that the choices are examined in
         // forward order
@@ -248,14 +295,20 @@ final class Resolver {
         // Recursively examine the next choice
         //
         if (!resolve(depth + 1, ch)) {
+
             // Revert maps, then fail
             modules.remove(mi);
             moduleForName.remove(mid.name());
             if (ml != null)
                 locationForName.remove(mid.name());
+            if (ms != null) {
+                downloadRequired -= ms.download();
+                spaceRequired -= ms.install();
+            }
             if (tracing)
                 trace(1, depth, "fail: %s", mid);
             return false;
+
         }
 
         return true;
@@ -286,7 +339,8 @@ final class Resolver {
                   ? rootQueries.iterator().next()
                   : rootQueries));
         return new Resolution(rootQueries, r.modules,
-                              r.moduleForName, r.locationForName);
+                              r.moduleForName, r.locationForName,
+                              r.downloadRequired, r.spaceRequired);
     }
 
 }

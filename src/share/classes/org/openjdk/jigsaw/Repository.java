@@ -38,6 +38,48 @@ public abstract class Repository
     extends LocatableCatalog
 {
 
+    /**
+     * <p> Size information about a yet-to-be-installed module </p>
+     */
+    public static class ModuleSize {
+
+        private final long csize;
+
+        /**
+         * <p> The module's download size, in bytes </p>
+         */
+        public long download() { return csize; }
+
+        private final long usize;
+
+        /**
+         * <p> The module's installed size, in bytes </p>
+         *
+         * <p> The number of bytes required to install a module may be less
+         * than the value returned by this method, but it will never be
+         * greater. </p>
+         */
+        public long install() { return usize; }
+
+        ModuleSize(long cs, long us) {
+            csize = cs;
+            usize = us;
+        }
+
+    }
+
+    /**
+     * <p> Retrieve size information for a given module. </p>
+     *
+     * @param   mid
+     *          The {@linkplain java.lang.module.ModuleId id} of the
+     *          requested module
+     *
+     * @throws  IllegalArgumentException
+     *          If the named module is not present in this repository
+     */
+    public abstract ModuleSize sizeof(ModuleId mid) throws IOException;
+
     public abstract InputStream fetch(ModuleId mid) throws IOException;
 
 }
