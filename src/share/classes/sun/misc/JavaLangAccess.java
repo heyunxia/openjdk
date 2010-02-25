@@ -25,11 +25,14 @@
 
 package sun.misc;
 
+import java.lang.reflect.Module;
 import sun.reflect.ConstantPool;
 import sun.reflect.annotation.AnnotationType;
 import sun.nio.ch.Interruptible;
 
+
 public interface JavaLangAccess {
+
     /** Return the constant pool for a class. */
     ConstantPool getConstantPool(Class klass);
 
@@ -55,6 +58,9 @@ public interface JavaLangAccess {
     /** Set thread's blocker field. */
     void blockedOn(Thread t, Interruptible b);
 
+    /** Set class's module */
+    void setModule(Class c, Module m);
+
     /**
      * Registers a shutdown hook.
      *
@@ -72,7 +78,9 @@ public interface JavaLangAccess {
      * @throw IllegalStateException if shutdown is in progress and
      *          the slot is not valid to register.
      */
-    void registerShutdownHook(int slot, boolean registerShutdownInProgress, Runnable hook);
+    void registerShutdownHook(int slot,
+                              boolean registerShutdownInProgress,
+                              Runnable hook);
 
     /**
      * Returns the number of stack frames represented by the given throwable.
@@ -83,4 +91,5 @@ public interface JavaLangAccess {
      * Returns the ith StackTraceElement for the given throwable.
      */
     StackTraceElement getStackTraceElement(Throwable t, int i);
+
 }

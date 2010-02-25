@@ -67,21 +67,30 @@ include $(BUILDDIR)/common/Defs.gmk
 #       
 #    modules.list lists the modules to be created for the modules
 #    build and its members. For each module (m) in modules.list,
-#    a. create $m/lib/$m.jar with all classes and resource files
-#       listed in $m.classlist and $m.resources respectively.
-#    b. copy all non-class files from its members to 
-#       <outputdir>/modules/$m.
-
-
-MAINMANIFEST=$(JDK_TOPDIR)/make/tools/manifest.mf
-MODULE_JAR_MANIFEST_FILE=$(ABS_TEMPDIR)/manifest.tmp
+#    a. copy classes listed in $m.classlist and $m.resources to
+#       <outputdir>/modules/$m/classes and <outputdir>/modules/$m/resources
+#       respectively.
+#    b. copy all other files from its members (such as bin, lib, include)
+#       to <outputdir>/modules/$m.
+#    c. move module-info.class from modules/$m directory to 
+#       modules/$m/classes. Default module-info destination for javac 
+#       multi-module path is <modulepath>/<module>.
+#       
 
 TMP = $(ABS_MODULES_TEMPDIR)
 MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
 MODULE_CLASSES = $(ABS_MODULES_TEMPDIR)/classes
 MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
+MODULEINFO_SRC = $(MODULES_TEMPDIR)/src
+JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
 
-all:: unpack-jars gen-classlist modularize
+# FIXME: need to determine at build time
+MODULE_VERSION = 7-ea 
+
+# Rules for building packages
+include BuildPackages.gmk
+
+all:: unpack-jars gen-classlist modularize install-modules pkgs
 
 JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
 unpack-jars:
@@ -90,45 +99,78 @@ unpack-jars:
 	$(MKDIR) -p $(MODULE_CLASSES)
 	$(CP) -rf $(CLASSBINDIR)/* $(MODULE_CLASSES)
 	@for jf in  $(JAR_LIST) ; do \
-	   $(CD) $(MODULE_CLASSES) && $(BOOT_JAR_CMD) xf $$jf $(BOOT_JAR_JFLAGS);\
+           if [ -f $$jf ] ; then \
+	       $(CD) $(MODULE_CLASSES) && $(BOOT_JAR_CMD) xf $$jf $(BOOT_JAR_JFLAGS); \
+           fi ; \
 	done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 gen-classlist:
 	$(CD) tools && $(MAKE) all
 
-modularize: $(MODULE_JAR_MANIFEST_FILE)
+modularize:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
-	@$(RM) -rf $(MODULES_DIR)
-
-	@# create jar file for modules and
-	@# copy other files from all members of this module 
+	$(RM) -rf $(MODULES_DIR)
+	@$(RM) -rf $(JIGSAW_MODULE_LIB)
+	@$(MKDIR) -p $(MODULES_DIR)
+	@# Compile module-info.java for all modules
+	$(BINDIR)/javac $(JAVACFLAGS) -d $(MODULES_DIR) \
+            -Xbootclasspath:$(MODULE_CLASSES)\
+	    -modulepath $(MODULES_DIR) \
+            -sourcepath $(MODULEINFO_SRC) \
+            $(MODULEINFO_SRC)/*/module-info.java
+	@# Create modules listed in the modules.list output by the ClassAnalyzer
+	@# 1. Merge all non-class and non-resource files from module members
+	@#    to modules/$m
+	@# 2. Copy all class files into modules/$m/classes
+	@# 3. Copy all resource files into modules/$m/resources
+	@# 4. Move module-info.class from modules/$m directory to 
+	@#    modules/$m/classes. Default module-info destination for 
+	@#    javac multi-module path is <modulepath>/<module>.
+	@#    jmod only takes a directory with classes only.  
+	@#    What should be the modules directory hierachy for packaging?
+	$(CD) $(MODULE_CLASSES) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Creating module $$m" ; \
-   	   $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.classlist > $(TMP)/tmp.cf ; \
-	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
-   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.resources >> $(TMP)/tmp.cf ; \
-           fi ; \
-           $(MKDIR) -p $(ABS_MODULES_DIR)/$$m/lib; \
-	   $(CD) $(MODULE_CLASSES) && \
-               $(BOOT_JAR_CMD) c0mf $(MODULE_JAR_MANIFEST_FILE) \
-		   $(ABS_MODULES_DIR)/$$m/lib/$$m.jar \
-	           @$(TMP)/tmp.cf \
-                   $(BOOT_JAR_JFLAGS); \
+	   mlib=$(MODULES_DIR)/$$m ; \
+           $(MKDIR) -p $$mlib ; \
 	   for s in `$(GREP) "^$$m" $(MODULES_LIST)` ; do \
                if [ -d $(TMP)/$$s ] ; then \
-               	   $(CP) -rf $(TMP)/$$s/*  $(ABS_MODULES_DIR)/$$m; \
-		   $(RM) -rf $(ABS_MODULES_DIR)/$$m/classes; \
+               	   $(CP) -rf $(TMP)/$$s/*  $$mlib; \
+		   $(RM) -rf $$mlib/classes; \
 	       fi \
-	   done \
+	   done ; \
+           $(MKDIR) -p $$mlib/classes ; \
+	   $(MV) $$mlib/module-info.class $$mlib/classes ; \
+	   if [ -f $(MODULE_CLASSLIST)/$$m.classlist ] ; then \
+   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.classlist \
+	           | $(CPIO) -pdum $$mlib/classes ; \
+           fi ; \
+	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
+               $(MKDIR) -p $$mlib/resources ; \
+   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.resources \
+	           | $(CPIO) -pdum $$mlib/resources ; \
+           fi ; \
         done
 	@$(CD) $(MODULE_CLASSES) && $(java-vm-cleanup)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-$(MODULE_JAR_MANIFEST_FILE):
-	$(SED) -e "s/@@RELEASE@@/$(RELEASE)/" $(MAINMANIFEST) > $@
+install-modules:
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	$(RM) -rf $(JIGSAW_MODULE_LIB)
+	@$(BINDIR)/jmod create -N
+	$(CD) $(MODULES_DIR) && \
+	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
+   	   $(ECHO) "Installing module $$m" ; \
+	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
+	       $(BINDIR)/jmod install $$m/classes -r $$m/resources $$m || exit 1; \
+           else \
+	       $(BINDIR)/jmod install $$m/classes $$m || exit 1; \
+	   fi ; \
+        done
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 clean clobber::
 	$(RM) -rf $(MODULE_CLASSLIST)
 	$(RM) -rf $(MODULES_DIR)
-	$(RM) $(MODULE_JAR_MANIFEST_FILE)
+	$(RM) -rf $(MODULE_LIB)

@@ -116,6 +116,11 @@ public class ConstantPoolParser {
                 return 1;
             }
 
+            public Integer visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+                // skip
+                return 1;
+            }
+
             public Integer visitString(CONSTANT_String_info info, Void p) {
                 // skip
                 return 1;
@@ -262,6 +267,30 @@ public class ConstantPoolParser {
 
         public String visitMethodref(CONSTANT_Methodref_info info, Void p) {
             return visitRef(info, p);
+        }
+
+
+        public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+            if (info.version_index == 0)
+                return getCheckedName(info);
+            else
+                return getCheckedName(info) + "@" + getCheckedVersion(info);
+        }
+
+        String getCheckedName(CONSTANT_ModuleId_info info) {
+            try {
+                return checkName(info.getName());
+            } catch (ConstantPoolException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        String getCheckedVersion(CONSTANT_ModuleId_info info) {
+            try {
+                return info.getVersion();
+            } catch (ConstantPoolException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         public String visitString(CONSTANT_String_info info, Void p) {
