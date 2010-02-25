@@ -117,6 +117,37 @@ public class Librarian {
         }
     }
 
+    static class Extract extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            while (hasArg()) {
+		File module = new File(takeArg());
+
+		try { 
+		    File classes = File.createTempFile("jigsaw",null);
+		    classes.toPath().delete();
+		    classes.toPath().createDirectory();
+		    
+		    FileInputStream fis = new FileInputStream(module);
+		    DataInputStream dis = new DataInputStream(fis);
+		    ModuleFileFormat.Reader reader = 
+			new ModuleFileFormat.Reader(dis, classes);
+		    reader.readModule();
+		    String name = module.getName();
+		    name = name.substring(0, name.lastIndexOf('@'));
+		    Files.copyTree(classes, new File(name));
+		    Files.deleteTree(classes);
+		}
+		catch (IOException x) {
+		    x.printStackTrace();
+		    throw new Command.Exception(x);
+		}
+	    }
+            finishArgs();
+        }
+    }
+
     static class Install extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
@@ -297,6 +328,7 @@ public class Librarian {
         commands.put("id", Identify.class);
         commands.put("identify", Identify.class);
         commands.put("install", Install.class);
+        commands.put("extract", Extract.class);
         commands.put("list", List.class);
         commands.put("ls", List.class);
         commands.put("preinstall", PreInstall.class);
@@ -315,6 +347,7 @@ public class Librarian {
         out.format("       jmod dump <module-id> <class-name>%n");
         out.format("       jmod identify%n");
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
+	out.format("       jmod extract modulefile ...%n");
         out.format("       jmod list [-v] [-p] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
         out.format("       jmod reindex [<module-id> ...]%n");
