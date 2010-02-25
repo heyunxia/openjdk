@@ -762,7 +762,7 @@ public final class ModuleFileFormat {
 	}
 
 	public byte [] getHash() {
-	    return hash;
+	    return (byte []) hash.clone();
 	}
 
         public ModuleFileHeader (long csize, long usize, short sections,
@@ -782,7 +782,7 @@ public final class ModuleFileFormat {
             this.usize = usize;
             this.sections = sections;
             this.hashType = hashType;
-            this.hash = hash;
+            this.hash = (byte []) hash.clone();
         }
         
         public void write(final DataOutputStream out) throws IOException {
@@ -862,7 +862,7 @@ public final class ModuleFileFormat {
 	        this.compressor = compressor;
 	        this.csize = csize;
 	        this.subsections = subsections;
-	        this.hash = hash;
+	        this.hash = (byte []) hash.clone();
 	    }
 
 	    public void write(DataOutputStream out) throws IOException {
@@ -929,7 +929,7 @@ public final class ModuleFileFormat {
 	    }
 
 	    public byte [] getHash() {
-		return hash;
+		return (byte []) hash.clone();
 	    }
 
 	    public String toString() {
