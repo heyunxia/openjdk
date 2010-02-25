@@ -192,8 +192,8 @@ public class Packager {
 	    if (!mif.exists())
 		mif = new File(classdir, 
 			       mf.module() + File.separator + MINFO_CLASS);
-	    byte[] bs =  org.openjdk.jigsaw.Files.load(mif);
-	    return jms.parseModuleInfo(Files.load(mif));
+	    byte[] bs = Files.load(mif);
+	    return jms.parseModuleInfo(bs);
 	} catch (IOException x) {
 	    throw new Command.Exception(x);
 	}    
@@ -417,7 +417,6 @@ public class Packager {
 		    cmd.setExecutable(true, false);
 		}
 
-		String jmod = findJMod();
                 String installedJMod = javaHome.getPath() + "/bin/jmod";
 
 		// Before a package is installed, 

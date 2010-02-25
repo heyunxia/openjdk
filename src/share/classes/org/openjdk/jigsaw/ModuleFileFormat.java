@@ -697,14 +697,14 @@ public final class ModuleFileFormat {
     }
 
     private static String hashHexString(byte [] hash) {
-	String hex = "0x";
+	StringBuilder hex = new StringBuilder("0x");
 	for (int i = 0; i < hash.length; i++) {
 	    int val = (hash[i] & 0xFF); 
 	    if (val <= 16)
-		hex += "0";
-	    hex += Integer.toHexString(val);
+		hex.append("0");
+	    hex.append(Integer.toHexString(val));
 	}
-	return hex;
+	return hex.toString();
     }
 
     private static File resolveAndNormalize(File directory, String path) 
