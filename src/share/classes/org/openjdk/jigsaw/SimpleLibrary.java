@@ -841,6 +841,18 @@ public final class SimpleLibrary
         return f;
     }
 
+    public File findLocalNativeLibrary(ModuleId mid, String name)
+        throws IOException
+    {
+        File md = findModuleDir(mid);
+        if (md == null)
+            return null;
+        File f = new File(new File(md, "lib"), name);
+        if (!f.exists())
+            return null;
+        return f;
+    }
+
     public File classPath(ModuleId mid)
         throws IOException
     {

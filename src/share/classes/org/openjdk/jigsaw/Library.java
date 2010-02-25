@@ -298,6 +298,24 @@ public abstract class Library
         throws IOException;
 
     /**
+     * Find a native library within the given module in this library.
+     *
+     * @param   mid
+     *          The module's identifier
+     *
+     * @param   name
+     *          The name of the requested library, in platform-specific
+     *          form, <i>i.e.</i>, that returned by the {@link
+     *          java.lang.System#mapLibraryName System.mapLibraryName} method
+     *
+     * @return  A {@code File} object naming the location of the native library,
+     *          or {@code null} if the named module does not contain such a
+     *          library
+     */
+    public abstract File findLocalNativeLibrary(ModuleId mid, String name)
+        throws IOException;
+
+    /**
      * <p> Return a file path to the given module's classes. </p>
      *
      * @param   mid

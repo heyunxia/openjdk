@@ -206,6 +206,40 @@ public class Loader
     }
 
 
+    // -- Native libraries --
+
+    // Native libraries are, for now, discovered at run time.
+    //
+    // This could be made more efficient by instead identifying them
+    // at module-link time and storing a map from library names to full
+    // paths.
+
+    @Override
+    protected String findLibrary(String name) {
+        String fn = System.mapLibraryName(name);
+        IOException iox = null;
+        try {
+            for (ModuleId mid : context.modules()) {
+                File nlf = (pool.library(context, mid)
+                            .findLocalNativeLibrary(mid, fn));
+                if (nlf != null) {
+                    if (tracing)
+                        trace(0, "%s: lib %s", this, nlf);
+                    return nlf.getAbsolutePath();
+                }
+            }
+        } catch (IOException x) {
+            iox = x;
+        }
+        Error e = new UnsatisfiedLinkError("No library " + fn
+                                           + " in module context "
+                                           + context.name());
+        if (iox != null)
+            e.initCause(iox);
+        throw e;
+    }
+
+
     // -- Resources --
 
     // --
