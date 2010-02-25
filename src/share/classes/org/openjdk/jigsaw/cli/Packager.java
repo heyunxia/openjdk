@@ -224,7 +224,8 @@ public class Packager {
 	    // Delete the modules dir to make SimpleLibrary happy,
 	    // it wants to create the jigsaw metadata and the directory
 	    // along with it.
-	    tmp_module_dst.delete();
+	    if (!tmp_module_dst.delete())
+		throw new Command.Exception("Can't delete " + tmp_module_dst);
 	}
 
 	private void preinstallModule(Manifest manifest)
@@ -285,34 +286,6 @@ public class Packager {
 		"";		
 	}
 
-	/**
-	 * Lookup the location of jmod on the $PATH.
-	 * It's currently hardcoded in the generated packages.
-	 */
-	private String findJMod()
-	    throws Command.Exception
-	{
-	    try {
-		String jmod_binary = System.getProperty("java.home") + "/bin/jmod";
-
-		if (! (new File(jmod_binary).exists())) {
-		    Process which = (new ProcessBuilder("which", "jmod")).start();
-		    BufferedReader br = new BufferedReader(new InputStreamReader(which.getInputStream()));
-		    
-		    if (0 != which.waitFor())
-			throw new Command.Exception("Failed to locate jmod ");
-		    else
-			jmod_binary = br.readLine();
-		}
-
-		return jmod_binary;
-	    } catch (IOException x) {
-                throw new Command.Exception(x);
-            } catch (InterruptedException x) {
-                throw new Command.Exception(x);
-            }
-	}
-
 	/** Long descriptions in Debian control files must start the line with a space. */
 	private String formatDescription(String description)
 	{
@@ -332,14 +305,14 @@ public class Packager {
 	    throws Command.Exception
 	{
             boolean bootmodule = BOOT_MODULE.equals(manifest.module());
-
+	    PrintStream control = null, launcher = null, pis = null;
 	    try {
 		createMetaDataDir();
 
 		ModuleInfo info = getModuleInfo(manifest);
 
 		// Create the control file, and fill in dependency and provides info
-		PrintStream control = new PrintStream(new File(tmp_metadata_dst, "control"));		
+		control = new PrintStream(new File(tmp_metadata_dst, "control"));		
 		control.format("Package: %s%n" 
 			       + "Version: %s%n"
 			       + "Section: misc%n"
@@ -390,7 +363,6 @@ public class Packager {
                 if (!bootmodule) 
 		    control.format("Pre-Depends: %s\n", BOOT_MODULE);
 
-		control.close();
 
 		// Generate the launcher script, if a main class exists
 		if (!bootmodule && info.mainClass() != null) {
@@ -404,7 +376,7 @@ public class Packager {
 			throw new IOException("Couldn't create " + tmp_dst + BINDIR);
 
 		    File cmd = new File(bin, bincmd);
-		    PrintStream launcher = new PrintStream(cmd);
+		    launcher = new PrintStream(cmd);
 		    String java_launcher = System.getProperty("java.home") + "/bin/java";
 		    if (! (new File(java_launcher)).exists())
 			throw new IOException("Couldn't find java launcher at " + java_launcher);
@@ -421,7 +393,6 @@ public class Packager {
 
 		// Before a package is installed, 
 		//   check if the jigsaw module library needs to be created first
-                PrintStream pis;
                 if (!bootmodule) {
                     File preinst = new File(tmp_metadata_dst, "preinst");
                     pis = new PrintStream(preinst);
@@ -477,19 +448,27 @@ public class Packager {
             } catch (IOException x) {
                 throw new Command.Exception(x);
             }
-
+	    finally {
+		if (control != null)
+		    control.close();
+		if (launcher != null)
+		    launcher.close();
+		if (pis != null)
+		    pis.close();
+	    }
 	}
 
 	private void buildPackage()
 	    throws Command.Exception 
 	{
             String dashz = "-z" + ((fast || jigsawDevMode) ? 1 : 9);
+	    BufferedReader br = null;
 	    try {
 		Process build 
 		    = (new ProcessBuilder("fakeroot", "dpkg-deb", dashz, "-Zlzma", "--build", 
 					  tmp_dst.toString(), destination.toString())).start();
 		
-		BufferedReader br = new BufferedReader(new InputStreamReader(build.getErrorStream()));
+		br = new BufferedReader(new InputStreamReader(build.getErrorStream()));
 
 		if (0 != build.waitFor())
 		    throw new Command.Exception("Failed to create package " + br.readLine());
@@ -498,6 +477,15 @@ public class Packager {
             } catch (InterruptedException x) {
                 throw new Command.Exception(x);
             }
+	    finally {
+		if (br != null)
+		    try {
+			br.close();
+		    }
+		    catch (IOException e) {
+			throw new Command.Exception(e);
+		    }
+	    }
 	}
 
 	private void cleanup()
@@ -522,6 +510,7 @@ public class Packager {
             if (BOOT_MODULE.equals(manifest.module())) 
                 return;
 
+	    BufferedReader br = null;
 	    try {
 		File tmp_jar = new File(tmp_dst, "module.jar");
 
@@ -532,7 +521,7 @@ public class Packager {
 		    = (new ProcessBuilder("jar", "c0f",  tmp_jar.toString(), 
 					  "-C", tmp_dst.toString(), 
 					  library.toString())).start();
-		BufferedReader br = new BufferedReader(new InputStreamReader(jar.getErrorStream()));
+		br = new BufferedReader(new InputStreamReader(jar.getErrorStream()));
 		if (0 != jar.waitFor())
 		    throw new Command.Exception("Failed to jar module " + br.readLine());
 
@@ -564,6 +553,15 @@ public class Packager {
             } catch (InterruptedException x) {
                 throw new Command.Exception(x);
             }
+	    finally {
+		if (br != null)
+		    try {
+			br.close();
+		    }
+		    catch (IOException x) {
+			throw new Command.Exception(x);
+		    }
+	    }
 	}
 
         protected void go(SimpleLibrary lib)
