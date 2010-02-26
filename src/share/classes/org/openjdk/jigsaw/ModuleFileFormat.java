@@ -441,7 +441,7 @@ public final class ModuleFileFormat {
                     throw new IOException("First module-file section"
                                           + " is not MODULE_INFO");
                 assert moduleInfoBytes != null;
-                return moduleInfoBytes;
+                return moduleInfoBytes.clone();
             } catch (IOException x) {
                 close();
                 throw x;
@@ -578,6 +578,7 @@ public final class ModuleFileFormat {
 		if (bout != null)
 		    bout.write(buf, 0, n);
 	    }
+	    out.close();
 	    if (type == ModuleFile.SectionType.MODULE_INFO)
 		moduleInfoBytes = bout.toByteArray();
  
