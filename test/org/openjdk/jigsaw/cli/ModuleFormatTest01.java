@@ -29,6 +29,7 @@
 import java.io.*;
 import java.util.*;
 import org.openjdk.jigsaw.cli.*;
+import org.openjdk.jigsaw.*;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.SectionType;
 
 public class ModuleFormatTest01 {
@@ -254,12 +255,16 @@ public class ModuleFormatTest01 {
     /**
      * Check if files are executable.
      */
-    void checkIfExecutable(String [] fnames, File dir) 
+    void checkIfExecutable(String [] fnames, File dir, SectionType type) 
 	throws IOException {
 
 	for (String fname : fnames) {
 	    File file = new File(dir, fname);
-	    if (file.exists() && !file.canExecute())
+	    if (file.exists() 
+		&& (type == SectionType.NATIVE_CMDS
+		    || (type == SectionType.NATIVE_LIBS
+			&& System.getProperty("os.name").startsWith("Windows")))
+		&& !file.canExecute())
 		throw new IOException("file not marked executable " + file);
 	}
     }
@@ -271,9 +276,17 @@ public class ModuleFormatTest01 {
 	throws IOException {
 	for (String fname : fnames) {
 	    File file = new File(origDir, fname);
+	    File copy = null;
+
+	    // Module-info class is extracted into info file.
+	    if (fname.equals("module-info.class"))
+		copy = new File(copyDir, "info");
+	    else 
+		copy = new File(copyDir, fname);
+
 	    if (file.exists()) {
-		// System.out.println("Comparing " + file.toString());
-		compare(file, new File(copyDir, fname));
+	        // System.out.println("Comparing " + file.toString());
+		compare(file, copy);
 	    }
 	}
     }
@@ -281,23 +294,26 @@ public class ModuleFormatTest01 {
     void compare(String module, String [] fnames, SectionType type) 
 	throws IOException {
 	File extractedDir = new File(module);
-	File copyDir = new File(extractedDir, type.toString());
+	String sectionDir =  ModuleFileFormat.getSubdirOfSection(type);
+	File copyDir = new File(extractedDir, sectionDir);
 
 	switch(type) {
 	case MODULE_INFO:
+	    compare(fnames, classesDir, copyDir);
+	    break;
 	case CLASSES:
-	    compare(fnames, classesDir, extractedDir);
+	    compare(fnames, classesDir, copyDir);
 	    break;
 	case RESOURCES:
 	    compare(fnames, resourceDir, copyDir);
 	    break;
 	case NATIVE_LIBS:
 	    compare(fnames, natlibDir, copyDir);
-	    checkIfExecutable(fnames, copyDir);
+	    checkIfExecutable(fnames, copyDir, type);
 	    break;
 	case NATIVE_CMDS:
 	    compare(fnames, natcmdDir, copyDir);
-	    checkIfExecutable(fnames, copyDir);
+	    checkIfExecutable(fnames, copyDir, type);
 	    break;
 	case CONFIG:
 	    compare(fnames, configDir, copyDir);

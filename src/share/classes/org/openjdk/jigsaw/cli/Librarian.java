@@ -132,8 +132,8 @@ public class Librarian {
 		    FileInputStream fis = new FileInputStream(module);
 		    DataInputStream dis = new DataInputStream(fis);
 		    ModuleFileFormat.Reader reader = 
-			new ModuleFileFormat.Reader(dis, classes);
-		    reader.readModule();
+			new ModuleFileFormat.Reader(dis);
+		    reader.readModule(classes);
 		    String name = module.getName();
 		    name = name.substring(0, name.lastIndexOf('@'));
 		    Files.copyTree(classes, new File(name));

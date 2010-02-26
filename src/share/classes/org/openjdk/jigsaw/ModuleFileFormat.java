@@ -35,6 +35,28 @@ import java.util.zip.*;
 import static org.openjdk.jigsaw.FileConstants.*;
 
 public final class ModuleFileFormat {
+    /**
+     * Return the subdir of a section in an extracted module file.
+     */
+    public static String getSubdirOfSection(ModuleFile.SectionType type) {
+	switch (type) {
+	case MODULE_INFO:
+	    return ".";
+	case CLASSES:
+	    return "classes";
+	case RESOURCES:
+	    return "resources";
+	case NATIVE_LIBS:
+	    return "lib";
+	case NATIVE_CMDS:
+	    return "bin";
+	case CONFIG:
+	    return "etc";
+	default:
+	    throw new AssertionError(type);
+	}
+    }
+
     public final static class Writer {
         private DataOutputStream stream;
         private File sourcedir;
@@ -384,13 +406,10 @@ public final class ModuleFileFormat {
 	    }
 	}
 
-	public Reader(DataInputStream stream, File destination) {
+	public Reader(DataInputStream stream) {
 	    hashtype = ModuleFile.HashType.SHA256;
 	    this.stream = stream;
-	    this.destination = destination;
 	}
-
-	
 
 	private void checkHashMatch(byte [] expected, byte [] computed) 
 	    throws IOException {
@@ -401,22 +420,59 @@ public final class ModuleFileFormat {
 				      + hashHexString(computed));
 	}
 
-	public void readModule() throws IOException {
-	    ModuleFileHeader header = ModuleFileHeader.read(stream);
-	    // System.out.println(header.toString());
-	    MessageDigest md = getHashInstance(hashtype);
-	    DigestInputStream dis = new DigestInputStream(stream, md);
-	    DataInputStream in = new DataInputStream(dis);
+        private ModuleFileHeader fileHeader = null;
+        private MessageDigest fileDigest = null;
+        private DataInputStream fileIn = null;
+        private byte[] moduleInfoBytes = null;
 
-	    for (short sections = header.getSections(); 
-		 sections > 0;
-		 sections --) 
-		readSection(in);
+        // Reads the MODULE_INFO section, but does not write any files
+        //
+	public byte[] readStart() throws IOException {
+            try {
+                fileHeader = ModuleFileHeader.read(stream);
+                // System.out.println(fileHeader.toString());
+                fileDigest = getHashInstance(hashtype);
+                DigestInputStream dis = new DigestInputStream(stream, fileDigest);
+                fileIn = new DataInputStream(dis);
+                if (fileHeader.getSections() < 1)
+                    throw new IOException("A module file must have"
+                                          + " at least one section");
+                if (readSection(fileIn) != ModuleFile.SectionType.MODULE_INFO)
+                    throw new IOException("First module-file section"
+                                          + " is not MODULE_INFO");
+                assert moduleInfoBytes != null;
+                return moduleInfoBytes;
+            } catch (IOException x) {
+                close();
+                throw x;
+            }
+        }
 
-	    checkHashMatch(header.getHash(), md.digest());
+        public void readRest(File dst) throws IOException {
+            destination = dst;
+            try {
+                Files.store(moduleInfoBytes, computeRealPath("info"));
+                for (int ns = fileHeader.getSections() - 1; ns > 0; ns--)
+                    readSection(fileIn);
+                checkHashMatch(fileHeader.getHash(), fileDigest.digest());
+            } finally {
+                close();
+            }
 	}
 
-	private void readSection(DataInputStream stream)
+        public void close() throws IOException {
+            if (fileIn != null) {
+                fileIn.close();
+                fileIn = null;
+            }
+        }
+
+        public void readModule(File dst) throws IOException {
+            readStart();
+            readRest(dst);
+        }
+
+	private ModuleFile.SectionType readSection(DataInputStream stream)
 	    throws IOException {
 
 	    SectionHeader header = SectionHeader.read(stream);
@@ -436,6 +492,8 @@ public final class ModuleFileFormat {
 		readFile(in, compressor, type, csize);
 
 	    checkHashMatch(header.getHash(), md.digest());
+
+            return header.getType();
 	}
 
         public void readFile(DataInputStream in, 
@@ -446,7 +504,10 @@ public final class ModuleFileFormat {
 
             switch (compressor) {
 	    case NONE:
-		readUncompressedFile(in, type, csize);
+                 if (type == ModuleFile.SectionType.MODULE_INFO)
+                     moduleInfoBytes = readModuleInfo(in, csize);
+                 else
+                     readUncompressedFile(in, type, csize);
 		break;
 	    case GZIP:
 		readGZIPCompressedFile(in, type);
@@ -470,9 +531,7 @@ public final class ModuleFileFormat {
 
 	    SubSectionFileHeader header = SubSectionFileHeader.read(in);
 	    int csize = header.getCSize();
-	    String filename = 
-		type.toString() + File.separator + header.getPath();
-	    File path = computeRealPath(filename);
+	    File path = computeRealPath(type, header.getPath());
 
             // Splice off the compressed file from input stream
 	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -488,41 +547,54 @@ public final class ModuleFileFormat {
             out.close();
 	    gin.close();
             
-	    if (type == ModuleFile.SectionType.NATIVE_LIBS
-		|| type == ModuleFile.SectionType.NATIVE_CMDS)
-		path.setExecutable(true);
+	    markNativeCodeExecutable(type, path);
 	}
 
-        public void readUncompressedFile(DataInputStream in, 
+	public void readUncompressedFile(DataInputStream in,
 					 ModuleFile.SectionType type,
-					 int csize) throws IOException {
-	    File realpath;
-
-	    // module-info.class has no header
-	    if (ModuleFile.SectionType.MODULE_INFO != type) {
-		SubSectionFileHeader header = SubSectionFileHeader.read(in);
-		csize = header.getCSize();
-		realpath = computeRealPath(header.getPath());
-	    }
-	    else 
-		realpath = computeRealPath("module-info.class");
+ 					 int csize)
+	    throws IOException
+	{
+	    assert type != ModuleFile.SectionType.MODULE_INFO;
+	    SubSectionFileHeader header = SubSectionFileHeader.read(in);
+	    csize = header.getCSize();
+	    File realpath = computeRealPath(type, header.getPath());
 
             // Create the file 
 	    File parent = realpath.getParentFile();
 	    if (!parent.exists())
 		Files.mkdirs(parent, realpath.getName());
 
-            // Write the file
-            OutputStream os = new FileOutputStream(realpath);
-            BufferedOutputStream out = new BufferedOutputStream(os);
-            copyStream(new CountingInputStream(in, csize), out, csize);
-            out.close();
-
-	    if (type == ModuleFile.SectionType.NATIVE_LIBS
-		|| type == ModuleFile.SectionType.NATIVE_CMDS)
-		realpath.setExecutable(true);
-        }
-
+	    // Write the file
+	    OutputStream out = new FileOutputStream(realpath);
+	    CountingInputStream cin = new CountingInputStream(in, csize);
+	    ByteArrayOutputStream bout = null;
+	    if (type == ModuleFile.SectionType.MODULE_INFO)
+		bout = new ByteArrayOutputStream();
+	    byte[] buf = new byte[8192];
+	    int n;
+	    while ((n = cin.read(buf)) >= 0) {
+		out.write(buf, 0, n);
+		if (bout != null)
+		    bout.write(buf, 0, n);
+	    }
+	    if (type == ModuleFile.SectionType.MODULE_INFO)
+		moduleInfoBytes = bout.toByteArray();
+ 
+ 	    markNativeCodeExecutable(type, realpath);
+	 }
+  
+	public byte[] readModuleInfo(DataInputStream in, int csize)
+	    throws IOException
+	{
+	    CountingInputStream cin = new CountingInputStream(in, csize);
+	    ByteArrayOutputStream out = new ByteArrayOutputStream();
+	    byte[] buf = new byte[8192];
+	    int n;
+	    while ((n = cin.read(buf)) >= 0)
+		out.write(buf, 0, n);
+	    return out.toByteArray();
+	}
 
 	private File computeRealPath(String storedpath) throws IOException {
             String convertedpath = storedpath.replace('/', File.separatorChar);
@@ -537,6 +609,25 @@ public final class ModuleFileFormat {
 		Files.mkdirs(parent, path.getName());
 
 	    return path;
+	}
+
+ 	private File computeRealPath(ModuleFile.SectionType type,
+				     String storedpath)
+	    throws IOException
+	{
+	    String dir = getSubdirOfSection(type);
+	    return computeRealPath(dir + File.separatorChar + storedpath);
+	}
+ 
+ 	private static void markNativeCodeExecutable(ModuleFile.SectionType type,
+						     File file)
+	{
+	    if (type == ModuleFile.SectionType.NATIVE_CMDS
+		|| (type == ModuleFile.SectionType.NATIVE_LIBS
+		    && System.getProperty("os.name").startsWith("Windows")))
+		{
+		    file.setExecutable(true);
+		}
 	}
 
 	private JarInputStream unpack200gzip(DataInputStream in) 
@@ -562,8 +653,8 @@ public final class ModuleFileFormat {
 	    for (JarEntry entry = jin.getNextJarEntry();
 		 entry != null;
 		 entry = jin.getNextJarEntry()) {
-		File path = computeRealPath(entry.getName());
-		
+		File path = computeRealPath(ModuleFile.SectionType.CLASSES,
+                                            entry.getName());
 		FileOutputStream file = new FileOutputStream(path);
 		copyStream(jin, file);
 		file.close();
