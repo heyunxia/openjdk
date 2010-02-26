@@ -879,7 +879,7 @@ JVM_ENTRY(jclass, JVM_FindLoadedClass(JNIEnv *env, jobject loader, jstring name)
 JVM_END
 
 JVM_ENTRY(void, JVM_ExtendBootClassPath(JNIEnv *env, const char *path))
-  JVMWrapper2("JVM_ExtendBootClassPath(%s)", path)
+  JVMWrapper2("JVM_ExtendBootClassPath(%s)", path);
   {
     // cf. SystemDictionary::download_and_retry_class_load
     HandleMark hm(THREAD);
