@@ -413,7 +413,7 @@ public final class ModuleFileFormat {
 
 	private void checkHashMatch(byte [] expected, byte [] computed) 
 	    throws IOException {
-	    if (!Arrays.equals(expected, computed))
+	    if (!MessageDigest.isEqual(expected, computed))
 		throw new IOException("Expected hash " 
 				      + hashHexString(expected)
 				      + " instead of " 
