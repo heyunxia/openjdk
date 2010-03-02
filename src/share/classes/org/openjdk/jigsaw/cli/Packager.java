@@ -170,6 +170,7 @@ public class Packager {
 		    DataOutputStream dos = new DataOutputStream(fos);
 		    ModuleFileFormat.Writer writer 
 			= new ModuleFileFormat.Writer(dos, classes);
+		    writer.useFastestCompression(fast || jigsawDevMode);
 		    writer.writeModule(classes, resources, 
 				       natlibs, natcmds, config_dir);
 		}

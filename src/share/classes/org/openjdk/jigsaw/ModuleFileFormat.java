@@ -58,6 +58,7 @@ public final class ModuleFileFormat {
     }
 
     public final static class Writer {
+	private boolean fastestCompression = false;
         private DataOutputStream stream;
         private File sourcedir;
 	private ModuleFile.HashType hashtype;
@@ -339,6 +340,8 @@ public final class ModuleFileFormat {
 	    Pack200.Packer packer = Pack200.newPacker();
 	    Map p = packer.properties();
 	    p.put(Pack200.Packer.SEGMENT_LIMIT, "-1");
+	    if (fastestCompression)
+		p.put(Pack200.Packer.EFFORT, "1");
 	    p.put(Pack200.Packer.KEEP_FILE_ORDER, Pack200.Packer.FALSE);
 	    p.put(Pack200.Packer.MODIFICATION_TIME, Pack200.Packer.LATEST);
 	    p.put(Pack200.Packer.DEFLATE_HINT, Pack200.Packer.FALSE);
@@ -349,6 +352,13 @@ public final class ModuleFileFormat {
 	    gout.close();
 
 	    return new ByteArrayInputStream(gbaos.toByteArray());
+	}
+
+	/** 
+	 * Favor compression speed over size of resulting file.
+	 */
+	public void useFastestCompression(boolean fastest) {
+	    fastestCompression = fastest;
 	}
     }
     
