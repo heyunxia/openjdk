@@ -116,6 +116,7 @@ public class Flags {
     public static final int MODULE       = 1<<15;
 
     public static final int StandardFlags = 0x8fff;
+    public static final int ModifierFlags = StandardFlags & ~INTERFACE;
 
     // Because the following access flags are overloaded with other
     // bit positions, we translate them when reading and writing class

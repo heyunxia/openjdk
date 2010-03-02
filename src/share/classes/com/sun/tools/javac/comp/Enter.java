@@ -100,6 +100,7 @@ public class Enter extends JCTree.Visitor {
     MemberEnter memberEnter;
     Types types;
     Lint lint;
+    Names names;
     JavaFileManager fileManager;
     Modules modules;
 
@@ -124,6 +125,7 @@ public class Enter extends JCTree.Visitor {
         types = Types.instance(context);
         annotate = Annotate.instance(context);
         lint = Lint.instance(context);
+        names = Names.instance(context);
         modules = Modules.instance(context);
 
         predefClassDef = make.ClassDef(
@@ -327,6 +329,17 @@ public class Enter extends JCTree.Visitor {
                     }
                 }
             }
+
+            for (Symbol q = tree.packge; q != null && q.kind == PCK; q = q.owner)
+                q.flags_field |= EXISTS;
+
+            Name name = names.package_info;
+            ClassSymbol c = reader.enterClass(name, tree.packge);
+            c.flatname = names.fromString(tree.packge + "." + name);
+            c.sourcefile = tree.sourcefile;
+            c.completer = null;
+            c.members_field = new Scope(c);
+            tree.packge.package_info = c;
         } else if (isModuleInfo) {
             JCModuleDecl md = TreeInfo.getModule(tree);
             if (md != null) {

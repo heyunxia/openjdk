@@ -308,8 +308,18 @@ public class TreeInfo {
         case(JCTree.POSTINC):
         case(JCTree.POSTDEC):
             return getStartPos(((JCUnary) tree).arg);
-        case(JCTree.ANNOTATED_TYPE):
-            return getStartPos(((JCAnnotatedType) tree).underlyingType);
+        case(JCTree.ANNOTATED_TYPE): {
+            JCAnnotatedType node = (JCAnnotatedType) tree;
+            if (node.annotations.nonEmpty())
+                return getStartPos(node.annotations.head);
+            return getStartPos(node.underlyingType);
+        }
+        case(JCTree.NEWCLASS): {
+            JCNewClass node = (JCNewClass)tree;
+            if (node.encl != null)
+                return getStartPos(node.encl);
+            break;
+        }
         case(JCTree.VARDEF): {
             JCVariableDecl node = (JCVariableDecl)tree;
             if (node.mods.pos != Position.NOPOS) {
@@ -317,6 +327,12 @@ public class TreeInfo {
             } else {
                 return getStartPos(node.vartype);
             }
+        }
+        case(JCTree.PACKAGE): {
+            JCPackageDecl node = (JCPackageDecl)tree;
+            if (node.annots.nonEmpty())
+                return getStartPos(node.annots.head);
+            break;
         }
         case(JCTree.ERRONEOUS): {
             JCErroneous node = (JCErroneous)tree;
@@ -407,6 +423,8 @@ public class TreeInfo {
             return getEndPos(((JCUnary) tree).arg, endPositions);
         case(JCTree.WHILELOOP):
             return getEndPos(((JCWhileLoop) tree).body, endPositions);
+        case(JCTree.ANNOTATED_TYPE):
+            return getEndPos(((JCAnnotatedType) tree).underlyingType, endPositions);
         case(JCTree.ERRONEOUS): {
             JCErroneous node = (JCErroneous)tree;
             if (node.errs != null && node.errs.nonEmpty())
@@ -466,22 +484,27 @@ public class TreeInfo {
     public static JCTree declarationFor(final Symbol sym, final JCTree tree) {
         class DeclScanner extends TreeScanner {
             JCTree result = null;
+            @Override
             public void scan(JCTree tree) {
                 if (tree!=null && result==null)
                     tree.accept(this);
             }
+            @Override
             public void visitTopLevel(JCCompilationUnit that) {
                 if (that.packge == sym) result = that;
                 else super.visitTopLevel(that);
             }
+            @Override
             public void visitClassDef(JCClassDecl that) {
                 if (that.sym == sym) result = that;
                 else super.visitClassDef(that);
             }
+            @Override
             public void visitMethodDef(JCMethodDecl that) {
                 if (that.sym == sym) result = that;
                 else super.visitMethodDef(that);
             }
+            @Override
             public void visitVarDef(JCVariableDecl that) {
                 if (that.sym == sym) result = that;
                 else super.visitVarDef(that);
@@ -511,6 +534,7 @@ public class TreeInfo {
         }
         class PathFinder extends TreeScanner {
             List<JCTree> path = List.nil();
+            @Override
             public void scan(JCTree tree) {
                 if (tree != null) {
                     path = path.prepend(tree);

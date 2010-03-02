@@ -1988,13 +1988,10 @@ public class Lower extends TreeTranslator {
             long flags = Flags.ABSTRACT | Flags.INTERFACE;
             if (target.isPackageInfoSynthetic())
                 flags |= SYNTHETIC;
-            ClassSymbol c = reader.enterClass(names.package_info, tree.packge);
-            c.sourcefile = attrEnv.toplevel.sourcefile;
-            c.completer = null;
-            c.members_field = new Scope(c);
-            c.flags_field = flags;
+            ClassSymbol c = tree.packge.package_info;
             c.attributes_field = pd.sym.attributes_field;
             c.modle = attrEnv.toplevel.modle;
+            c.flags_field |= flags;
             pd.sym.attributes_field = List.nil();
             ClassType ctype = (ClassType) c.type;
             ctype.supertype_field = syms.objectType;
