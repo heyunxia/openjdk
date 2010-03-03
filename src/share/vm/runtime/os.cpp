@@ -868,12 +868,37 @@ bool os::set_boot_path(char fileSep, char pathSep) {
     const char* sjlmb = Arguments::sun_java_launcher_module_boot();
 
     if (sjlmb) {
-      // Booting from a module
-      char buf[JVM_MAXPATHLEN];
-      if (!jio_snprintf(buf, sizeof(buf), "%%/%s", sjlmb)) {
-        assert(false, "Failed jio_snprintf");
-      } else {
-        char *scp = format_boot_path(buf, home, home_len,fileSep, pathSep);
+      // Booting from a module; format the given module boot path
+      // and set the system class path
+      char syscp_format[JVM_MAXPATHLEN];
+      size_t len = strlen(sjlmb);
+
+      char* buf = syscp_format;
+      size_t buflen = 0;
+      char* s = (char*) sjlmb;
+      char* p = strchr(s, ':');
+      size_t slen = 0;
+
+      while (s != NULL) {
+        slen = (p != NULL) ? p-s+1 : strlen(s);
+        buflen += slen+2;  // +2 chars for '%/'
+        if (buflen >= JVM_MAXPATHLEN) {
+          assert(false, "formatted sun.java.launcher.module.boot >= max pathlen");
+          break;
+        }
+        memcpy(buf, "%/", 2);
+        memcpy(buf+2, s, slen);
+        buf += slen+2;
+        if (p != NULL) {
+          s = p+1;
+          p = strchr(s, ':');
+        } else {
+          s = NULL;
+        }
+      }
+      if (buflen < JVM_MAXPATHLEN) {
+        syscp_format[buflen] = '\0';
+        char *scp = format_boot_path(syscp_format, home, home_len,fileSep, pathSep);
         if (scp) {
           Arguments::set_sysclasspath(scp);
           return true;

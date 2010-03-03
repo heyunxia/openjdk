@@ -884,6 +884,7 @@ bool Arguments::add_property(const char* prop) {
     if (eq != NULL) {
       FreeHeap(value);
     }
+    return true;
   } else if (strcmp(key, "java.vendor.url.bug") == 0) {
     // save it in _java_vendor_url_bug, so JVM fatal error handler can access
     // its value without going through the property list or making a Java call.
