@@ -303,15 +303,21 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     }
 
     // module for this launcher
-    if (_module_name != NULL) {
-        // For bootstrapping (if "classes" exists), run in legacy mode;
-        // otherwise, run in module mode
-        sprintf(buf, "%s%sclasses", jrepath, separator);
-        if (mode == LM_CLASS && stat(buf, &statbuf) != 0) {
-            mode = LM_MODULE;
-            strcpy(buf, _module_name);
-            strcat(buf, "@7-ea");
-            what = buf; 
+    if (_module_name != NULL && mode == LM_CLASS) {
+        /*
+         * Run the program in module module if running on
+         * a JRE module image (i.e. rt.jar doesn't exist) and
+         * "classes" dir doesn't exists; otherwise, run in legacy mode
+         */
+        snprintf(buf, sizeof(buf), "%s%slib%srt.jar", jrepath, separator, separator);
+        if (stat(buf, &statbuf) != 0) {
+           snprintf(buf, sizeof(buf), "%s%sclasses", jrepath, separator);
+           if (stat(buf, &statbuf) != 0) {
+               mode = LM_MODULE;
+               strcpy(buf, _module_name);
+               strcat(buf, "@7-ea");
+               what = buf; 
+           }
         }
         JLI_TraceLauncher("%s runs in %s mode (%s)\n",
                 _program_name, 
@@ -757,19 +763,19 @@ SetModulesBootClassPath(const char *jrepath)
     struct stat statbuf;
 
     /* return if jre/lib/rt.jar exists */
-    sprintf(pathname, "%s%slib%srt.jar", jrepath, separator, separator);
+    snprintf(pathname, sizeof(pathname), "%s%slib%srt.jar", jrepath, separator, separator);
     if (stat(pathname, &statbuf) == 0) {
         return;
     }
 
     /* return if jre/classes exists */
-    sprintf(pathname, "%s%sclasses", jrepath, separator);
+    snprintf(pathname, sizeof(pathname), "%s%sclasses", jrepath, separator);
     if (stat(pathname, &statbuf) == 0) {
         return;
     }
 
     /* modularized jre */
-    sprintf(pathname, "%s%slib%smodules%s*", jrepath, separator, separator, separator);
+    snprintf(pathname, sizeof(pathname), "%s%slib%smodules%s*", jrepath, separator, separator, separator);
     s = (char *) JLI_WildcardExpandDirectory(pathname);
     slen = JLI_StrLen(s);
     def = JLI_MemAlloc(vmoption_len+slen+1);

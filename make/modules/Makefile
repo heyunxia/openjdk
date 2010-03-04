@@ -82,7 +82,7 @@ MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
 MODULE_CLASSES = $(ABS_MODULES_TEMPDIR)/classes
 MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
 MODULEINFO_SRC = $(MODULES_TEMPDIR)/src
-JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
+TMP_MODULE_LIB = $(ABS_OUTPUTDIR)/tmp/jigsaw-lib/modules
 
 # FIXME: need to determine at build time
 MODULE_VERSION = 7-ea 
@@ -90,7 +90,7 @@ MODULE_VERSION = 7-ea
 # Rules for building packages
 include BuildPackages.gmk
 
-all:: unpack-jars gen-classlist modularize install-modules pkgs
+all:: unpack-jars gen-classlist modularize test-install-modules pkgs
 
 JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
 unpack-jars:
@@ -111,7 +111,6 @@ gen-classlist:
 modularize:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(MODULES_DIR)
-	@$(RM) -rf $(JIGSAW_MODULE_LIB)
 	@$(MKDIR) -p $(MODULES_DIR)
 	@# Compile module-info.java for all modules
 	$(BINDIR)/javac $(JAVACFLAGS) -d $(MODULES_DIR) \
@@ -155,17 +154,19 @@ modularize:
 	@$(CD) $(MODULE_CLASSES) && $(java-vm-cleanup)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-install-modules:
+test-install-modules:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
-	$(RM) -rf $(JIGSAW_MODULE_LIB)
-	@$(BINDIR)/jmod create -N
+	$(RM) -rf $(TMP_MODULE_LIB)
+	@$(BINDIR)/jmod create -N -L $(TMP_MODULE_LIB)
 	$(CD) $(MODULES_DIR) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Installing module $$m" ; \
 	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
-	       $(BINDIR)/jmod install $$m/classes -r $$m/resources $$m || exit 1; \
+	       $(BINDIR)/jmod install $$m/classes -r $$m/resources $$m \
+                  -L $(TMP_MODULE_LIB) || exit 1; \
            else \
-	       $(BINDIR)/jmod install $$m/classes $$m || exit 1; \
+	       $(BINDIR)/jmod install $$m/classes $$m \
+                  -L $(TMP_MODULE_LIB) || exit 1; \
 	   fi ; \
         done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
