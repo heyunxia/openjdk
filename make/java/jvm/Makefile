@@ -39,10 +39,10 @@ FILES_h = $(INCLUDEDIR)/jni.h 			\
 	  $(INCLUDEDIR)/classfile_constants.h
 
 $(INCLUDEDIR)/%.h: $(SHARE_SRC)/javavm/export/%.h
-	$(install-non-module-file)
+	$(install-include-file)
 
 $(PLATFORM_INCLUDE)/%.h: $(PLATFORM_SRC)/javavm/export/%.h
-	$(install-non-module-file)
+	$(install-include-file)
 
 JVMCFG = $(LIBDIR)/$(LIBARCH)/jvm.cfg
 

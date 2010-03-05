@@ -87,10 +87,7 @@ TMP_MODULE_LIB = $(ABS_OUTPUTDIR)/tmp/jigsaw-lib/modules
 # FIXME: need to determine at build time
 MODULE_VERSION = 7-ea 
 
-# Rules for building packages
-include BuildPackages.gmk
-
-all:: unpack-jars gen-classlist modularize test-install-modules pkgs
+all:: unpack-jars gen-classlist modularize test-install-modules
 
 JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
 unpack-jars:
@@ -109,8 +106,8 @@ gen-classlist:
 	$(CD) tools && $(MAKE) all
 
 #
-# TODO: create only modules that belong to the specified 
-# BUILD_MODULES.  Currently, all jdk modules are created 
+# TODO: create only modules that belong to the specified
+# BUILD_MODULES.  Currently, all jdk modules are created
 # but some modules may be in partial state since some
 # classes are compiled due to the dependencies.
 #
@@ -139,7 +136,7 @@ modularize:
    	   $(ECHO) "Creating module $$m" ; \
 	   mlib=$(MODULES_DIR)/$$m ; \
            $(MKDIR) -p $$mlib ; \
-	   for s in `$(GREP) "^$$m" $(MODULES_LIST)` ; do \
+	   for s in `$(GREP) "^$$m " $(MODULES_LIST)` ; do \
                if [ -d $(TMP)/$$s ] ; then \
                	   $(CP) -rf $(TMP)/$$s/*  $$mlib; \
 		   $(RM) -rf $$mlib/classes; \

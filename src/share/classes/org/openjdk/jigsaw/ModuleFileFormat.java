@@ -295,7 +295,9 @@ public final class ModuleFileFormat {
 	    // System.out.println(sourcedir.toString() + " : " + file.toString() + "->" + stored);
             // The path names of native-code files 
             // must not include more than one element.
-            ensureShortNativePath(file, stored);
+            // ## Temporarily turn off this check until the location of 
+            // ## the native libraries in jdk modules are changed
+            // ensureShortNativePath(file, stored);
 	    return stored;
 	}
 

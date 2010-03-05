@@ -23,6 +23,23 @@
 # have any questions.
 #
 
+#
+# modules           Target to build the following module images:
+#
+# jre-base-image:   Minimal Java runtime environment
+# jre-module-image: Full Java runtime environment with all JRE modules
+#                   installed
+# jdk-module-image: jre-module-image with all JDK modules installed
+#                   i.e. full Java development kit
+#
+# TODO: we may not need jdk-base-image to build. It is for
+#       convenience for the base image testing that at least
+#       needs javac in it.
+#
+# jdk-base-image:   jre-base-image with the language tool modules
+#                   installed.
+#                   
+#
 MODULE_IMAGES_DIR = $(ABS_OUTPUTDIR)
 JDK_MODULE_IMAGE_DIR = $(MODULE_IMAGES_DIR)/jdk-module-image
 JRE_MODULE_IMAGE_DIR = $(MODULE_IMAGES_DIR)/jre-module-image
@@ -30,11 +47,9 @@ JDK_BASE_IMAGE_DIR = $(MODULE_IMAGES_DIR)/jdk-base-image
 JRE_BASE_IMAGE_DIR = $(MODULE_IMAGES_DIR)/jre-base-image
 
 #
-# modules   Target to build jdk and jre module images
-#
 # TODO:
 # 1. Any other sanity check to perform?
-# 2. Trim out any extra files not for the jre shipment but wanted in the jdk jre.
+# 2. Trim out any extra files not for the jre shipment.
 #    (Note the jdk WILL want the jre image before this trimming)
 # 3. Post process the image (strips and mcs on Elf files we are shipping)
 #    (Note the jdk WILL want the jre image before this processing)
@@ -49,7 +64,7 @@ JRE_BASE_IMAGE_DIR = $(MODULE_IMAGES_DIR)/jre-base-image
 #    For JDK build, signed jars are copied to the build.
 #    All jars in the module image are unsigned.
 # 3. sparcv9 image is installed on top of a sparc image
-#    what does it
+
 #
 # Targets.
 #
@@ -64,12 +79,18 @@ endif
 modules modules-clobber::
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 
+#
+# jdk-xxx-image depends on jre-xxx-image
+#
+# Build jdk-xxx-image target before jre-xxx-image target
+# so that jre-xxx-image will be made only once
+#
 modules:: sanity-images post-sanity-images \
-	  gen-modules \
-	  jre-base-image$(MODULE_TARGET_SUFFIX) \
+	  gen-modules gen-pkgs \
 	  jdk-base-image$(MODULE_TARGET_SUFFIX) \
-	  jre-module-image$(MODULE_TARGET_SUFFIX) \
+	  jre-base-image$(MODULE_TARGET_SUFFIX) \
 	  jdk-module-image$(MODULE_TARGET_SUFFIX) \
+	  jre-module-image$(MODULE_TARGET_SUFFIX) \
 	  post-image-build
 
 ###### RULES for License and doc files
@@ -160,56 +181,28 @@ $(JRE_MODULE_IMAGE_DIR)/%64: $(SHARE_JRE_DOC_SRC)/%
 	$(process-doc-file)
 endif
 
-# Set javahome variable
-define get-java-home
-image=$(strip $1); \
-mimagedir=$(MODULE_IMAGES_DIR)/$$image; \
-jdk=`$(ECHO) $1 | $(GREP) jdk`; \
-if [ "x$$jdk" = "x" ] ; then \
-   javahome=$(MODULE_IMAGES_DIR)/$$image; \
-else \
-   javahome=$(MODULE_IMAGES_DIR)/$$image/jre; \
-fi
-endef
-
 #
 # Create a module library for the specified image location
 define create-module-library
-$(call get-java-home,$1); \
-mlib=$$javahome/lib/modules; \
+image=$(strip $1); \
+mlib=$(MODULE_IMAGES_DIR)/$$image/lib/modules; \
 $(ECHO) "Creating module library $$mlib" ; \
 $(BINDIR)/jmod create -N -L $$mlib
 endef
 
-ifeq ($(PLATFORM), windows)
 # Copy module content to the module image
 #   $1 - image location
 #   $2 - module name
+#
 define copy-module-content
 image=$(strip $1); m=$(strip $2); \
-$(call get-java-home,$1); \
+javahome=$(MODULE_IMAGES_DIR)/$$image; \
 for d in bin lib ; do \
    if [ -d $$m/$$d ] ; then \
        $(CP) -rf $(MODULES_DIR)/$$m/$$d $$javahome; \
-       if [ "$$javahome" != "$$mimagedir" ] ; then \
-          flist=`$(CD) $(MODULES_DIR)/$$m/$$d && $(FIND) . -name '*$(EXE_SUFFIX)'` ; \
-          for f in $$flist ; do \
-   	  $(MV) $$javahome/$$d/$$f $$mimagedir/$$d ; \
-          done ; \
-       fi ; \
    fi ; \
-done ; \
-if [ -d "$$m/include" ] ; then \
-   $(CP) -rf $(MODULES_DIR)/$$m/include $$mimagedir; \
-fi
+done 
 endef
-
-MSVC71_LIB=
-ifeq ($(ARCH_DATA_MODEL), 32)
-   ifeq ($(COMPILER_VERSION), VS2003)
-      MSVC71_LIB=msvc*71.$(LIBRARY_SUFFIX)
-   endif
-endif
 
 #
 # Copy JRE image to the dest
@@ -225,51 +218,12 @@ endif
 #
 define copy-jre-image
 from=$(strip $1); dest=$(strip $2); \
-$(MKDIR) -p $(MODULE_IMAGES_DIR)/$$dest/bin; \
-$(MKDIR) -p $(MODULE_IMAGES_DIR)/$$dest/lib; \
-$(MKDIR) -p $(MODULE_IMAGES_DIR)/$$dest/jre ; \
 ($(CD) $(MODULE_IMAGES_DIR)/$$from && $(FIND) . -depth -print \
-              | $(CPIO) -pdum $(MODULE_IMAGES_DIR)/$$dest/jre ) ; \
-$(CP) -f $(MODULE_IMAGES_DIR)/$$from/bin/*$(EXE_SUFFIX) $(MODULE_IMAGES_DIR)/$$dest/bin ; \
-$(CP) -f $(MODULE_IMAGES_DIR)/$$from/bin/jli.$(LIBRARY_SUFFIX) $(MODULE_IMAGES_DIR)/$$dest/bin ; \
-$(CP) -f $(MODULE_IMAGES_DIR)/$$from/lib/jvm.$(LIB_SUFFIX) $(MODULE_IMAGES_DIR)/$$dest/lib ; \
-if [ "x$(MSVC71_LIB)" != "x" ] ; then \
-   $(CP) -f $(MODULE_IMAGES_DIR)/$$from/bin/$(MSVC71_LIB) $(MODULE_IMAGES_DIR)/$$dest/bin ; \
+              | $(CPIO) -pdum $(MODULE_IMAGES_DIR)/$$dest) ; \
+if [ -d "$(MODULES_DIR)/jdk.boot/include" ] ; then \
+   $(CP) -rf $(MODULES_DIR)/jdk.boot/include $(MODULE_IMAGES_DIR)/$$dest; \
 fi
 endef
-
-else # PLATFORM
-# Copy module content to the module image
-#   $1 - image location
-#   $2 - module name
-define copy-module-content
-image=$(strip $1); m=$(strip $2); \
-$(call get-java-home,$1); \
-$(CD) $(MODULES_DIR) && \
-if [ -d $$m/lib ] ; then \
-   $(CP) -rf $(MODULES_DIR)/$$m/lib $$javahome; \
-fi ; \
-for d in bin include ; do \
-   if [ -d $$m/$$d ] ; then \
-       $(CP) -rf $(MODULES_DIR)/$$m/$$d $$mimagedir; \
-   fi ; \
-done
-endef
-
-#
-# Copy JRE image to the dest
-# $1 - jre image location
-# $2 - dest location
-define copy-jre-image
-from=$(strip $1); dest=$(strip $2); \
-$(MKDIR) -p $(MODULE_IMAGES_DIR)/$$dest/bin; \
-$(MKDIR) -p $(MODULE_IMAGES_DIR)/$$dest/jre ; \
-($(CD) $(MODULE_IMAGES_DIR)/$$from && $(FIND) . -depth -print \
-              | $(CPIO) -pdum $(MODULE_IMAGES_DIR)/$$dest/jre ) ; \
-$(CP) -rf $(MODULE_IMAGES_DIR)/$$from/bin/* $(MODULE_IMAGES_DIR)/$$dest/bin
-endef
-
-endif # PLATFORM
 
 #
 # Install jigsaw module 
@@ -277,8 +231,7 @@ endif # PLATFORM
 #   $2 - module name
 define install-jigsaw-module
 image=$(strip $1); m=$(strip $2); \
-$(call get-java-home,$1); \
-mlib=$$javahome/lib/modules; \
+mlib=$(MODULE_IMAGES_DIR)/$$image/lib/modules; \
 mid=`$(BINDIR)/jmod ls -L $$mlib $$m | $(GREP) -v '#'` ; \
 if [ "x$$mid" = "x" ] ; then \
    $(ECHO) "Installing module $$m in $$image" ; \
@@ -301,6 +254,24 @@ JRE_MODULES = $(MODULES_LIST_DIR)/jdk.jre.modules.list
 JDK_BASE_MODULES = $(MODULES_LIST_DIR)/jdk.base.tools.modules.list
 JRE_BASE_MODULES = $(MODULES_LIST_DIR)/jdk.base.modules.list
 
+# Rules for building packages
+include $(BUILDDIR)/common/BuildPackages.gmk
+
+PKG_TYPES = jmod-pkgs
+DEBIAN := $(shell \
+               if [ -f /etc/debian_version ] ; then \
+                  $(ECHO) true; \
+               else \
+                  $(ECHO) false; \
+               fi)
+
+
+ifeq ($(DEBIAN), true)
+PKG_TYPES += deb-pkgs
+endif
+
+gen-pkgs: $(PKG_TYPES)
+
 gen-modules:
 	$(CD) modules; $(MAKE) all
 
@@ -308,7 +279,8 @@ gen-modules:
 	$(RM) -r $(MODULE_IMAGES_DIR)/$*
 	$(MKDIR) $(MODULE_IMAGES_DIR)/$*
 
-jdk-base-image: jdk-base-image-setup \
+jdk-base-image: jre-base-image \
+                jdk-base-image-setup \
 		jdk-base-image-docfiles
 	$(call copy-jre-image,jre-base-image,$@)
 	@for jm in `$(NAWK) '{print $$1}' $(JDK_BASE_MODULES)` ; do \
@@ -324,7 +296,8 @@ jre-base-image: jre-base-image-setup \
 
 # 64-bit solaris jre image contains only the 64-bit add-on files.
 # FIXME: should there be two sets of modules (one for sparc and one for sparcv9)?
-jdk-base-image-sol64: jdk-base-image-setup \
+jdk-base-image-sol64: jre-base-image-sol64 \
+                      jdk-base-image-setup \
 		      $(LICENSE_DOCLIST_JRE:%=$(JDK_BASE_IMAGE_DIR)/%64) 
 	@# Temporary workaround - install sparcv9 modules 
 	$(call copy-jre-image,jre-base-image,jdk-base-image)
@@ -347,7 +320,8 @@ jre-base-image-docfiles: $(LICENSE_DOCLIST_JRE:%=$(JRE_BASE_IMAGE_DIR)/%) \
 	                 $(OTHER_DOCLIST_JRE:%=$(JRE_BASE_IMAGE_DIR)/%) \
                          $(JRE_NAMECHANGE_DOCLIST:%=$(JRE_BASE_IMAGE_DIR)/%$(TEXT_SUFFIX))
 
-jdk-module-image: jdk-module-image-setup \
+jdk-module-image: jre-module-image \
+                  jdk-module-image-setup \
 		  jdk-module-image-docfiles
 	$(call copy-jre-image,jre-module-image,$@)
 	@for jm in `$(NAWK) '{print $$1}' $(JDK_MODULES)` ; do \
@@ -363,7 +337,8 @@ jre-module-image: jre-module-image-setup \
 
 # 64-bit solaris jre image contains only the 64-bit add-on files.
 # FIXME: should there be two sets of modules (one for sparc and one for sparcv9)?
-jdk-module-image-sol64: jdk-module-image-setup \
+jdk-module-image-sol64: jre-module-image-sol64 \
+                        jdk-module-image-setup \
 		        jdk-module-image-docfiles \
 		        $(LICENSE_DOCLIST_JRE:%=$(JDK_MODULE_IMAGE_DIR)/%64) 
 	@# Temporary workaround - install sparcv9 modules 
@@ -406,7 +381,11 @@ modules modules-clobber::
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 	@$(java-vm-cleanup)
 
-.PHONY: modules modules-clobber gen-modules
+.PHONY: modules modules-clobber gen-modules gen-pkgs \
+	jre-base-image$(MODULE_TARGET_SUFFIX) \
+	jdk-base-image$(MODULE_TARGET_SUFFIX) \
+	jre-module-image$(MODULE_TARGET_SUFFIX) \
+	jdk-module-image$(MODULE_TARGET_SUFFIX)
 
 # Force rule
 FRC:

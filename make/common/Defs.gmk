@@ -574,10 +574,20 @@ $(RM) $@
 endef
 
 # Simple install of $< file to $@
+# and also install $< file to its module directory
 define install-file
 $(prep-target)
 $(CP) $< $@
 @$(install-module-file)
+endef
+
+# Include header files always belongs the base module
+define install-include-file
+$(prep-target)
+$(CP) $< $@
+dest=`echo $(@D)/ | $(SED) $(MODULE_PATH_PATTERN)` ; \
+$(MKDIR) -p $(MODULES_TEMPDIR)/base/$$dest; \
+$(CP) -f $@ $(MODULES_TEMPDIR)/base/$$dest
 endef
 
 define chmod-file

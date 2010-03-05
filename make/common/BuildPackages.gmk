@@ -23,38 +23,58 @@
 # have any questions.
 #
 
-
+#
+# Generate jmod and debian packages for all jdk modules
+#
 PKGS = $(ABS_OUTPUTDIR)/jigsaw-pkgs
-JIGSAW_IMAGE = $(TMP)/jigsaw-image
+JMOD_PKGS = $(PKGS)/jmod
+DEB_PKGS = $(PKGS)/deb
 
-DEBIAN := $(shell \
-               if [ -f /etc/debian_version ] ; then \
-                  $(ECHO) true; \
-               else \
-                  $(ECHO) false; \
-               fi)
-
-
-ifeq ($(DEBIAN), true) 
-pkgs: clean-pkgs deb-pkgs
-
-else # DEBIAN
-pkgs: $(PKGS)
-	@$(ECHO) "No package created for this platform."
-endif
-
-$(PKGS):
+## TODO: generate packages for modules that are modified
+##       instead of all modules
+$(PKGS)/%:
+	$(RM) -r $@
 	$(MKDIR) -p $@
 
-MROOT=/usr/local/jigsaw
+MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
+MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
 
-deb-pkgs: $(PKGS)
+# Rules to generate jmod packages
+#
+jmod-pkgs: $(JMOD_PKGS)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
-	   $(MKDIR) -p $(JIGSAW_IMAGE)/$$m/$(MROOT); \
+           $(CD)  $(MODULES_DIR)/$$m && \
+              (if [ -d resources ] ; then \
+                   RES="-r resources" ; \
+               fi ; \
+               if [ -d bin ] ; then \
+                   NATCMD="-natcmd bin" ; \
+               fi ; \
+               if [ -d lib ] ; then \
+                   NATLIB="-natlib lib" ; \
+               fi ; \
+               if [ -d etc ] ; then \
+                   CONFIG="-config etc" ; \
+               fi ; \
+               $(BINDIR)/jpkg -v -m classes \
+   	          $$RES $$NATCMD $$NATLIB $$CONFIG \
+                  -d $(JMOD_PKGS) jmod $$m) || exit 1 ; \
+	done
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
+
+# Rules to generate debian packages
+#
+JIGSAW_IMAGE = $(ABS_OUTPUTDIR)/tmp/jigsaw-image
+DEB_MROOT=/usr/local/jigsaw
+deb-pkgs: $(DEB_PKGS)
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	$(RM) -r $(JIGSAW_IMAGE)
+	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
+	   $(MKDIR) -p $(JIGSAW_IMAGE)/$$m/$(DEB_MROOT); \
 	   for d in bin lib include ; do \
 	       if [ -d $(MODULES_DIR)/$$m/$$d ] ; then \
-	           $(CP) -rf $(MODULES_DIR)/$$m/$$d $(JIGSAW_IMAGE)/$$m/$(MROOT) ; \
+	           $(CP) -rf $(MODULES_DIR)/$$m/$$d $(JIGSAW_IMAGE)/$$m/$(DEB_MROOT) ; \
 	       fi ; \
 	   done ; \
            (ISZ=$$(expr $$(du -s $(MODULES_DIR)/$$m | cut -f1)); \
@@ -66,13 +86,7 @@ deb-pkgs: $(PKGS)
                  -L /usr/local/jigsaw/lib/modules \
                  -n 'Jigsaw Team' -e 'jigsaw-dev@openjdk.java.net' \
                  -s "Jigsaw JDK 7 $$m module" --installed-size $$ISZ \
-                 -d $(PKGS) deb $$m) ; \
+                 -d $(DEB_PKGS) deb $$m) ; \
 	done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
-
-clean-image:
-	$(RM) -r $(JIGSAW_IMAGE)
-
-clean-pkgs: clean-image
-	$(RM) -r $(PKGS)
 
