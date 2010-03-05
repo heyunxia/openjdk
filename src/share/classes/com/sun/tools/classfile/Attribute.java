@@ -64,6 +64,13 @@ public abstract class Attribute {
     public static final String StackMapTable            = "StackMapTable";
     public static final String Synthetic                = "Synthetic";
 
+    // JSR 294
+    public static final String Module                   = "Module";
+    public static final String ModuleClass              = "ModuleClass";
+    public static final String ModulePermits            = "ModulePermits";
+    public static final String ModuleProvides           = "ModuleProvides";
+    public static final String ModuleRequires           = "ModuleRequires";
+
     public static class Factory {
         public Factory() {
             // defer init of standardAttributeClasses until after options set up
@@ -111,6 +118,12 @@ public abstract class Attribute {
             standardAttributes.put(LineNumberTable,   LineNumberTable_attribute.class);
             standardAttributes.put(LocalVariableTable, LocalVariableTable_attribute.class);
             standardAttributes.put(LocalVariableTypeTable, LocalVariableTypeTable_attribute.class);
+
+            standardAttributes.put(Module,            Module_attribute.class);
+            standardAttributes.put(ModuleClass,       ModuleClass_attribute.class);
+            standardAttributes.put(ModulePermits,     ModulePermits_attribute.class);
+            standardAttributes.put(ModuleProvides,    ModuleProvides_attribute.class);
+            standardAttributes.put(ModuleRequires,    ModuleRequires_attribute.class);
 
             if (!compat) { // old javap does not recognize recent attributes
                 standardAttributes.put(CompilationID, CompilationID_attribute.class);
@@ -185,5 +198,11 @@ public abstract class Attribute {
         R visitStackMap(StackMap_attribute attr, P p);
         R visitStackMapTable(StackMapTable_attribute attr, P p);
         R visitSynthetic(Synthetic_attribute attr, P p);
+
+        R visitModule(Module_attribute attr, P p);
+        R visitModuleClass(ModuleClass_attribute attr, P p);
+        R visitModulePermits(ModulePermits_attribute attr, P p);
+        R visitModuleProvides(ModuleProvides_attribute attr, P p);
+        R visitModuleRequires(ModuleRequires_attribute attr, P p);
     }
 }

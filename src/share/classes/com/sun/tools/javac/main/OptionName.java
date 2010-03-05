@@ -51,6 +51,7 @@ public enum OptionName {
     XBOOTCLASSPATH_PREPEND("-Xbootclasspath/p:"),
     XBOOTCLASSPATH_APPEND("-Xbootclasspath/a:"),
     XBOOTCLASSPATH("-Xbootclasspath:"),
+    MODULEPATH("-modulepath"),
     EXTDIRS("-extdirs"),
     DJAVA_EXT_DIRS("-Djava.ext.dirs="),
     ENDORSEDDIRS("-endorseddirs"),
@@ -87,7 +88,8 @@ public enum OptionName {
     O("-O"),
     XJCOV("-Xjcov"),
     XD("-XD"),
-    SOURCEFILE("sourcefile");
+    SOURCEFILE("sourcefile"),
+    L("-L");
 
     public final String optionName;
 
