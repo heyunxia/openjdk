@@ -654,6 +654,9 @@ public abstract class Symbol implements Element {
             return flags;
         }
 
+        public String toString() {
+            return "ModuleRequires[" + flags + "," + moduleId + "]";
+        }
     }
 
     /** A class for module symbols.
@@ -683,6 +686,10 @@ public abstract class Symbol implements Element {
             this.kind = MDL;
             this.type = new ModuleType(this);
             this.fullname = formFullName(name, owner);
+        }
+
+        public ModuleElement.ModuleId getModuleId() {
+            return new ClassFile.ModuleId(fullname, version);
         }
 
         public java.util.List<Symbol.ModuleRequires> getRequires() {

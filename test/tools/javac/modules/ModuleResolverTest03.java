@@ -191,6 +191,11 @@ public class ModuleResolverTest03 {
     void test(Test t) throws IOException {
         System.err.println("Test " + (++count) + " " + t.desc);
 
+	if (t.desc.contains("provides")) {
+	    System.err.println("TEST SKIPPED: JIGSAW DOES NOT YET SUPPORT \"provides\".");
+	    return;
+        }
+
         File testDir = new File("test" + count);
         srcDir = new File(testDir, "src");
         modulesDir = new File(testDir, "modules");

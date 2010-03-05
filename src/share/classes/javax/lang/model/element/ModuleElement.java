@@ -39,6 +39,7 @@ public interface ModuleElement extends Element {
         List<? extends CharSequence> getFlags();
     }
 
+    ModuleId getModuleId();
     List<? extends ModuleRequires> getRequires();
 
 }
