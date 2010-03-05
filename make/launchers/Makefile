@@ -27,33 +27,47 @@
 # Makefile for building simple launchers
 #
 
+# Each launcher built by make-launcher or make-legacy-launcher
+# is a single module whose name is same as the binary name.
+#
+# make/modules/modules.group contains a module definition
+# that specifies its entry point for each binary.
+# The launcher (java.c) will launch the tool in module mode 
+# or legacy mode as how it is built.
+#
+# NOTE: when a new launcher is added, a module definition
+# for this launcher needs to be added in make/modules/modules.group. 
+
 BUILDDIR = ..
-MODULE  = tools
 PACKAGE = launchers
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk
 
-# Run MAKE $@ for a launcher for the corba module:
+# Run MAKE $@ for a launcher that runs in legacy mode 
 #   $(call make-launcher, name, mainclass, java-args, main-args)
-define make-corba-launcher
+define make-legacy-launcher
 $(CD) $(BUILDDIR)/launchers && \
 $(MAKE) -f Makefile.launcher \
-        MODULE=corba \
         PROGRAM=$(strip $1) \
         MAIN_CLASS=$(strip $2) \
         MAIN_JAVA_ARGS="$(strip $3)" \
-        MAIN_ARGS="$(strip $4)"
+        MAIN_ARGS="$(strip $4)" \
+        MODULE=$(strip $1)
 endef
 
 # Run MAKE $@ for all generic launchers
+
 define make-all-launchers
 $(call make-launcher, appletviewer, sun.applet.Main, , )
 $(call make-launcher, apt, com.sun.tools.apt.Main, , )
 $(call make-launcher, extcheck, com.sun.tools.extcheck.Main, , )
 $(call make-launcher, idlj, com.sun.tools.corba.se.idl.toJavaPortable.Compile, , )
 $(call make-launcher, jar, sun.tools.jar.Main, , )
+$(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
+$(call make-legacy-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, , )
+$(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , )
 $(call make-launcher, jarsigner, sun.security.tools.JarSigner, , )
-$(call make-launcher, javac, com.sun.tools.javac.Main, , )
+$(call make-legacy-launcher, javac, com.sun.tools.javac.Main, , )
 $(call make-launcher, javadoc, com.sun.tools.javadoc.Main, , )
 $(call make-launcher, javah, com.sun.tools.javah.Main, , )
 $(call make-launcher, javap, com.sun.tools.javap.Main, , )
@@ -82,12 +96,12 @@ $(call make-launcher, serialver, sun.tools.serialver.SerialVer, , )
 $(call make-launcher, xjc, com.sun.tools.internal.xjc.Driver, , )
 $(call make-launcher, wsgen, com.sun.tools.internal.ws.WsGen, , )
 $(call make-launcher, wsimport, com.sun.tools.internal.ws.WsImport, , )
-$(call make-corba-launcher, orbd, com.sun.corba.se.impl.activation.ORBD, \
+$(call make-launcher, orbd, com.sun.corba.se.impl.activation.ORBD, \
   -J-Dcom.sun.CORBA.activation.DbDir=./orb.db \
   -J-Dcom.sun.CORBA.activation.Port=1049 \
   -J-Dcom.sun.CORBA.POA.ORBServerId=1, )
-$(call make-corba-launcher, servertool, com.sun.corba.se.impl.activation.ServerTool, , )
-$(call make-corba-launcher, tnameserv, com.sun.corba.se.impl.naming.cosnaming.TransientNameServer, \
+$(call make-launcher, servertool, com.sun.corba.se.impl.activation.ServerTool, , )
+$(call make-launcher, tnameserv, com.sun.corba.se.impl.naming.cosnaming.TransientNameServer, \
   -J-Dcom.sun.CORBA.activation.DbDir=./orb.db \
   -J-Djava.util.logging.LoggingPermission=contol \
   -J-Dcom.sun.CORBA.POA.ORBServerId=1, )
@@ -100,4 +114,3 @@ clean clobber::
 	$(make-all-launchers)
 
 include $(BUILDDIR)/common/Rules.gmk
-

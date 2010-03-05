@@ -248,6 +248,11 @@ include $(BUILDDIR)/common/Subdirs.gmk
 
 all build::
 	$(SUBDIRS-loop)
+	@#
+	@# Modularize the JDK; make separately from SUBDIRS-loop
+	@# and do it after it finishes making all SUBDIRS* as 
+	@# specified in BUILD_MODULES.
+	$(CD) modules; $(MAKE) all
 
 clean clobber::
 	$(RM) -r $(OUTPUTDIR)

@@ -83,6 +83,7 @@ public class ClassPath {
         File lib = new File(jdkhome, "lib");
         if (jre.exists() && jre.isDirectory()) {
             listFiles(new File(jre, "lib"), ".jar", files);
+            listFiles(lib, ".jar", files);
         } else if (lib.exists() && lib.isDirectory()) {
             // either a JRE or a jdk build image
             listFiles(lib, ".jar", files);

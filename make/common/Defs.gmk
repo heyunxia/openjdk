@@ -555,11 +555,12 @@ endef
 define make-launcher
 $(CD) $(BUILDDIR)/launchers && \
 $(MAKE) -f Makefile.launcher \
-        MODULE=$(MODULE) \
         PROGRAM=$(strip $1) \
         MAIN_CLASS=$(strip $2) \
         MAIN_JAVA_ARGS="$(strip $3)" \
-        MAIN_ARGS="$(strip $4)"
+        MAIN_ARGS="$(strip $4)" \
+        MODULE=$(strip $1) \
+        PROGRAM_MODULE=$(strip $1)
 endef
 
 #

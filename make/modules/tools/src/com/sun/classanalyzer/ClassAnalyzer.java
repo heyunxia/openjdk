@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.io.File;
 import java.io.PrintWriter;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -47,6 +49,7 @@ public class ClassAnalyzer {
         List<String> configs = new ArrayList<String>();
         List<String> depconfigs = new ArrayList<String>();
         String output = ".";
+        String minfoPath = null;
         boolean mergeModules = true;
         boolean showDynamic = false;
 
@@ -84,8 +87,14 @@ public class ClassAnalyzer {
                 } else {
                     usage();
                 }
+            } else if (arg.equals("-moduleinfo")) {
+                if (i < args.length) {
+                    minfoPath = args[i++];
+                } else {
+                    usage();
+                }
             } else if (arg.equals("-base")) {
-                ModuleConfig.setBaseModule(args[i++]);
+                Module.setBaseModule(args[i++]);
             } else if (arg.equals("-nomerge")) {
                 // analyze the fine-grained module dependencies
                 mergeModules = false;
@@ -111,26 +120,30 @@ public class ClassAnalyzer {
         }
 
         // create output directory if it doesn't exist
-        File dir = new File(output);
-        if (!dir.isDirectory()) {
-            if (!dir.exists()) {
-                boolean created = dir.mkdir();
-                if (!created) {
-                    throw new RuntimeException("Unable to create `" + dir + "'");
-                }
-            }
+        File dir = getDir(output);
+
+        File moduleInfoSrc;
+        if (minfoPath == null) {
+            moduleInfoSrc = getDir(dir, "src");
+        } else {
+            moduleInfoSrc = getDir(minfoPath);
         }
 
         buildModules(configs, depconfigs, mergeModules);
 
-        // generate output files
-        for (Module m : modules) {
-            // only generate reports for top-level modules
-            if (m.group() == m) {
-                m.printClassListTo(resolve(dir, m.name(), "classlist"));
-                m.printResourceListTo(resolve(dir, m.name(), "resources"));
-                m.printSummaryTo(resolve(dir, m.name(), "summary"));
-                m.printDependenciesTo(resolve(dir, m.name(), "dependencies"), showDynamic);
+        // generate output files only for top-level modules
+        for (Module m : Module.getTopLevelModules()) {
+            String module = m.name();
+            m.printClassListTo(resolve(dir, module, "classlist"));
+            m.printResourceListTo(resolve(dir, module, "resources"));
+            m.printSummaryTo(resolve(dir, module, "summary"));
+            m.printDependenciesTo(resolve(dir, module, "dependencies"), showDynamic);
+
+            File mdir = getDir(moduleInfoSrc, module);
+            m.printModuleInfoTo(resolve(mdir, "module-info", "java"));
+
+            if (m.isBase() || Module.JDK_BASE_TOOLS.equals(m.name())) {
+                m.printModuleDependenciesTo(resolve(dir, module, "modules.list"));
             }
         }
 
@@ -139,6 +152,17 @@ public class ClassAnalyzer {
         printModulesDot(dir, showDynamic);
         printModulesList(dir);
         printPackagesSummary(dir);
+
+
+        // print module-info.java for the platform modules
+        for (Module m : Module.platformModules()) {
+            File mdir = getDir(moduleInfoSrc, m.name());
+            m.printModuleInfoTo(resolve(mdir, "module-info", "java"));
+            if (Module.JDK_MODULE.equals(m.name()) ||
+                    Module.JRE_MODULE.equals(m.name())) {
+                m.printModuleDependenciesTo(resolve(dir, m.name(), "modules.list"));
+            }
+        }
     }
     private static List<Module> modules = new ArrayList<Module>();
 
@@ -174,33 +198,32 @@ public class ClassAnalyzer {
         if (mergeModules) {
             Module.buildModuleMembers();
         }
+
+        Module.initPlatformModules();
     }
 
     private static void printModulesSummary(File dir, boolean showDynamic) throws IOException {
         // print summary of dependencies
         PrintWriter writer = new PrintWriter(new File(dir, "modules.summary"));
         try {
-            for (Module m : modules) {
-                // only show top-level module dependencies
-                if (m.group() == m) {
-                    for (Dependency dep : m.dependents()) {
-                        if (!showDynamic && dep.dynamic && dep.optional) {
-                            continue;
-                        }
-                        if (dep.module == null || !dep.module.isBase()) {
+            for (Module m : Module.getTopLevelModules()) {
+                for (Dependency dep : m.dependents()) {
+                    if (!showDynamic && dep.dynamic && dep.optional) {
+                        continue;
+                    }
+                    if (dep.module == null || !dep.module.isBase()) {
 
-                            String prefix = "";
-                            if (dep.optional) {
-                                if (dep.dynamic) {
-                                    prefix = "[dynamic] ";
-                                } else {
-                                    prefix = "[optional] ";
-                                }
+                        String prefix = "";
+                        if (dep.optional) {
+                            if (dep.dynamic) {
+                                prefix = "[dynamic] ";
+                            } else {
+                                prefix = "[optional] ";
                             }
-
-                            Module other = dep != null ? dep.module : null;
-                            writer.format("%s%s -> %s%n", prefix, m, other);
                         }
+
+                        Module other = dep != null ? dep.module : null;
+                        writer.format("%s%s -> %s%n", prefix, m, other);
                     }
                 }
             }
@@ -213,32 +236,30 @@ public class ClassAnalyzer {
         PrintWriter writer = new PrintWriter(new File(dir, "modules.dot"));
         try {
             writer.println("digraph jdk {");
-            for (Module m : modules) {
-                if (m.group() == m) {
-                    for (Dependency dep : m.dependents()) {
-                        if (!showDynamic && dep.dynamic && dep.optional) {
-                            continue;
+            for (Module m : Module.getTopLevelModules()) {
+                for (Dependency dep : m.dependents()) {
+                    if (!showDynamic && dep.dynamic && dep.optional) {
+                        continue;
+                    }
+                    if (dep.module == null || !dep.module.isBase()) {
+                        String style = "";
+                        String color = "";
+                        String property = "";
+                        if (dep.optional) {
+                            style = "style=dotted";
                         }
-                        if (dep.module == null || !dep.module.isBase()) {
-                            String style = "";
-                            String color = "";
-                            String property = "";
-                            if (dep.optional) {
-                                style = "style=dotted";
-                            }
-                            if (dep.dynamic) {
-                                color = "color=red";
-                            }
-                            if (style.length() > 0 || color.length() > 0) {
-                                String comma = "";
-                                if (style.length() > 0 && color.length() > 0) {
-                                    comma = ", ";
-                                }
-                                property = String.format(" [%s%s%s]", style, comma, color);
-                            }
-                            Module other = dep != null ? dep.module : null;
-                            writer.format("    \"%s\" -> \"%s\"%s;%n", m, other, property);
+                        if (dep.dynamic) {
+                            color = "color=red";
                         }
+                        if (style.length() > 0 || color.length() > 0) {
+                            String comma = "";
+                            if (style.length() > 0 && color.length() > 0) {
+                                comma = ", ";
+                            }
+                            property = String.format(" [%s%s%s]", style, comma, color);
+                        }
+                        Module other = dep != null ? dep.module : null;
+                        writer.format("    \"%s\" -> \"%s\"%s;%n", m, other, property);
                     }
                 }
             }
@@ -255,19 +276,46 @@ public class ClassAnalyzer {
                 printMembers(member, writer);
             }
         }
+
+    }
+
+    private static void printModuleGroup(Module group, PrintWriter writer) {
+        writer.format("%s ", group);
+        printMembers(group, writer);
+        writer.println();
     }
 
     private static void printModulesList(File dir) throws IOException {
         // print module group / members relationship
         PrintWriter writer = new PrintWriter(new File(dir, "modules.list"));
         try {
-            for (Module m : modules) {
-                if (m.group() == m && !m.isEmpty()) {
-                    writer.format("%s ", m);
-                    printMembers(m, writer);
-                    writer.println();
+            Module jdk = null;
+            Module jre = null;
+
+            // First get an order
+            for (Module m : Module.platformModules()) {
+                if (Module.JDK_MODULE.equals(m.name())) {
+                    jdk = m;
                 }
             }
+
+            Set<Module> allModules = new LinkedHashSet<Module>(jdk.orderedDependencies());
+            // put the boot module first
+            allModules.add(Module.bootModule());
+            for (Module m : Module.getTopLevelModules()) {
+                if (!allModules.contains(m)) {
+                    allModules.addAll(m.orderedDependencies());
+                }
+            }
+            for (Module m : Module.platformModules()) {
+                if (!allModules.contains(m)) {
+                    allModules.addAll(m.orderedDependencies());
+                }
+            }
+            for (Module m : allModules) {
+                printModuleGroup(m, writer);
+            }
+
         } finally {
             writer.close();
         }
@@ -280,19 +328,17 @@ public class ClassAnalyzer {
             Map<String, Set<Module>> packages = new TreeMap<String, Set<Module>>();
             Set<String> splitPackages = new TreeSet<String>();
 
-            for (Module m : modules) {
-                if (m.group() == m) {
-                    for (PackageInfo info : m.getPackageInfos()) {
-                        Set<Module> value = packages.get(info.pkgName);
-                        if (value == null) {
-                            value = new TreeSet<Module>();
-                            packages.put(info.pkgName, value);
-                        } else {
-                            // package in more than one module
-                            splitPackages.add(info.pkgName);
-                        }
-                        value.add(m);
+            for (Module m : Module.getTopLevelModules()) {
+                for (PackageInfo info : m.getPackageInfos()) {
+                    Set<Module> value = packages.get(info.pkgName);
+                    if (value == null) {
+                        value = new TreeSet<Module>();
+                        packages.put(info.pkgName, value);
+                    } else {
+                        // package in more than one module
+                        splitPackages.add(info.pkgName);
                     }
+                    value.add(m);
                 }
             }
 
@@ -336,6 +382,32 @@ public class ClassAnalyzer {
         File f = new File(dir, mname + "." + suffix);
         return f.toString();
 
+    }
+
+    private static File getDir(File path, String subdir) {
+        File dir = new File(path, subdir);
+        if (!dir.isDirectory()) {
+            if (!dir.exists()) {
+                boolean created = dir.mkdir();
+                if (!created) {
+                    throw new RuntimeException("Unable to create `" + dir + "'");
+                }
+            }
+        }
+        return dir;
+    }
+
+    private static File getDir(String path) {
+        File dir = new File(path);
+        if (!dir.isDirectory()) {
+            if (!dir.exists()) {
+                boolean created = dir.mkdir();
+                if (!created) {
+                    throw new RuntimeException("Unable to create `" + dir + "'");
+                }
+            }
+        }
+        return dir;
     }
 
     private static void usage() {

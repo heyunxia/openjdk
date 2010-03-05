@@ -40,20 +40,27 @@ import java.util.regex.Pattern;
  */
 public class ModuleConfig {
 
-    private static String baseModuleName = "base";
     private final Set<String> roots;
     private final Set<String> includes;
+    private final Set<String> requires;
+    private final Set<String> permits;
     private final Filter filter;
     private List<String> members;
+    private String mainClass;
     final String module;
-    final boolean isBase;
 
-    private ModuleConfig(String name) throws IOException {
+    ModuleConfig(String name) throws IOException {
+        this(name, null);
+    }
+    
+    ModuleConfig(String name, String mainClass) throws IOException {
+        this.module = name;
         this.roots = new TreeSet<String>();
         this.includes = new TreeSet<String>();
-        this.module = name;
-        this.isBase = name.equals(baseModuleName);
+        this.permits = new TreeSet<String>();
+        this.requires = new TreeSet<String>();
         this.filter = new Filter(this);
+        this.mainClass = mainClass;
     }
 
     List<String> members() {
@@ -68,6 +75,18 @@ public class ModuleConfig {
             }
         }
         return members;
+    }
+
+    Set<String> permits() {
+        return permits;
+    }
+
+    Set<String> requires() {
+        return requires;
+    }
+
+    String mainClass() {
+        return mainClass;
     }
 
     boolean matchesRoot(String name) {
@@ -97,7 +116,6 @@ public class ModuleConfig {
         String pkg = pos > 0 ? pattern.substring(0, pos) : "<unnamed>";
         return packageName.equals(pkg);
     }
-
 
     boolean matches(String name, String pattern) {
         if (pattern.contains("**") && !pattern.endsWith("**")) {
@@ -312,13 +330,13 @@ public class ModuleConfig {
         int pos = 0;
         while (pos >= 0 && pos < line.length()) {
             int c1 = line.indexOf("//", pos);
-            if (c1 > 0 && !Character.isWhitespace(line.charAt(c1-1))) {
+            if (c1 > 0 && !Character.isWhitespace(line.charAt(c1 - 1))) {
                 // not a comment
                 c1 = -1;
             }
 
             int c2 = line.indexOf("/*", pos);
-            if (c2 > 0 && !Character.isWhitespace(line.charAt(c2-1))) {
+            if (c2 > 0 && !Character.isWhitespace(line.charAt(c2 - 1))) {
                 // not a comment
                 c2 = -1;
             }
@@ -357,7 +375,7 @@ public class ModuleConfig {
                 return false;
             }
 
-            if (c > 0 && !Character.isWhitespace(line.charAt(c-1))) {
+            if (c > 0 && !Character.isWhitespace(line.charAt(c - 1))) {
                 return false;
             }
 
@@ -373,10 +391,6 @@ public class ModuleConfig {
             pos = c + 2;
         }
         return false;
-    }
-
-    static void setBaseModule(String name) {
-        baseModuleName = name;
     }
     // TODO: we shall remove "-" from the regex once we define
     // the naming convention for the module names without dashes
@@ -395,6 +409,9 @@ public class ModuleConfig {
             boolean inIncludes = false;
             boolean inAllows = false;
             boolean inExcludes = false;
+            boolean inPermits = false;
+            boolean inRequires = false;
+
             boolean inBlockComment = false;
             ModuleConfig config = null;
 
@@ -421,7 +438,7 @@ public class ModuleConfig {
                 }
 
                 String values;
-                if (inRoots || inIncludes || inExcludes || inAllows) {
+                if (inRoots || inIncludes || inExcludes || inAllows || inPermits || inRequires) {
                     values = line;
                 } else {
                     String[] s = line.split("\\s+");
@@ -438,7 +455,15 @@ public class ModuleConfig {
                         inIncludes = false;
                         inExcludes = false;
                         inAllows = false;
+                        inPermits = false;
                         continue;
+                    } else if (keyword.equals("class")) {
+                         if (s.length != 2 || !s[1].trim().endsWith(";")) {
+                            throw new RuntimeException(file + ", line " +
+                                    lineNumber + ", is malformed");
+                         }
+                         config.mainClass = s[1].substring(0, s[1].length() - 1);
+                         continue;
                     } else if (keyword.equals("roots")) {
                         inRoots = true;
                     } else if (keyword.equals("include")) {
@@ -447,6 +472,10 @@ public class ModuleConfig {
                         inExcludes = true;
                     } else if (keyword.equals("allow")) {
                         inAllows = true;
+                    } else if (keyword.equals("permits")) {
+                        inPermits = true;
+                    } else if (keyword.equals("requires")) {
+                        inRequires = true;
                     } else if (keyword.equals("}")) {
                         if (config == null || s.length != 1) {
                             throw new RuntimeException(file + ", line " +
@@ -495,6 +524,10 @@ public class ModuleConfig {
                             config.filter.exclude(s);
                         } else if (inAllows) {
                             config.filter.allow(s);
+                        } else if (inPermits) {
+                            config.permits.add(s);
+                        } else if (inRequires) {
+                            config.requires.add(s);
                         }
 
                     }
@@ -504,6 +537,9 @@ public class ModuleConfig {
                     inIncludes = false;
                     inExcludes = false;
                     inAllows = false;
+                    inPermits = false;
+                    inRequires = false;
+
                 }
             }
 

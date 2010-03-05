@@ -789,6 +789,11 @@ public class BootAnalyzer {
                 return addMethodDescriptor(info, p);
             }
 
+            public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+                // skip
+                return null;
+            }
+    
             public String visitString(CONSTANT_String_info info, Void p) {
                 // skip
                 return null;
