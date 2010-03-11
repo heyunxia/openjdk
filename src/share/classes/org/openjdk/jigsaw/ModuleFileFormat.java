@@ -323,7 +323,12 @@ public final class ModuleFileFormat {
 			    .relativize(file.toPath()).toString();
 			JarEntry entry = new JarEntry(path);
 			jos.putNextEntry(entry);
-			copyStream(new FileInputStream(file), jos);
+                        FileInputStream cfis = new FileInputStream(file);
+                        try {
+                            copyStream(cfis, jos);
+                        } finally {
+                            cfis.close();
+                        } 
 			jos.closeEntry();
 		    }
 		    usize += file.length();
