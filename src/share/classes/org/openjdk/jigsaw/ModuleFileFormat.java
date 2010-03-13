@@ -306,6 +306,7 @@ public final class ModuleFileFormat {
 
 	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
 	    JarOutputStream jos = new JarOutputStream(baos);
+	    jos.setLevel(0);
 	    Queue<File> files = new LinkedList(Arrays.asList(dir.listFiles()));
 
 	    while (!files.isEmpty()) {		
