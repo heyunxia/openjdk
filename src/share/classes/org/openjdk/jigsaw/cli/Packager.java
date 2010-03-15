@@ -166,10 +166,8 @@ public class Packager {
 					   + outputfilename + " for " 
 					   + modulename);
 		    File outputfile = new File(destination, outputfilename);
-		    FileOutputStream fos = new FileOutputStream(outputfile);
-		    DataOutputStream dos = new DataOutputStream(fos);
 		    ModuleFileFormat.Writer writer 
-			= new ModuleFileFormat.Writer(dos, classes);
+			= new ModuleFileFormat.Writer(outputfile, classes);
 		    writer.useFastestCompression(fast || jigsawDevMode);
 		    writer.writeModule(classes, resources, 
 				       natlibs, natcmds, config_dir);

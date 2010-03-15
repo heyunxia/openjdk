@@ -26,6 +26,9 @@
 package org.openjdk.jigsaw;
 
 import java.io.*;
+import java.nio.*;
+import java.nio.channels.*;
+import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.*;
 import java.security.*;
 import java.util.*;
@@ -58,16 +61,24 @@ public final class ModuleFileFormat {
     }
 
     public final static class Writer {
-	private boolean fastestCompression = false;
-        private DataOutputStream stream;
+	private boolean fastestCompression;
+	private File outfile;
+	private RandomAccessFile file;
         private File sourcedir;
 	private ModuleFile.HashType hashtype;
 	private long usize;
 
-	public Writer (DataOutputStream outstream, File sourcedir) {
+	private static class ByteArrayDataOutputStream 
+	    extends ByteArrayOutputStream {
+	    public void writeTo(DataOutput out) throws IOException {
+		out.write(buf, 0, count);
+	    }
+	}
+
+	public Writer (File outfile, File sourcedir) {
+	    this.outfile = outfile;
 	    hashtype = ModuleFile.HashType.SHA256;
 	    this.sourcedir = sourcedir;
-	    this.stream = outstream;
 	}
 
 	public void writeModule(File classes, 
@@ -77,55 +88,63 @@ public final class ModuleFileFormat {
 				File config) 
 	    throws IOException {
 
-	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	    file = new RandomAccessFile(outfile, "rw");
+
+	    // Reset module file to right after module header
 	    MessageDigest md = getHashInstance(hashtype);
-	    DigestOutputStream ds = new DigestOutputStream(baos, md);
-	    DataOutputStream out = new DataOutputStream(ds);
+	    final int HEADERLEN = 32 + md.getDigestLength();
+	    file.seek(HEADERLEN);
 
 	    File miclass = new File("module-info.class");
-	    writeSection(out, ModuleFile.SectionType.MODULE_INFO, 
+	    writeSection(file, ModuleFile.SectionType.MODULE_INFO, 
 			 miclass, ModuleFile.Compressor.NONE);
 
 	    short sections = 1;
 
 	    if (classes != null) {
-		writeSection(out, ModuleFile.SectionType.CLASSES, 
+		writeSection(file, ModuleFile.SectionType.CLASSES, 
 			     classes, ModuleFile.Compressor.PACK200_GZIP);
 		sections++;
 	    }
 	    if (resources != null) {
-		writeSection(out, ModuleFile.SectionType.RESOURCES, 
+		writeSection(file, ModuleFile.SectionType.RESOURCES, 
 			     resources, ModuleFile.Compressor.GZIP);
 		sections++;
 	    }
 	    if (nativelibs != null) {
-		writeSection(out, ModuleFile.SectionType.NATIVE_LIBS, 
+		writeSection(file, ModuleFile.SectionType.NATIVE_LIBS, 
 			     nativelibs, ModuleFile.Compressor.GZIP);
 		sections++;
 	    }
 	    if (nativecmds != null) {
-		writeSection(out, ModuleFile.SectionType.NATIVE_CMDS, 
+		writeSection(file, ModuleFile.SectionType.NATIVE_CMDS, 
 			     nativecmds, ModuleFile.Compressor.GZIP);
 		sections++;
 	    }
 	    if (config != null) {
-		writeSection(out, ModuleFile.SectionType.CONFIG, 
+		writeSection(file, ModuleFile.SectionType.CONFIG, 
 			     config, ModuleFile.Compressor.GZIP);
 		sections++;
 	    }
 
+	    // Reset module file to right after module header
+	    file.seek(HEADERLEN);
+
+	    FileChannel channel = file.getChannel();
+	    long csize = file.length() - HEADERLEN;
+	    ByteBuffer content = channel.map(MapMode.READ_ONLY, HEADERLEN, csize);
+	    md.update(content);
 	    byte [] hash = md.digest();
-	    int csize = baos.size();
 
 	    ModuleFileHeader header = 
 		new ModuleFileHeader(csize, usize, sections, hashtype, hash);
 
-	    header.write(stream);
-	    baos.writeTo(stream);
-	    stream.close();
+	    file.seek(0);
+	    header.write(file);
+	    file.close();
 	}
         
-	public int writeSection(DataOutputStream stream,
+	public int writeSection(DataOutput stream,
 				ModuleFile.SectionType type, 
 				File dir, 
 				ModuleFile.Compressor compressor) 
@@ -133,15 +152,15 @@ public final class ModuleFileFormat {
 
 	    checkFileName(type, dir);
 
-	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	    ByteArrayDataOutputStream bados = new ByteArrayDataOutputStream();
 	    MessageDigest md = getHashInstance(hashtype);
-	    DigestOutputStream ds = new DigestOutputStream(baos, md);
+	    DigestOutputStream ds = new DigestOutputStream(bados, md);
 	    DataOutputStream out = new DataOutputStream(ds);
 
 	    short count = writeFile(out, dir, compressor, type);
 
 	    byte [] hash = md.digest();
-	    int csize = baos.size();
+	    int csize = bados.size();
 
 	    // A section type that only allows a single file
 	    // has a section count of 0.
@@ -153,7 +172,7 @@ public final class ModuleFileFormat {
 	    SectionHeader header = 
 		new SectionHeader(type, compressor, csize, subsections, hash);
 	    header.write(stream);
-	    baos.writeTo(stream);
+	    bados.writeTo(stream);
 
 	    // Dump the sections to disk
 	    // $tail --bytes=+45 CLASSES | sha256sum 
@@ -162,10 +181,10 @@ public final class ModuleFileFormat {
 	    //header.write(new DataOutputStream(fos));
 	    //baos.writeTo(fos);
 						    
-	    return baos.size();
+	    return bados.size();
 	}
 
-        public short writeFile(DataOutputStream out, File path, 
+        public short writeFile(DataOutput out, File path, 
 				ModuleFile.Compressor compressor,
 				ModuleFile.SectionType type) 
 	    throws IOException {
@@ -206,20 +225,20 @@ public final class ModuleFileFormat {
         }
             
 
-	public void writeClasses(DataOutputStream out, File dir) 
+	public void writeClasses(DataOutput out, File dir) 
 	    throws IOException {
 
 	    copyStream(packAndGzip(jar(dir)), out);
 	}
 
-	public void writeGZIPCompressedFile(DataOutputStream out,
+	public void writeGZIPCompressedFile(DataOutput out,
 					    File path) throws IOException {
 
 	    File realpath = computeRealPath(path);
 	    String storedpath = computeStoredPath(realpath);
 	    // System.out.println("Gzipping " + realpath);
-	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-	    GZIPOutputStream gos = new GZIPOutputStream(baos);
+	    ByteArrayDataOutputStream bados = new ByteArrayDataOutputStream();
+	    GZIPOutputStream gos = new GZIPOutputStream(bados);
             InputStream is = new FileInputStream(realpath);
             BufferedInputStream in = new BufferedInputStream(is);
 	    copyStream(in, gos);
@@ -227,14 +246,14 @@ public final class ModuleFileFormat {
 	    gos.finish();
 	    gos.close();
 
-	    final int csize = baos.size();
+	    final int csize = bados.size();
 	    SubSectionFileHeader header 
                 = new SubSectionFileHeader(csize, storedpath);
             header.write(out);
-	    baos.writeTo(out);
+	    bados.writeTo(out);
 	}
 
-        public void writeUncompressedFile(DataOutputStream out, File path,
+        public void writeUncompressedFile(DataOutput out, File path,
 					  boolean writeheader) 
 	    throws IOException {
 
@@ -704,7 +723,7 @@ public final class ModuleFileFormat {
 	    throw new IllegalArgumentException(type + " subsection count is 0");
     }
 
-    private static void copyStream(InputStream in, OutputStream out) 
+    private static void copyStream(InputStream in, DataOutput out) 
 	throws IOException{
 
 	byte [] buffer = new byte[1024 * 8];
@@ -714,7 +733,12 @@ public final class ModuleFileFormat {
 	    out.write(buffer, 0, b_read);
     }
 
-    private static void copyStream(InputStream in, OutputStream out,
+    private static void copyStream(InputStream in, OutputStream out) 
+	throws IOException{
+	copyStream(in, (DataOutput) new DataOutputStream(out));
+    }
+
+    private static void copyStream(InputStream in, DataOutput out,
 				   int count) 
 	throws IOException{
 
@@ -728,6 +752,12 @@ public final class ModuleFileFormat {
 	    count-=b_read;
 	}
     }               
+
+    private static void copyStream(InputStream in, OutputStream out,
+				   int count)
+	throws IOException{
+	copyStream(in, (DataOutput) new DataOutputStream(out), count);
+    }
 
     private static void ensureNonAbsolute(File path) throws IOException {
         if (path.isAbsolute())
@@ -828,7 +858,7 @@ public final class ModuleFileFormat {
         return realpath;
     }
     
-    private static void writeHash(DataOutputStream out, byte [] hash) 
+    private static void writeHash(DataOutput out, byte [] hash) 
         throws IOException {
 
         out.writeShort(hash.length);
@@ -895,7 +925,7 @@ public final class ModuleFileFormat {
             this.hash = (byte []) hash.clone();
         }
         
-        public void write(final DataOutputStream out) throws IOException {
+        public void write(final DataOutput out) throws IOException {
 
             out.writeInt(magic);
             out.writeShort(type.value());
@@ -975,7 +1005,7 @@ public final class ModuleFileFormat {
 	        this.hash = (byte []) hash.clone();
 	    }
 
-	    public void write(DataOutputStream out) throws IOException {
+	    public void write(DataOutput out) throws IOException {
 	        out.writeShort(type.value());
 	        out.writeShort(compressor.value());
 	        out.writeInt(csize);
@@ -1071,7 +1101,7 @@ public final class ModuleFileFormat {
 	        this.path = path;
 	    }
 
-	    public void write(DataOutputStream out) throws IOException {
+	    public void write(DataOutput out) throws IOException {
 	        out.writeShort(ModuleFile.SubSectionType.FILE.value());
 	        out.writeInt(csize);
 	        out.writeUTF(path);
