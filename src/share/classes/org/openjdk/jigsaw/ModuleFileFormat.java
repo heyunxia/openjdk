@@ -90,6 +90,9 @@ public final class ModuleFileFormat {
 
 	    file = new RandomAccessFile(outfile, "rw");
 
+            // trucate the file if it already exists.
+            file.setLength(0);
+
 	    // Reset module file to right after module header
 	    MessageDigest md = getHashInstance(hashtype);
 	    final int HEADERLEN = 32 + md.getDigestLength();
