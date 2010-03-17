@@ -491,6 +491,11 @@ public final class ModuleFileFormat {
                 Files.store(moduleInfoBytes, computeRealPath("info"));
                 for (int ns = fileHeader.getSections() - 1; ns > 0; ns--)
                     readSection(fileIn);
+		// There should be no bytes left over to read.
+		if (-1 != fileIn.read())
+		    throw new IOException( 1 + fileIn.available() 
+					   + " byte(s) left over");
+		close();
                 checkHashMatch(fileHeader.getHash(), fileDigest.digest());
             } finally {
                 close();
