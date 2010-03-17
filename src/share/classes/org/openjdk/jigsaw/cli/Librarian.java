@@ -362,7 +362,7 @@ public class Librarian {
         System.exit(0);
     }
 
-    private void run(String[] args) {
+    public void run(String[] args) throws OptionException, Command.Exception {
 
         parser = new OptionParser();
 
@@ -402,73 +402,72 @@ public class Librarian {
         File homeLibrary = new File(System.getProperty("java.home"),
                                     "lib/modules");
 
-        try {
-            OptionSet opts = parser.parse(args);
-            if (opts.has("h"))
-                usage();
-            java.util.List<String> words = opts.nonOptionArguments();
-            if (words.isEmpty())
-                usage();
-            String verb = words.get(0);
-            Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
-            if (cmd == null)
-                throw new Command.Exception("%s: unknown command", verb);
-            File lp = null;
-            if (opts.has(libPath)) {
-                lp = opts.valueOf(libPath);
-            } else {
-                String jm = System.getenv("JAVA_MODULES");
-                if (jm != null)
-                    lp = new File(jm);
-                else
-                    lp = homeLibrary;
-            }
-            File pp = null;
-            if (opts.has(parentPath)) {
-                pp = opts.valueOf(parentPath);
-            } else if (!opts.has("N")) {
-                pp = homeLibrary;
-            }
-            SimpleLibrary lib = null;
-            try {
-                lib = SimpleLibrary.open(lp, verb.equals("create"), pp);
-            } catch (FileNotFoundException x) {
-                String msg = null;
-                File f = new File(x.getMessage());
-                try {
-                    f = f.getCanonicalFile();
-                    if (lp.getCanonicalFile().equals(f))
-                        msg = "No such library";
-                    else
-                        msg = "Cannot open parent library " + f;
-                } catch (IOException y) {
-                    throw new Command.Exception(y);
-                }
-                throw new Command.Exception("%s: %s", lp, msg);
-            } catch (IOException x) {
-                throw new Command.Exception(x);
-            }
-            try {
-                cmd.newInstance().run(lib, opts);
-            } catch (InstantiationException x) {
-                throw new AssertionError(x);
-            } catch (IllegalAccessException x) {
-                throw new AssertionError(x);
-            }
-        } catch (OptionException x) {
+	OptionSet opts = parser.parse(args);
+	if (opts.has("h"))
+	    usage();
+	java.util.List<String> words = opts.nonOptionArguments();
+	if (words.isEmpty())
+	    usage();
+	String verb = words.get(0);
+	Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
+	if (cmd == null)
+	    throw new Command.Exception("%s: unknown command", verb);
+	File lp = null;
+	if (opts.has(libPath)) {
+	    lp = opts.valueOf(libPath);
+	} else {
+	    String jm = System.getenv("JAVA_MODULES");
+	    if (jm != null)
+		lp = new File(jm);
+	    else
+		lp = homeLibrary;
+	}
+	File pp = null;
+	if (opts.has(parentPath)) {
+	    pp = opts.valueOf(parentPath);
+	} else if (!opts.has("N")) {
+	    pp = homeLibrary;
+	}
+	SimpleLibrary lib = null;
+	try {
+	    lib = SimpleLibrary.open(lp, verb.equals("create"), pp);
+	} catch (FileNotFoundException x) {
+	    String msg = null;
+	    File f = new File(x.getMessage());
+	    try {
+		f = f.getCanonicalFile();
+		if (lp.getCanonicalFile().equals(f))
+		    msg = "No such library";
+		else
+		    msg = "Cannot open parent library " + f;
+	    } catch (IOException y) {
+		throw new Command.Exception(y);
+	    }
+	    throw new Command.Exception("%s: %s", lp, msg);
+	} catch (IOException x) {
+	    throw new Command.Exception(x);
+	}
+	try {
+	    cmd.newInstance().run(lib, opts);
+	} catch (InstantiationException x) {
+	    throw new AssertionError(x);
+	} catch (IllegalAccessException x) {
+	    throw new AssertionError(x);
+	}
+    }
+
+    private Librarian() { }
+
+    public static void main(String[] args) {
+	try {
+	    new Librarian().run(args);
+	} catch (OptionException x) {
             err.println(x.getMessage());
             System.exit(1);
         } catch (Command.Exception x) {
             err.println(x.getMessage());
             System.exit(1);
         }
-
-    }
-
-    private Librarian() { }
-
-    public static void main(String[] args) throws Exception {
-        new Librarian().run(args);
     }
 
 }

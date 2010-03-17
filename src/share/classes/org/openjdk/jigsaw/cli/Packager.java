@@ -623,7 +623,7 @@ public class Packager {
         System.exit(0);
     }
 
-    private void run(String[] args) {
+    public void run(String[] args) throws OptionException, Command.Exception {
 
         parser = new OptionParser();
 
@@ -751,83 +751,82 @@ public class Packager {
         if (args.length == 0)
             usage();
 
-        try {
-            OptionSet opts = parser.parse(args);
-            if (opts.has("h"))
-                usage();
-	    if (opts.has("v"))
-		verbose = true;
-	    if (opts.has("fast"))
-		fast = true;
-            java.util.List<String> words = opts.nonOptionArguments();
-            if (words.isEmpty())
-                usage();
-            String verb = words.get(0);
-            Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
-            if (cmd == null)
-                throw new Command.Exception("%s: unknown command", verb);
-	    if (opts.has(launcherPath))
-                bincmd = opts.valueOf(launcherPath).toString();
-            if (opts.has(destinationPath))
-                destination = opts.valueOf(destinationPath);
-            if (opts.has(modulePath))
-                classes = opts.valueOf(modulePath);
-            if (opts.has(libPath)) {
-                library = opts.valueOf(libPath);
-            } else {
-                String jm = System.getenv("JAVA_MODULES");
-                if (jm != null)
-                    library = new File(jm);
-	    }
-	    if (opts.has(resourcePath))
-		resources = opts.valueOf(resourcePath);
-	    if (opts.has(includePath))
-		includes = opts.valueOf(includePath);
-            if (opts.has(javaHomePath))
-                javaHome = opts.valueOf(javaHomePath);
-	    if (opts.has(maintainerName))
-		maintainer_name = opts.valueOf(maintainerName);
-	    if (opts.has(maintainerEmail)) {
-		maintainer_email = opts.valueOf(maintainerEmail);
-		// Add missing e-mail quotes if necessary
-		maintainer_email
-		    = (maintainer_email.startsWith("<") ? "" : "<") 
-		    + maintainer_email
-		    + (maintainer_email.endsWith(">") ? "" : ">") ;
-	    }
-	    if (opts.has(shortDescription))
-		short_description = opts.valueOf(shortDescription);
-	    if (opts.has(longDescription))
-		long_description = opts.valueOf(longDescription);
-	    if (opts.has(extraMetadata))
-		extra_metadata = opts.valueOf(extraMetadata);
-	    if (opts.has(nativeLibs))
-		natlibs = opts.valueOf(nativeLibs);
-	    if (opts.has(nativeCmds))
-		natcmds = opts.valueOf(nativeCmds);
-	    if (opts.has(config))
-		config_dir = opts.valueOf(config);
-            if (opts.has(isize))
-                installedSize = opts.valueOf(isize);
-	    
-	    if (cmd == Deb.class)
-		(new Deb()).run(null, opts);
-	    else if (cmd == Jmod.class)
-		(new Jmod()).run(null, opts);
-        } catch (OptionException x) {
-            err.println(x.getMessage());
-            System.exit(1);
-        } catch (Command.Exception x) {
-            err.println(x.getMessage());
-            System.exit(1);
-        }
-
+	OptionSet opts = parser.parse(args);
+	if (opts.has("h"))
+	    usage();
+	if (opts.has("v"))
+	    verbose = true;
+	if (opts.has("fast"))
+	    fast = true;
+	java.util.List<String> words = opts.nonOptionArguments();
+	if (words.isEmpty())
+	    usage();
+	String verb = words.get(0);
+	Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
+	if (cmd == null)
+	    throw new Command.Exception("%s: unknown command", verb);
+	if (opts.has(launcherPath))
+	    bincmd = opts.valueOf(launcherPath).toString();
+	if (opts.has(destinationPath))
+	    destination = opts.valueOf(destinationPath);
+	if (opts.has(modulePath))
+	    classes = opts.valueOf(modulePath);
+	if (opts.has(libPath)) {
+	    library = opts.valueOf(libPath);
+	} else {
+	    String jm = System.getenv("JAVA_MODULES");
+	    if (jm != null)
+		library = new File(jm);
+	}
+	if (opts.has(resourcePath))
+	    resources = opts.valueOf(resourcePath);
+	if (opts.has(includePath))
+	    includes = opts.valueOf(includePath);
+	if (opts.has(javaHomePath))
+	    javaHome = opts.valueOf(javaHomePath);
+	if (opts.has(maintainerName))
+	    maintainer_name = opts.valueOf(maintainerName);
+	if (opts.has(maintainerEmail)) {
+	    maintainer_email = opts.valueOf(maintainerEmail);
+	    // Add missing e-mail quotes if necessary
+	    maintainer_email
+		= (maintainer_email.startsWith("<") ? "" : "<") 
+		+ maintainer_email
+		+ (maintainer_email.endsWith(">") ? "" : ">") ;
+	}
+	if (opts.has(shortDescription))
+	    short_description = opts.valueOf(shortDescription);
+	if (opts.has(longDescription))
+	    long_description = opts.valueOf(longDescription);
+	if (opts.has(extraMetadata))
+	    extra_metadata = opts.valueOf(extraMetadata);
+	if (opts.has(nativeLibs))
+	    natlibs = opts.valueOf(nativeLibs);
+	if (opts.has(nativeCmds))
+	    natcmds = opts.valueOf(nativeCmds);
+	if (opts.has(config))
+	    config_dir = opts.valueOf(config);
+	if (opts.has(isize))
+	    installedSize = opts.valueOf(isize);
+	
+	if (cmd == Deb.class)
+	    (new Deb()).run(null, opts);
+	else if (cmd == Jmod.class)
+	    (new Jmod()).run(null, opts);
     }
 
     private Packager() { }
 
     public static void main(String[] args) throws Exception {
-        new Packager().run(args);
+	try {
+	    new Packager().run(args);
+	} catch (OptionException x) {
+	    err.println(x.getMessage());
+	    System.exit(1);
+	} catch (Command.Exception x) {
+	    err.println(x.getMessage());
+	    System.exit(1);
+	}
     }
 
 }
