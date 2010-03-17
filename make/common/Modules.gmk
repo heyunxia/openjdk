@@ -187,7 +187,7 @@ define create-module-library
 image=$(strip $1); \
 mlib=$(MODULE_IMAGES_DIR)/$$image/lib/modules; \
 $(ECHO) "Creating module library $$mlib" ; \
-$(BINDIR)/jmod create -N -L $$mlib
+$(HOST_JMOD_CMD) create -N -L $$mlib
 endef
 
 # Copy module content to the module image
@@ -232,14 +232,14 @@ endef
 define install-jigsaw-module
 image=$(strip $1); m=$(strip $2); \
 mlib=$(MODULE_IMAGES_DIR)/$$image/lib/modules; \
-mid=`$(BINDIR)/jmod ls -L $$mlib $$m | $(GREP) -v '#'` ; \
+mid=`$(HOST_JMOD_CMD) ls -L $$mlib $$m | $(GREP) -v '#'` ; \
 if [ "x$$mid" = "x" ] ; then \
    $(ECHO) "Installing module $$m in $$image" ; \
    $(CD) $(MODULES_DIR) && \
    if [ -d $$m/resources ] ; then \
-      $(BINDIR)/jmod install $$m/classes -r $$m/resources -L $$mlib $$m || exit 1; \
+      $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources -L $$mlib $$m || exit 1; \
    else \
-      $(BINDIR)/jmod install $$m/classes -L $$mlib $$m || exit 1; \
+      $(HOST_JMOD_CMD) install $$m/classes -L $$mlib $$m || exit 1; \
    fi ; \
    $(call copy-module-content,$1,$2) ; \
 else \

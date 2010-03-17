@@ -110,27 +110,33 @@ gen-classlist:
 # BUILD_MODULES.  Currently, all jdk modules are created
 # but some modules may be in partial state since some
 # classes are compiled due to the dependencies.
+
+# Modularize the jdk: -
 #
+# Compile module-info.java for all modules
+# -Xbootclasspath is needed to compile module-info.java
+# if JDK_HOST_PATH is a legacy jdk and the main class
+# for some modules are not in rt.jar (or $outputdir/classes) 
+#
+# Create modules listed in the modules.list output by the ClassAnalyzer
+# 1. Merge all non-class and non-resource files from module members
+#    to modules/$m
+# 2. Copy all class files into modules/$m/classes
+# 3. Copy all resource files into modules/$m/resources
+# 4. Move module-info.class from modules/$m directory to 
+#    modules/$m/classes. Default module-info destination for 
+#    javac multi-module path is <modulepath>/<module>.
+#    jmod only takes a directory with classes only.  
+#    What should be the modules directory hierachy for packaging?
 modularize:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(MODULES_DIR)
 	@$(MKDIR) -p $(MODULES_DIR)
-	@# Compile module-info.java for all modules
-	$(BINDIR)/javac $(JAVACFLAGS) -d $(MODULES_DIR) \
+	$(HOST_JAVAC_CMD) -d $(MODULES_DIR) \
             -Xbootclasspath:$(MODULE_CLASSES)\
 	    -modulepath $(MODULES_DIR) \
             -sourcepath $(MODULEINFO_SRC) \
             $(MODULEINFO_SRC)/*/module-info.java
-	@# Create modules listed in the modules.list output by the ClassAnalyzer
-	@# 1. Merge all non-class and non-resource files from module members
-	@#    to modules/$m
-	@# 2. Copy all class files into modules/$m/classes
-	@# 3. Copy all resource files into modules/$m/resources
-	@# 4. Move module-info.class from modules/$m directory to 
-	@#    modules/$m/classes. Default module-info destination for 
-	@#    javac multi-module path is <modulepath>/<module>.
-	@#    jmod only takes a directory with classes only.  
-	@#    What should be the modules directory hierachy for packaging?
 	$(CD) $(MODULE_CLASSES) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Creating module $$m" ; \
@@ -160,16 +166,16 @@ modularize:
 test-install-modules:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(TMP_MODULE_LIB)
-	@$(BINDIR)/jmod create -N -L $(TMP_MODULE_LIB)
+	$(HOST_JMOD_CMD) create -N -L $(TMP_MODULE_LIB) ; \
 	$(CD) $(MODULES_DIR) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Installing module $$m" ; \
 	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
-	       $(BINDIR)/jmod install $$m/classes -r $$m/resources $$m \
-                  -L $(TMP_MODULE_LIB) || exit 1; \
+	       $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources $$m \
+                  -L $(TMP_MODULE_LIB) || exit 1 ; \
            else \
-	       $(BINDIR)/jmod install $$m/classes $$m \
-                  -L $(TMP_MODULE_LIB) || exit 1; \
+	       $(HOST_JMOD_CMD) install $$m/classes $$m \
+                  -L $(TMP_MODULE_LIB) || exit 1 ; \
 	   fi ; \
         done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."

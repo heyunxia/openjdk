@@ -57,7 +57,7 @@ jmod-pkgs: $(JMOD_PKGS)
                if [ -d etc ] ; then \
                    CONFIG="-config etc" ; \
                fi ; \
-               $(BINDIR)/jpkg -v -m classes \
+               $(HOST_JPKG_CMD) -v -m classes \
    	          $$RES $$NATCMD $$NATLIB $$CONFIG \
                   -d $(JMOD_PKGS) jmod $$m) || exit 1 ; \
 	done
@@ -79,8 +79,7 @@ deb-pkgs: $(DEB_PKGS)
 	   done ; \
            (ISZ=$$(expr $$(du -s $(MODULES_DIR)/$$m | cut -f1)); \
             RES="$$(if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then $(ECHO) "-r $(MODULES_DIR)/$$m/resources" ; fi)"; \
-	    PATH=$(BINDIR):$(PATH) \
-            $(BINDIR)/jpkg -v -m $(MODULES_DIR)/$$m/classes \
+            $(HOST_JPKG_CMD) -v -m $(MODULES_DIR)/$$m/classes \
 	         -i $(JIGSAW_IMAGE)/$$m $$RES \
                  --java-home /usr/local/jigsaw \
                  -L /usr/local/jigsaw/lib/modules \

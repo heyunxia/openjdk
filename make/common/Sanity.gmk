@@ -94,6 +94,7 @@ sanity-all:: sanity-base \
     sane-alt_bootdir \
     sane-bootdir \
     sane-local-bootdir \
+    sane-alt_host_path \
     sane-alsa-headers
 
 ifdef OPENJDK

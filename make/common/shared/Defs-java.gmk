@@ -227,3 +227,17 @@ IDLJ		= $(BOOTDIR)/bin/idlj $(JAVA_TOOLS_FLAGS:%=-J%)
 # Should not be used
 JAVA		= /should/not/be/used
 
+# Commands in the JDK_HOST_PATH that can run on the host system
+#
+# Since JDK_HOST_PATH defaults to OUTPUTDIR, need to add
+# ISA_DIR for sparv9 and amd64
+JDK_HOST_BINDIR=$(JDK_HOST_PATH)/bin
+ifndef ALT_JDK_HOST_PATH
+JDK_HOST_BINDIR=$(JDK_HOST_PATH)/bin$(ISA_DIR)
+endif
+
+HOST_JAVA_CMD  = $(JDK_HOST_BINDIR)/java $(JAVA_TOOLS_FLAGS)
+HOST_JAVAC_CMD = $(JDK_HOST_BINDIR)/javac $(JAVAC_JVM_FLAGS) \
+		 $(JAVACFLAGS)
+HOST_JMOD_CMD  = $(JDK_HOST_BINDIR)/jmod $(JAVA_TOOLS_FLAGS:%=-J%)
+HOST_JPKG_CMD  = $(JDK_HOST_BINDIR)/jpkg $(JAVA_TOOLS_FLAGS:%=-J%)

@@ -75,21 +75,16 @@ LANGTOOLS_TOPDIR_EXISTS := $(shell \
 CLASSFILE_SRC = $(LANGTOOLS_TOPDIR)/src/share/classes
 CLASSFILE_PKGDIR = com/sun/tools/classfile
 
+TOOL_JAVAC_FLAGS =
+TOOL_JAVA_FLAGS  =
 ifeq ($(LANGTOOLS_TOPDIR_EXISTS), true)
   FILES_classfile_java := $(shell \
        $(CD) $(CLASSFILE_SRC) && \
            $(FIND) $(CLASSFILE_PKGDIR) -name '*.java' -print)
   FILES_classfile_class = $(FILES_classfile_java:%.java=$(BUILDTOOLCLASSDIR)/%.class)
   CLASSFILE_JAR_FILE = $(BUILDTOOLJARDIR)/classfile.jar
-  BUILDTOOL_JAVAC    = $(BOOT_JAVAC_CMD) $(JAVAC_JVM_FLAGS) \
-                          $(BOOT_JAVACFLAGS) -classpath $(CLASSFILE_JAR_FILE)
-  BUILDTOOL_JAVA     = $(BOOT_JAVA_CMD) $(JAVA_TOOLS_FLAGS) \
-                          -Xbootclasspath/p:$(CLASSFILE_JAR_FILE)
-else
-  # if langtools doesn't exist, use tools from the built jdk
-  BUILDTOOL_JAVAC = $(BINDIR)/javac $(JAVAC_JVM_FLAGS) \
-                       $(BOOT_JAVACFLAGS)
-  BUILDTOOL_JAVA  = $(BINDIR)/java $(JAVA_TOOLS_FLAGS)
+  TOOL_JAVAC_FLAGS = -classpath $(CLASSFILE_JAR_FILE)
+  TOOL_JAVA_FLAGS  = -Xbootclasspath/p:$(CLASSFILE_JAR_FILE)
 endif
 
 # Location of the output modules.list, <module>.classlist
@@ -107,7 +102,7 @@ gen-classlist:
 	@$(RM) -rf $(MODULE_CLASSLIST)
 	@$(RM) -rf $(MODULES_TEMPDIR)/src
 	@$(MKDIR) -p $(MODULE_CLASSLIST)
-	$(BUILDTOOL_JAVA) \
+	$(HOST_JAVA_CMD) $(TOOL_JAVA_FLAGS) \
                 -Dclassanalyzer.debug \
                 -jar $(CLASSANALYZER_JAR_FILE) \
                 -jdkhome $(OUTPUTDIR) \
@@ -126,28 +121,28 @@ $(BUILDTOOL_MANIFEST_FILE): $(BUILDTOOL_MAIN_SOURCE_FILE)
 
 $(BUILDTOOLCLASSDIR)/$(CLASSFILE_PKGDIR)/%.class : $(CLASSFILE_SRC)/$(CLASSFILE_PKGDIR)/%.java
 	@$(prep-target)
-	@$(BUILDTOOL_JAVAC) \
+	@$(HOST_JAVAC_CMD) $(TOOL_JAVAC_FLAGS) \
             -sourcepath $(CLASSFILE_SRC) \
             -d $(BUILDTOOLCLASSDIR) $<
 
 $(BUILDTOOLCLASSDIR)/%.class : $(BUILDTOOL_SOURCE_ROOT)/%.java
 	@$(prep-target)
-	$(BUILDTOOL_JAVAC) \
+	$(HOST_JAVAC_CMD) $(TOOL_JAVAC_FLAGS) \
             -sourcepath $(BUILDTOOL_SOURCE_ROOT) \
             -d $(BUILDTOOLCLASSDIR) $<
 
 $(CLASSANALYZER_JAR_FILE): $(BUILDTOOL_MANIFEST_FILE) $(FILES_class)
 	@$(prep-target)
-	$(CD) $(BUILDTOOLCLASSDIR) && \
-	    $(BOOT_JAR_CMD) cfm $@ $(BUILDTOOL_MANIFEST_FILE) \
-	       $(PKGDIR) $(BOOT_JAR_JFLAGS) || $(RM) $@
+	$(BOOT_JAR_CMD) cfm $@ $(BUILDTOOL_MANIFEST_FILE) \
+	    -C $(BUILDTOOLCLASSDIR) \
+	    $(PKGDIR) $(BOOT_JAR_JFLAGS) || $(RM) $@
 	@$(java-vm-cleanup)
 
 $(BUILDTOOLJARDIR)/classfile.jar: $(FILES_classfile_class)
 	@$(prep-target)
-	$(CD) $(BUILDTOOLCLASSDIR) && \
-	    $(BOOT_JAR_CMD) cf $@ \
-	        $(CLASSFILE_PKGDIR) $(BOOT_JAR_JFLAGS) || $(RM) $@
+	$(BOOT_JAR_CMD) cf $@ \
+	    -C $(BUILDTOOLCLASSDIR) \
+	    $(CLASSFILE_PKGDIR) $(BOOT_JAR_JFLAGS) || $(RM) $@
 	@$(java-vm-cleanup)
 
 clean clobber::
