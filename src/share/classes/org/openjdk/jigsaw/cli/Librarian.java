@@ -140,7 +140,6 @@ public class Librarian {
 		    Files.deleteTree(classes);
 		}
 		catch (IOException x) {
-		    x.printStackTrace();
 		    throw new Command.Exception(x);
 		}
 	    }
@@ -362,7 +361,11 @@ public class Librarian {
         System.exit(0);
     }
 
-    public void run(String[] args) throws OptionException, Command.Exception {
+    public static void run(String [] args) throws OptionException, Command.Exception {
+	new Librarian().exec(args);
+    }
+
+    private void exec(String[] args) throws OptionException, Command.Exception {
 
         parser = new OptionParser();
 
@@ -460,7 +463,7 @@ public class Librarian {
 
     public static void main(String[] args) {
 	try {
-	    new Librarian().run(args);
+	    run(args);
 	} catch (OptionException x) {
             err.println(x.getMessage());
             System.exit(1);
