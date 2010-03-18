@@ -442,7 +442,9 @@ JGSS_FILES_DIRS = \
 
 # The following get removed from the SDK image.
 NOTJDKTOOLS = \
-	java_vm
+	java_vm \
+	jmod \
+	jpkg
 
 # The following get removed from the JRE after the bulk-copy of BINDIR...
 NOTJRETOOLS = \
@@ -476,7 +478,9 @@ NOTJRETOOLS = \
 	wsimport$(EXE_SUFFIX) \
         schemagen$(EXE_SUFFIX) \
 	jsadebugd$(EXE_SUFFIX) \
-	jhat$(EXE_SUFFIX)
+	jhat$(EXE_SUFFIX) \
+	jmod$(EXE_SUFFIX) \
+	jpkg$(EXE_SUFFIX)
 
 # The following get removed from the JRE after the bulk-copy of LIBDIR...
 NOTJRELIBS = tools.jar \
@@ -758,7 +762,7 @@ initial-image-jre:: initial-image-jre-setup \
 	@# CTE plugin security change require new empty directory lib/applet
 	$(MKDIR) -p $(JRE_IMAGE_DIR)/lib/applet
 	@# Copy in lib directory
-	$(CD) $(OUTPUTDIR) && $(FIND) lib -depth | $(CPIO) -pdum $(JRE_IMAGE_DIR)
+	$(CD) $(OUTPUTDIR) && $(FIND) lib -depth | $(EGREP) -v modules | $(CPIO) -pdum $(JRE_IMAGE_DIR)
 	@# Make sure all directories are read/execute for everyone
 	$(CHMOD) a+rx `$(FIND) $(JRE_IMAGE_DIR) -type d`
 	@# Remove some files from the jre area

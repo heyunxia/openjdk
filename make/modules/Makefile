@@ -82,12 +82,12 @@ MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
 MODULE_CLASSES = $(ABS_MODULES_TEMPDIR)/classes
 MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
 MODULEINFO_SRC = $(MODULES_TEMPDIR)/src
-TMP_MODULE_LIB = $(ABS_OUTPUTDIR)/tmp/jigsaw-lib/modules
+JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
 
 # FIXME: need to determine at build time
 MODULE_VERSION = 7-ea 
 
-all:: unpack-jars gen-classlist modularize test-install-modules
+all:: unpack-jars gen-classlist modularize install-modules
 
 JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
 unpack-jars:
@@ -128,6 +128,13 @@ gen-classlist:
 #    javac multi-module path is <modulepath>/<module>.
 #    jmod only takes a directory with classes only.  
 #    What should be the modules directory hierachy for packaging?
+#
+# TODO:
+# How should the *.map (symbol -> address mappings) and
+# the .pdb (debug info) files be packaged?  one for each module
+# their .dll resides?  We need to make them available for 
+# troubleshooting and support purpose.
+#
 modularize:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(MODULES_DIR)
@@ -143,10 +150,13 @@ modularize:
 	   mlib=$(MODULES_DIR)/$$m ; \
            $(MKDIR) -p $$mlib ; \
 	   for s in `$(GREP) "^$$m " $(MODULES_LIST)` ; do \
-               if [ -d $(TMP)/$$s ] ; then \
-               	   $(CP) -rf $(TMP)/$$s/*  $$mlib; \
-		   $(RM) -rf $$mlib/classes; \
-	       fi \
+              if [ -d $(TMP)/$$s ] ; then \
+                 for d in bin lib etc include ; do \
+                    if [ -d $(TMP)/$$s/$$d ] ; then \
+                       $(CP) -rf $(TMP)/$$s/$$d  $$mlib; \
+                    fi ; \
+                 done \
+              fi ; \
 	   done ; \
            $(MKDIR) -p $$mlib/classes ; \
 	   $(MV) $$mlib/module-info.class $$mlib/classes ; \
@@ -159,23 +169,25 @@ modularize:
    	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.resources \
 	           | $(CPIO) -pdum $$mlib/resources ; \
            fi ; \
+	   $(FIND) $$mlib -name '*.map' -exec $(RM) \{} \; ; \
+	   $(FIND) $$mlib -name '*.pdb' -exec $(RM) \{} \; ; \
         done
 	@$(CD) $(MODULE_CLASSES) && $(java-vm-cleanup)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-test-install-modules:
+install-modules:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
-	$(RM) -rf $(TMP_MODULE_LIB)
-	$(HOST_JMOD_CMD) create -N -L $(TMP_MODULE_LIB) ; \
+	$(RM) -rf $(JIGSAW_MODULE_LIB)
+	$(HOST_JMOD_CMD) create -N -L $(JIGSAW_MODULE_LIB) ; \
 	$(CD) $(MODULES_DIR) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Installing module $$m" ; \
 	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
 	       $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources $$m \
-                  -L $(TMP_MODULE_LIB) || exit 1 ; \
+                  -L $(JIGSAW_MODULE_LIB) || exit 1 ; \
            else \
 	       $(HOST_JMOD_CMD) install $$m/classes $$m \
-                  -L $(TMP_MODULE_LIB) || exit 1 ; \
+                  -L $(JIGSAW_MODULE_LIB) || exit 1 ; \
 	   fi ; \
         done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
