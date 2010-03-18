@@ -130,9 +130,6 @@ public final class ModuleFileFormat {
 		sections++;
 	    }
 
-	    // Reset module file to right after module header
-	    file.seek(HEADERLEN);
-
 	    FileChannel channel = file.getChannel();
 	    long csize = file.length() - HEADERLEN;
 	    ByteBuffer content = channel.map(MapMode.READ_ONLY, HEADERLEN, csize);
