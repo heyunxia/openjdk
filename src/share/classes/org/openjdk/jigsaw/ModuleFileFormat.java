@@ -159,44 +159,51 @@ public final class ModuleFileFormat {
 	    file.close();
 	}
         
-	public int writeSection(DataOutput stream,
-				ModuleFile.SectionType type, 
-				File dir, 
-				ModuleFile.Compressor compressor) 
+	public void writeSection(RandomAccessFile file,
+				 ModuleFile.SectionType type, 
+				 File dir, 
+				 ModuleFile.Compressor compressor) 
 	    throws IOException {
 
 	    checkFileName(type, dir);
 
-	    ByteArrayDataOutputStream bados = new ByteArrayDataOutputStream();
 	    MessageDigest md = getHashInstance(hashtype);
-	    DigestOutputStream ds = new DigestOutputStream(bados, md);
-	    DataOutputStream out = new DataOutputStream(ds);
 
-	    short count = writeFile(out, dir, compressor, type);
+	    // Start of section header
+	    final long start = file.getFilePointer();
+	    // Start of section content
+	    final long cstart = start + 12 + md.getDigestLength();
+	    // Seek to start of section content
+	    file.seek(cstart);
 
-	    byte [] hash = md.digest();
-	    int csize = bados.size();
+	    short count = writeFile(file, dir, compressor, type);
+	    // End of section
+	    final long end = file.getFilePointer();
+	    final int csize = (int) (end - cstart);
+
+	    // Reset module file to right after section header
+	    file.seek(cstart);
+
+	    // Compute hash of content
+	    FileChannel channel = file.getChannel();
+	    ByteBuffer content = channel.map(MapMode.READ_ONLY, cstart, csize);
+	    md.update(content);
+	    final byte [] hash = md.digest();
 
 	    // A section type that only allows a single file
 	    // has a section count of 0.
 	    if (count > Short.MAX_VALUE)
 		throw new IOException("Too many files: " + count);
 
-	    short subsections = type.hasFiles() ? count : 0;
+	    final short subsections = type.hasFiles() ? count : 0;
 
+	    // Write section header at section header start,
+	    // and seek to end of section.
 	    SectionHeader header = 
 		new SectionHeader(type, compressor, csize, subsections, hash);
-	    header.write(stream);
-	    bados.writeTo(stream);
-
-	    // Dump the sections to disk
-	    // $tail --bytes=+45 CLASSES | sha256sum 
-	    // to check the hashes
-	    //FileOutputStream fos = new FileOutputStream(new File(type.toString()));
-	    //header.write(new DataOutputStream(fos));
-	    //baos.writeTo(fos);
-						    
-	    return bados.size();
+	    file.seek(start);
+	    header.write(file);
+	    file.seek(end);
 	}
 
         public short writeFile(DataOutput out, File path, 
