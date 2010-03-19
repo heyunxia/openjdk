@@ -130,13 +130,28 @@ public final class ModuleFileFormat {
 		sections++;
 	    }
 
-	    FileChannel channel = file.getChannel();
+
+	    /* Create a module file header with bad hash, but correct
+	       remaining data in order to be able to compute the 
+	       correct file hash. */
 	    long csize = file.length() - HEADERLEN;
-	    ByteBuffer content = channel.map(MapMode.READ_ONLY, HEADERLEN, csize);
+	    ModuleFileHeader header = 
+		new ModuleFileHeader(csize, usize, sections, hashtype, 
+				     getHashInstance(hashtype).digest());
+	    file.seek(0);
+	    header.write(file);
+
+	    FileChannel channel = file.getChannel();	    
+
+	    /* Compute hash of module file header without the hash bytes. */
+	    ByteBuffer content = channel.map(MapMode.READ_ONLY, 0, 32);
+	    md.update(content);
+	    /* Compute hash of the remainder of the file. */
+	    content = channel.map(MapMode.READ_ONLY, HEADERLEN, csize);
 	    md.update(content);
 	    byte [] hash = md.digest();
 
-	    ModuleFileHeader header = 
+	    header =
 		new ModuleFileHeader(csize, usize, sections, hashtype, hash);
 
 	    file.seek(0);
@@ -466,10 +481,12 @@ public final class ModuleFileFormat {
         //
 	public byte[] readStart() throws IOException {
             try {
-                fileHeader = ModuleFileHeader.read(stream);
                 // System.out.println(fileHeader.toString());
                 fileDigest = getHashInstance(hashtype);
-                DigestInputStream dis = new DigestInputStream(stream, fileDigest);
+                DigestInputStream dis = 
+		    new DigestInputStream(stream, fileDigest);
+                fileHeader = ModuleFileHeader.read(dis);
+
                 fileIn = new DataInputStream(dis);
                 if (fileHeader.getSections() < 1)
                     throw new IOException("A module file must have"
@@ -500,6 +517,12 @@ public final class ModuleFileFormat {
             } finally {
                 close();
             }
+	}
+
+	public byte [] getHash() throws IOException {
+	    if (null == fileHeader) 
+		readStart();
+	    return fileHeader.getHash();
 	}
 
         public void close() throws IOException {
@@ -870,17 +893,36 @@ public final class ModuleFileFormat {
         out.write(hash);
     }
     
-    private static byte [] readHash(DataInputStream in) throws IOException {
+    private static short readHashLength(DataInputStream in) throws IOException {
         final short hashLength = in.readShort();
         ensureNonNegativity(hashLength, "hashLength");
-   
+
+        return hashLength;
+    }
+
+    private static byte [] readHashBytes(DataInputStream in, short hashLength) throws IOException {
         final byte [] hash = new byte[hashLength];
         in.readFully(hash);
-
         return hash;
     }
 
+    private static byte [] readHash(DataInputStream in) throws IOException {
+        return readHashBytes(in, readHashLength(in));
+    }    
     
+    private static byte [] readFileHash(DigestInputStream dis) throws IOException {
+	DataInputStream in = new DataInputStream(dis);
+
+	final short hashLength = readHashLength(in);
+
+	/* Turn digest computation off before reading the file hash */
+	dis.on(false);
+        byte [] hash = readHashBytes(in, hashLength);
+	/* Turn digest computation on again afterwards. */
+	dis.on(true);
+
+        return hash;
+    }
     
     public final static class ModuleFileHeader {
         // Fields are specified as unsigned. Treat signed values as bugs.
@@ -954,8 +996,9 @@ public final class ModuleFileFormat {
                                                 + value);
         }
         
-        public static ModuleFileHeader read(final DataInputStream in) 
+        public static ModuleFileHeader read(final DigestInputStream dis) 
             throws IOException {
+	    DataInputStream in = new DataInputStream(dis);
 
             final int magic = in.readInt();
             ensureMatch(magic, MAGIC, "MAGIC");
@@ -977,7 +1020,8 @@ public final class ModuleFileFormat {
             final short sections = in.readShort();
             final short hashTypeValue = in.readShort();
             ModuleFile.HashType hashType = lookupHashType(hashTypeValue);
-            final byte [] hash = readHash(in);
+
+            final byte [] hash = readFileHash(dis);
 
             return new ModuleFileHeader(csize, usize, sections, hashType, hash);
         }
