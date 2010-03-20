@@ -288,10 +288,11 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     } else {
         /* Set default CLASSPATH */
         cpath = getenv("CLASSPATH");
-        if (cpath == NULL) {
-            cpath = ".";
+        if (cpath != NULL) {
+            SetClassPath(cpath);
+        } else {
+            SetClassPath(".");
         }
-        SetClassPath(cpath);
     }
 
     /* Parse command line options; if the return value of
@@ -300,6 +301,13 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     if (!ParseArguments(&argc, &argv, &mode, &what, &ret, jvmpath))
     {
         return(ret);
+    }
+
+    if (cpath != NULL && mode == LM_MODULE) {
+        // CLASSPATH cannot be used with module mode
+        JLI_ReportErrorMessage(ARG_ERROR8);
+        printUsage = JNI_TRUE;
+        return(1);
     }
 
     // module for this launcher
@@ -315,7 +323,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
            if (stat(buf, &statbuf) != 0) {
                mode = LM_MODULE;
                strcpy(buf, _module_name);
-               strcat(buf, "@7-ea");
+               strcat(buf, "@7-ea");          /* hardcoded version: temporary for jigsaw support */
                what = buf; 
            }
         }
@@ -330,6 +338,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         SetClassPath("");       /* Hah! */
         SetModuleProp(what);    /* sun.java.launcher.module */
         // ## Store boot module in %jigsaw-library?
+        // ## hardcoded path is temporary
         SetModuleBootProp("lib/modules/jdk.boot/7-ea/classes:lib/modules/jdk.boot/7-ea/resources"); /* s.j.l.m.boot */
     } else {
         if (mode == LM_JAR) {
@@ -781,7 +790,7 @@ SetModulesBootClassPath(const char *jrepath)
     def = JLI_MemAlloc(vmoption_len+slen+1);
     memcpy(def, vmoption, vmoption_len);
     memcpy(def+vmoption_len, s, slen);
-    def[vmoption_len+slen+1] = '\0';
+    def[vmoption_len+slen] = '\0';
     JLI_TraceLauncher("Modules bootclasspath %s\n", def);
     AddOption(def, NULL);
     if (s != orig)
@@ -1052,16 +1061,20 @@ ParseArguments(int *pargc, char ***pargv,
         if (JLI_StrCmp(arg, "-classpath") == 0 || JLI_StrCmp(arg, "-cp") == 0) {
             ARG_CHECK(argc, ARG_ERROR1, arg);
             SetClassPath(*argv);
+            /* -classpath can only be set when running legacy mode */
+            mode = LM_CLASS;
             argv++; --argc;
         } else if (JLI_StrCmp(arg, "-jar") == 0) {
             ARG_CHECK(argc, ARG_ERROR2, arg);
-            if (mode)
+            if (mode == LM_MODULE)
                 ARG_FAIL(ARG_ERROR5);
             mode = LM_JAR;
         } else if (JLI_StrCmp(arg, "-m") == 0) {
             ARG_CHECK(argc, ARG_ERROR4, arg);
-            if (mode)
+            if (mode == LM_JAR)
                 ARG_FAIL(ARG_ERROR5);
+            if (mode == LM_CLASS)
+                ARG_FAIL(ARG_ERROR7);
             mode = LM_MODULE;
         } else if (JLI_StrCmp(arg, "-L") == 0) {
             ARG_CHECK(argc, ARG_ERROR6, arg);
