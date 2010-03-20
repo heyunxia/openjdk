@@ -251,6 +251,10 @@ class Arguments : AllStatic {
   // the path from which to boot when in modular mode
   static const char* _sun_java_launcher_module_boot;
 
+  // sun.java.launcher.module, private property identifying
+  // the module name shared with sun.launcher.LauncherHelper class 
+  static const char* _sun_java_launcher_module;
+
   // sun.java.launcher.pid, private property
   static int    _sun_java_launcher_pid;
 
@@ -434,6 +438,10 @@ class Arguments : AllStatic {
   // -Dsun.java.launcher.module.boot
   static const char* sun_java_launcher_module_boot() {
     return _sun_java_launcher_module_boot;
+  }
+
+  static bool is_module_mode() {
+    return _sun_java_launcher_module != NULL;
   }
 
   // -Xloggc:<file>, if not specified will be NULL

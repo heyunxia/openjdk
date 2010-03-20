@@ -44,6 +44,7 @@ bool   Arguments::_xdebug_mode                  = false;
 const char*  Arguments::_java_vendor_url_bug    = DEFAULT_VENDOR_URL_BUG;
 const char*  Arguments::_sun_java_launcher      = DEFAULT_JAVA_LAUNCHER;
 int    Arguments::_sun_java_launcher_pid        = -1;
+const char*  Arguments::_sun_java_launcher_module      = NULL;
 const char*  Arguments::_sun_java_launcher_module_boot = NULL;
 
 // These parameters are reset in method parse_vm_init_args(JavaVMInitArgs*)
@@ -114,6 +115,10 @@ void Arguments::process_sun_java_launcher_properties(JavaVMInitArgs* args) {
     }
     if (match_option(option, "-Dsun.java.launcher.module.boot=", &tail)) {
       _sun_java_launcher_module_boot = strdup(tail);
+      continue;
+    }
+    if (match_option(option, "-Dsun.java.launcher.module=", &tail)) {
+      _sun_java_launcher_module = strdup(tail);
       continue;
     }
   }
@@ -1922,14 +1927,32 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       JavaAssertions::setSystemClassDefault(enable);
     // -bootclasspath:
     } else if (match_option(option, "-Xbootclasspath:", &tail)) {
+      if (is_module_mode()) {
+        jio_fprintf(defaultStream::error_stream(),
+                    "-Xbootclasspath: option is not supported in module mode\n");
+        return JNI_EINVAL;
+      }
+
       scp_p->reset_path(tail);
       *scp_assembly_required_p = true;
     // -bootclasspath/a:
     } else if (match_option(option, "-Xbootclasspath/a:", &tail)) {
+      if (is_module_mode()) {
+        jio_fprintf(defaultStream::error_stream(),
+                    "-Xbootclasspath/a: option is not supported in module mode\n");
+        return JNI_EINVAL;
+      }
+
       scp_p->add_suffix(tail);
       *scp_assembly_required_p = true;
     // -bootclasspath/p:
     } else if (match_option(option, "-Xbootclasspath/p:", &tail)) {
+      if (is_module_mode()) {
+        jio_fprintf(defaultStream::error_stream(),
+                    "-Xbootclasspath/p: option is not supported in module mode\n");
+        return JNI_EINVAL;
+      }
+
       scp_p->add_prefix(tail);
       *scp_assembly_required_p = true;
     // -Xrun
