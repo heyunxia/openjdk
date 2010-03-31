@@ -98,9 +98,10 @@ static void SetModulesBootClassPath(const char *s);
 static void SelectVersion(int argc, char **argv, char **main_class);
 static jboolean ParseArguments(int *pargc, char ***pargv,
                                int *pmode, char **pwhat,
-                               int *pret, const char *jvmpath);
+                               int *pret, const char *jrepath);
 static jboolean InitializeJVM(JavaVM **pvm, JNIEnv **penv,
                               InvocationFunctions *ifn);
+static void SetLauncherMode(int *pmode, char **pwhat, const char *jrepath);
 static jstring NewPlatformString(JNIEnv *env, char *s);
 static jobjectArray NewPlatformStringArray(JNIEnv *env, char **strv, int strc);
 static jclass LoadMainClass(JNIEnv *env, int mode, char *name);
@@ -161,6 +162,13 @@ static jboolean IsWildCardEnabled();
     return JNI_TRUE; \
 }
 
+#define ARG_FAIL1(f, a) { \
+    JLI_ReportErrorMessage(f, a); \
+    printUsage = JNI_TRUE; \
+    *pret = 1; \
+    return JNI_TRUE; \
+}
+
 /*
  * Running Java code in primordial thread caused many problems. We will
  * create a new thread to invoke JVM. See 6316197 for more information.
@@ -214,9 +222,6 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     jlong start, end;
     char jrepath[MAXPATHLEN], jvmpath[MAXPATHLEN];
     char ** original_argv = argv;
-    struct stat statbuf;
-    char buf[MAXPATHLEN];
-    const char separator[] = { FILE_SEPARATOR, '\0' };
 
     _fVersion = fullversion;
     _dVersion = dotversion;
@@ -298,7 +303,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     /* Parse command line options; if the return value of
      * ParseArguments is false, the program should exit.
      */
-    if (!ParseArguments(&argc, &argv, &mode, &what, &ret, jvmpath))
+    if (!ParseArguments(&argc, &argv, &mode, &what, &ret, jrepath))
     {
         return(ret);
     }
@@ -308,29 +313,6 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         JLI_ReportErrorMessage(ARG_ERROR8);
         printUsage = JNI_TRUE;
         return(1);
-    }
-
-    // module for this launcher
-    if (_module_name != NULL && mode == LM_CLASS) {
-        /*
-         * Run the program in module module if running on
-         * a JRE module image (i.e. rt.jar doesn't exist) and
-         * "classes" dir doesn't exists; otherwise, run in legacy mode
-         */
-        snprintf(buf, sizeof(buf), "%s%slib%srt.jar", jrepath, separator, separator);
-        if (stat(buf, &statbuf) != 0) {
-           snprintf(buf, sizeof(buf), "%s%sclasses", jrepath, separator);
-           if (stat(buf, &statbuf) != 0) {
-               mode = LM_MODULE;
-               strcpy(buf, _module_name);
-               strcat(buf, "@7-ea");          /* hardcoded version: temporary for jigsaw support */
-               what = buf; 
-           }
-        }
-        JLI_TraceLauncher("%s runs in %s mode (%s)\n",
-                _program_name, 
-                (mode == LM_MODULE ? "module" : "legacy"),
-                what);
     }
 
     /* Make adjustments based on what we parsed */
@@ -791,7 +773,6 @@ SetModulesBootClassPath(const char *jrepath)
     memcpy(def, vmoption, vmoption_len);
     memcpy(def+vmoption_len, s, slen);
     def[vmoption_len+slen] = '\0';
-    JLI_TraceLauncher("Modules bootclasspath %s\n", def);
     AddOption(def, NULL);
     if (s != orig)
         JLI_MemFree((char *) s);
@@ -1047,11 +1028,12 @@ SelectVersion(int argc, char **argv, char **main_class)
 static jboolean
 ParseArguments(int *pargc, char ***pargv,
                int *pmode, char **pwhat,
-               int *pret, const char *jvmpath)
+               int *pret, const char *jrepath)
 {
     int argc = *pargc;
     char **argv = *pargv;
     int mode = LM_UNKNOWN;
+    int legacy = 0;
     char *arg;
 
     *pret = 0;
@@ -1144,6 +1126,21 @@ ParseArguments(int *pargc, char ***pargv,
                    JLI_StrCmp(arg, "-jre-restrict-search") == 0 ||
                    JLI_StrCCmp(arg, "-splash:") == 0) {
             ; /* Ignore machine independent options already handled */
+        } else if (JLI_StrCCmp(arg, "-Xmode:") == 0) { 
+            /* Temporary internal option and it's only valid for jdk tools.
+             * Tools like javac and javah can use this option to diagnose
+             * if a problem is caused by module mode or not.
+             */
+            if (_module_name == NULL)
+                ARG_FAIL1(ARG_ERROR9, arg);
+
+            if (JLI_StrCmp(arg, "-Xmode:legacy") == 0) {
+                legacy = 1;
+            } else if (JLI_StrCmp(arg, "-Xmode:module") == 0) {
+                legacy = 0;
+            } else {
+                ARG_FAIL1(ARG_ERROR9, arg);
+            }
         } else if (RemovableOption(arg) ) {
             ; /* Do not pass option to vm. */
         } else {
@@ -1156,11 +1153,49 @@ ParseArguments(int *pargc, char ***pargv,
         *pargc = argc;
         *pargv = argv;
     }
+
+    if (_module_name != NULL && !legacy) 
+        SetLauncherMode(&mode, pwhat, jrepath);
+
     if (!mode)
         mode = LM_CLASS;
     *pmode = mode;
 
     return JNI_TRUE;
+}
+
+/* Set the launcher mode for jdk tools (i.e. _module_name != NULL).
+ * Detect if java.home is a legacy image or module image;
+ * launch the tool in module mode if running in a module image.
+ */
+static void
+SetLauncherMode(int *pmode, char **pwhat, const char *jrepath)
+{
+    struct stat statbuf;
+    char buf[MAXPATHLEN];
+    const char separator[] = { FILE_SEPARATOR, '\0' };
+
+    if (_module_name != NULL) {
+        /*
+         * Run the program in module module if running on
+         * a JRE module image (i.e. rt.jar doesn't exist) and
+         * "classes" dir doesn't exists; otherwise, run in legacy mode
+         */
+        snprintf(buf, sizeof(buf), "%s%slib%srt.jar", jrepath, separator, separator);
+        if (stat(buf, &statbuf) != 0) {
+           snprintf(buf, sizeof(buf), "%s%sclasses", jrepath, separator);
+           if (stat(buf, &statbuf) != 0) {
+               *pmode = LM_MODULE;
+               JLI_StrCpy(buf, _module_name);
+               JLI_StrCat(buf, "@7-ea");          /* hardcoded version: temporary for jigsaw support */
+               *pwhat = JLI_StringDup(buf); 
+           }
+        }
+    }
+    JLI_TraceLauncher("%s runs in %s mode (%s)\n",
+        _program_name, 
+        (*pmode == LM_MODULE ? "module" : "legacy"),
+        *pwhat);
 }
 
 /*

@@ -27,9 +27,14 @@
 # Makefile for building simple launchers
 #
 
-# Each launcher built by make-launcher or make-legacy-launcher
-# is a single module whose name is same as the binary name.
 #
+# make-launcher creates a launcher in dual mode when running from
+# a modules image.
+# By default, it will run in  module mode. You can specify 
+#   -J-Xmode:legacy to force it to run in legacy mode
+#   -J-Xmode:module to force it to run in module mode
+#
+# Each tool is packaged as a module whose name is same as the binary name.
 # make/modules/modules.group contains a module definition
 # that specifies its entry point for each binary.
 # The launcher (java.c) will launch the tool in module mode 
@@ -43,18 +48,6 @@ PACKAGE = launchers
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk
 
-# Run MAKE $@ for a launcher that runs in legacy mode 
-#   $(call make-launcher, name, mainclass, java-args, main-args)
-define make-legacy-launcher
-$(CD) $(BUILDDIR)/launchers && \
-$(MAKE) -f Makefile.launcher \
-        PROGRAM=$(strip $1) \
-        MAIN_CLASS=$(strip $2) \
-        MAIN_JAVA_ARGS="$(strip $3)" \
-        MAIN_ARGS="$(strip $4)" \
-        MODULE=$(strip $1)
-endef
-
 # Run MAKE $@ for all generic launchers
 
 define make-all-launchers
@@ -64,13 +57,13 @@ $(call make-launcher, extcheck, com.sun.tools.extcheck.Main, , )
 $(call make-launcher, idlj, com.sun.tools.corba.se.idl.toJavaPortable.Compile, , )
 $(call make-launcher, jar, sun.tools.jar.Main, , )
 $(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
-$(call make-legacy-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, , )
+$(call make-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, -J-Xmode:legacy, )
 $(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , )
 $(call make-launcher, jarsigner, sun.security.tools.JarSigner, , )
-$(call make-legacy-launcher, javac, com.sun.tools.javac.Main, , )
-$(call make-launcher, javadoc, com.sun.tools.javadoc.Main, , )
-$(call make-launcher, javah, com.sun.tools.javah.Main, , )
-$(call make-launcher, javap, com.sun.tools.javap.Main, , )
+$(call make-launcher, javac, com.sun.tools.javac.Main, -J-Xmode:legacy, )
+$(call make-launcher, javadoc, com.sun.tools.javadoc.Main, -J-Xmode:legacy, )
+$(call make-launcher, javah, com.sun.tools.javah.Main, -J-Xmode:legacy, )
+$(call make-launcher, javap, com.sun.tools.javap.Main, -J-Xmode:legacy, )
 $(call make-launcher, jconsole, sun.tools.jconsole.JConsole, \
   -J-Djconsole.showOutputViewer, )
 $(call make-launcher, jdb, com.sun.tools.example.debug.tty.TTY, , )
@@ -90,7 +83,7 @@ $(call make-launcher, jstack, sun.tools.jstack.JStack, \
 $(call make-launcher, jstat, sun.tools.jstat.Jstat, , )
 $(call make-launcher, jstatd, sun.tools.jstatd.Jstatd, , )
 $(call make-launcher, native2ascii, sun.tools.native2ascii.Main, , )
-$(call make-launcher, rmic, sun.rmi.rmic.Main, , )
+$(call make-launcher, rmic, sun.rmi.rmic.Main, -J-Xmode:legacy, )
 $(call make-launcher, schemagen, com.sun.tools.internal.jxc.SchemaGenerator, , )
 $(call make-launcher, serialver, sun.tools.serialver.SerialVer, , )
 $(call make-launcher, xjc, com.sun.tools.internal.xjc.Driver, , )

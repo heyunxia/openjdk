@@ -46,6 +46,7 @@
 #define ARG_ERROR6      "Error: -L requires a module-library path"
 #define ARG_ERROR7      "Error: -classpath and -cp cannot be used with -m"
 #define ARG_ERROR8      "Error: CLASSPATH is set but cannot be used with -m"
+#define ARG_ERROR9      "Error: %s invalid option"
 
 #define JVM_ERROR1      "Error: Could not create the Java Virtual Machine.\n" GEN_ERROR
 #define JVM_ERROR2      "Error: Could not detach main thread.\n" JNI_ERROR
