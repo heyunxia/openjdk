@@ -89,6 +89,59 @@ public class Scanner implements Lexer {
         }
     }
 
+    static class Mark {
+        /** Save the observable state of scanner as updated by nextToken().
+         */
+        Mark(Scanner s) {
+            bp = s.bp;
+            ch = s.ch;
+            deprecatedFlag = s.deprecatedFlag;
+            docComment = s.docComment();
+            endPos = s.endPos;
+            errPos = s.errPos;
+            name = s.name;
+            pos = s.pos;
+            prevEndPos = s.prevEndPos;
+            radix = s.radix;
+            stringVal = s.stringVal();
+            token = s.token;
+        }
+
+        void apply(Scanner s) {
+            s.bp = bp;
+            s.ch = ch;
+            s.deprecatedFlag = deprecatedFlag;
+            // currently, there is no way to reset the docComment, but for the
+            // limited context for mark/reset this is probably not an issue
+            //s.docComment = docComment;
+            s.endPos = endPos;
+            s.errPos = errPos;
+            s.name = name;
+            s.pos = pos;
+            s.prevEndPos = prevEndPos;
+            s.radix = radix;
+            assert stringVal.length() < s.sbuf.length;
+            s.sp = stringVal.length();
+            for (int i = 0; i < s.sp; i++)
+                s.sbuf[i] = stringVal.charAt(i);
+            s.token = token;
+
+        }
+
+        final int bp;
+        final char ch;
+        final boolean deprecatedFlag;
+        final String docComment;
+        final int endPos;
+        final int errPos;
+        final Name name;
+        final int pos;
+        final int prevEndPos;
+        final int radix;
+        final String stringVal;
+        final Token token;
+    }
+
     /* Output variables; set by nextToken():
      */
 
@@ -161,6 +214,10 @@ public class Scanner implements Lexer {
     /** The buffer index of the last converted unicode character
      */
     private int unicodeConversionBp = -1;
+
+    /** The last marked position.
+     */
+    private Mark mark;
 
     /** The log to be used for error reporting.
      */
@@ -802,6 +859,35 @@ public class Scanner implements Lexer {
         return;
     }
 
+    private void scanModuleVersion() {
+        do {
+            putChar(ch);
+            scanChar();
+            switch (ch) {
+                case ' ': case '\t':
+                case FF: case CR: case LF:
+                case '\"': case '\'': case '\\':
+                case ',': case ';':
+                case EOI:
+                    token = MODULEVERSIONLITERAL;
+                    return;
+            }
+        } while(true);
+    }
+
+    /** Return true if ch can be part of an operator.
+     */
+    private boolean isModuleStart(char ch) {
+        switch (ch) {
+        case '0': case '1': case '2': case '3': case '4':
+        case '5': case '6': case '7': case '8': case '9':
+        case '(': case '[': case '<': case '=': case '>':
+            return true;
+        default:
+            return false;
+        }
+    }
+
     /** The value of a literal token, recorded as a string.
      *  For integers, leading 0x and 'l' suffixes are suppressed.
      */
@@ -858,46 +944,54 @@ public class Scanner implements Lexer {
                     scanIdent();
                     return;
                 case '0':
-                    scanChar();
-                    if (ch == 'x' || ch == 'X') {
-                        scanChar();
-                        skipIllegalUnderscores();
-                        if (ch == '.') {
-                            scanHexFractionAndSuffix(false);
-                        } else if (digit(16) < 0) {
-                            lexError("invalid.hex.number");
-                        } else {
-                            scanNumber(16);
-                        }
-                    } else if (ch == 'b' || ch == 'B') {
-                        if (!allowBinaryLiterals) {
-                            lexError("unsupported.binary.lit", source.name);
-                            allowBinaryLiterals = true;
-                        }
-                        scanChar();
-                        skipIllegalUnderscores();
-                        if (digit(2) < 0) {
-                            lexError("invalid.binary.number");
-                        } else {
-                            scanNumber(2);
-                        }
+                    if (token == MONKEYS_AT) {
+                        scanModuleVersion();
                     } else {
-                        putChar('0');
-                        if (ch == '_') {
-                            int savePos = bp;
-                            do {
-                                scanChar();
-                            } while (ch == '_');
-                            if (digit(10) < 0) {
-                                lexError(savePos, "illegal.underscore");
-                            }
-                        }
-                        scanNumber(8);
+                        scanChar();
+			if (ch == 'x' || ch == 'X') {
+			    scanChar();
+			    skipIllegalUnderscores();
+			    if (ch == '.') {
+				scanHexFractionAndSuffix(false);
+			    } else if (digit(16) < 0) {
+				lexError("invalid.hex.number");
+			    } else {
+				scanNumber(16);
+			    }
+			} else if (ch == 'b' || ch == 'B') {
+			    if (!allowBinaryLiterals) {
+				lexError("unsupported.binary.lit", source.name);
+				allowBinaryLiterals = true;
+			    }
+			    scanChar();
+			    skipIllegalUnderscores();
+			    if (digit(2) < 0) {
+				lexError("invalid.binary.number");
+			    } else {
+				scanNumber(2);
+			    }
+			} else {
+			    putChar('0');
+			    if (ch == '_') {
+				int savePos = bp;
+				do {
+				    scanChar();
+				} while (ch == '_');
+				if (digit(10) < 0) {
+				    lexError(savePos, "illegal.underscore");
+				}
+			    }
+			    scanNumber(8);
+			}
                     }
                     return;
                 case '1': case '2': case '3': case '4':
                 case '5': case '6': case '7': case '8': case '9':
-                    scanNumber(10);
+                    if (token == MONKEYS_AT) {
+                        scanModuleVersion();
+                    } else {
+                        scanNumber(10);
+                    }
                     return;
                 case '.':
                     scanChar();
@@ -923,11 +1017,23 @@ public class Scanner implements Lexer {
                 case ';':
                     scanChar(); token = SEMI; return;
                 case '(':
-                    scanChar(); token = LPAREN; return;
+                    if (token == MONKEYS_AT) {
+                        scanModuleVersion();
+                    } else {
+                        scanChar();
+                        token = LPAREN;
+                    }
+                    return;
                 case ')':
                     scanChar(); token = RPAREN; return;
                 case '[':
-                    scanChar(); token = LBRACKET; return;
+                    if (token == MONKEYS_AT) {
+                        scanModuleVersion();
+                    } else {
+                        scanChar();
+                        token = LBRACKET;
+                    }
+                    return;
                 case ']':
                     scanChar(); token = RBRACKET; return;
                 case '{':
@@ -1028,7 +1134,9 @@ public class Scanner implements Lexer {
                     }
                     return;
                 default:
-                    if (isSpecial(ch)) {
+                    if (token == MONKEYS_AT && isModuleStart(ch)) {
+                        scanModuleVersion();
+                    } else if (isSpecial(ch)) {
                         scanOperator();
                     } else {
                         boolean isJavaIdentifierStart;
@@ -1225,6 +1333,15 @@ public class Scanner implements Lexer {
      * @return a LineMap */
     public Position.LineMap getLineMap() {
         return Position.makeLineMap(buf, buflen, false);
+    }
+
+    public void mark() {
+        mark = new Mark(this);
+    }
+
+    public void reset() {
+        if (mark != null)
+            mark.apply(this);
     }
 
 }

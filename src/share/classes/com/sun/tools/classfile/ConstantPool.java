@@ -114,6 +114,7 @@ public class ConstantPool {
     public static final int CONSTANT_Methodref = 10;
     public static final int CONSTANT_InterfaceMethodref = 11;
     public static final int CONSTANT_NameAndType = 12;
+    public static final int CONSTANT_ModuleId = 13;
 
     ConstantPool(ClassReader cr) throws IOException, InvalidEntry {
         int count = cr.readUnsignedShort();
@@ -153,6 +154,10 @@ public class ConstantPool {
 
             case CONSTANT_Methodref:
                 pool[i] = new CONSTANT_Methodref_info(this, cr);
+                break;
+
+            case CONSTANT_ModuleId:
+                pool[i] = new CONSTANT_ModuleId_info(this, cr);
                 break;
 
             case CONSTANT_NameAndType:
@@ -218,6 +223,10 @@ public class ConstantPool {
         return ((CONSTANT_Class_info) get(index, CONSTANT_Class));
     }
 
+    public CONSTANT_ModuleId_info getModuleIdInfo(int index) throws InvalidIndex, UnexpectedEntry {
+        return ((CONSTANT_ModuleId_info) get(index, CONSTANT_ModuleId));
+    }
+
     public CONSTANT_NameAndType_info getNameAndTypeInfo(int index) throws InvalidIndex, UnexpectedEntry {
         return ((CONSTANT_NameAndType_info) get(index, CONSTANT_NameAndType));
     }
@@ -280,8 +289,9 @@ public class ConstantPool {
         R visitInteger(CONSTANT_Integer_info info, P p);
         R visitInterfaceMethodref(CONSTANT_InterfaceMethodref_info info, P p);
         R visitLong(CONSTANT_Long_info info, P p);
-        R visitNameAndType(CONSTANT_NameAndType_info info, P p);
         R visitMethodref(CONSTANT_Methodref_info info, P p);
+        R visitModuleId(CONSTANT_ModuleId_info info, P p);
+        R visitNameAndType(CONSTANT_NameAndType_info info, P p);
         R visitString(CONSTANT_String_info info, P p);
         R visitUtf8(CONSTANT_Utf8_info info, P p);
     }
@@ -601,6 +611,48 @@ public class ConstantPool {
         }
     }
 
+    public static class CONSTANT_ModuleId_info extends CPInfo {
+        CONSTANT_ModuleId_info(ConstantPool cp, ClassReader cr) throws IOException {
+            super(cp);
+            name_index = cr.readUnsignedShort();
+            version_index = cr.readUnsignedShort();
+        }
+
+        public CONSTANT_ModuleId_info(ConstantPool cp, int name_index, int version_index) {
+            super(cp);
+            this.name_index = name_index;
+            this.version_index = version_index;
+        }
+
+        public int getTag() {
+            return CONSTANT_ModuleId;
+        }
+
+        public String getName() throws ConstantPoolException {
+            return cp.getUTF8Value(name_index);
+        }
+
+        public int byteLength() {
+            return 5;
+        }
+
+        public String getVersion() throws ConstantPoolException {
+            return (version_index == 0 ? null : cp.getUTF8Value(version_index));
+        }
+
+        @Override
+        public String toString() {
+            return "CONSTANT_ModuleId_info[name_index: " + name_index + ", version_index: " + version_index + "]";
+        }
+
+        public <R, D> R accept(Visitor<R, D> visitor, D data) {
+            return visitor.visitModuleId(this, data);
+        }
+
+        public final int name_index;
+        public final int version_index;
+    }
+
     public static class CONSTANT_NameAndType_info extends CPInfo {
         CONSTANT_NameAndType_info(ConstantPool cp, ClassReader cr) throws IOException {
             super(cp);
@@ -630,13 +682,13 @@ public class ConstantPool {
             return cp.getUTF8Value(type_index);
         }
 
-        public <R, D> R accept(Visitor<R, D> visitor, D data) {
-            return visitor.visitNameAndType(this, data);
-        }
-
         @Override
         public String toString() {
             return "CONSTANT_NameAndType_info[name_index: " + name_index + ", type_index: " + type_index + "]";
+        }
+
+        public <R, D> R accept(Visitor<R, D> visitor, D data) {
+            return visitor.visitNameAndType(this, data);
         }
 
         public final int name_index;

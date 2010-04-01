@@ -66,7 +66,12 @@ public enum StandardLocation implements Location {
      * Location to search for platform classes.  Sometimes called
      * the boot class path.
      */
-    PLATFORM_CLASS_PATH;
+    PLATFORM_CLASS_PATH,
+
+    /**
+     * Location to search for existing module class files.
+     */
+    MODULE_PATH;
 
     /**
      * Gets a location object with the given name.  The following

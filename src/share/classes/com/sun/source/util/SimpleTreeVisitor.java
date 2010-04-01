@@ -33,7 +33,7 @@ import com.sun.source.tree.*;
  * @author Peter von der Ah&eacute;
  * @since 1.6
  */
-public class SimpleTreeVisitor <R,P> implements TreeVisitor<R,P> {
+public class SimpleTreeVisitor<R,P> implements TreeVisitor<R,P> {
     protected final R DEFAULT_VALUE;
 
     protected SimpleTreeVisitor() {
@@ -249,6 +249,30 @@ public class SimpleTreeVisitor <R,P> implements TreeVisitor<R,P> {
     }
 
     public R visitErroneous(ErroneousTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModule(ModuleTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModuleClass(ModuleClassTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModuleId(ModuleIdTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModulePermits(ModulePermitsTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitModuleRequires(ModuleRequiresTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitPackage(PackageTree node, P p) {
         return defaultAction(node, p);
     }
 

@@ -26,7 +26,6 @@
 package com.sun.tools.javac.parser;
 
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 
