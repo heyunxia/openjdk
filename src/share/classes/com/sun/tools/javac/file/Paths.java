@@ -42,6 +42,7 @@ import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.Lint;
+import com.sun.tools.javac.main.OptionName;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
@@ -51,10 +52,11 @@ import com.sun.tools.javac.util.Options;
 import static javax.tools.StandardLocation.*;
 import static com.sun.tools.javac.main.OptionName.*;
 
-/** This class converts command line arguments, environment variables
+/**
+ *  This class converts command line arguments, environment variables
  *  and system properties (in File.pathSeparator-separated String form)
  *  into a boot class path, user class path, and source path (in
- *  Collection<String> form).
+ *  Collection<PathEntry> form).
  *
  *  <p><b>This is NOT part of any API supported by Sun Microsystems.  If
  *  you write code that depends on this, you do so at your own risk.
@@ -307,7 +309,7 @@ public class Paths {
             return this;
         }
 
-        /** Notional set of acceptable file kinds for this type of path entry. */
+        /** Notional set of acceptable file kinds for this type of path. */
         private Set<JavaFileObject.Kind> acceptedKinds = EnumSet.allOf(JavaFileObject.Kind.class);
 
         public Path acceptKinds(Set<JavaFileObject.Kind> kinds) {
@@ -379,7 +381,7 @@ public class Paths {
          *  @param whether to generate a warning if the file does not exist
          */
         public void addFile(File file, boolean warn) {
-            PathEntry entry = new PathEntry(file);
+            PathEntry entry = new PathEntry(file, acceptedKinds);
             if (contains(entry)) {
                 /* Discard duplicates and avoid infinite recursion */
                 return;
@@ -451,6 +453,7 @@ public class Paths {
         }
 
         // DEBUG
+        @Override
         public String toString() {
             return "Path(" + super.toString() + ")";
         }
@@ -583,6 +586,44 @@ public class Paths {
             }
         }
         return Collections.unmodifiableCollection(otherSearchPath);
+    }
+
+    /**
+     * Get any classes that should appear before the main platform classes.
+     * For now, this is just the classes defined by -Xbootclasspath/p:.
+     * See computeBootClassPath() for the full definition of the legacy
+     * platform class path.
+     */
+    Path getPlatformPathPrepend() {
+        return getPathForOption(XBOOTCLASSPATH_PREPEND, EnumSet.of(JavaFileObject.Kind.CLASS));
+    }
+
+    /**
+     * Get the main platform classes.
+     * For now, this is just the classes defined by -bootclasspath or -Xbootclasspath.
+     * See computeBootClassPath() for the full definition of the legacy
+     * platform class path.
+     */
+    Path getPlatformPathBase() {
+        return getPathForOption(BOOTCLASSPATH, EnumSet.of(JavaFileObject.Kind.CLASS));
+    }
+
+    /**
+     * Get any classes that should appear after the main platform classes.
+     * For now, this is just the classes defined by -Xbootclasspath/a:.
+     * See computeBootClassPath() for the full definition of the legacy
+     * platform class path.
+     */
+    Path getPlatformPathAppend() {
+        return getPathForOption(XBOOTCLASSPATH_PREPEND, EnumSet.of(JavaFileObject.Kind.CLASS));
+    }
+
+    private Path getPathForOption(OptionName o, Set<JavaFileObject.Kind> kinds) {
+        String v = options.get(o);
+        if (v == null)
+            return null;
+
+        return new Path().acceptKinds(kinds).addFiles(v);
     }
 
     /** Is this the name of an archive file? */

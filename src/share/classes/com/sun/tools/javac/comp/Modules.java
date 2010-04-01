@@ -26,35 +26,7 @@
 
 package com.sun.tools.javac.comp;
 
-import com.sun.tools.javac.code.Scope;
-import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.code.Symbol.CompletionFailure;
-import com.sun.tools.javac.code.Symbol.ModuleRequires;
-import com.sun.tools.javac.code.Symbol.ModuleSymbol;
-import com.sun.tools.javac.code.Symtab;
-import com.sun.tools.javac.jvm.ClassFile;
-import com.sun.tools.javac.jvm.ClassFile.ModuleId;
-import com.sun.tools.javac.jvm.ClassReader;
-import com.sun.tools.javac.main.OptionName;
-import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.tree.JCTree.JCExpression;
-import com.sun.tools.javac.tree.JCTree.JCModuleClass;
-import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
-import com.sun.tools.javac.tree.JCTree.JCModuleId;
-import com.sun.tools.javac.tree.JCTree.JCModulePermits;
-import com.sun.tools.javac.tree.JCTree.JCModuleRequires;
-import com.sun.tools.javac.tree.TreeInfo;
-import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.JCDiagnostic;
-import com.sun.tools.javac.util.List;
-import com.sun.tools.javac.util.ListBuffer;
-import com.sun.tools.javac.util.Log;
-import com.sun.tools.javac.util.Name;
-import com.sun.tools.javac.util.Names;
-import com.sun.tools.javac.util.Options;
-
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -78,6 +50,38 @@ import javax.tools.ModuleFileManager.InvalidFileObjectException;
 import javax.tools.ModuleFileManager.ModuleMode;
 
 import static javax.tools.StandardLocation.*;
+
+import com.sun.tools.javac.code.Scope;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.code.Symbol.CompletionFailure;
+import com.sun.tools.javac.code.Symbol.ModuleRequires;
+import com.sun.tools.javac.code.Symbol.ModuleSymbol;
+import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.jvm.ClassFile;
+import com.sun.tools.javac.jvm.ClassFile.ModuleId;
+import com.sun.tools.javac.jvm.ClassReader;
+import com.sun.tools.javac.main.OptionName;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.JCTree.JCModuleClass;
+import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
+import com.sun.tools.javac.tree.JCTree.JCModuleId;
+import com.sun.tools.javac.tree.JCTree.JCModulePermits;
+import com.sun.tools.javac.tree.JCTree.JCModuleRequires;
+import com.sun.tools.javac.tree.TreeInfo;
+import com.sun.tools.javac.tree.TreeScanner;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.JCDiagnostic;
+import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.ListBuffer;
+import com.sun.tools.javac.util.Log;
+import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
+import com.sun.tools.javac.util.Options;
+
 import static com.sun.tools.javac.main.OptionName.*;
 
 /**
@@ -140,7 +144,8 @@ public class Modules extends JCTree.Visitor {
         syms = Symtab.instance(context);
 
         Options options = Options.instance(context);
-        enabled = isEnabled(options);
+        // module system features enabled unless -XDnomodules is set
+        enabled = (options.get("nomodules") == null);
 
         if (!enabled)
             return;
@@ -154,28 +159,29 @@ public class Modules extends JCTree.Visitor {
             mode = ModuleMode.SINGLE;
     }
 
-    private boolean isEnabled(Options options) {
-        OptionName[] disablingOptions = {
-            XBOOTCLASSPATH_PREPEND,
-            ENDORSEDDIRS,
-            BOOTCLASSPATH,
-            XBOOTCLASSPATH_APPEND,
-            EXTDIRS
-        };
-        for (OptionName n: disablingOptions) {
-            if (options.get(n) != null) {
-                DEBUG("Modules: disabled by " + n);
-                return false;
-            }
-        }
-        if (options.get("nomodules") != null) {
-            DEBUG("Modules: disabled by -XDnomodules");
-            return false;
-        }
-
-        DEBUG("Modules: enabled");
-        return true;
-    }
+////////// TO BE DELETED
+//////////    private boolean isEnabled(Options options) {
+//////////        OptionName[] disablingOptions = {
+////////////            XBOOTCLASSPATH_PREPEND,
+//////////            ENDORSEDDIRS,
+////////////            BOOTCLASSPATH,
+////////////            XBOOTCLASSPATH_APPEND,
+//////////            EXTDIRS
+//////////        };
+//////////        for (OptionName n: disablingOptions) {
+//////////            if (options.get(n) != null) {
+//////////                DEBUG("Modules: disabled by " + n);
+//////////                return false;
+//////////            }
+//////////        }
+//////////        if (options.get("nomodules") != null) {
+//////////            DEBUG("Modules: disabled by -XDnomodules");
+//////////            return false;
+//////////        }
+//////////
+//////////        DEBUG("Modules: enabled");
+//////////        return true;
+//////////    }
 
     <T extends JCTree> void acceptAll(List<T> trees) {
         for (List<T> l = trees; l.nonEmpty(); l = l.tail)
@@ -470,50 +476,66 @@ public class Modules extends JCTree.Visitor {
         Options options = Options.instance(context);
         boolean useZeroMod = (options.get("zeroMod") != null);
 
-//        ServiceLoader<ModuleResolver> loader = ServiceLoader.load(ModuleResolver.class);
-//        // for now, use the first available, if any
-//        for (Iterator<ModuleResolver> iter = loader.iterator(); iter.hasNext(); ) {
-//            moduleResolver = iter.next();
-//            moduleResolver.init(options);
-//            return;
-//        }
-
         if (!useZeroMod) {
-            // use Class.forName on jigsaw module resolver, to avoid bootstrap dependency
-            try {
-                String jigsawModuleResolver = "com.sun.tools.javac.jigsaw.JigsawModuleResolver";
-                Class<? extends ModuleResolver> c =
-                        Class.forName(jigsawModuleResolver).asSubclass(ModuleResolver.class);
-                Constructor<? extends ModuleResolver> constr =
-                        c.getDeclaredConstructor(new Class<?>[] { Context.class });
-                moduleResolver = constr.newInstance(context);
-                DEBUG("Modules.initModuleResolver: " + moduleResolver);
-                return;
-            } catch (ClassNotFoundException e) {
-                // running in JDK 6 mode
-                DEBUG("Modules.initModuleResolver: " + e);
-            } catch (IllegalAccessException e) {
-                // FIXME: fall through for now; should report error
-                DEBUG("Modules.initModuleResolver: " + e);
-            } catch (NoSuchMethodException e) {
-                // FIXME: fall through for now; should report error
-                DEBUG("Modules.initModuleResolver: " + e);
-            } catch (InstantiationException e) {
-                // FIXME: fall through for now; should report error
-                DEBUG("Modules.initModuleResolver: " + e);
-            } catch (InvocationTargetException e) {
-                DEBUG("Modules.initModuleResolver: " + e);
-                Throwable t = e.getTargetException();
-                if (t instanceof FileNotFoundException)
-                    log.error("module.library.not.found", t.getMessage());
-                else if (t instanceof IOException)
-                    log.error("canot.open.module.library", t.getMessage()); // FIXME, t.getMessage is a barely helpful string
-                else if (t instanceof RuntimeException)
-                    throw new RuntimeException(t);
-                else if (t instanceof Error)
-                    throw new Error(t);
-                else
-                    throw new AssertionError(t);
+//            ServiceLoader<ModuleResolver> loader = ServiceLoader.load(ModuleResolver.class);
+//            // for now, use the first available, if any
+//            for (Iterator<ModuleResolver> iter = loader.iterator(); iter.hasNext(); ) {
+//                moduleResolver = iter.next();
+//                moduleResolver.init(options);
+//                return;
+//            }
+
+            String library = options.get(OptionName.L);
+            if (library != null || !isLegacyRuntime()) {
+                // use Class.forName on jigsaw module resolver, to avoid bootstrap dependency
+                try {
+                    String jigsawModuleResolver = "com.sun.tools.javac.jigsaw.JigsawModuleResolver";
+                    Class<? extends ModuleResolver> c =
+                            Class.forName(jigsawModuleResolver).asSubclass(ModuleResolver.class);
+                    Constructor<? extends ModuleResolver> constr =
+                            c.getDeclaredConstructor(new Class<?>[] { Context.class });
+                    moduleResolver = constr.newInstance(context);
+                    DEBUG("Modules.initModuleResolver: " + moduleResolver);
+
+                    OptionName[] unsupportedOptions = {
+            //            XBOOTCLASSPATH_PREPEND,
+                        ENDORSEDDIRS,
+            //            BOOTCLASSPATH,
+            //            XBOOTCLASSPATH_APPEND,
+                        EXTDIRS
+                    };
+                    for (OptionName o: unsupportedOptions) {
+                        if (options.get(o) != null) {
+
+                        }
+                    }
+                    return;
+                } catch (ClassNotFoundException e) {
+                    // running in JDK 6 mode
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (IllegalAccessException e) {
+                    // FIXME: fall through for now; should report error
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (NoSuchMethodException e) {
+                    // FIXME: fall through for now; should report error
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (InstantiationException e) {
+                    // FIXME: fall through for now; should report error
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (InvocationTargetException e) {
+                    DEBUG("Modules.initModuleResolver: " + e);
+                    Throwable t = e.getTargetException();
+                    if (t instanceof FileNotFoundException)
+                        log.error("module.library.not.found", t.getMessage());
+                    else if (t instanceof IOException)
+                        log.error("canot.open.module.library", t.getMessage()); // FIXME, t.getMessage is a barely helpful string
+                    else if (t instanceof RuntimeException)
+                        throw new RuntimeException(t);
+                    else if (t instanceof Error)
+                        throw new Error(t);
+                    else
+                        throw new AssertionError(t);
+                }
             }
         }
 
@@ -527,6 +549,12 @@ public class Modules extends JCTree.Visitor {
     }
     // where
     private ModuleResolver moduleResolver;
+
+    private boolean isLegacyRuntime() {
+        File javaHome = new File(System.getProperty("java.home"));
+        File rt_jar = new File(new File(javaHome, "lib"), "rt.jar");
+        return rt_jar.exists();
+    }
 
     private void error(ModuleSymbol msym, ModuleId id, String key, Object... args) {
         // TODO, determine error location from msym, mid
@@ -650,8 +678,10 @@ public class Modules extends JCTree.Visitor {
     private int enterCount = 0; // debug only
 
     public boolean enter(List<JCCompilationUnit> trees) {
-        if (!enabled)
-            return true;
+        if (!enabled) {
+            CheckNoModulesVisitor v = new CheckNoModulesVisitor(log);
+            return v.checkNoModules(trees);
+        }
 
         int count = enterCount++;
         DEBUG("Modules.enter " + count + " " + state);
@@ -684,6 +714,35 @@ public class Modules extends JCTree.Visitor {
         // debug
         } finally {
              DEBUG("Modules.enter " + count + ": exit " + state);
+        }
+    }
+    // where
+    private static class CheckNoModulesVisitor extends TreeScanner {
+        private final Log log;
+        private boolean result = true;
+        CheckNoModulesVisitor(Log log) {
+            this.log = log;
+        }
+        boolean checkNoModules(List<? extends JCTree> trees) {
+            scan(trees);
+            return result;
+        }
+        @Override
+        public void visitClassDef(JCClassDecl tree) {
+        }
+        @Override
+        public void visitModuleDef(JCModuleDecl tree) {
+            result = false;
+            log.error(tree, "module.decl.not.permitted");
+        }
+        @Override
+        public void visitTopLevel(JCCompilationUnit tree) {
+            JavaFileObject prev = log.useSource(tree.sourcefile);
+            try {
+                 super.visitTopLevel(tree);
+            } finally {
+                log.useSource(prev);
+            }
         }
     }
 

@@ -25,30 +25,10 @@
 
 package com.sun.tools.javac.jigsaw;
 
-import com.sun.tools.javac.code.Symbol.ModuleSymbol;
-import com.sun.tools.javac.code.Symtab;
 import java.io.File;
 import java.io.IOException;
-import java.lang.module.ModuleIdQuery;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import javax.lang.model.element.ModuleElement;
-import javax.lang.model.util.ModuleResolver;
-
-import org.openjdk.jigsaw.Configuration;
-import org.openjdk.jigsaw.Configurator;
-import org.openjdk.jigsaw.JigsawModuleSystem;
-import org.openjdk.jigsaw.PathContext;
-import org.openjdk.jigsaw.Platform;
-
-import com.sun.tools.javac.main.OptionName;
-import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.List;
-import com.sun.tools.javac.util.ListBuffer;
-import com.sun.tools.javac.util.Name;
-import com.sun.tools.javac.util.Names;
-import com.sun.tools.javac.util.Options;
 import java.lang.module.ModuleId;
+import java.lang.module.ModuleIdQuery;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,7 +36,30 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import javax.lang.model.element.ModuleElement;
+import javax.lang.model.util.ModuleResolver;
+import javax.tools.JavaFileManager;
+
+import org.openjdk.jigsaw.Configuration;
 import org.openjdk.jigsaw.ConfigurationException;
+import org.openjdk.jigsaw.Configurator;
+import org.openjdk.jigsaw.JigsawModuleSystem;
+import org.openjdk.jigsaw.PathContext;
+import org.openjdk.jigsaw.Platform;
+
+import com.sun.tools.javac.code.Symbol.ModuleSymbol;
+import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.file.JavacFileManager;
+import com.sun.tools.javac.main.OptionName;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.ListBuffer;
+import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
+import com.sun.tools.javac.util.Options;
+import javax.tools.JavaFileManager.Location;
 
 /**
  * Jigsaw implementation of javac's simple abstraction of a module resolver.
@@ -67,6 +70,7 @@ public class JigsawModuleResolver implements ModuleResolver {
     Configuration<PathContext> config;
     Names names;
     Symtab syms;
+    JavaFileManager fileManager;
 
     boolean DEBUG = (System.getProperty("javac.debug.modules") != null);
     void DEBUG(String s) {
@@ -145,6 +149,43 @@ public class JigsawModuleResolver implements ModuleResolver {
                 results.add(sym);
             }
         }
+
+        // Update the path to accommodate any user specified -Xbootclasspath* options.
+        // When JavacPathFileManager implements ModuleFileManager, the following
+        // uses of JavacFileManager should be updated to use BaseFileManager
+        // i.e. the common supertype of JavacFileManager and JavacPathFileManager
+        if (fileManager instanceof JavacFileManager) {
+            JavacFileManager jfm = (JavacFileManager) fileManager;
+            // determine first and last platform location, for placing
+            // -Xbootclasspath/p: and -Xbootclasspath/a:
+            Location firstPlatform = null;
+            Location lastPlatform = null;
+            for (ModuleElement e: results) {
+                ModuleSymbol msym = (ModuleSymbol) e;
+                if (isPlatformName(msym.fullname)) {
+                    if (firstPlatform == null)
+                        firstPlatform = msym.location;
+                    lastPlatform = msym.location;
+                }
+            }
+            // update locations as needed
+            for (ModuleElement e: results) {
+                ModuleSymbol msym = (ModuleSymbol) e;
+                if (isPlatformName(msym.fullname)) {
+                    msym.location = jfm.augmentPlatformLocation(msym.location,
+                            msym.location == firstPlatform,
+                            msym.location == lastPlatform);
+                }
+            }
+
+            DEBUG("JigsawModuleResolver.resolve UPDATED PATH");
+            for (ModuleElement e: results) {
+                ModuleSymbol msym = (ModuleSymbol) e;
+                DEBUG("JigsawModuleResolver.resolve " + msym + " " + msym.location);
+            }
+            DEBUG("JigsawModuleResolver.resolve UPDATED PATH done");
+        }
+
         DEBUG("JigsawModuleResolver.resolve done");
         return results;
     }

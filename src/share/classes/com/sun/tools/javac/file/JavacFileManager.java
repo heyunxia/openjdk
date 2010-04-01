@@ -42,7 +42,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -537,20 +536,28 @@ public class JavacFileManager
         return result;
     }
 
-    private <T> String toString(Iterable<T> items) {
-        ArrayList<T> list = new ArrayList<T>();
-        for (T t: items)
-            list.add(t);
-        return list.toString();
+    /**
+     * Update a location based on the bootclasspath options.
+     * @param l the default platform location if no bootclasspath options are given
+     * @param first whether or not this is the first platform location
+     * @param last whether or not this is the last platform location
+     * @return a platform location based on the default location and on the
+     *  values of any bootclasspath options.
+     */
+    public Location augmentPlatformLocation(Location l, boolean first, boolean last) {
+        Path ppPrepend = first ? paths.getPlatformPathPrepend() : null;
+        Path ppBase = paths.getPlatformPathBase();
+        Path ppAppend = last ? paths.getPlatformPathAppend() : null;
+        if (ppPrepend == null && ppAppend == null)
+            return (ppBase == null) ? l : new PathLocation(ppBase);
+        ListBuffer<Location> lb = new ListBuffer<Location>();
+        if (ppPrepend != null)
+            lb.append(new PathLocation(ppPrepend));
+        lb.append((ppBase == null) ? l : new PathLocation(ppBase));
+        if (ppAppend != null)
+            lb.append(new PathLocation(ppAppend));
+        return join(lb);
     }
-
-    private boolean isArchive(File f) {
-        String name = f.getName();
-        String extn = name.substring(name.lastIndexOf(".")).toLowerCase(); // safe if not found
-        return archiveExtns.contains(extn);
-    }
-
-    private static final Set<String> archiveExtns = new HashSet<String>(Arrays.asList(".jar"));
 
     private static Set<JavaFileObject.Kind> allKinds, noSourceKind, noClassKind;
     static {

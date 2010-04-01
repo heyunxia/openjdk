@@ -23,6 +23,7 @@
 
 /*
  * @test
+ * @key jigsaw
  * @bug 6802521
  * @summary add support for modules: test path combinations
  */

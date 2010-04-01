@@ -287,10 +287,10 @@ public class Main {
         }
 
         OptionName[] bootclasspathOptions = {
-            XBOOTCLASSPATH_PREPEND,
+//            XBOOTCLASSPATH_PREPEND,
             ENDORSEDDIRS,
-            BOOTCLASSPATH,
-            XBOOTCLASSPATH_APPEND,
+//            BOOTCLASSPATH,
+//            XBOOTCLASSPATH_APPEND,
             EXTDIRS
         };
         OptionName[] moduleOptions = {
