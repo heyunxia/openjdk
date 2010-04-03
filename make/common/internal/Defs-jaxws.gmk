@@ -58,3 +58,12 @@ IMPORT_TOOLS_PACKAGES += \
      META-INF/services/com.sun.mirror.apt.AnnotationProcessorFactory \
      META-INF/services/com.sun.tools.xjc.Plugin
 
+#
+# Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
+#
+IMPORT_RT_MODULES += \
+     sun.jaxws \
+     sun.enterprise
+
+IMPORT_TOOLS_MODULES += \
+     jaxws.tools

@@ -24,7 +24,14 @@
 #
 
 #
-# modules           Target to build the following module images:
+# modules           Target to build jigsaw modules images.
+# 
+# This target will build the modules images taking the jdk modules
+# under the $outputdir/modules directory. For incremental build,
+# make sure that $outputdir/modules is up-to-date (i.e. build
+# make/modules/Makefile before invoking the "modules" target).
+# 
+# The following modules images are created:
 #
 # jre-base-image:   Minimal Java runtime environment
 # jre-module-image: Full Java runtime environment with all JRE modules
@@ -86,7 +93,7 @@ modules modules-clobber::
 # so that jre-xxx-image will be made only once
 #
 modules:: sanity-images post-sanity-images \
-	  gen-modules gen-pkgs \
+	  gen-pkgs \
 	  jdk-base-image$(MODULE_TARGET_SUFFIX) \
 	  jre-base-image$(MODULE_TARGET_SUFFIX) \
 	  jdk-module-image$(MODULE_TARGET_SUFFIX) \
@@ -199,7 +206,7 @@ image=$(strip $1); m=$(strip $2); \
 javahome=$(MODULE_IMAGES_DIR)/$$image; \
 for d in bin lib ; do \
    if [ -d $$m/$$d ] ; then \
-       $(CP) -rf $(MODULES_DIR)/$$m/$$d $$javahome; \
+       $(CP) -rf $(ABS_MODULES_DIR)/$$m/$$d $$javahome; \
    fi ; \
 done 
 endef
@@ -220,8 +227,8 @@ define copy-jre-image
 from=$(strip $1); dest=$(strip $2); \
 ($(CD) $(MODULE_IMAGES_DIR)/$$from && $(FIND) . -depth -print \
               | $(CPIO) -pdum $(MODULE_IMAGES_DIR)/$$dest) ; \
-if [ -d "$(MODULES_DIR)/jdk.boot/include" ] ; then \
-   $(CP) -rf $(MODULES_DIR)/jdk.boot/include $(MODULE_IMAGES_DIR)/$$dest; \
+if [ -d "$(ABS_MODULES_DIR)/jdk.boot/include" ] ; then \
+   $(CP) -rf $(ABS_MODULES_DIR)/jdk.boot/include $(MODULE_IMAGES_DIR)/$$dest; \
 fi
 endef
 
@@ -235,7 +242,7 @@ mlib=$(MODULE_IMAGES_DIR)/$$image/lib/modules; \
 mid=`$(HOST_JMOD_CMD) ls -L $$mlib $$m | $(GREP) -v '#'` ; \
 if [ "x$$mid" = "x" ] ; then \
    $(ECHO) "Installing module $$m in $$image" ; \
-   $(CD) $(MODULES_DIR) && \
+   $(CD) $(ABS_MODULES_DIR) && \
    if [ -d $$m/resources ] ; then \
       $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources -L $$mlib $$m || exit 1; \
    else \
@@ -272,8 +279,6 @@ endif
 
 gen-pkgs: $(PKG_TYPES)
 
-gen-modules:
-	$(CD) modules; $(MAKE) all
 
 %-setup:
 	$(RM) -r $(MODULE_IMAGES_DIR)/$*
@@ -313,8 +318,8 @@ jre-base-image-sol64: jre-base-image-setup \
 	    $(call install-jigsaw-module,jre-base-image,$$jm) ; \
 	done
 
-jdk-base-image-docfiles: $(LICENSE_DOCLIST_JRE:%=$(JDK_BASE_IMAGE_DIR)/%) \
-	                 $(OTHER_DOCLIST_JRE:%=$(JDK_BASE_IMAGE_DIR)/%)
+jdk-base-image-docfiles: $(LICENSE_DOCLIST_JDK:%=$(JDK_BASE_IMAGE_DIR)/%) \
+	                 $(OTHER_DOCLIST_JDK:%=$(JDK_BASE_IMAGE_DIR)/%)
 
 jre-base-image-docfiles: $(LICENSE_DOCLIST_JRE:%=$(JRE_BASE_IMAGE_DIR)/%) \
 	                 $(OTHER_DOCLIST_JRE:%=$(JRE_BASE_IMAGE_DIR)/%) \
@@ -356,8 +361,8 @@ jre-module-image-sol64: jre-module-image-setup \
 	    $(call install-jigsaw-module,jre-module-image,$$jm); \
 	done
 
-jdk-module-image-docfiles: $(LICENSE_DOCLIST_JRE:%=$(JDK_MODULE_IMAGE_DIR)/%) \
-  	                   $(OTHER_DOCLIST_JRE:%=$(JDK_MODULE_IMAGE_DIR)/%)
+jdk-module-image-docfiles: $(LICENSE_DOCLIST_JDK:%=$(JDK_MODULE_IMAGE_DIR)/%) \
+  	                   $(OTHER_DOCLIST_JDK:%=$(JDK_MODULE_IMAGE_DIR)/%)
 
 jre-module-image-docfiles: $(LICENSE_DOCLIST_JRE:%=$(JRE_MODULE_IMAGE_DIR)/%) \
 	                   $(OTHER_DOCLIST_JRE:%=$(JRE_MODULE_IMAGE_DIR)/%) \
@@ -381,7 +386,7 @@ modules modules-clobber::
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 	@$(java-vm-cleanup)
 
-.PHONY: modules modules-clobber gen-modules gen-pkgs \
+.PHONY: modules modules-clobber gen-pkgs \
 	jre-base-image$(MODULE_TARGET_SUFFIX) \
 	jdk-base-image$(MODULE_TARGET_SUFFIX) \
 	jre-module-image$(MODULE_TARGET_SUFFIX) \

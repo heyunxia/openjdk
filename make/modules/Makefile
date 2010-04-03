@@ -147,7 +147,7 @@ modularize:
 	$(CD) $(MODULE_CLASSES) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Creating module $$m" ; \
-	   mlib=$(MODULES_DIR)/$$m ; \
+	   mlib=$(ABS_MODULES_DIR)/$$m ; \
            $(MKDIR) -p $$mlib ; \
 	   for s in `$(GREP) "^$$m " $(MODULES_LIST)` ; do \
               if [ -d $(TMP)/$$s ] ; then \

@@ -44,7 +44,7 @@ MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
 jmod-pkgs: $(JMOD_PKGS)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
-           $(CD)  $(MODULES_DIR)/$$m && \
+           $(CD)  $(ABS_MODULES_DIR)/$$m && \
               (if [ -d resources ] ; then \
                    RES="-r resources" ; \
                fi ; \

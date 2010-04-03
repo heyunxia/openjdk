@@ -30,17 +30,43 @@ ifdef JPRT_BUILD_VERSION
   MILESTONE=$(JPRT_BUILD_VERSION)
 endif
 
-jprt_build_product:  all images
-	( $(CD) $(OUTPUTDIR)/j2sdk-image && \
-	  $(ZIPEXE) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+JPRT_ARCHIVE_MODULES_BUNDLE=$(ABS_OUTPUTDIR)/$(DEFAULT_BUILD_FLAVOR)-modules-bundle.zip
 
-jprt_build_fastdebug: fastdebug images
-	( $(CD) $(OUTPUTDIR)/j2sdk-image && \
-	  $(ZIPEXE) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+# jdk image to archive
+JPRT_ARCHIVE_IMAGE=j2sdk-image
+ifdef BUILD_MODULES
+  JPRT_ARCHIVE_IMAGE=jdk-module-image
+endif
 
-jprt_build_debug: debug images 
-	( $(CD) $(OUTPUTDIR)/j2sdk-image && \
+ifdef BUILD_MODULES
+  JPRT_BUILD_TARGETS = modules
+else
+  JPRT_BUILD_TARGETS = images
+endif
+
+jprt_build_product:  all $(JPRT_BUILD_TARGETS)
+	( $(CD) $(OUTPUTDIR)/$(JPRT_ARCHIVE_IMAGE) && \
 	  $(ZIPEXE) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+ifdef BUILD_MODULES
+	( $(CD) $(OUTPUTDIR) && \
+          $(ZIPEXE) -q -r $(JPRT_ARCHIVE_MODULES_BUNDLE) jre-base-image jigsaw-pkgs)
+endif
+
+jprt_build_fastdebug: fastdebug $(JPRT_BUILD_TARGETS)
+	( $(CD) $(OUTPUTDIR)/$(JPRT_ARCHIVE_IMAGE) && \
+	  $(ZIPEXE) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+ifdef BUILD_MODULES
+	( $(CD) $(OUTPUTDIR) && \
+          $(ZIPEXE) -q -r $(JPRT_ARCHIVE_MODULES_BUNDLE) jre-base-image jigsaw-pkgs)
+endif
+
+jprt_build_debug: debug $(JPRT_BUILD_TARGETS)
+	( $(CD) $(OUTPUTDIR)/$(JPRT_ARCHIVE_IMAGE) && \
+	  $(ZIPEXE) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+ifdef BUILD_MODULES
+	( $(CD) $(OUTPUTDIR) && \
+          $(ZIPEXE) -q -r $(JPRT_ARCHIVE_MODULES_BUNDLE) jre-base-image jigsaw-pkgs)
+endif
 
 #
 # Phonies to avoid accidents.

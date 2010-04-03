@@ -553,7 +553,7 @@ ifdef ALT_JDK_HOST_PATH
   JDK_HOST_PATH:=$(call AltCheckSpaces,JDK_HOST_PATH)
   JDK_HOST_PATH:=$(call AltCheckValue,JDK_HOST_PATH)
 else
-  JDK_HOST_PATH =$(OUTPUTDIR)
+  JDK_HOST_PATH =$(ABS_OUTPUTDIR)
 endif
 
 # MOZILLA_HEADERS_PATH: path to mozilla header files for plugin

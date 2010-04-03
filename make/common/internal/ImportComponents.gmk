@@ -27,11 +27,19 @@
 JDK_RT_JAR    = $(JDK_IMPORT_PATH)/jre/lib/rt.jar
 JDK_TOOLS_JAR = $(JDK_IMPORT_PATH)/lib/tools.jar
 JDK_RESOURCES_JAR = $(JDK_IMPORT_PATH)/jre/lib/resources.jar
+JDK_MODULES_LIB = $(JDK_IMPORT_PATH)/lib/modules
 
+# Importing from a legacy image:
 # The specific packages that come from or go to rt.jar and tools.jar
 #   IF the component deliverables are not available.
 IMPORT_TOOLS_PACKAGES =
 IMPORT_RT_PACKAGES =
+
+# Importing from a modules image:
+# The specific packages that come from or go to jdk modules
+#   IF the component deliverables are not available.
+IMPORT_TOOLS_MODULES =
+IMPORT_RT_MODULES =
 
 # The following will add to IMPORT_TOOLS_PACKAGES and/or IMPORT_RT_PACKAGES
 ifndef LANGTOOLS_DIST
@@ -141,17 +149,60 @@ if [ "$(CORBA_DIST)" = "" ] ; then \
 fi 
 endef
 
+# Import classes from a legacy image
+define import-from-legacy-image
+if [ "$(IMPORT_TOOLS_PACKAGES)" != "" ] ; then \
+  $(call Unjar,$1,$(JDK_RESOURCES_JAR),$(IMPORT_TOOLS_PACKAGES)); \
+  $(call Unjar,$1,$(JDK_TOOLS_JAR),$(IMPORT_TOOLS_PACKAGES)); \
+fi ; \
+if [ "$(IMPORT_RT_PACKAGES)" != "" ] ; then \
+  $(call Unjar,$1,$(JDK_RESOURCES_JAR),$(IMPORT_RT_PACKAGES)); \
+  $(call Unjar,$1,$(JDK_RT_JAR),$(IMPORT_RT_PACKAGES)); \
+fi
+endef
+
+VERSION=7-ea
+
+# Import packages $3 from modules $2 in a modules image into directory $1
+# 
+define import-from-modules-image
+if [ "$3" != "" ] ; then \
+  for m in $2 dummy ; do \
+    mdir=$(JDK_MODULES_LIB)/$$m/$(VERSION); \
+    for p in $3 dummy ; do \
+      if [ -d $$mdir/classes/$$p ] ; then \
+        $(ECHO) "Importing $$p classes from $$m module" ; \
+        $(MKDIR) -p $1/$$p; \
+        $(CP) -r $$mdir/classes/$$p/* $1/$$p ; \
+      elif [ -d $$mdir/resources/$$p ] ; then \
+        $(ECHO) "Importing $$p resources from $$m module" ; \
+        $(MKDIR) -p $1/$$p; \
+        $(CP) -r $$mdir/resources/$$p/* $1/$$p ; \
+      elif [ -f $$mdir/classes/$$p ] ; then \
+        $(ECHO) "Importing $$p classes from $$m module" ; \
+        pdir=`$(DIRNAME) $$p`; \
+        $(MKDIR) -p $1/$$pdir; \
+        $(CP) $$mdir/classes/$$p $1/$$pdir ; \
+      elif [ -f $$mdir/resources/$$p ] ; then \
+        $(ECHO) "Importing $$p resources from $$m module" ; \
+        pdir=`$(DIRNAME) $$p`; \
+        $(MKDIR) -p $1/$$pdir; \
+        $(CP) $$mdir/resources/$$p $1/$$pdir ; \
+      fi ; \
+    done ; \
+  done ; \
+fi
+endef
+
 # Import all component classes into directory $1
 #   Here we special case classes coming from JDK when component not supplied
 define import-component-classes
 $(ECHO) "Import classes from $(JDK_IMPORT_PATH)"
-if [ "$(IMPORT_TOOLS_PACKAGES)" != "" ] ; then \
-  $(call Unjar,$1,$(JDK_RESOURCES_JAR),$(IMPORT_TOOLS_PACKAGES)); \
-  $(call Unjar,$1,$(JDK_TOOLS_JAR),$(IMPORT_TOOLS_PACKAGES)); \
-fi
-if [ "$(IMPORT_RT_PACKAGES)" != "" ] ; then \
-  $(call Unjar,$1,$(JDK_RESOURCES_JAR),$(IMPORT_RT_PACKAGES)); \
-  $(call Unjar,$1,$(JDK_RT_JAR),$(IMPORT_RT_PACKAGES)); \
+if [ -f $(JDK_RT_JAR) ] ; then \
+  $(call import-from-legacy-image,$1) ; \
+else \
+  $(call import-from-modules-image,$1,$(IMPORT_TOOLS_MODULES),$(IMPORT_TOOLS_PACKAGES)) ; \
+  $(call import-from-modules-image,$1,$(IMPORT_RT_MODULES),$(IMPORT_RT_PACKAGES)) ; \
 fi
 $(call import-one-classes,LANGTOOLS_DIST,$1)
 $(call import-one-classes,CORBA_DIST,$1)

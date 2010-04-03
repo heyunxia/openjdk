@@ -137,6 +137,7 @@ JAVACFLAGS  += $(OTHER_JAVACFLAGS)
 
 # Needed for javah
 JAVAHFLAGS += -bootclasspath $(CLASSBINDIR)
+JAVAHFLAGS += $(OTHER_JAVAHFLAGS)
 
 # Needed for javadoc to ensure it builds documentation
 # against the newly built classes
