@@ -37,6 +37,8 @@ public class _Library {
 
     private static File testModules = new File("z.modules");
 
+    private static boolean verbose = System.getenv("JIGSAW_TRACE") != null;
+
     private static JigsawModuleSystem ms
 	= JigsawModuleSystem.instance();
 
@@ -146,7 +148,8 @@ public class _Library {
 
 	// Load configuration
 	Configuration<Context> cf = lib.readConfiguration(foomid);
-	cf.dump(System.out);
+        if (verbose)
+            cf.dump(System.out);
         eq(cf.roots().size(), 1);
 	eq(foomid, cf.roots().iterator().next());
         // FIXME: need to filter the contexts due to jdk modules
@@ -169,7 +172,8 @@ public class _Library {
 
 	// Then check its configuration
 	cf = lib.readConfiguration(ms.parseModuleId("net.baz.aar@9"));
-	cf.dump(System.out);
+        if (verbose)
+            cf.dump(System.out);
         eq(cf.roots().size(), 1);
 	eq(bazmid, cf.roots().iterator().next());
         // FIXME: need to filter the contexts due to jdk modules

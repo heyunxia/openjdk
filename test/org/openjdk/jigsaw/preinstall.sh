@@ -42,8 +42,7 @@ if [ "$ms" != "x@1 y@1" ]; then
   echo Wrong modules: "$ms"
   exit 1
 fi
-JIGSAW_TRACE=1 jmod config
-jmod show x@1
+jmod config
 $BIN/java -ea -L z.lib -m x
 exit 0
 

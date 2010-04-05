@@ -25,7 +25,6 @@
 
 # @test
 # @summary Unit test for basic library methods
-# @run shell/timeout=600 library.sh
 
 set -e
 
