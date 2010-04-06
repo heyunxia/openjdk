@@ -87,7 +87,7 @@ JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
 # FIXME: need to determine at build time
 MODULE_VERSION = 7-ea 
 
-all:: unpack-jars gen-classlist modularize install-modules
+all:: install-modules
 
 JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
 unpack-jars:
@@ -102,7 +102,7 @@ unpack-jars:
 	done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-gen-classlist:
+gen-classlist: unpack-jars
 	$(CD) tools && $(MAKE) all
 
 #
@@ -135,7 +135,12 @@ gen-classlist:
 # their .dll resides?  We need to make them available for 
 # troubleshooting and support purpose.
 #
-modularize:
+
+prep-module-lib:
+	$(RM) -rf $(JIGSAW_MODULE_LIB)
+	$(HOST_JMOD_CMD) create -N -L $(JIGSAW_MODULE_LIB)
+
+modularize: gen-classlist prep-module-lib
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(MODULES_DIR)
 	@$(MKDIR) -p $(MODULES_DIR)
@@ -175,10 +180,8 @@ modularize:
 	@$(CD) $(MODULE_CLASSES) && $(java-vm-cleanup)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-install-modules:
+install-modules: modularize
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
-	$(RM) -rf $(JIGSAW_MODULE_LIB)
-	$(HOST_JMOD_CMD) create -N -L $(JIGSAW_MODULE_LIB) ; \
 	$(CD) $(MODULES_DIR) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Installing module $$m" ; \
@@ -193,6 +196,8 @@ install-modules:
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 clean clobber::
-	$(RM) -rf $(MODULE_CLASSLIST)
+	$(RM) -rf $(ABS_MODULES_TEMPDIR)
 	$(RM) -rf $(MODULES_DIR)
-	$(RM) -rf $(MODULE_LIB)
+	$(RM) -rf $(JIGSAW_MODULE_LIB)
+
+.PHONY: unpack-jars gen-classlist prep-module-lib modularize install-modules

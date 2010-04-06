@@ -262,10 +262,6 @@ module ktab {
     class sun.security.krb5.internal.tools.Ktab;
 }
 
-module rmic {
-    class sun.rmi.rmic.Main;
-}
-
 module rmiregistry {
     class sun.rmi.registry.RegistryImpl;
 }
@@ -288,10 +284,6 @@ module wsgen {
 
 module wsimport {
     class com.sun.tools.internal.ws.WsImport;
-}
-
-module idlj {
-    class com.sun.tools.corba.se.idl.toJavaPortable.Compile;
 }
 
 module orbd {

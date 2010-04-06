@@ -93,11 +93,9 @@ endif
 MODULE_CLASSLIST = $(MODULES_TEMPDIR)/classlist
 BASE_MODULE = jdk.base
 
-all build: classanalyzer gen-classlist
+all build: gen-classlist
 
-classanalyzer: $(CLASSFILE_JAR_FILE) $(CLASSANALYZER_JAR_FILE) 
-
-gen-classlist:
+gen-classlist: $(CLASSFILE_JAR_FILE) $(CLASSANALYZER_JAR_FILE) 
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	@$(RM) -rf $(MODULE_CLASSLIST)
 	@$(RM) -rf $(MODULES_TEMPDIR)/src
@@ -121,13 +119,13 @@ $(BUILDTOOL_MANIFEST_FILE): $(BUILDTOOL_MAIN_SOURCE_FILE)
 
 $(BUILDTOOLCLASSDIR)/$(CLASSFILE_PKGDIR)/%.class : $(CLASSFILE_SRC)/$(CLASSFILE_PKGDIR)/%.java
 	@$(prep-target)
-	@$(HOST_JAVAC_CMD) $(TOOL_JAVAC_FLAGS) \
+	$(JAVAC_CMD) $(TOOL_JAVAC_FLAGS) \
             -sourcepath $(CLASSFILE_SRC) \
             -d $(BUILDTOOLCLASSDIR) $<
 
 $(BUILDTOOLCLASSDIR)/%.class : $(BUILDTOOL_SOURCE_ROOT)/%.java
 	@$(prep-target)
-	$(HOST_JAVAC_CMD) $(TOOL_JAVAC_FLAGS) \
+	$(JAVAC_CMD) $(TOOL_JAVAC_FLAGS) \
             -sourcepath $(BUILDTOOL_SOURCE_ROOT) \
             -d $(BUILDTOOLCLASSDIR) $<
 
@@ -151,3 +149,5 @@ clean clobber::
 	@$(RM) $(BUILDTOOL_MANIFEST_FILE)
 	@$(RM) $(CLASSANALYZER_JAR_FILE)
 	@$(RM) $(CLASSFILE_JAR_FILE)
+
+.PHONY: gen-classlist
