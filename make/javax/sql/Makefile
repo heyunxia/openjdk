@@ -28,7 +28,7 @@
 #
 
 BUILDDIR = ../..
-MODULE  = jdbc-enterprise
+MODULE  = jdbc
 PACKAGE = javax.sql
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk
