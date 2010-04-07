@@ -77,7 +77,7 @@ public class X {
             throw new Error();
         System.out.write(buf, 0, n);
         String v = new String(buf, 0, n, "US-ASCII");
-        if (!v.equals(ev + "\n"))
+        if (!v.trim().equals(ev))
             throw new AssertionError("Wrong value, expected " + ev);
     }
     private static void load(String rn, String ev)

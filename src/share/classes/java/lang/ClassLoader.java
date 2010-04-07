@@ -1525,21 +1525,6 @@ public abstract class ClassLoader {
         }
     }
 
-    // Temporary hack to add all non-boot modules to the boot class path,
-    // so that the legacy launcher works.  The long-term solution will be
-    // to create an adaptor class loader which delegates to Jigsaw module
-    // loaders but otherwise behaves like the present "application" class
-    // loader created by the legacy launcher.
-    //
-    private static void hackBootPath() {    // ## TEMPORARY
-        String[] mods = { "jdk.awt", "jdk.swing", "jdk.tools", "jdk" };
-        String jhlm = System.getProperty("java.home") + "/lib/modules/";
-        for (String m : mods) {
-            File f = new File(jhlm + m + "/7-ea/classes");
-            org.openjdk.jigsaw.BootLoader.extendBootPath(f);
-        }
-    }
-
     private static void initLegacySystemClassLoader() {
         sun.misc.Launcher l = sun.misc.Launcher.getLauncher();
         if (l != null) {
@@ -1554,7 +1539,6 @@ public abstract class ClassLoader {
                     oops = oops.getCause();
                 }
             }
-            hackBootPath();
             if (oops != null) {
                 if (oops instanceof Error) {
                     throw (Error) oops;

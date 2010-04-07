@@ -119,9 +119,13 @@ install() {
 #  && $BIN/jmod list
 }
 
+catfile() {
+  tr -d '\r' < $1
+}
+
 invoke() {
   if [ -e main ]; then
-    $BIN/java $VM_FLAGS -ea -L module-lib -m $(cat main)
+    $BIN/java $VM_FLAGS -ea -L module-lib -m $(catfile main)
   else
     true
   fi
@@ -143,7 +147,7 @@ step() {
 
 run() {
   test=$1
-  e=$(cat expected)
+  e=$(catfile expected)
   [ $tests = 1 ] || echo "-- $test $e"
   mkdir modules
   export JAVA_MODULES=module-lib

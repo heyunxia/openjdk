@@ -97,7 +97,32 @@ package net.baz.aar;
 public class Ness { }
 EOF
 
-$BIN/javac -source 7 -d z.modules -modulepath z.modules:z.modules.org.multi@1 \
+OS=`uname -s`
+case "$OS" in
+  SunOS )
+    PS=":"
+    FS="/"
+    ;;
+  Linux )
+    PS=":"
+    FS="/"
+    ;;
+  Windows* )
+    PS=";"
+    FS="\\"
+    ;;
+  CYGWIN* )
+    PS=";"
+    FS="\\"
+    isCygwin=true
+    ;;
+  * )
+    echo "Unrecognized system!"
+    exit 1;
+    ;;
+esac
+
+$BIN/javac -source 7 -d z.modules -modulepath z.modules${PS}z.modules.org.multi@1 \
   $(find z.src/net.baz.aar -name '*.java')
 
 $BIN/java -ea -cp z.classes _Library

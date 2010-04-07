@@ -189,7 +189,8 @@ public class _Library {
             "jstack", "jstat", "jstatd", "jvmstat", "keytool", "native2ascii",
             "orbd", "pack200", "policytool", "rmi.tools", "rmic",
             "rmid", "rmiregistry", "sajdi", "schemagen", "serialver",
-            "servertool", "tnameserv", "tools", "wsgen", "wsimport", "xjc"
+            "servertool", "tnameserv", "tools", "wsgen", "wsimport", "xjc",
+            "kinit", "klist", "ktab"
         };
 	for (Context dx : cf.contexts()) {
             if (dx.toString().startsWith("+jdk") || 

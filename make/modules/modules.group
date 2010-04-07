@@ -38,7 +38,6 @@
 
 module jdk.boot {
     include base;
-    include nio;
     include unpack200-tool;
     include jmod;
     class org.openjdk.jigsaw.Hi;    // testing
@@ -95,9 +94,7 @@ module sun.corba {
 }
 
 module sun.jdbc {
-    include jdbc-enterprise;
-    include jdbc-base;
-    include jdbc-odbc;
+    include jdbc;
 }
 
 module sun.kerberos {
@@ -109,6 +106,7 @@ module sun.legacy {
     include net-compat;
     include deprecated;
     include inputmethods-ext;
+    include jdbc-odbc;
 }
 
 module sun.sunpkcs11 {
@@ -138,6 +136,9 @@ module sun.xmldsig {
 
 module sun.xalan {
     include jaxp-xalan;
+}
+
+module sun.xerces {
     include jaxp-xerces-impl;
     include jaxp-xerces-resolver;
 }
