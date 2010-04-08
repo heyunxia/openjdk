@@ -180,7 +180,20 @@ modularize: gen-classlist prep-module-lib
 	@$(CD) $(MODULE_CLASSES) && $(java-vm-cleanup)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-install-modules: modularize
+#
+# Temporary workaround:
+# Copy orb.idl and ir.idl to idlj module
+# The *.idl files are imported during the build
+# 
+# A better fix would be in make/common/internal/ImportComponents.gmk
+# to install imported files in a module 
+IDLJ_MODULE=idlj
+ORB_IDL=$(MODULES_DIR)/$(IDLJ_MODULE)/lib/orb.idl
+IR_IDL=$(MODULES_DIR)/$(IDLJ_MODULE)/lib/ir.idl
+$(MODULES_DIR)/$(IDLJ_MODULE)/lib/%.idl : $(LIBDIR)/%.idl
+	$(install-non-module-file)
+
+install-modules: modularize $(ORB_IDL) $(IR_IDL)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(CD) $(MODULES_DIR) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \

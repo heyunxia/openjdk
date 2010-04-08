@@ -65,7 +65,8 @@ IMPORT_CORBA_BINARIES += \
 # Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
 # 
 IMPORT_RT_MODULES += \
-     sun.corba
+     sun.corba \
+     sun.enterprise
 
 IMPORT_TOOLS_MODULES += \
      idlj \

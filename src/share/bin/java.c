@@ -773,7 +773,29 @@ SetModulesBootClassPath(const char *jrepath)
     memcpy(def, vmoption, vmoption_len);
     memcpy(def+vmoption_len, s, slen);
     def[vmoption_len+slen] = '\0';
-    AddOption(def, NULL);
+
+    // Must be added before the user-specified -Xbootclasspath/p: arguments.   
+    // Hotspot VM prepends the given -Xbootclasspath/p: argument
+    // to the bootclasspath in the order of the input VM arguments.
+    // The second -Xbootclasspath/p: argument will be prepended
+    // to the first -Xbootclasspath/p: if multiple ones are given.
+
+    if (numOptions == 0) {
+        AddOption(def, NULL);
+    } else {
+        int newMaxOptions = maxOptions + 1;
+        JavaVMOption *new = JLI_MemAlloc(newMaxOptions * sizeof(JavaVMOption));
+        JavaVMOption *orig = new+1;
+        // Set the -Xbootclasspath/p option to be the first VM argument
+        new[0].optionString = def;
+        new[0].extraInfo = NULL;
+        memcpy(orig, options, numOptions * sizeof(JavaVMOption));
+        JLI_MemFree(options);
+        options = new;
+        maxOptions = newMaxOptions;
+        numOptions++;
+    }
+
     if (s != orig)
         JLI_MemFree((char *) s);
 }
