@@ -26,11 +26,12 @@
  * @bug     6380059
  * @summary Emit warnings for proprietary packages in the boot class path
  * @author  Peter von der Ah\u00e9
- * @compile WarnVariable.java
- * @compile/fail -Werror WarnVariable.java
- * @compile/fail -Werror -source 1.4 -nowarn WarnVariable.java
- * @compile/fail -Werror -nowarn WarnVariable.java
- * @compile/fail -Werror -Xlint:none WarnVariable.java
+ * @run main Test
+ * 	compile WarnVariable.java
+ * 	compile/fail -Werror WarnVariable.java
+ * 	compile/fail -Werror -source 1.4 -nowarn WarnVariable.java
+ * 	compile/fail -Werror -nowarn WarnVariable.java
+ * 	compile/fail -Werror -Xlint:none WarnVariable.java
  */
 
 public class WarnVariable {

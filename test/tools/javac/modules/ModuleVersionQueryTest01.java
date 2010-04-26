@@ -31,17 +31,25 @@ import java.io.*;
 import java.util.*;
 import com.sun.tools.classfile.*;
 
-public class ModuleVersionTest01 {
+public class ModuleVersionQueryTest01 {
     String[] values = {
         "0",
         "1",
         "2.3",
-        "3.4alpha"
+        "3.4alpha",
+        "(2:3]",
+        "[3:4]",
+        "<1",
+        "=2",
+        ">3",
+        "\"alpha\"",
+        "\"alpha beta\"",
+        "\"alpha,beta\""
     };
 
 
     public static void main(String[] args) throws Exception {
-        new ModuleVersionTest01().run();
+        new ModuleVersionQueryTest01().run();
     }
 
     void run() throws Exception {
@@ -65,10 +73,11 @@ public class ModuleVersionTest01 {
         count++;
         reset();
         List<File> files = new ArrayList<File>();
-        addFile(files, createFile("module-info.java", "module M @ " + version + " { }"));
+        addFile(files, createFile("m/module-info.java", "module M { requires N @ " + version + "; }"));
+        addFile(files, createFile("n/module-info.java", "module N @ " + version + " { }"));
         compile(files);
-        String moduleId = "M@" + unquote(version);
-        checkModuleAttribute("module-info.class", moduleId);
+        String moduleQuery = "N@" + unquote(version);
+        checkModuleRequiresAttribute("m/module-info.class", moduleQuery);
     }
 
     String unquote(String v) {
@@ -78,30 +87,36 @@ public class ModuleVersionTest01 {
             return v;
     }
 
-    void checkModuleAttribute(String file, String moduleId) throws IOException {
+    void checkModuleRequiresAttribute(String file, String moduleQuery) throws IOException {
         System.err.println("Checking " + file);
         try {
             ClassFile cf = ClassFile.read(new File(classesDir, file));
-            Module_attribute attr = (Module_attribute) cf.getAttribute(Attribute.Module);
+            ModuleRequires_attribute attr = (ModuleRequires_attribute) cf.getAttribute(Attribute.ModuleRequires);
             if (attr == null) {
-                if (moduleId != null)
-                    error("Module attribute not found; expected " + moduleId);
+                if (moduleQuery != null)
+                    error("ModuleRequires attribute not found; expected " + moduleQuery);
             } else {
-                if (moduleId == null) {
-                    error("Unexpected module attribute found: " + attr);
+                if (moduleQuery == null) {
+                    error("Unexpected ModuleRequires attribute found: " + attr);
                 } else {
                     String name, version;
-                    int sep = moduleId.indexOf("@");
+                    int sep = moduleQuery.indexOf("@");
                     if (sep == -1) {
-                        name = moduleId;
+                        name = moduleQuery;
                         version = null;
                     } else {
-                        name = moduleId.substring(0, sep);
-                        version = moduleId.substring(sep + 1);
+                        name = moduleQuery.substring(0, sep);
+                        version = moduleQuery.substring(sep + 1);
                     }
                     ConstantPool cp = cf.constant_pool;
-                    checkEqual("module name", name, attr.getModuleName(cp));
-                    checkEqual("module version", version, attr.getModuleVersion(cp));
+		    for (int i = 0; i < attr.requires_length; i++) {
+			ConstantPool.CONSTANT_ModuleId_info r = cp.getModuleIdInfo(attr.requires_table[i].requires_index);
+			String rn = r.getName();
+			String rv = r.getVersion();
+			if (name.equals(rn) && (version == null ? rv == null : version.equals(rv)))
+			    return;
+		    }
+		    error("module query not found");
                 }
             }
         } catch (ConstantPoolException e) {
@@ -122,7 +137,8 @@ public class ModuleVersionTest01 {
      */
     void compile(List<File> files) {
         List<String> options = new ArrayList<String>();
-        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath()));
+        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath(), "-modulepath", classesDir.getPath(), 
+					"-XDzeroMod"));
         for (File f: files)
             options.add(f.getPath());
 
@@ -205,3 +221,4 @@ public class ModuleVersionTest01 {
     File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
     File classesDir = new File("tmp", "classes");
 }
+

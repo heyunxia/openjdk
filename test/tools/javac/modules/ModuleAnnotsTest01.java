@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,39 +21,32 @@
  * have any questions.
  */
 
+
 /*
  * @test
  * @bug 6802521
- * @summary add support for modules: test version strings
+ * @summary add support for modules: test annotations in module-info.java
  */
 
 import java.io.*;
 import java.util.*;
 import com.sun.tools.classfile.*;
 
-public class ModuleVersionTest01 {
-    String[] values = {
-        "0",
-        "1",
-        "2.3",
-        "3.4alpha"
-    };
-
-
+public class ModuleAnnotsTest01 {
     public static void main(String[] args) throws Exception {
-        new ModuleVersionTest01().run();
+        new ModuleAnnotsTest01().run();
     }
 
     void run() throws Exception {
-        for (String v: values) {
-            try {
-                System.err.println("Test " + v);
-                test(v);
-            } catch (Throwable t) {
-                t.printStackTrace();
-                errors++;
-            }
-        }
+	count++;
+        File testDir = new File("test" + count);
+        srcDir = new File(testDir, "src");
+        classesDir = new File(testDir, "classes");
+        resetDirs(srcDir, classesDir);
+
+	File f = createFile("module-info.java", "@Deprecated module x { }");
+	compile(Arrays.asList(f));
+	checkAnnotations("module-info.class", "java.lang.Deprecated");
 
         if (errors == 0)
             System.out.println(count + " tests passed");
@@ -61,49 +54,26 @@ public class ModuleVersionTest01 {
             throw new Exception(errors + "/" + count + " tests failed");
     }
 
-    void test(String version) throws Exception {
-        count++;
-        reset();
-        List<File> files = new ArrayList<File>();
-        addFile(files, createFile("module-info.java", "module M @ " + version + " { }"));
-        compile(files);
-        String moduleId = "M@" + unquote(version);
-        checkModuleAttribute("module-info.class", moduleId);
-    }
-
-    String unquote(String v) {
-        if (v.startsWith("\"") && v.endsWith("\""))
-            return v.substring(1, v.length() - 1);
-        else
-            return v;
-    }
-
-    void checkModuleAttribute(String file, String moduleId) throws IOException {
+    void checkAnnotations(String file, String... annots) {
         System.err.println("Checking " + file);
         try {
             ClassFile cf = ClassFile.read(new File(classesDir, file));
-            Module_attribute attr = (Module_attribute) cf.getAttribute(Attribute.Module);
+            RuntimeVisibleAnnotations_attribute attr = 
+	 	(RuntimeVisibleAnnotations_attribute) cf.getAttribute(Attribute.RuntimeVisibleAnnotations);
             if (attr == null) {
-                if (moduleId != null)
-                    error("Module attribute not found; expected " + moduleId);
+                error("RuntimeVisibleAnnotations attribute not found; expected " + Arrays.asList(annots));
             } else {
-                if (moduleId == null) {
-                    error("Unexpected module attribute found: " + attr);
-                } else {
-                    String name, version;
-                    int sep = moduleId.indexOf("@");
-                    if (sep == -1) {
-                        name = moduleId;
-                        version = null;
-                    } else {
-                        name = moduleId.substring(0, sep);
-                        version = moduleId.substring(sep + 1);
-                    }
-                    ConstantPool cp = cf.constant_pool;
-                    checkEqual("module name", name, attr.getModuleName(cp));
-                    checkEqual("module version", version, attr.getModuleVersion(cp));
-                }
+		Set<String> expect = new TreeSet(Arrays.asList(annots));
+		Set<String> found = new TreeSet();
+		for (Annotation a: attr.annotations) {
+		    found.add(getAnnotName(cf.constant_pool, a));
+		}
+		if (!found.equals(expect)) {
+		    error("mismatch\nexpected: " + expect + "\nfound: " + found);
+		}
             }
+        } catch (Descriptor.InvalidDescriptor e) {
+            error("Invalid descriptor " + e);
         } catch (ConstantPoolException e) {
             error("Error accessing constant pool " + file + ": " + e);
         } catch (IOException e) {
@@ -111,10 +81,9 @@ public class ModuleVersionTest01 {
         }
     }
 
-    <T> void checkEqual(String tag, T expect, T found) {
-        if (expect == null ? found == null : expect.equals(found))
-            return;
-        error(tag + " mismatch", "expected " + expect, "found: " + found);
+    String getAnnotName(ConstantPool cp, Annotation a) throws ConstantPoolException, Descriptor.InvalidDescriptor {
+    	Descriptor d = new Descriptor(a.type_index);
+        return d.getFieldType(cp);
     }
 
     /**
@@ -140,15 +109,6 @@ public class ModuleVersionTest01 {
     }
 
     /**
-     * Add a file to a list if the file is not null.
-     */
-    void addFile(List<File> files, File file) {
-        if (file != null)
-            files.add(file);
-    }
-
-
-    /**
      * Create a test file with given content if the content is not null.
      */
     File createFile(String path, String body) throws IOException {
@@ -163,20 +123,14 @@ public class ModuleVersionTest01 {
     }
 
     /**
-     * Set up empty src and classes directories for a test.
+     * Set up empty directories.
      */
-    void reset() {
-        resetDir(srcDir);
-        resetDir(classesDir);
-    }
-
-    /**
-     * Set up an empty directory.
-     */
-    void resetDir(File dir) {
-        if (dir.exists())
-            deleteAll(dir);
-        dir.mkdirs();
+    void resetDirs(File... dirs) {
+        for (File dir: dirs) {
+            if (dir.exists())
+                deleteAll(dir);
+            dir.mkdirs();
+        }
     }
 
     /**
@@ -200,8 +154,8 @@ public class ModuleVersionTest01 {
         errors++;
     }
 
+    File srcDir;
+    File classesDir;
     int count;
     int errors;
-    File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
-    File classesDir = new File("tmp", "classes");
 }

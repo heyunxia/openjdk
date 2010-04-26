@@ -32,7 +32,7 @@ import java.util.*;
 import com.sun.tools.classfile.*;
 
 public class ModuleRequiresAttributeTest01 {
-    enum Flag { PRIVATE, OPTIONAL, LOCAL;
+    enum Flag { PUBLIC, OPTIONAL, LOCAL;
         static Flag of(String s) {
             for (Flag f: values()) {
                 if (f.toString().toLowerCase().equals(s))
@@ -49,7 +49,7 @@ public class ModuleRequiresAttributeTest01 {
     void run() throws Exception {
         for (int i = 0; i < (1 << Flag.values().length); i++) {
             Set<Flag> flags = new LinkedHashSet<Flag>();
-            if ((i & 4) != 0) flags.add(Flag.PRIVATE);
+            if ((i & 4) != 0) flags.add(Flag.PUBLIC);
             if ((i & 2) != 0) flags.add(Flag.OPTIONAL);
             if ((i & 1) != 0) flags.add(Flag.LOCAL);
             for (MultiKind k: MultiKind.values()) {

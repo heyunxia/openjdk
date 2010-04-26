@@ -11,6 +11,15 @@ import sun.misc.*;
 
 public class T6873845 {
     public static void main(String... args) throws Exception {
+	File javaHome = new File(System.getProperty("java.home"));
+	if (javaHome.getName().equals("jre"))
+	    javaHome = javaHome.getParentFile();
+	if (file(javaHome, "lib", "modules", "%jigsaw-library").exists()
+		&& !file(javaHome, "lib", "ct.sym").exists()) {
+	    System.err.println("PASS BY DEFAULT: modular JDK found with no ct.sym");
+	    return;
+	}
+
         new T6873845().run();
     }
 
@@ -80,5 +89,13 @@ public class T6873845 {
     private File testSrc = new File(System.getProperty("test.src", "."));
     private File testClasses = new File(System.getProperty("test.classes", "."));
     private String newline = System.getProperty("line.separator");
+
+
+    static File file(File dir, String... path) {
+	File f = dir;
+	for (String p: path) 
+	    f = new File(f, p);
+	return f;
+    }
 }
 

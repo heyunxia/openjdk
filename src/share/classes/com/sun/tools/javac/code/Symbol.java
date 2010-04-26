@@ -646,7 +646,7 @@ public abstract class Symbol implements Element {
             this.flags = flags;
         }
 
-        public ModuleElement.ModuleId getModuleId() {
+        public ModuleElement.ModuleIdQuery getModuleIdQuery() {
             return moduleId;
         }
 
@@ -654,6 +654,9 @@ public abstract class Symbol implements Element {
             return flags;
         }
 
+        public String toString() {
+            return "ModuleRequires[" + flags + "," + moduleId + "]";
+        }
     }
 
     /** A class for module symbols.
@@ -685,6 +688,10 @@ public abstract class Symbol implements Element {
             this.fullname = formFullName(name, owner);
         }
 
+        public ClassFile.ModuleId getModuleId() {
+            return new ClassFile.ModuleId(fullname, version);
+        }
+
         public java.util.List<Symbol.ModuleRequires> getRequires() {
             List<Symbol.ModuleRequires> l = List.nil();
             for (Symbol.ModuleRequires mr: requires.values()) {
@@ -695,7 +702,10 @@ public abstract class Symbol implements Element {
 
         @Override
         public String toString() {
-            String n = fullname== null ? "<unknown>" : String.valueOf(fullname); // null-safe
+            // the following strings should be localized
+            String n = (fullname == null) ? "<unknown>"
+                    : (fullname.isEmpty()) ? "<unnamed>"
+                    : String.valueOf(fullname);
             return (version == null) ? n : n + "@" + version;
         }
 

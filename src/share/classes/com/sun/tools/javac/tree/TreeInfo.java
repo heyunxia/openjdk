@@ -334,6 +334,10 @@ public class TreeInfo {
                 return getStartPos(node.annots.head);
             break;
         }
+        case(JCTree.MODULE_ID): {
+            JCModuleId node = (JCModuleId)tree;
+            return getStartPos(node.qualId);
+        }
         case(JCTree.ERRONEOUS): {
             JCErroneous node = (JCErroneous)tree;
             if (node.errs != null && node.errs.nonEmpty())
