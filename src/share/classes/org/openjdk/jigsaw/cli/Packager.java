@@ -620,7 +620,6 @@ public class Packager {
             throw new AssertionError(x);
         }
         out.format("%n");
-        System.exit(0);
     }
 
     public void run(String[] args) throws OptionException, Command.Exception {
@@ -748,19 +747,25 @@ public class Packager {
                .describedAs("dir")
                .ofType(File.class));
 
-        if (args.length == 0)
+        if (args.length == 0) {
             usage();
+	    return;
+	}
 
 	OptionSet opts = parser.parse(args);
-	if (opts.has("h"))
+	if (opts.has("h")) {
 	    usage();
+	    return;
+	}
 	if (opts.has("v"))
 	    verbose = true;
 	if (opts.has("fast"))
 	    fast = true;
 	java.util.List<String> words = opts.nonOptionArguments();
-	if (words.isEmpty())
+	if (words.isEmpty()) {
 	    usage();
+	    return;
+	}
 	String verb = words.get(0);
 	Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
 	if (cmd == null)
