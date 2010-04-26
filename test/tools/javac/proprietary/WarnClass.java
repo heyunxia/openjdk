@@ -26,11 +26,12 @@
  * @bug     6380059
  * @summary Emit warnings for proprietary packages in the boot class path
  * @author  Peter von der Ah\u00e9
- * @compile WarnClass.java
- * @compile/fail -Werror WarnClass.java
- * @compile/fail -Werror -source 1.4 -nowarn WarnClass.java
- * @compile/fail -Werror -nowarn WarnClass.java
- * @compile/fail -Werror -Xlint:none WarnClass.java
+ * @run main Test
+ * 	compile WarnClass.java
+ * 	compile/fail -Werror WarnClass.java
+ * 	compile/fail -Werror -source 1.4 -nowarn WarnClass.java
+ * 	compile/fail -Werror -nowarn WarnClass.java
+ * 	compile/fail -Werror -Xlint:none WarnClass.java
  */
 
 public class WarnClass extends sun.misc.Lock {}

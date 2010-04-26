@@ -2648,16 +2648,8 @@ public class ClassReader implements Completer {
         if (p.members_field == null) p.members_field = new Scope(p);
         String packageName = p.fullname.toString();
 
-        Set<JavaFileObject.Kind> kinds = getPackageFileKinds();
-
-        fillIn(p, PLATFORM_CLASS_PATH,
-               fileManager.list(PLATFORM_CLASS_PATH,
-                                packageName,
-                                EnumSet.of(JavaFileObject.Kind.CLASS),
-                                false));
-
+        //System.err.println("ClassReader.fillIn using pathLocation " + (pathLocation != null));
         if (pathLocation != null) {
-            //System.err.println("ClassReader.fillIn using pathLocation " + pathLocation);
             fillIn(p, pathLocation,
                     fileManager.list(pathLocation,
                                     packageName,
@@ -2665,6 +2657,14 @@ public class ClassReader implements Completer {
                                     false));
             return;
         }
+
+        fillIn(p, PLATFORM_CLASS_PATH,
+               fileManager.list(PLATFORM_CLASS_PATH,
+                                packageName,
+                                EnumSet.of(JavaFileObject.Kind.CLASS),
+                                false));
+
+        Set<JavaFileObject.Kind> kinds = getPackageFileKinds();
 
         Set<JavaFileObject.Kind> classKinds = EnumSet.copyOf(kinds);
         classKinds.remove(JavaFileObject.Kind.SOURCE);

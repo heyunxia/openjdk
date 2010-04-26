@@ -28,6 +28,9 @@ package com.sun.tools.javac.main;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URL;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 import java.util.MissingResourceException;
 
 import com.sun.tools.javac.code.Source;
@@ -41,6 +44,8 @@ import com.sun.tools.javac.processing.AnnotationProcessingError;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.annotation.processing.Processor;
+
+import static com.sun.tools.javac.main.OptionName.*;
 
 /** This class provides a commandline interface to the GJC compiler.
  *
@@ -279,9 +284,49 @@ public class Main {
                 }
             }
         }
+
         if (target.hasInvokedynamic()) {
             options.put("invokedynamic",  "invokedynamic");
         }
+
+        OptionName[] bootclasspathOptions = {
+//            XBOOTCLASSPATH_PREPEND,
+            ENDORSEDDIRS,
+//            BOOTCLASSPATH,
+//            XBOOTCLASSPATH_APPEND,
+            EXTDIRS
+        };
+        OptionName[] moduleOptions = {
+            L,
+            MODULEPATH
+        };
+        List<OptionName> bcpOpts = List.nil();
+        List<OptionName> mOpts = List.nil();
+        for (OptionName n: bootclasspathOptions) {
+            if (options.get(n) != null)
+                bcpOpts = bcpOpts.prepend(n);
+        }
+        for (OptionName n: moduleOptions) {
+            if (options.get(n) != null)
+                mOpts = mOpts.prepend(n);
+        }
+        if (bcpOpts.nonEmpty() && mOpts.nonEmpty()) {
+            error("err.conficting.options", bcpOpts.head.optionName, mOpts.head.optionName);
+            return null;
+        }
+        if (mOpts.nonEmpty() && !source.allowModules()) {
+            error("err.option.not.supported.in.source", mOpts.head.optionName, source.name);
+            return null;
+        }
+
+        // handle this here so it works even if no other options given
+        String showClass = options.get("showClass");
+        if (showClass != null) {
+            if (showClass.equals("showClass")) // no value given for option
+                showClass = "com.sun.tools.javac.Main";
+            showClass(showClass);
+        }
+
         return filenames.toList();
     }
     // where
@@ -487,6 +532,36 @@ public class Main {
         Log.printLines(out,
                        getLocalizedString("msg.proc.annotation.uncaught.exception"));
         ex.getCause().printStackTrace();
+    }
+
+    void showClass(String className) {
+        out.println("javac: show class: " + className);
+        URL url = getClass().getResource('/' + className.replace('.', '/') + ".class");
+        if (url == null)
+            out.println("  class not found");
+        else {
+            out.println("  " + url);
+            try {
+                final String algorithm = "MD5";
+                byte[] digest;
+                MessageDigest md = MessageDigest.getInstance(algorithm);
+                DigestInputStream in = new DigestInputStream(url.openStream(), md);
+                try {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    do { n = in.read(buf); } while (n > 0);
+                    digest = md.digest();
+                } finally {
+                    in.close();
+                }
+                StringBuilder sb = new StringBuilder();
+                for (byte b: digest)
+                    sb.append(String.format("%02x", b));
+                out.println("  " + algorithm + " checksum: " + sb);
+            } catch (Exception e) {
+                out.println("  cannot compute digest: " + e);
+            }
+        }
     }
 
     private JavaFileManager fileManager;

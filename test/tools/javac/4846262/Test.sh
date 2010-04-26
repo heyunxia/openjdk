@@ -28,6 +28,7 @@
 # @bug 4846262
 # @summary check that javac operates correctly in EBCDIC locale
 
+set -x
 
 if [ "${TESTSRC}" = "" ]
 then

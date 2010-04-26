@@ -32,6 +32,8 @@
 
 import java.io.*;
 import java.util.*;
+import java.util.jar.*;
+import java.util.zip.*;
 import javax.tools.*;
 
 import com.sun.tools.javac.file.JavacFileManager;
@@ -58,8 +60,15 @@ public class TestInferBinaryName {
     }
 
     void run() throws Exception {
+        javaHome = new File(System.getProperty("java.home"));
+        if (javaHome.getName().equals("jre"))
+            javaHome = javaHome.getParentFile();
+	modularJDK = file(javaHome, "lib", "modules", "%jigsaw-library").exists();
+	
         //System.err.println(System.getProperties());
         testDirectory();
+	testUserJar_ZipArchive();
+	testUserJar_ZipFileIndex();
         testSymbolArchive();
         testZipArchive();
         testZipFileIndexArchive();
@@ -69,42 +78,91 @@ public class TestInferBinaryName {
     }
 
     void testDirectory() throws IOException {
+	String testName = "testDirectory";
         String testClassName = "p.A";
         JavaFileManager fm =
             getFileManager("test.classes", USE_SYMBOL_FILE, USE_ZIP_FILE_INDEX);
-        test("testDirectory",
+        test(testName,
              fm, testClassName, "com.sun.tools.javac.file.RegularFileObject");
     }
 
+    void testUserJar_ZipArchive() throws IOException {
+	String testName = "testUserJar_ZipArchive";
+        String testClassName = "p.A";
+	File my_jar = createJar("my.jar", getClasses(p.A.class));
+	System.setProperty("my.jar", my_jar.getPath());
+
+        JavaFileManager fm =
+            getFileManager("my.jar", USE_SYMBOL_FILE, DONT_USE_ZIP_FILE_INDEX);
+        test(testName,
+             fm, testClassName, "com.sun.tools.javac.file.ZipArchive$ZipFileObject");
+    }
+
+    void testUserJar_ZipFileIndex() throws IOException {
+	String testName = "testUserJar_ZipFileIndex";
+        String testClassName = "p.A";
+	File my_jar = createJar("my.jar", getClasses(p.A.class));
+	System.setProperty("my.jar", my_jar.getPath());
+
+        JavaFileManager fm =
+            getFileManager("my.jar", USE_SYMBOL_FILE, USE_ZIP_FILE_INDEX);
+        test(testName,
+             fm, testClassName, "com.sun.tools.javac.file.ZipFileIndexArchive$ZipFileIndexFileObject");
+    }
+
     void testSymbolArchive() throws IOException {
+	String testName = "testSymbolArchive";
+	if (modularJDK && !file(javaHome, "lib", "ct.sym").exists()) {
+	    skip(testName, "modular JDK found with no ct.sym");
+	    return;
+	}
+	    
         String testClassName = "java.lang.String";
         JavaFileManager fm =
             getFileManager("sun.boot.class.path", USE_SYMBOL_FILE, DONT_USE_ZIP_FILE_INDEX);
-        test("testSymbolArchive",
+        test(testName,
              fm, testClassName, "com.sun.tools.javac.file.SymbolArchive$SymbolFileObject");
     }
 
     void testZipArchive() throws IOException {
+	String testName = "testZipArchive";
+	if (modularJDK) {
+	    skip(testName, "assumes impl for platform classes");
+	    return;
+	}
+
         String testClassName = "java.lang.String";
         JavaFileManager fm =
             getFileManager("sun.boot.class.path", IGNORE_SYMBOL_FILE, DONT_USE_ZIP_FILE_INDEX);
-        test("testZipArchive",
+        test(testName,
              fm, testClassName, "com.sun.tools.javac.file.ZipArchive$ZipFileObject");
     }
 
     void testZipFileIndexArchive() throws IOException {
+	String testName = "testZipFileIndexArchive";
+	if (modularJDK) {
+	    skip(testName, " assumes impl for platform classes");
+	    return;
+	}
+
         String testClassName = "java.lang.String";
         JavaFileManager fm =
             getFileManager("sun.boot.class.path", USE_SYMBOL_FILE, USE_ZIP_FILE_INDEX);
-        test("testZipFileIndexArchive",
+        test(testName,
              fm, testClassName, "com.sun.tools.javac.file.ZipFileIndexArchive$ZipFileIndexFileObject");
     }
 
     void testZipFileIndexArchive2() throws IOException {
+	String testName = "testZipFileIndexArchive2";
+	if (modularJDK) {
+	    skip(testName, "assumes impl for platform classes");
+	    return;
+	}
+
         String testClassName = "java.lang.String";
         JavaFileManager fm =
             getFileManager("sun.boot.class.path", IGNORE_SYMBOL_FILE, USE_ZIP_FILE_INDEX);
-        test("testZipFileIndexArchive2",
+        test(testName,
              fm, testClassName, "com.sun.tools.javac.file.ZipFileIndexArchive$ZipFileIndexFileObject");
     }
 
@@ -170,7 +228,64 @@ public class TestInferBinaryName {
         }
     }
 
+    Map<String,byte[]> getClasses(Class... classes) throws IOException {
+	ClassLoader cl = getClass().getClassLoader();
+	Map<String,byte[]> results = new HashMap<String, byte[]>();
+	for (Class c: classes) {
+	    String name = c.getName().replace(".", "/") + ".class";
+	    byte[] data = read(cl.getResourceAsStream(name));
+	    results.put(name, data);
+	}
+	return results;
+    }
+
+    byte[] read(InputStream in) throws IOException {
+	try {
+	    byte[] data = new byte[8192];
+	    int offset = 0;
+	    int n;
+	    while ((n = in.read(data, offset, data.length - offset)) >= 0) {
+		offset += n;
+	        if (offset == data.length) 
+		    data = Arrays.copyOf(data, 2 * data.length);
+	    }
+	    return data;
+	} finally {
+	    in.close();
+	}
+    }
+
+    File createJar(String name, Map<String, byte[]> entries) throws IOException {
+        File jar = new File(name);
+        OutputStream out = new FileOutputStream(jar);
+        try {
+            JarOutputStream jos = new JarOutputStream(out);
+            for (Map.Entry<String,byte[]> e: entries.entrySet()) {
+                jos.putNextEntry(new ZipEntry(e.getKey()));
+                jos.write(e.getValue());
+            }
+            jos.close();
+        } finally {
+            out.close();
+        }
+        return jar;
+    }
+
+    void skip(String testName, String reason) {
+	System.err.println(testName + " skipped: " + reason);
+    }
+
     private int errors;
+
+    File javaHome;
+    boolean modularJDK;
+
+    static File file(File dir, String... path) {
+	File f = dir;
+	for (String p: path) 
+	    f = new File(f, p);
+	return f;
+    }
 }
 
 class A { }

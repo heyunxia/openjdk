@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,19 +23,36 @@
 
 /*
  * @test
- * @bug     6380059
- * @summary Emit warnings for proprietary packages in the boot class path
- * @author  Peter von der Ah\u00e9
- * @run main Test
- * 	compile WarnMethod.java
- * 	compile/fail -Werror WarnMethod.java
- * 	compile/fail -Werror -source 1.4 -nowarn WarnMethod.java
- * 	compile/fail -Werror -nowarn WarnMethod.java
- * 	compile/fail -Werror -Xlint:none WarnMethod.java
+ * @summary simple compilation -- requires java.awt
+ * @build TestRunner
+ * @run main HelloAWTTest
  */
 
-public class WarnMethod {
-    public static void main(String... args) {
-        System.out.println(sun.misc.VM.getFinalRefCount());
+import java.io.*;
+
+public class HelloAWTTest extends TestRunner {
+    public static void main(String... args) throws Exception {
+	new HelloAWTTest().run();
     }
+
+    void run() throws Exception {
+	setModuleCompilationMode(ModuleCompilationMode.NO_MODULES);
+	setCommandLineFiles(createFile("HelloAWT.java", hw));
+	setExpectedClasses("HelloAWT");
+	test();
+	summary();
+    }
+
+    String[] hw = {
+	"import java.awt.Frame;",
+	"import java.awt.Label;",
+	"class HelloAWT {",
+	"    public static void main(String... args) {",
+	"	Frame f = new Frame();",
+	"	f.add(new Label(\"Hello World!\"));",
+	"	f.pack();",
+	"	f.setVisible(true);",
+	"    }",
+	"}"
+    };
 }

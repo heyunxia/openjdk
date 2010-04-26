@@ -177,7 +177,7 @@ class RegularFileObject extends BaseFileObject {
             //System.err.println("RegularFileObject.inferModuleTag.pn " + Arrays.asList(pn) + " " + pn.length);
             for (int i = pn.length - 1; i >= 0; i--) {
                 String n = fn.getName();
-                if (n.equalsIgnoreCase(pn[i]))
+                if (n.equalsIgnoreCase(pn[i])) // FIXME: should be File.equals
                     fn = fn.getParentFile();
                 else
                     return null;

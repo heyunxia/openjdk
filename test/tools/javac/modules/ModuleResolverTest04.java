@@ -144,6 +144,14 @@ public class ModuleResolverTest04 {
         add(opts, "-d", modulesDir.getPath());
         add(opts, "-XDrawDiagnostics");
 
+	// *** NOTE ***
+	// Jigsaw does not currently provide enough diagnostic info to support this test,
+	// so for now, we retain it as an explicit test for the zeroMod module resolver.
+	// Eventually, we will need a test of the diagnostics that are generated when
+	// we fail to resolve modules, but for that to happen, Jigsaw itself must provide
+	// more details.
+	add(opts, "-XDzeroMod");
+
         boolean srcPath = false;
         List<File> files = new ArrayList<File>();
 
