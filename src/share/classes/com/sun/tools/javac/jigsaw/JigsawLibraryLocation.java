@@ -35,6 +35,7 @@ import java.io.Writer;
 import java.lang.module.ModuleId;
 import java.net.URI;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
@@ -83,12 +84,17 @@ public class JigsawLibraryLocation implements ExtendedLocation {
         ListBuffer<JavaFileObject> results = new ListBuffer<JavaFileObject>();
         packageName = normalize(packageName);
         String subpackagePrefix = packageName + ".";
-        for (String cn: library.listClasses(mid, true)) {
-            //DEBUG("LIST raw " + cn);
-            cn = normalize(cn);
-            String pn = packagePart(cn);
-            if (pn.equals(packageName) || (recurse && pn.startsWith(subpackagePrefix))) {
-                results.add(new LibraryFileObject(library, mid, cn));
+        for (Library l = library; l != null; l = l.parent()) {
+            List<String> classes = l.listLocalClasses(mid, true);
+            if (classes != null) {
+                for (String cn: classes) {
+                    //DEBUG("LIST raw " + cn);
+                    cn = normalize(cn);
+                    String pn = packagePart(cn);
+                    if (pn.equals(packageName) || (recurse && pn.startsWith(subpackagePrefix))) {
+                        results.add(new LibraryFileObject(library, mid, cn));
+                    }
+                }
             }
         }
         DEBUG("JigsawLibraryLocation:" + library + ":" + mid + ": list " + packageName + "," + kinds + "--" + (results.size() < 5 ? results : (results.size() + " classes")));

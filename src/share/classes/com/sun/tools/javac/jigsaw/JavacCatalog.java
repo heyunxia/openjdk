@@ -65,7 +65,7 @@ public class JavacCatalog  extends Catalog {
     private Map<String, Map<Version, ModuleSymbol>> moduleMap =
             new HashMap<String, Map<Version, ModuleSymbol>>();
 
-    boolean DEBUG = (System.getProperty("javac.debug.modules") != null);
+    boolean DEBUG = true; // (System.getProperty("javac.debug.modules") != null);
     void DEBUG(String s) {
         if (DEBUG)
             System.err.println(s);
@@ -114,7 +114,7 @@ public class JavacCatalog  extends Catalog {
 
     @Override
     protected void gatherLocalModuleIds(String moduleName, Set<ModuleId> mids) throws IOException {
-	DEBUG("JavacCatalog.gatherLocalModuleIds");
+	DEBUG("JavacCatalog.gatherLocalModuleIds: " + moduleName);
         Collection<Map<Version,ModuleSymbol>> maps;
         if (moduleName != null) {
             Map<Version,ModuleSymbol> syms = moduleMap.get(moduleName);
@@ -246,25 +246,29 @@ public class JavacCatalog  extends Catalog {
             DEBUG("JavacModuleInfo: msym: " + msym + "[id:" + id + " permits:" + permits + " provides:" + provides + " requires:" + requires + " mainClass:" + mainClass + "]");
         }
 
+        @Override
         public ModuleId id() {
             return id;
         }
 
+        @Override
         public String mainClass() {
             return mainClass;
         }
 
+        @Override
         public Set<String> permits() {
             return permits;
         }
 
+        @Override
         public Set<ModuleId> provides() {
             return provides;
         }
 
+        @Override
         public Set<Dependence> requires() {
             return requires;
         }
     }
-
 }
