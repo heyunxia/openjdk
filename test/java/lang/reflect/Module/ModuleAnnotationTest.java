@@ -41,7 +41,7 @@ import org.openjdk.jigsaw.*;
 /*
  * @summary Test reading of annotations from the input module-info.class
  * This references test/java/lang/annotation/UnitTest.java.
- * 
+ *
  */
 public class ModuleAnnotationTest {
     private static JigsawModuleSystem ms = JigsawModuleSystem.instance();
@@ -69,7 +69,7 @@ public class ModuleAnnotationTest {
            throw new RuntimeException("Test failed: " + failCount);
         }
     }
- 
+
     static void loadModule(Library lb, ModuleId mid) throws Exception {
         ModuleInfo mi = lb.readModuleInfo(mid);
         if (mi == null)
@@ -82,12 +82,12 @@ public class ModuleAnnotationTest {
         checkModule(module);
     }
 
-    static void checkModule(Module module) throws Exception { 
+    static void checkModule(Module module) throws Exception {
         if (module.isAnnotationPresent(ScalarTypes.class) &&
             module.isAnnotationPresent(ArrayTypes.class)) {
             checkScalarTypes(module.getAnnotation(ScalarTypes.class), module);
             checkArrayTypes(module.getAnnotation(ArrayTypes.class), module);
-        } else if (module.isAnnotationPresent(ScalarTypesWithDefault.class) && 
+        } else if (module.isAnnotationPresent(ScalarTypesWithDefault.class) &&
                    module.isAnnotationPresent(ArrayTypesWithDefault.class)) {
             checkScalarTypes(module.getAnnotation(ScalarTypesWithDefault.class), module);
             checkArrayTypes(module.getAnnotation(ArrayTypesWithDefault.class), module);
@@ -109,7 +109,7 @@ public class ModuleAnnotationTest {
               st.e()    == Stooge.MOE   &&
               st.a().x() == 1 && st.a().y() == 2))
             fail(m.getModuleId() + ": unexpected ScalarTypes");
-        
+
         Class<?> cls = st.cls();
         if (cls != java.util.Map.class) {
             fail(m.getModuleId() + ": ScalarTypes.cls() returns unexpected value " + cls);

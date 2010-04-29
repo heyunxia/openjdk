@@ -101,7 +101,7 @@ public class Strings {
     public static boolean isNullOrEmpty( String target ) {
         return target == null || EMPTY.equals( target );
     }
-    
+
 
     /**
      * <p>Gives a string consisting of a given string prepended and appended with

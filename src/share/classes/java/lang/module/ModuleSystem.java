@@ -31,8 +31,8 @@ import org.openjdk.jigsaw.JigsawModuleSystem;
 public abstract class ModuleSystem {
 
     static class ModuleSystemHolder {
-        // lazy initialize this static field to eliminate the 
-        // class initialization cycle 
+        // lazy initialize this static field to eliminate the
+        // class initialization cycle
         static ModuleSystem base = JigsawModuleSystem.instance();
     }
 
@@ -81,15 +81,15 @@ public abstract class ModuleSystem {
     }
 
     public final ModuleIdQuery parseModuleIdQuery(String midq) {
-	int i = midq.indexOf('@');
-	String mn;
-	VersionQuery vq = null;
-	if (i < 0) {
-	    mn = midq;
-	} else {
-	    mn = midq.substring(0, i);
-	    vq = parseVersionQuery(midq.substring(i + 1));
-	}
-	return new ModuleIdQuery(mn, vq);
+        int i = midq.indexOf('@');
+        String mn;
+        VersionQuery vq = null;
+        if (i < 0) {
+            mn = midq;
+        } else {
+            mn = midq.substring(0, i);
+            vq = parseVersionQuery(midq.substring(i + 1));
+        }
+        return new ModuleIdQuery(mn, vq);
     }
 }

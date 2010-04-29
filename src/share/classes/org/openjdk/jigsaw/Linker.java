@@ -89,7 +89,7 @@ final class Linker {
         cxs = c;
      }
 
-
+
     // -- 3. Resolve local suppliers --
     //
     // For a context containing just one module, resolving local suppliers is
@@ -136,7 +136,7 @@ final class Linker {
         }
     }
 
-
+
     // -- 4. Resolve remote suppliers --
     //
     // To resolve remote suppliers we first compute, for each context, the

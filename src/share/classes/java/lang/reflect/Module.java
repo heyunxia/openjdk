@@ -117,7 +117,7 @@ public final class Module
             return annotationsMap;
 
         // module-info.class is not loaded in the VM as a Class object
-        // we can't use sun.reflect.annotation.AnnotationParser here 
+        // we can't use sun.reflect.annotation.AnnotationParser here
         annotationsMap = new LinkedHashMap<Class<? extends Annotation>, Annotation>();
         for (Annotation a: sun.misc.SharedSecrets.
                                getJavaLangModuleAccess().getAnnotations(moduleInfo, this)) {

@@ -32,7 +32,7 @@ import java.lang.module.*;
 /**
  * <p> A compile-time view of a run-time module class loader </p>
  *
- * @see Configuration 
+ * @see Configuration
  * @see Configurator
  */
 

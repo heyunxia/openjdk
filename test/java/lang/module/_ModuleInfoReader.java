@@ -34,59 +34,59 @@ import static java.lang.module.Dependence.Modifier.*;
 public class _ModuleInfoReader {
 
     static void ok(boolean b) {
-	if (!b)
-	    throw new AssertionError();
+        if (!b)
+            throw new AssertionError();
     }
 
     static void eq(Object o1, Object o2) {
-	if (!o1.equals(o2))
-	    throw new AssertionError(o1 + " : " + o2);
+        if (!o1.equals(o2))
+            throw new AssertionError(o1 + " : " + o2);
     }
 
     public static void main(String[] args) throws Exception {
 
-	File f = new File("z.test/modules/M/module-info.class");
-        
+        File f = new File("z.test/modules/M/module-info.class");
+
         byte[] data = new byte[(int) f.length()];
         DataInputStream d = new DataInputStream(new FileInputStream(f));
         d.readFully(data);
-        
+
         ModuleInfo mi = ModuleSystem.base().parseModuleInfo(data);
         out.println(mi);
 
-	ModuleSystem ms = ModuleSystem.base();
-	eq(mi.id(), ms.parseModuleId("M@1.0"));
+        ModuleSystem ms = ModuleSystem.base();
+        eq(mi.id(), ms.parseModuleId("M@1.0"));
 
-	// provides
-	Set<ModuleId> ps = new HashSet<ModuleId>();
-	ps.add(ms.parseModuleId("M1 @ 2.0"));
-	ps.add(ms.parseModuleId("M2 @ 2.1"));
-	eq(mi.provides(), ps);
+        // provides
+        Set<ModuleId> ps = new HashSet<ModuleId>();
+        ps.add(ms.parseModuleId("M1 @ 2.0"));
+        ps.add(ms.parseModuleId("M2 @ 2.1"));
+        eq(mi.provides(), ps);
 
-	// requires
-	Set<Dependence> ds = new HashSet<Dependence>();
-	ds.add(new Dependence(EnumSet.of(OPTIONAL, LOCAL),
-			      new ModuleIdQuery("N",
-						ms.parseVersionQuery("9.0"))));
-	ds.add(new Dependence(EnumSet.of(OPTIONAL, LOCAL),
-			      new ModuleIdQuery("P",
+        // requires
+        Set<Dependence> ds = new HashSet<Dependence>();
+        ds.add(new Dependence(EnumSet.of(OPTIONAL, LOCAL),
+                              new ModuleIdQuery("N",
+                                                ms.parseVersionQuery("9.0"))));
+        ds.add(new Dependence(EnumSet.of(OPTIONAL, LOCAL),
+                              new ModuleIdQuery("P",
                                                 // ## Should be >=9.1, but
                                                 // ## javac can't compile
                                                 // ## that at the moment
-						ms.parseVersionQuery("9.1"))));
-	ds.add(new Dependence(EnumSet.of(PUBLIC),
-			      new ModuleIdQuery("Q",
-						ms.parseVersionQuery("5.11"))));
+                                                ms.parseVersionQuery("9.1"))));
+        ds.add(new Dependence(EnumSet.of(PUBLIC),
+                              new ModuleIdQuery("Q",
+                                                ms.parseVersionQuery("5.11"))));
         ds.add(new Dependence(EnumSet.of(SYNTHETIC),
                               new ModuleIdQuery("jdk",
                                                 ms.parseVersionQuery("7-ea"))));
-	eq(mi.requires(), ds);
+        eq(mi.requires(), ds);
 
-	// permits
-	eq(mi.permits(),
-	   new HashSet<String>(Arrays.asList("A", "B")));
+        // permits
+        eq(mi.permits(),
+           new HashSet<String>(Arrays.asList("A", "B")));
 
-	// main class
+        // main class
         ok(mi.mainClass().equals("M.X.Y.Main"));
 
     }

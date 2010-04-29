@@ -873,7 +873,7 @@ public final class SimpleLibrary
      * <p> This method is intended for use during development, when a build
      * process may update a previously-installed module in place, adding or
      * removing classes. </p>
-     * 
+     *
      * @param   mids
      *          The module ids of the new or updated modules, or
      *          {@code null} if the configuration of every root module
@@ -887,7 +887,7 @@ public final class SimpleLibrary
         configure(mids);
     }
 
-
+
     // -- Repositories --
 
     private static class RepoList

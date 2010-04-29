@@ -48,23 +48,23 @@ public class ConfigurationBuilder {
     }
 
     public static ConfigurationBuilder config(String ... rmids) {
-	return new ConfigurationBuilder(rmids);
+        return new ConfigurationBuilder(rmids);
     }
 
     public ConfigurationBuilder add(ContextBuilder cb) {
-	Context cx = cb.build();
-	contexts.add(cx);
-	for (ModuleId mid : cx.modules())
-	    contextForModule.put(mid.name(), cx);
+        Context cx = cb.build();
+        contexts.add(cx);
+        for (ModuleId mid : cx.modules())
+            contextForModule.put(mid.name(), cx);
         PathContext pcx = cb.buildPath();
         pathContexts.add(pcx);
         for (ModuleId mid : pcx.modules())
             pathContextForModule.put(mid.name(), pcx);
-	return this;
+        return this;
     }
 
     public Configuration<Context> build() {
-	return new Configuration<>(roots, contexts, contextForModule);
+        return new Configuration<>(roots, contexts, contextForModule);
     }
 
     public Configuration<PathContext> buildPath() {
@@ -76,7 +76,7 @@ public class ConfigurationBuilder {
     }
 
     public boolean isEmpty() {
-	return contexts.isEmpty();
+        return contexts.isEmpty();
     }
 
 }

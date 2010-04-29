@@ -46,12 +46,12 @@ public class ModuleFormatTest01 {
     }
 
     void run() throws Exception {
-	try {
-	    test();
-	} catch (Throwable t) {
-	    t.printStackTrace();
-	    errors++;
-	}
+        try {
+            test();
+        } catch (Throwable t) {
+            t.printStackTrace();
+            errors++;
+        }
 
 
         if (errors == 0)
@@ -61,32 +61,32 @@ public class ModuleFormatTest01 {
     }
 
     void testEmptyModule() throws Exception {
-	System.err.println("Test: Empty module");
+        System.err.println("Test: Empty module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	compress(MNAME);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        compress(MNAME);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testSingleClassModule() throws Exception {
-	System.err.println("Test: Single class module");
+        System.err.println("Test: Single class module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         addFile(files, createFile("World.java", code));
         compile(files);
-	compress(MNAME);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        compress(MNAME);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testMultiClassModule() throws Exception {
-	System.err.println("Test: Multiple class module");
+        System.err.println("Test: Multiple class module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -94,13 +94,13 @@ public class ModuleFormatTest01 {
         addFile(files, createFile("World.java", code));
         addFile(files, createFile("Another.java", code2));
         compile(files);
-	compress(MNAME);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        compress(MNAME);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testSingleResourceModule() throws Exception {
-	System.err.println("Test: Single resource module");
+        System.err.println("Test: Single resource module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -108,14 +108,14 @@ public class ModuleFormatTest01 {
         addFile(files, createFile("World.java", code));
         addFile(files, createFile("Another.java", code2));
         compile(files);
-	createFile("resources" + File.separator + "yo", resource);
-	compress(MNAME, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("resources" + File.separator + "yo", resource);
+        compress(MNAME, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testMultiResourceModule() throws Exception {
-	System.err.println("Test: Multiple resource module");
+        System.err.println("Test: Multiple resource module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -123,96 +123,96 @@ public class ModuleFormatTest01 {
         addFile(files, createFile("World.java", code));
         addFile(files, createFile("Another.java", code2));
         compile(files);
-	createFile("resources" + File.separator + "yo", resource);
-	createFile("resources" + File.separator + "hey", resource2);
-	compress(MNAME, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("resources" + File.separator + "yo", resource);
+        createFile("resources" + File.separator + "hey", resource2);
+        compress(MNAME, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testSingleNatLibModule() throws Exception {
-	System.err.println("Test: Single native library module");
+        System.err.println("Test: Single native library module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	createFile("natlib" + File.separator + "yo.so", resource);
-	compress(MNAME, false, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("natlib" + File.separator + "yo.so", resource);
+        compress(MNAME, false, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testMultiNatLibModule() throws Exception {
-	System.err.println("Test: Multiple native library module");
+        System.err.println("Test: Multiple native library module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	createFile("natlib" + File.separator + "yo.so", resource);
-	createFile("natlib" + File.separator + "yo.dll", resource);
-	compress(MNAME, false, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("natlib" + File.separator + "yo.so", resource);
+        createFile("natlib" + File.separator + "yo.dll", resource);
+        compress(MNAME, false, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testSingleNatCmdModule() throws Exception {
-	System.err.println("Test: Single native command module");
+        System.err.println("Test: Single native command module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	createFile("natcmd" + File.separator + "yo", resource);
-	compress(MNAME, false, false, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("natcmd" + File.separator + "yo", resource);
+        compress(MNAME, false, false, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testMultiNatCmdModule() throws Exception {
-	System.err.println("Test: Multi native command module");
+        System.err.println("Test: Multi native command module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	createFile("natcmd" + File.separator + "yo", resource);
-	createFile("natcmd" + File.separator + "yo.exe", resource);
-	compress(MNAME, false, false, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("natcmd" + File.separator + "yo", resource);
+        createFile("natcmd" + File.separator + "yo.exe", resource);
+        compress(MNAME, false, false, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testSingleConfigModule() throws Exception {
-	System.err.println("Test: Single config module");
+        System.err.println("Test: Single config module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	createFile("config" + File.separator + "yo", resource);
-	compress(MNAME, false, false, false, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("config" + File.separator + "yo", resource);
+        compress(MNAME, false, false, false, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testMultiConfigModule() throws Exception {
-	System.err.println("Test: Multi config module");
+        System.err.println("Test: Multi config module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	createFile("config" + File.separator + "yo", resource);
-	createFile("config" + File.separator + "hey", resource);
-	compress(MNAME, false, false, false, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        createFile("config" + File.separator + "yo", resource);
+        createFile("config" + File.separator + "hey", resource);
+        compress(MNAME, false, false, false, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void testBloatedModule() throws Exception {
-	System.err.println("Test: Bloated module");
+        System.err.println("Test: Bloated module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -220,126 +220,126 @@ public class ModuleFormatTest01 {
         addFile(files, createFile("World.java", code));
         addFile(files, createFile("Another.java", code2));
         compile(files);
-	String largefile = "0";
-	for (int i = 0; i < 10000; i++) {
-	    largefile += i;
-	}
-	createFile("resources" + File.separator + "yo", largefile);
-	createFile("resources" + File.separator + "hey", largefile);
-	createFile("natlib" + File.separator + "yo.so", largefile);
-	createFile("natlib" + File.separator + "yo.dll", largefile);
-	createFile("natcmd" + File.separator + "yo", largefile);
-	createFile("natcmd" + File.separator + "yo.exe", largefile);
-	createFile("config" + File.separator + "yo", largefile);
-	createFile("config" + File.separator + "hey", largefile);
-	compress(MNAME, true, true, true, true);
-	extract(MNAME, MVER);
-	compare(MNAME);
+        String largefile = "0";
+        for (int i = 0; i < 10000; i++) {
+            largefile += i;
+        }
+        createFile("resources" + File.separator + "yo", largefile);
+        createFile("resources" + File.separator + "hey", largefile);
+        createFile("natlib" + File.separator + "yo.so", largefile);
+        createFile("natlib" + File.separator + "yo.dll", largefile);
+        createFile("natcmd" + File.separator + "yo", largefile);
+        createFile("natcmd" + File.separator + "yo.exe", largefile);
+        createFile("config" + File.separator + "yo", largefile);
+        createFile("config" + File.separator + "hey", largefile);
+        compress(MNAME, true, true, true, true);
+        extract(MNAME, MVER);
+        compare(MNAME);
     }
 
     void test() throws Exception {
-	testEmptyModule();
-	testSingleClassModule();
-	testMultiClassModule();
-	testSingleResourceModule();
-	testMultiResourceModule();
-	testSingleNatLibModule();
-       	testMultiNatLibModule();
-	testSingleNatCmdModule();
-	testMultiNatCmdModule();
-	testSingleConfigModule();
-	testMultiConfigModule();
-	testBloatedModule();
+        testEmptyModule();
+        testSingleClassModule();
+        testMultiClassModule();
+        testSingleResourceModule();
+        testMultiResourceModule();
+        testSingleNatLibModule();
+        testMultiNatLibModule();
+        testSingleNatCmdModule();
+        testMultiNatCmdModule();
+        testSingleConfigModule();
+        testMultiConfigModule();
+        testBloatedModule();
     }
 
     /**
      * Check if files are executable.
      */
-    void checkIfExecutable(String [] fnames, File dir, SectionType type) 
-	throws IOException {
+    void checkIfExecutable(String [] fnames, File dir, SectionType type)
+        throws IOException {
 
-	for (String fname : fnames) {
-	    File file = new File(dir, fname);
-	    if (file.exists() 
-		&& (type == SectionType.NATIVE_CMDS
-		    || (type == SectionType.NATIVE_LIBS
-			&& System.getProperty("os.name").startsWith("Windows")))
-		&& !file.canExecute())
-		throw new IOException("file not marked executable " + file);
-	}
+        for (String fname : fnames) {
+            File file = new File(dir, fname);
+            if (file.exists()
+                && (type == SectionType.NATIVE_CMDS
+                    || (type == SectionType.NATIVE_LIBS
+                        && System.getProperty("os.name").startsWith("Windows")))
+                && !file.canExecute())
+                throw new IOException("file not marked executable " + file);
+        }
     }
 
     /**
      * Compare an extracted module with original.
      */
-    void compare(String [] fnames, File origDir, File copyDir) 
-	throws IOException {
-	for (String fname : fnames) {
-	    File file = new File(origDir, fname);
-	    File copy = null;
+    void compare(String [] fnames, File origDir, File copyDir)
+        throws IOException {
+        for (String fname : fnames) {
+            File file = new File(origDir, fname);
+            File copy = null;
 
-	    // Module-info class is extracted into info file.
-	    if (fname.equals("module-info.class"))
-		copy = new File(copyDir, "info");
-	    else 
-		copy = new File(copyDir, fname);
+            // Module-info class is extracted into info file.
+            if (fname.equals("module-info.class"))
+                copy = new File(copyDir, "info");
+            else
+                copy = new File(copyDir, fname);
 
-	    if (file.exists()) {
-	        // System.out.println("Comparing " + file.toString());
-		compare(file, copy);
-	    }
-	}
+            if (file.exists()) {
+                // System.out.println("Comparing " + file.toString());
+                compare(file, copy);
+            }
+        }
     }
 
-    void compare(String module, String [] fnames, SectionType type) 
-	throws IOException {
-	File extractedDir = new File(module);
-	String sectionDir =  ModuleFileFormat.getSubdirOfSection(type);
-	File copyDir = new File(extractedDir, sectionDir);
+    void compare(String module, String [] fnames, SectionType type)
+        throws IOException {
+        File extractedDir = new File(module);
+        String sectionDir =  ModuleFileFormat.getSubdirOfSection(type);
+        File copyDir = new File(extractedDir, sectionDir);
 
-	switch(type) {
-	case MODULE_INFO:
-	    compare(fnames, classesDir, copyDir);
-	    break;
-	case CLASSES:
-	    compare(fnames, classesDir, copyDir);
-	    break;
-	case RESOURCES:
-	    compare(fnames, resourceDir, copyDir);
-	    break;
-	case NATIVE_LIBS:
-	    compare(fnames, natlibDir, copyDir);
-	    checkIfExecutable(fnames, copyDir, type);
-	    break;
-	case NATIVE_CMDS:
-	    compare(fnames, natcmdDir, copyDir);
-	    checkIfExecutable(fnames, copyDir, type);
-	    break;
-	case CONFIG:
-	    compare(fnames, configDir, copyDir);
-	    break;
-	}
+        switch(type) {
+        case MODULE_INFO:
+            compare(fnames, classesDir, copyDir);
+            break;
+        case CLASSES:
+            compare(fnames, classesDir, copyDir);
+            break;
+        case RESOURCES:
+            compare(fnames, resourceDir, copyDir);
+            break;
+        case NATIVE_LIBS:
+            compare(fnames, natlibDir, copyDir);
+            checkIfExecutable(fnames, copyDir, type);
+            break;
+        case NATIVE_CMDS:
+            compare(fnames, natcmdDir, copyDir);
+            checkIfExecutable(fnames, copyDir, type);
+            break;
+        case CONFIG:
+            compare(fnames, configDir, copyDir);
+            break;
+        }
     }
 
     void compare(String module) throws IOException {
-	compare(module, new String [] {"module-info.class"}, 
-		SectionType.MODULE_INFO);
-	compare(module, new String [] {"World.class", "Another.class"}, 
-		SectionType.CLASSES);
-	compare(module, new String [] {"yo", "hey"}, 
-		SectionType.RESOURCES);
-	compare(module, new String [] {"yo.so", "yo.dll"}, 
-		SectionType.NATIVE_LIBS);
-	compare(module, new String [] {"yo", "yo.exe"}, 
-		SectionType.NATIVE_CMDS);
-	compare(module, new String [] {"yo", "hey"}, 
-		SectionType.CONFIG);
+        compare(module, new String [] {"module-info.class"},
+                SectionType.MODULE_INFO);
+        compare(module, new String [] {"World.class", "Another.class"},
+                SectionType.CLASSES);
+        compare(module, new String [] {"yo", "hey"},
+                SectionType.RESOURCES);
+        compare(module, new String [] {"yo.so", "yo.dll"},
+                SectionType.NATIVE_LIBS);
+        compare(module, new String [] {"yo", "yo.exe"},
+                SectionType.NATIVE_CMDS);
+        compare(module, new String [] {"yo", "hey"},
+                SectionType.CONFIG);
     }
 
     /**
      * Compare two files for identity.
      */
-	
+
     static void compare (File f1, File f2) throws IOException {
         InputStream i1 = new BufferedInputStream (new FileInputStream(f1));
         InputStream i2 = new BufferedInputStream (new FileInputStream(f2));
@@ -365,59 +365,59 @@ public class ModuleFormatTest01 {
      * Extract a module.
      */
     void extract(String name, String version) throws Exception {
-	File module = new File(moduleDir, name + "@" + version + ".jmod"); 
-	String [] args = {"extract", module.getAbsolutePath()};
-	Librarian.main(args);	
+        File module = new File(moduleDir, name + "@" + version + ".jmod");
+        String [] args = {"extract", module.getAbsolutePath()};
+        Librarian.main(args);
     }
 
     /**
      * Compress a module.
      */
     void compress(String name) throws Exception {
-	compress(name, false);
+        compress(name, false);
     }
 
     void compress(String name, boolean haveResources) throws Exception {
-	compress(name, haveResources, false);
+        compress(name, haveResources, false);
     }
 
-    void compress(String name, boolean haveResources, boolean haveNatLibs) 
-	throws Exception {
-	compress(name, haveResources, haveNatLibs, false);
-    }
-
-    void compress(String name, boolean haveResources, boolean haveNatLibs,
-		  boolean haveNatCmds) throws Exception {
-	compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+    void compress(String name, boolean haveResources, boolean haveNatLibs)
+        throws Exception {
+        compress(name, haveResources, haveNatLibs, false);
     }
 
     void compress(String name, boolean haveResources, boolean haveNatLibs,
-		  boolean haveNatCmds, boolean haveConfig) 
-	throws Exception {
-	List<String> args = new ArrayList<String>();
-	args.add("-m");
-	args.add(classesDir.getAbsolutePath()); 
-	args.add("-d"); 
-	args.add(moduleDir.getAbsolutePath());
-	if (haveResources) {
-	    args.add("-r");
-	    args.add(resourceDir.toString());
-	}
-	if (haveNatLibs) {
-	    args.add("--natlib");
-	    args.add(natlibDir.toString());
-	}
-	if (haveNatCmds) {
-	    args.add("--natcmd");
-	    args.add(natcmdDir.toString());
-	}
-	if (haveConfig) {
-	    args.add("--config");
-	    args.add(configDir.toString());
-	}
-	args.add("jmod");
-	args.add("hello");
-	Packager.main(args.toArray(new String[0]));
+                  boolean haveNatCmds) throws Exception {
+        compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+    }
+
+    void compress(String name, boolean haveResources, boolean haveNatLibs,
+                  boolean haveNatCmds, boolean haveConfig)
+        throws Exception {
+        List<String> args = new ArrayList<String>();
+        args.add("-m");
+        args.add(classesDir.getAbsolutePath());
+        args.add("-d");
+        args.add(moduleDir.getAbsolutePath());
+        if (haveResources) {
+            args.add("-r");
+            args.add(resourceDir.toString());
+        }
+        if (haveNatLibs) {
+            args.add("--natlib");
+            args.add(natlibDir.toString());
+        }
+        if (haveNatCmds) {
+            args.add("--natcmd");
+            args.add(natcmdDir.toString());
+        }
+        if (haveConfig) {
+            args.add("--config");
+            args.add(configDir.toString());
+        }
+        args.add("jmod");
+        args.add("hello");
+        Packager.main(args.toArray(new String[0]));
     }
 
     /**
@@ -471,8 +471,8 @@ public class ModuleFormatTest01 {
     void reset() {
         resetDir(srcDir);
         resetDir(classesDir);
-	resetDir(moduleDir);
-	resetDir(new File(MNAME));
+        resetDir(moduleDir);
+        resetDir(new File(MNAME));
     }
 
     /**

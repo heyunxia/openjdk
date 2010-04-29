@@ -47,7 +47,7 @@ public class _RemoteRepositoryList {
             return c2 == null;
         if (c2 == null)
             return false;
-	return c1.containsAll(c2) && c2.containsAll(c1);
+        return c1.containsAll(c2) && c2.containsAll(c1);
     }
 
     private static <T> void assertEquals(Collection<T> c1, Collection<T> c2) {

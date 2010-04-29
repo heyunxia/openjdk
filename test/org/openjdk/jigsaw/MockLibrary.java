@@ -41,50 +41,50 @@ class MockLibrary
     MockLibrary() { }
 
     private Map<String,List<ModuleId>> idsForName
-	= new HashMap<String,List<ModuleId>>();
+        = new HashMap<String,List<ModuleId>>();
 
     private Map<ModuleId,ModuleInfo> infoForId
-	= new HashMap<ModuleId,ModuleInfo>();
+        = new HashMap<ModuleId,ModuleInfo>();
 
     MockLibrary add(ModuleInfo mi) {
-	infoForId.put(mi.id(), mi);
-	List<ModuleId> ls = idsForName.get(mi.id().name());
-	if (ls == null) {
-	    ls = new ArrayList<ModuleId>();
-	    idsForName.put(mi.id().name(), ls);
-	}
-	ls.add(mi.id());
-	return this;
+        infoForId.put(mi.id(), mi);
+        List<ModuleId> ls = idsForName.get(mi.id().name());
+        if (ls == null) {
+            ls = new ArrayList<ModuleId>();
+            idsForName.put(mi.id().name(), ls);
+        }
+        ls.add(mi.id());
+        return this;
     }
 
     MockLibrary add(ModuleInfoBuilder mib) {
-	return add(mib.build());
+        return add(mib.build());
     }
 
     private Map<ModuleId,List<String>> publicClassesForId
-	= new HashMap<ModuleId,List<String>>();
+        = new HashMap<ModuleId,List<String>>();
 
     private Map<ModuleId,List<String>> otherClassesForId
-	= new HashMap<ModuleId,List<String>>();
+        = new HashMap<ModuleId,List<String>>();
 
     MockLibrary add(ModuleId id, String cn,
-		    Map<ModuleId,List<String>> map)
+                    Map<ModuleId,List<String>> map)
     {
-	List<String> ls = map.get(id);
-	if (ls == null) {
-	    ls = new ArrayList<String>();
-	    map.put(id, ls);
-	}
-	ls.add(cn);
-	return this;
+        List<String> ls = map.get(id);
+        if (ls == null) {
+            ls = new ArrayList<String>();
+            map.put(id, ls);
+        }
+        ls.add(cn);
+        return this;
     }
 
     MockLibrary addPublic(String mids, String cn) {
-	return add(jms.parseModuleId(mids), cn, publicClassesForId);
+        return add(jms.parseModuleId(mids), cn, publicClassesForId);
     }
 
     MockLibrary addOther(String mids, String cn) {
-	return add(jms.parseModuleId(mids), cn, otherClassesForId);
+        return add(jms.parseModuleId(mids), cn, otherClassesForId);
     }
 
     public String name() { return "mock-library"; }
@@ -92,15 +92,15 @@ class MockLibrary
     public int minorVersion() { return 1; }
 
     public URI location() {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public void installFromManifests(Collection<Manifest> mf) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public void install(Collection<File> mf) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public Resolution resolve(Collection<ModuleIdQuery> midqs) {
@@ -108,7 +108,7 @@ class MockLibrary
     }
 
     public void install(Resolution res) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public Library parent() {
@@ -116,58 +116,58 @@ class MockLibrary
     }
 
     protected void gatherLocalModuleIds(String mn, Set<ModuleId> mids) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public List<ModuleId> findModuleIds(String moduleName) {
-	List<ModuleId> ls = idsForName.get(moduleName);
-	if (ls == null)
-	    ls = Collections.emptyList();
-	return ls;
+        List<ModuleId> ls = idsForName.get(moduleName);
+        if (ls == null)
+            ls = Collections.emptyList();
+        return ls;
     }
 
     public List<ModuleId> findModuleIds(ModuleIdQuery midq) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public ModuleId findLatestModuleId(ModuleIdQuery midq) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public ModuleInfo readLocalModuleInfo(ModuleId mid) {
-	return infoForId.get(mid);
+        return infoForId.get(mid);
     }
 
     public byte[] readLocalModuleInfoBytes(ModuleId mid) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public byte[] readLocalClass(ModuleId mid, String className) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public ModuleId findModuleForClass(String className,
-				       ModuleId requestor)
-	throws ClassNotFoundException
+                                       ModuleId requestor)
+        throws ClassNotFoundException
     {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public List<String> listLocalClasses(ModuleId mid, boolean all) {
-	List<String> rv = new ArrayList<String>();
-	List<String> pcns = publicClassesForId.get(mid);
-	if (pcns != null)
-	    rv.addAll(pcns);
-	if (all) {
-	    List<String> ocns = otherClassesForId.get(mid);
-	    if (ocns != null)
-		rv.addAll(ocns);
-	}
-	return rv;
+        List<String> rv = new ArrayList<String>();
+        List<String> pcns = publicClassesForId.get(mid);
+        if (pcns != null)
+            rv.addAll(pcns);
+        if (all) {
+            List<String> ocns = otherClassesForId.get(mid);
+            if (ocns != null)
+                rv.addAll(ocns);
+        }
+        return rv;
     }
 
     public Configuration<Context> readConfiguration(ModuleId mid) {
-	throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     public File findLocalResource(ModuleId mid, String name) {

@@ -42,7 +42,7 @@ public class _PublishedRepository {
     private static ModuleSystem ms = ModuleSystem.base();
 
     private static <T> boolean eq(Collection<T> c1, Collection<T> c2) {
-	return c1.containsAll(c2) && c2.containsAll(c1);
+        return c1.containsAll(c2) && c2.containsAll(c1);
     }
 
     static final Path REPO = Paths.get("z.repo");

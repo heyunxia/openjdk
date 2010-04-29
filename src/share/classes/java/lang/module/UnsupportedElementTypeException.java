@@ -31,8 +31,8 @@ import java.util.Collections;
 
 
 /**
- * Thrown when an application attempts to read a {@code Class} 
- * object or a Class[]-valued element by invoking the relevant method 
+ * Thrown when an application attempts to read a {@code Class}
+ * object or a Class[]-valued element by invoking the relevant method
  * on an annotation returned by the {@link java.lang.module.ModuleInfo#getAnnotation}
  * method.
  *
@@ -62,7 +62,7 @@ public class UnsupportedElementTypeException extends RuntimeException {
      * specified in the element being accessed.
      */
     public UnsupportedElementTypeException(List<String> classnames) {
-        super("Attempt to access Class objects " + 
+        super("Attempt to access Class objects " +
               (classnames = // defensive copy
                new ArrayList<String>(classnames)).toString() );
         this.classnames = Collections.unmodifiableList(classnames);
@@ -72,7 +72,7 @@ public class UnsupportedElementTypeException extends RuntimeException {
      * Returns the list of fully-qualified class name corresponding
      * to the value of the element being accessed.
      *
-     * @return the list of fully-qualified class name corresponding 
+     * @return the list of fully-qualified class name corresponding
      * to the value of the element being accessed.
      */
     public List<String> getClassNames() {

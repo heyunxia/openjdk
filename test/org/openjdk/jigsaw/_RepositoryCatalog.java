@@ -42,7 +42,7 @@ public class _RepositoryCatalog {
     private static ModuleSystem ms = ModuleSystem.base();
 
     private static <T> boolean eq(Collection<T> c1, Collection<T> c2) {
-	return c1.containsAll(c2) && c2.containsAll(c1);
+        return c1.containsAll(c2) && c2.containsAll(c1);
     }
 
     static File CAT_FILE = new File("z.scat");
@@ -118,7 +118,7 @@ public class _RepositoryCatalog {
     }
 
     public static void main(String[] args)
-	throws Exception
+        throws Exception
     {
         Map<ModuleId,byte[]> modules = new HashMap<>();
         writeStreamed(modules, args);

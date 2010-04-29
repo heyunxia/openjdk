@@ -37,7 +37,7 @@ import org.bar.Point;
 /*
  * @summary Test reading of annotations from the input module-info.class
  * This references test/java/lang/annotation/UnitTest.java.
- * 
+ *
  */
 public class ModuleAnnotationTest {
     private static ModuleSystem ms = ModuleSystem.base();
@@ -61,7 +61,7 @@ public class ModuleAnnotationTest {
         }
     }
 
-    static void checkModuleInfo(byte[] info) throws Exception { 
+    static void checkModuleInfo(byte[] info) throws Exception {
         if (ms == null)
            throw new RuntimeException("null ModuleSystem");
         ModuleInfo mi = ms.parseModuleInfo(info);
@@ -69,7 +69,7 @@ public class ModuleAnnotationTest {
         if (mi.isAnnotationPresent(ScalarTypes.class) && mi.isAnnotationPresent(ArrayTypes.class)) {
             checkScalarTypes(mi.getAnnotation(ScalarTypes.class), mi);
             checkArrayTypes(mi.getAnnotation(ArrayTypes.class), mi);
-        } else if (mi.isAnnotationPresent(ScalarTypesWithDefault.class) && 
+        } else if (mi.isAnnotationPresent(ScalarTypesWithDefault.class) &&
                    mi.isAnnotationPresent(ArrayTypesWithDefault.class)) {
             checkScalarTypes(mi.getAnnotation(ScalarTypesWithDefault.class), mi);
             checkArrayTypes(mi.getAnnotation(ArrayTypesWithDefault.class), mi);
@@ -91,7 +91,7 @@ public class ModuleAnnotationTest {
               st.e()    == Stooge.MOE   &&
               st.a().x() == 1 && st.a().y() == 2))
             fail(mi.id() + ": unexpected ScalarTypes");
-        
+
         try {
             Class<?> cls = st.cls();
             fail(mi.id() + ": ScalarTypes.cls() is not supposed to return" + cls);
@@ -123,7 +123,7 @@ public class ModuleAnnotationTest {
         } catch (UnsupportedElementTypeException e) {
             List<String> list = e.getClassNames();
             if (!(list.size() == 1 &&
-                  list.get(0).equals("java.util.Deque"))) 
+                  list.get(0).equals("java.util.Deque")))
                 fail(mi.id() + ": ScalarTypesWithDefaults.cls() returns unexpected value " + list);
         }
     }

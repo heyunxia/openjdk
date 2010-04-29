@@ -38,64 +38,64 @@ public class _ModuleId {
     private static ModuleSystem ms;
 
     static void bad(String id) {
-	try {
-	    ModuleId mid = ms.parseModuleId(id);
-	    throw new AssertionError(mid);
-	} catch (RuntimeException x) {
-	}
+        try {
+            ModuleId mid = ms.parseModuleId(id);
+            throw new AssertionError(mid);
+        } catch (RuntimeException x) {
+        }
     }
 
     static void ok(String id) {
-	try {
-	    ms.parseModuleId(id);
-	} catch (RuntimeException x) {
-	    x.printStackTrace(System.out);
-	    throw new AssertionError(id);
-	}
+        try {
+            ms.parseModuleId(id);
+        } catch (RuntimeException x) {
+            x.printStackTrace(System.out);
+            throw new AssertionError(id);
+        }
     }
 
     static void ok(boolean b) {
-	if (!b)
-	    throw new AssertionError();
+        if (!b)
+            throw new AssertionError();
     }
 
     public static void main(String[] args) {
 
-	ms = ModuleSystem.base();
+        ms = ModuleSystem.base();
 
-	if (args.length > 0) {
-	    for (String a : args)
-		System.out.println(ms.parseModuleId(a));
-	    return;
-	}
+        if (args.length > 0) {
+            for (String a : args)
+                System.out.println(ms.parseModuleId(a));
+            return;
+        }
 
-	ok("M@1.0");
-	ok("M @1.0");
-	ok("M@ 1.0");
-	ok("M @ 1.0");
-	ok("a.b.c@ 1.0");
-	ok("a.b.C.d_foo");
+        ok("M@1.0");
+        ok("M @1.0");
+        ok("M@ 1.0");
+        ok("M @ 1.0");
+        ok("a.b.c@ 1.0");
+        ok("a.b.C.d_foo");
 
-	bad("M@");
-	bad("M @");
-	bad("M@ ");
-	bad("M @ ");
-	bad("M ");
-	bad(" M");
-	bad("@1.0");
-	bad("@ 1.0");
-	bad("@ ");
-	bad("3@1");
-	bad("M*@1");
-	bad("M\t@2");
+        bad("M@");
+        bad("M @");
+        bad("M@ ");
+        bad("M @ ");
+        bad("M ");
+        bad(" M");
+        bad("@1.0");
+        bad("@ 1.0");
+        bad("@ ");
+        bad("3@1");
+        bad("M*@1");
+        bad("M\t@2");
 
-	ModuleId mid = ms.parseModuleId("M @ 0.1-2");
-	ok(mid.equals(ms.parseModuleId("M@ 0.1-2")));
-	ok(mid.equals(ms.parseModuleId("M @0.1-2")));
-	ok(mid.equals(ms.parseModuleId("M @ 0.1-2")));
-	ok(!mid.equals(ms.parseModuleId("M@0.1-3")));
-	ok(!mid.equals(ms.parseModuleId("M")));
-	ok(!ms.parseModuleId("M").equals(mid));
+        ModuleId mid = ms.parseModuleId("M @ 0.1-2");
+        ok(mid.equals(ms.parseModuleId("M@ 0.1-2")));
+        ok(mid.equals(ms.parseModuleId("M @0.1-2")));
+        ok(mid.equals(ms.parseModuleId("M @ 0.1-2")));
+        ok(!mid.equals(ms.parseModuleId("M@0.1-3")));
+        ok(!mid.equals(ms.parseModuleId("M")));
+        ok(!ms.parseModuleId("M").equals(mid));
 
     }
 

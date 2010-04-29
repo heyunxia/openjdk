@@ -36,29 +36,29 @@ public class ModuleInfoBuilder {
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
     private static class MI
-	implements ModuleInfo
+        implements ModuleInfo
     {
 
-	private ModuleId mid;
-	public ModuleId id() { return mid; }
+        private ModuleId mid;
+        public ModuleId id() { return mid; }
 
-	private MI(ModuleId mid) {
-	    this.mid = mid;
-	}
+        private MI(ModuleId mid) {
+            this.mid = mid;
+        }
 
-	private Set<ModuleId> provides = new HashSet<ModuleId>();
-	public Set<ModuleId> provides() { return provides; }
+        private Set<ModuleId> provides = new HashSet<ModuleId>();
+        public Set<ModuleId> provides() { return provides; }
 
-	private Set<Dependence> requires
-	    // We use a linked hash set so as to guarantee deterministic order
-	    = new LinkedHashSet<Dependence>();
-	public Set<Dependence> requires() { return requires; }
+        private Set<Dependence> requires
+            // We use a linked hash set so as to guarantee deterministic order
+            = new LinkedHashSet<Dependence>();
+        public Set<Dependence> requires() { return requires; }
 
-	private Set<String> permits = new HashSet<String>();
-	public Set<String> permits() { return permits; }
+        private Set<String> permits = new HashSet<String>();
+        public Set<String> permits() { return permits; }
 
-	private String mainClass;
-	public String mainClass() { return mainClass; }
+        private String mainClass;
+        public String mainClass() { return mainClass; }
 
         public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
             return false;
@@ -74,63 +74,63 @@ public class ModuleInfoBuilder {
     private MI mi;
 
     private ModuleInfoBuilder(String id) {
-	mi = new MI(jms.parseModuleId(id));
+        mi = new MI(jms.parseModuleId(id));
     }
 
     public static ModuleInfoBuilder module(String id) {
-	return new ModuleInfoBuilder(id);
+        return new ModuleInfoBuilder(id);
     }
 
     public ModuleInfoBuilder requires(EnumSet<Modifier> mods, String mnvq) {
-	int i = mnvq.indexOf('@');
-	String mn;
-	VersionQuery vq = null;
-	if (i < 0) {
-	    mn = mnvq;
-	} else {
-	    mn = mnvq.substring(0, i);
-	    vq = jms.parseVersionQuery(mnvq.substring(i + 1));
-	}
-	mi.requires.add(new Dependence(mods,
-				       new ModuleIdQuery(mn, vq)));
-	return this;
+        int i = mnvq.indexOf('@');
+        String mn;
+        VersionQuery vq = null;
+        if (i < 0) {
+            mn = mnvq;
+        } else {
+            mn = mnvq.substring(0, i);
+            vq = jms.parseVersionQuery(mnvq.substring(i + 1));
+        }
+        mi.requires.add(new Dependence(mods,
+                                       new ModuleIdQuery(mn, vq)));
+        return this;
     }
 
     public ModuleInfoBuilder requires(String mnvq) {
-	return requires(null, mnvq);
+        return requires(null, mnvq);
     }
 
     public ModuleInfoBuilder requiresLocal(String mnvq) {
-	return requires(EnumSet.of(Modifier.LOCAL), mnvq);
+        return requires(EnumSet.of(Modifier.LOCAL), mnvq);
     }
 
     public ModuleInfoBuilder requiresOptional(String mnvq) {
-	return requires(EnumSet.of(Modifier.OPTIONAL), mnvq);
+        return requires(EnumSet.of(Modifier.OPTIONAL), mnvq);
     }
 
     public ModuleInfoBuilder requiresPublic(String mnvq) {
-	return requires(EnumSet.of(Modifier.PUBLIC), mnvq);
+        return requires(EnumSet.of(Modifier.PUBLIC), mnvq);
     }
 
     public ModuleInfoBuilder provides(String mnv) {
-	mi.provides.add(jms.parseModuleId(mnv));
-	return this;
+        mi.provides.add(jms.parseModuleId(mnv));
+        return this;
     }
 
     public ModuleInfoBuilder permits(String s) {
-	if (s.indexOf('@') >= 0)
-	    throw new IllegalArgumentException(s);
-	mi.permits.add(s);
-	return this;
+        if (s.indexOf('@') >= 0)
+            throw new IllegalArgumentException(s);
+        mi.permits.add(s);
+        return this;
     }
 
     public ModuleInfoBuilder mainClass(String cn) {
-	mi.mainClass = cn;
-	return this;
+        mi.mainClass = cn;
+        return this;
     }
 
     public ModuleInfo build() {
-	return mi;
+        return mi;
     }
 
 }

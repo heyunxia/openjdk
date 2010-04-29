@@ -114,8 +114,8 @@ public class Packager {
 
     /** Default long description of the package */
     private static String default_long_description
-	= " This package was automatically generated from the corresponding Jigsaw module.\n"
-	+ " Information on Jigsaw is available at http://openjdk.java.net/projects/jigsaw.";
+        = " This package was automatically generated from the corresponding Jigsaw module.\n"
+        + " Information on Jigsaw is available at http://openjdk.java.net/projects/jigsaw.";
 
     /** Packaging-system dependent additional metadata */
     private File extra_metadata;
@@ -131,437 +131,437 @@ public class Packager {
     private static final String BOOT_MODULE = "jdk.boot";
 
     private static void createTempWorkDir()
-	throws Command.Exception
+        throws Command.Exception
     {
-	try {
-	    tmp_dst = File.createTempFile("jigsaw",null);
-	    tmp_dst.toPath().delete();
-	    tmp_dst.toPath().createDirectory();
-	}
-	catch (IOException x) {
-	    throw new Command.Exception(x);
-	}
+        try {
+            tmp_dst = File.createTempFile("jigsaw",null);
+            tmp_dst.toPath().delete();
+            tmp_dst.toPath().createDirectory();
+        }
+        catch (IOException x) {
+            throw new Command.Exception(x);
+        }
     }
 
 
     class Jmod extends Command<SimpleLibrary> {
-	private String getModuleVersion(String modulename) 
-	    throws Command.Exception 
-	{
-	    Manifest mf = Manifest.create(modulename, classes);
-	    ModuleInfo info = getModuleInfo(mf);
-	    return info.id().version().toString();
-	}
+        private String getModuleVersion(String modulename)
+            throws Command.Exception
+        {
+            Manifest mf = Manifest.create(modulename, classes);
+            ModuleInfo info = getModuleInfo(mf);
+            return info.id().version().toString();
+        }
 
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             while (hasArg()) {
-		try {
-		    String modulename = takeArg();
-		    String version = getModuleVersion(modulename);
-		    String outputfilename = modulename + '@'+ version + ".jmod";
-		    if (verbose)
-			System.out.println("Creating module file " 
-					   + outputfilename + " for " 
-					   + modulename);
-		    File outputfile = new File(destination, outputfilename);
-		    ModuleFileFormat.Writer writer 
-			= new ModuleFileFormat.Writer(outputfile, classes);
-		    writer.useFastestCompression(fast || jigsawDevMode);
-		    writer.writeModule(classes, resources, 
-				       natlibs, natcmds, config_dir);
-		}
-		catch (IOException x) {
-		    x.printStackTrace();
-		    throw new Command.Exception(x);
-		}
-	    }
-	    finishArgs();
-        }	
+                try {
+                    String modulename = takeArg();
+                    String version = getModuleVersion(modulename);
+                    String outputfilename = modulename + '@'+ version + ".jmod";
+                    if (verbose)
+                        System.out.println("Creating module file "
+                                           + outputfilename + " for "
+                                           + modulename);
+                    File outputfile = new File(destination, outputfilename);
+                    ModuleFileFormat.Writer writer
+                        = new ModuleFileFormat.Writer(outputfile, classes);
+                    writer.useFastestCompression(fast || jigsawDevMode);
+                    writer.writeModule(classes, resources,
+                                       natlibs, natcmds, config_dir);
+                }
+                catch (IOException x) {
+                    x.printStackTrace();
+                    throw new Command.Exception(x);
+                }
+            }
+            finishArgs();
+        }
     }
 
     static private ModuleInfo getModuleInfo(Manifest mf)
-	throws Command.Exception 
+        throws Command.Exception
     {
-	try {
-	    final String MINFO_CLASS = "module-info.class";
-	    File classdir = mf.classes().get(0);
-	    File mif = new File(classdir , MINFO_CLASS);
-	    if (!mif.exists())
-		mif = new File(classdir, 
-			       mf.module() + File.separator + MINFO_CLASS);
-	    byte[] bs = Files.load(mif);
-	    return jms.parseModuleInfo(bs);
-	} catch (IOException x) {
-	    throw new Command.Exception(x);
-	}    
+        try {
+            final String MINFO_CLASS = "module-info.class";
+            File classdir = mf.classes().get(0);
+            File mif = new File(classdir , MINFO_CLASS);
+            if (!mif.exists())
+                mif = new File(classdir,
+                               mf.module() + File.separator + MINFO_CLASS);
+            byte[] bs = Files.load(mif);
+            return jms.parseModuleInfo(bs);
+        } catch (IOException x) {
+            throw new Command.Exception(x);
+        }
     }
 
     class Deb extends Command<SimpleLibrary> {
-	private File tmp_module_dst;
-	private File tmp_metadata_dst;
+        private File tmp_module_dst;
+        private File tmp_metadata_dst;
 
-	private void createMetaDataDir()
-	    throws Command.Exception
-	{
-	    tmp_metadata_dst = new File(tmp_dst, "DEBIAN");
-	    if (!tmp_metadata_dst.mkdirs())
-		throw new Command.Exception("Couldn't create meta data directory "
-					    + tmp_metadata_dst);
-	}
+        private void createMetaDataDir()
+            throws Command.Exception
+        {
+            tmp_metadata_dst = new File(tmp_dst, "DEBIAN");
+            if (!tmp_metadata_dst.mkdirs())
+                throw new Command.Exception("Couldn't create meta data directory "
+                                            + tmp_metadata_dst);
+        }
 
-	private void createModuleLibraryWorkDir()
-	    throws Command.Exception
-	{
-	    tmp_module_dst = new File(tmp_dst, library.toString());
+        private void createModuleLibraryWorkDir()
+            throws Command.Exception
+        {
+            tmp_module_dst = new File(tmp_dst, library.toString());
 
-	    if (!tmp_module_dst.mkdirs())
-		throw new Command.Exception("Couldn't create module destination directory "
-					    + tmp_module_dst);  
+            if (!tmp_module_dst.mkdirs())
+                throw new Command.Exception("Couldn't create module destination directory "
+                                            + tmp_module_dst);
 
-	    // Delete the modules dir to make SimpleLibrary happy,
-	    // it wants to create the jigsaw metadata and the directory
-	    // along with it.
-	    if (!tmp_module_dst.delete())
-		throw new Command.Exception("Can't delete " + tmp_module_dst);
-	}
+            // Delete the modules dir to make SimpleLibrary happy,
+            // it wants to create the jigsaw metadata and the directory
+            // along with it.
+            if (!tmp_module_dst.delete())
+                throw new Command.Exception("Can't delete " + tmp_module_dst);
+        }
 
-	private void preinstallModule(Manifest manifest)
-	    throws Command.Exception
-	{
-	    try {
+        private void preinstallModule(Manifest manifest)
+            throws Command.Exception
+        {
+            try {
 
-		createModuleLibraryWorkDir();
+                createModuleLibraryWorkDir();
 
                 if (BOOT_MODULE.equals(manifest.module())) {
                     // Create a module library to the boot module package
-		    SimpleLibrary.open(tmp_module_dst, true, null).installFromManifests(Collections.singleton(manifest));
+                    SimpleLibrary.open(tmp_module_dst, true, null).installFromManifests(Collections.singleton(manifest));
                 } else {
-		    // We need to create a throwaway SimpleLibrary to work with it,
-		    // As there is no static preInstall method
-		    File scratchlib_dst = new File(tmp_dst, "scratchlib");
-		    SimpleLibrary.open(scratchlib_dst, true, null).preInstall(manifest, tmp_module_dst);
-		    Files.deleteTree(scratchlib_dst);
+                    // We need to create a throwaway SimpleLibrary to work with it,
+                    // As there is no static preInstall method
+                    File scratchlib_dst = new File(tmp_dst, "scratchlib");
+                    SimpleLibrary.open(scratchlib_dst, true, null).preInstall(manifest, tmp_module_dst);
+                    Files.deleteTree(scratchlib_dst);
                 }
-	    } catch (IOException x) {
+            } catch (IOException x) {
                 throw new Command.Exception(x);
-	    } catch (ConfigurationException x) {
+            } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
             }
-	}
+        }
 
         private String translateVersion(String v) {
             return v.replaceAll("-", "_");
         }
 
-	private String computeDependencies(ModuleInfo info)
-	{
-	    StringBuilder deps = new StringBuilder();
+        private String computeDependencies(ModuleInfo info)
+        {
+            StringBuilder deps = new StringBuilder();
 
-	    for (Dependence d : info.requires())		
-		deps.append(", ")
-		    .append(d.query().name())
-		    .append(' ')
-		    .append(d.query().versionQuery() != null ?
-			    "(" + translateVersion(d.query().versionQuery().toString()) + ")" :
-			    "");
+            for (Dependence d : info.requires())
+                deps.append(", ")
+                    .append(d.query().name())
+                    .append(' ')
+                    .append(d.query().versionQuery() != null ?
+                            "(" + translateVersion(d.query().versionQuery().toString()) + ")" :
+                            "");
 
-	    return deps.length() > 0 ?
-		deps.substring(1) :
-		"";		
-	}
+            return deps.length() > 0 ?
+                deps.substring(1) :
+                "";
+        }
 
-	private String computeProvides(ModuleInfo info)
-	{
-	    StringBuilder deps = new StringBuilder();
+        private String computeProvides(ModuleInfo info)
+        {
+            StringBuilder deps = new StringBuilder();
 
-	    for (ModuleId id : info.provides())		
-		deps.append(", ")
-		    .append(id.name());
+            for (ModuleId id : info.provides())
+                deps.append(", ")
+                    .append(id.name());
 
-	    return deps.length() > 0 ?
-		deps.substring(1) :
-		"";		
-	}
+            return deps.length() > 0 ?
+                deps.substring(1) :
+                "";
+        }
 
-	/** Long descriptions in Debian control files must start the line with a space. */
-	private String formatDescription(String description)
-	{
-	    return " " + description.replace("\n", "\n ");
-	}
+        /** Long descriptions in Debian control files must start the line with a space. */
+        private String formatDescription(String description)
+        {
+            return " " + description.replace("\n", "\n ");
+        }
 
-	/**
-	 * The ModuleInfo metadata gets translated into the package in the following way:
-	 * 
-	 * package name is module's name
-	 * package version is module's version
-	 * package dependecies are module's required dependencies
-	 *
-	 * @param manifest The module's manifest
-	 */
-	private void writeMetaData(Manifest manifest)
-	    throws Command.Exception
-	{
+        /**
+         * The ModuleInfo metadata gets translated into the package in the following way:
+         *
+         * package name is module's name
+         * package version is module's version
+         * package dependecies are module's required dependencies
+         *
+         * @param manifest The module's manifest
+         */
+        private void writeMetaData(Manifest manifest)
+            throws Command.Exception
+        {
             boolean bootmodule = BOOT_MODULE.equals(manifest.module());
-	    PrintStream control = null, launcher = null, pis = null;
-	    try {
-		createMetaDataDir();
+            PrintStream control = null, launcher = null, pis = null;
+            try {
+                createMetaDataDir();
 
-		ModuleInfo info = getModuleInfo(manifest);
+                ModuleInfo info = getModuleInfo(manifest);
 
-		// Create the control file, and fill in dependency and provides info
-		control = new PrintStream(new File(tmp_metadata_dst, "control"));		
-		control.format("Package: %s%n" 
-			       + "Version: %s%n"
-			       + "Section: misc%n"
-			       + "Priority: optional%n"
-			       + "Architecture: " + System.getProperty("os.arch") + "%n",
+                // Create the control file, and fill in dependency and provides info
+                control = new PrintStream(new File(tmp_metadata_dst, "control"));
+                control.format("Package: %s%n"
+                               + "Version: %s%n"
+                               + "Section: misc%n"
+                               + "Priority: optional%n"
+                               + "Architecture: " + System.getProperty("os.arch") + "%n",
                                info.id().name(),
                                translateVersion(info.id().version().toString()));
 
-		// If either maintainer name or e-mail is declared as parameter, use it
-		if (null != maintainer_name || null != maintainer_email) {
-		    control.format("Maintainer: %s %s%n",
-				   maintainer_name == null? default_maintainer_name : maintainer_name, 
-				   maintainer_email == null? default_maintainer_email : maintainer_email);
-		}
-		// Otherwise, if there is no extra metadata, use defaults
-		else if (null == extra_metadata) {
-		    control.format("Maintainer: %s %s%n",
-				   default_maintainer_name,
-				   default_maintainer_email);
-		}
+                // If either maintainer name or e-mail is declared as parameter, use it
+                if (null != maintainer_name || null != maintainer_email) {
+                    control.format("Maintainer: %s %s%n",
+                                   maintainer_name == null? default_maintainer_name : maintainer_name,
+                                   maintainer_email == null? default_maintainer_email : maintainer_email);
+                }
+                // Otherwise, if there is no extra metadata, use defaults
+                else if (null == extra_metadata) {
+                    control.format("Maintainer: %s %s%n",
+                                   default_maintainer_name,
+                                   default_maintainer_email);
+                }
 
-		// If either short or long description is declared as parameter, use it
-		if (null != short_description || null != long_description) {
-		    control.format("Description: %s%n"
-				   + "%s%n",
-				   short_description == null? default_short_description : short_description, 
-				   long_description == null? default_long_description : formatDescription(long_description));
-		}
-		// Otherwise, if there is no extra metadata, use defaults
-		else if (null == extra_metadata) {
-		    control.format("Description: %s%n"
-				   + "%s%n",
-				   default_short_description,
-				   default_long_description);
-		}
+                // If either short or long description is declared as parameter, use it
+                if (null != short_description || null != long_description) {
+                    control.format("Description: %s%n"
+                                   + "%s%n",
+                                   short_description == null? default_short_description : short_description,
+                                   long_description == null? default_long_description : formatDescription(long_description));
+                }
+                // Otherwise, if there is no extra metadata, use defaults
+                else if (null == extra_metadata) {
+                    control.format("Description: %s%n"
+                                   + "%s%n",
+                                   default_short_description,
+                                   default_long_description);
+                }
 
-		if (!bootmodule && !info.requires().isEmpty())
-		    control.format("Depends: %s\n", computeDependencies(info));
-		if (!info.provides().isEmpty())
-		    control.format("Provides: %s\n", computeProvides(info));
-		if (null != extra_metadata)
-		    control.format("%s\n", new String(Files.load(extra_metadata)));
+                if (!bootmodule && !info.requires().isEmpty())
+                    control.format("Depends: %s\n", computeDependencies(info));
+                if (!info.provides().isEmpty())
+                    control.format("Provides: %s\n", computeProvides(info));
+                if (null != extra_metadata)
+                    control.format("%s\n", new String(Files.load(extra_metadata)));
                 if (installedSize != null)
                     control.format("Installed-Size: %d\n", installedSize);
 
-		// All jpkg generated packages (except boot) depend on a boot
+                // All jpkg generated packages (except boot) depend on a boot
                 // package being installed at time of installation to be able to run jmod.
-                if (!bootmodule) 
-		    control.format("Pre-Depends: %s\n", BOOT_MODULE);
+                if (!bootmodule)
+                    control.format("Pre-Depends: %s\n", BOOT_MODULE);
 
 
-		// Generate the launcher script, if a main class exists
-		if (!bootmodule && info.mainClass() != null) {
-		    // If no command name is given, use module name
-		    if (null == bincmd)
-			bincmd = info.id().name();
+                // Generate the launcher script, if a main class exists
+                if (!bootmodule && info.mainClass() != null) {
+                    // If no command name is given, use module name
+                    if (null == bincmd)
+                        bincmd = info.id().name();
 
-		    String BINDIR = "/usr/bin";
-		    File bin = new File(tmp_dst + BINDIR);
-		    if (!bin.mkdirs())
-			throw new IOException("Couldn't create " + tmp_dst + BINDIR);
+                    String BINDIR = "/usr/bin";
+                    File bin = new File(tmp_dst + BINDIR);
+                    if (!bin.mkdirs())
+                        throw new IOException("Couldn't create " + tmp_dst + BINDIR);
 
-		    File cmd = new File(bin, bincmd);
-		    launcher = new PrintStream(cmd);
-		    String java_launcher = System.getProperty("java.home") + "/bin/java";
-		    if (! (new File(java_launcher)).exists())
-			throw new IOException("Couldn't find java launcher at " + java_launcher);
+                    File cmd = new File(bin, bincmd);
+                    launcher = new PrintStream(cmd);
+                    String java_launcher = System.getProperty("java.home") + "/bin/java";
+                    if (! (new File(java_launcher)).exists())
+                        throw new IOException("Couldn't find java launcher at " + java_launcher);
 
-		    launcher.format("#!/bin/sh\n" +
-				    "set -e\n" + 
-				    "exec %s -ea -L %s -m %s \"$@\"\n",
-				    java_launcher, library, info.id().name())
-			.close();
-		    cmd.setExecutable(true, false);
-		}
+                    launcher.format("#!/bin/sh\n" +
+                                    "set -e\n" +
+                                    "exec %s -ea -L %s -m %s \"$@\"\n",
+                                    java_launcher, library, info.id().name())
+                        .close();
+                    cmd.setExecutable(true, false);
+                }
 
                 String installedJMod = javaHome.getPath() + "/bin/jmod";
 
-		// Before a package is installed, 
-		//   check if the jigsaw module library needs to be created first
+                // Before a package is installed,
+                //   check if the jigsaw module library needs to be created first
                 if (!bootmodule) {
                     File preinst = new File(tmp_metadata_dst, "preinst");
                     pis = new PrintStream(preinst);
                     pis.format("#!/bin/sh\n" +
-                    	   "set -e\n" +
-                    	   "if [ ! -f %1$s/%%jigsaw-library ]\n" +
-                    	   "then\n" +
-                    	   "  %2$s  -L %1$s create\n" +
-                    	   "fi\n",
-                    	   library, installedJMod).close();
+                           "set -e\n" +
+                           "if [ ! -f %1$s/%%jigsaw-library ]\n" +
+                           "then\n" +
+                           "  %2$s  -L %1$s create\n" +
+                           "fi\n",
+                           library, installedJMod).close();
                     preinst.setExecutable(true, false);
-                
+
                     // After a package is installed,
                     //  reconfigure the jigsaw module library for the module
                     File postinst = new File(tmp_metadata_dst, "postinst");
                     pis = new PrintStream(postinst);
                     pis.format("#!/bin/sh\n" +
-                    	   "set -e\n" +
-                    	   "if [ -f %s/%s.pack ] ; then\n" +
-                    	   " for i in %s/*.pack ; do\n" +
-                    	   "   %s/bin/unpack200 -r $i %s/tmp.jar\n" +
-                    	   "   unzip -o -q -d / %s/tmp.jar\n" +
-                    	   "   rm %s/tmp.jar\n" +
-                    	   " done\n" +
-                    	   "fi\n" +
-                    	   "%s -L %s config %s\n",
-                    	   library, manifest.module(),
-                    	   library,
-                    	   javaHome, library,
-                    	   library,
-                    	   library,
-                    	   installedJMod, library, info.id());
+                           "set -e\n" +
+                           "if [ -f %s/%s.pack ] ; then\n" +
+                           " for i in %s/*.pack ; do\n" +
+                           "   %s/bin/unpack200 -r $i %s/tmp.jar\n" +
+                           "   unzip -o -q -d / %s/tmp.jar\n" +
+                           "   rm %s/tmp.jar\n" +
+                           " done\n" +
+                           "fi\n" +
+                           "%s -L %s config %s\n",
+                           library, manifest.module(),
+                           library,
+                           javaHome, library,
+                           library,
+                           library,
+                           installedJMod, library, info.id());
                     pis.close();
                     postinst.setExecutable(true, false);
                 }
 
-		// Before a package is removed,
-		//  remove the generated jigsaw module configuration
-		File prerm = new File(tmp_metadata_dst, "prerm");
-		pis = new PrintStream(prerm);
-		pis.format("#!/bin/sh\n" +
-			   "set -e\n" +
-			   // Delete unpacked class files.
-			   "if [ -e %1$s/%2$s/%3$s ]\n" +
-			   "then\n" +
-			   "  rm -rf %1$s/%2$s/%3$s\n" +
-			   "fi\n" + 
-			   // Delete module library directory if it's empty.
-			   "find %1$s/%2$s/ -maxdepth 0 -type d -empty -delete\n",
-			   library, info.id().name(), info.id().version());
-		pis.close();
-		prerm.setExecutable(true, false);
+                // Before a package is removed,
+                //  remove the generated jigsaw module configuration
+                File prerm = new File(tmp_metadata_dst, "prerm");
+                pis = new PrintStream(prerm);
+                pis.format("#!/bin/sh\n" +
+                           "set -e\n" +
+                           // Delete unpacked class files.
+                           "if [ -e %1$s/%2$s/%3$s ]\n" +
+                           "then\n" +
+                           "  rm -rf %1$s/%2$s/%3$s\n" +
+                           "fi\n" +
+                           // Delete module library directory if it's empty.
+                           "find %1$s/%2$s/ -maxdepth 0 -type d -empty -delete\n",
+                           library, info.id().name(), info.id().version());
+                pis.close();
+                prerm.setExecutable(true, false);
             } catch (IOException x) {
                 throw new Command.Exception(x);
             }
-	    finally {
-		if (control != null)
-		    control.close();
-		if (launcher != null)
-		    launcher.close();
-		if (pis != null)
-		    pis.close();
-	    }
-	}
+            finally {
+                if (control != null)
+                    control.close();
+                if (launcher != null)
+                    launcher.close();
+                if (pis != null)
+                    pis.close();
+            }
+        }
 
-	private void buildPackage()
-	    throws Command.Exception 
-	{
+        private void buildPackage()
+            throws Command.Exception
+        {
             String dashz = "-z" + ((fast || jigsawDevMode) ? 1 : 9);
-	    BufferedReader br = null;
-	    try {
-		Process build 
-		    = (new ProcessBuilder("fakeroot", "dpkg-deb", dashz, "-Zlzma", "--build", 
-					  tmp_dst.toString(), destination.toString())).start();
-		
-		br = new BufferedReader(new InputStreamReader(build.getErrorStream()));
+            BufferedReader br = null;
+            try {
+                Process build
+                    = (new ProcessBuilder("fakeroot", "dpkg-deb", dashz, "-Zlzma", "--build",
+                                          tmp_dst.toString(), destination.toString())).start();
 
-		if (0 != build.waitFor())
-		    throw new Command.Exception("Failed to create package " + br.readLine());
-	    } catch (IOException x) {
+                br = new BufferedReader(new InputStreamReader(build.getErrorStream()));
+
+                if (0 != build.waitFor())
+                    throw new Command.Exception("Failed to create package " + br.readLine());
+            } catch (IOException x) {
                 throw new Command.Exception(x);
             } catch (InterruptedException x) {
                 throw new Command.Exception(x);
             }
-	    finally {
-		if (br != null)
-		    try {
-			br.close();
-		    }
-		    catch (IOException e) {
-			throw new Command.Exception(e);
-		    }
-	    }
-	}
+            finally {
+                if (br != null)
+                    try {
+                        br.close();
+                    }
+                    catch (IOException e) {
+                        throw new Command.Exception(e);
+                    }
+            }
+        }
 
-	private void cleanup()
-	    throws Command.Exception 
-	{
-	    try {
-		Files.deleteTree(tmp_dst);
-	    } catch (IOException x) {
+        private void cleanup()
+            throws Command.Exception
+        {
+            try {
+                Files.deleteTree(tmp_dst);
+            } catch (IOException x) {
                 throw new Command.Exception(x);
-	    }
-	}
+            }
+        }
 
-	private File getPackFile(Manifest manifest)
-	{
-	    return new File(tmp_module_dst, manifest.module() + ".pack");
-	}
+        private File getPackFile(Manifest manifest)
+        {
+            return new File(tmp_module_dst, manifest.module() + ".pack");
+        }
 
-	private void packModule(Manifest manifest)
-	    throws Command.Exception
-	{
+        private void packModule(Manifest manifest)
+            throws Command.Exception
+        {
             // Can't pack the boot module since unpack200 tool may not exist
-            if (BOOT_MODULE.equals(manifest.module())) 
+            if (BOOT_MODULE.equals(manifest.module()))
                 return;
 
-	    BufferedReader br = null;
-	    try {
-		File tmp_jar = new File(tmp_dst, "module.jar");
+            BufferedReader br = null;
+            try {
+                File tmp_jar = new File(tmp_dst, "module.jar");
 
-		// Create temporary jar file with module classes and ressources
-		// Store entries, as we'll just need it for pack200 to read from
-		// and then delete it. No point in wasting time.
-		Process jar
-		    = (new ProcessBuilder("jar", "c0f",  tmp_jar.toString(), 
-					  "-C", tmp_dst.toString(), 
-					  library.toString())).start();
-		br = new BufferedReader(new InputStreamReader(jar.getErrorStream()));
-		if (0 != jar.waitFor())
-		    throw new Command.Exception("Failed to jar module " + br.readLine());
+                // Create temporary jar file with module classes and ressources
+                // Store entries, as we'll just need it for pack200 to read from
+                // and then delete it. No point in wasting time.
+                Process jar
+                    = (new ProcessBuilder("jar", "c0f",  tmp_jar.toString(),
+                                          "-C", tmp_dst.toString(),
+                                          library.toString())).start();
+                br = new BufferedReader(new InputStreamReader(jar.getErrorStream()));
+                if (0 != jar.waitFor())
+                    throw new Command.Exception("Failed to jar module " + br.readLine());
 
-		// Remove redundant META-INF directory from jar file,
-		// so that it doesn't pollute the filesystem hierarchy
-		// when we unpack the files again.
-		Process zip
-		    = (new ProcessBuilder("zip",  tmp_jar.toString(), 
-					  "-d", "META-INF/*")).start();
-		br = new BufferedReader(new InputStreamReader(zip.getErrorStream()));
-		if (0 != zip.waitFor())
-		    throw new Command.Exception("Failed to remove META-INF directory from jar module " + br.readLine());
+                // Remove redundant META-INF directory from jar file,
+                // so that it doesn't pollute the filesystem hierarchy
+                // when we unpack the files again.
+                Process zip
+                    = (new ProcessBuilder("zip",  tmp_jar.toString(),
+                                          "-d", "META-INF/*")).start();
+                br = new BufferedReader(new InputStreamReader(zip.getErrorStream()));
+                if (0 != zip.waitFor())
+                    throw new Command.Exception("Failed to remove META-INF directory from jar module " + br.readLine());
 
-		// Compress the jar file with pack200.
+                // Compress the jar file with pack200.
                 String dashE = "-E" + ((fast || jigsawDevMode) ? "0" : "9");
-		Process pack200
-		    = (new ProcessBuilder("pack200", dashE, "-S-1", "--no-gzip",
-					  getPackFile(manifest).toString(),
-					  tmp_jar.toString())).start();
-		br = new BufferedReader(new InputStreamReader(pack200.getErrorStream()));
-		if (0 != pack200.waitFor())
-		    throw new Command.Exception("Failed to pack200 module " + br.readLine());
+                Process pack200
+                    = (new ProcessBuilder("pack200", dashE, "-S-1", "--no-gzip",
+                                          getPackFile(manifest).toString(),
+                                          tmp_jar.toString())).start();
+                br = new BufferedReader(new InputStreamReader(pack200.getErrorStream()));
+                if (0 != pack200.waitFor())
+                    throw new Command.Exception("Failed to pack200 module " + br.readLine());
 
-		if (! tmp_jar.delete())
-		    throw new Command.Exception("Failed to delete temporary file " + tmp_jar);
-		Files.deleteTree(new File(tmp_module_dst, manifest.module().toString()));
-	    } catch (IOException x) {
+                if (! tmp_jar.delete())
+                    throw new Command.Exception("Failed to delete temporary file " + tmp_jar);
+                Files.deleteTree(new File(tmp_module_dst, manifest.module().toString()));
+            } catch (IOException x) {
                 throw new Command.Exception(x);
             } catch (InterruptedException x) {
                 throw new Command.Exception(x);
             }
-	    finally {
-		if (br != null)
-		    try {
-			br.close();
-		    }
-		    catch (IOException x) {
-			throw new Command.Exception(x);
-		    }
-	    }
-	}
+            finally {
+                if (br != null)
+                    try {
+                        br.close();
+                    }
+                    catch (IOException x) {
+                        throw new Command.Exception(x);
+                    }
+            }
+        }
 
         protected void go(SimpleLibrary lib)
             throws Command.Exception
@@ -576,25 +576,25 @@ public class Packager {
             }
             finishArgs();
 
-	    for (Manifest manifest : mfs) {
+            for (Manifest manifest : mfs) {
 
-		if (verbose)
-		    System.out.println("Creating binary Debian package for " + manifest.module());
+                if (verbose)
+                    System.out.println("Creating binary Debian package for " + manifest.module());
 
-		createTempWorkDir();
-		if (null != includes) {
-		    try {
-			Files.copyTree(includes, tmp_dst);
-		    } catch (IOException x) {
-			throw new Command.Exception(x);
-		    }
-		}
-		preinstallModule(manifest);
-		packModule(manifest);
-		writeMetaData(manifest);
-		buildPackage();
-		cleanup();
-	    }
+                createTempWorkDir();
+                if (null != includes) {
+                    try {
+                        Files.copyTree(includes, tmp_dst);
+                    } catch (IOException x) {
+                        throw new Command.Exception(x);
+                    }
+                }
+                preinstallModule(manifest);
+                packModule(manifest);
+                writeMetaData(manifest);
+                buildPackage();
+                cleanup();
+            }
         }
     }
 
@@ -603,7 +603,7 @@ public class Packager {
 
     static {
         commands.put("deb", Deb.class);
-	commands.put("jmod", Jmod.class);
+        commands.put("jmod", Jmod.class);
     }
 
     private OptionParser parser;
@@ -645,16 +645,16 @@ public class Packager {
                           "Enable verbose output");
         parser.acceptsAll(Arrays.asList("h", "?", "help"),
                           "Show this help message");
-        OptionSpec<File> destinationPath 
-	    = (parser.acceptsAll(Arrays.asList("d", "dest-dir"),
-			  "Destination directory for packages")
+        OptionSpec<File> destinationPath
+            = (parser.acceptsAll(Arrays.asList("d", "dest-dir"),
+                          "Destination directory for packages")
                .withRequiredArg()
                .describedAs("path")
                .ofType(File.class));
 
-	OptionSpec<File> modulePath 
-	    = (parser.acceptsAll(Arrays.asList("m", "module-dir"),
-			  "Source directory for modules")
+        OptionSpec<File> modulePath
+            = (parser.acceptsAll(Arrays.asList("m", "module-dir"),
+                          "Source directory for modules")
                .withRequiredArg()
                .describedAs("path")
                .ofType(File.class));
@@ -702,7 +702,7 @@ public class Packager {
                .ofType(String.class));
 
         parser.acceptsAll(Arrays.asList("fast"),
-			  "Use fastest compression");
+                          "Use fastest compression");
 
         OptionSpec<Integer> isize
             = (parser.acceptsAll(Arrays.asList("installed-size"),
@@ -721,7 +721,7 @@ public class Packager {
         OptionSpec<File> extraMetadata
             = (parser.acceptsAll(Arrays.asList("x", "extra"),
                                  "File or directory with additional metadata,"
-				 + " depending on the packaging system")
+                                 + " depending on the packaging system")
                .withRequiredArg()
                .describedAs("dir")
                .ofType(File.class));
@@ -749,89 +749,89 @@ public class Packager {
 
         if (args.length == 0) {
             usage();
-	    return;
-	}
+            return;
+        }
 
-	OptionSet opts = parser.parse(args);
-	if (opts.has("h")) {
-	    usage();
-	    return;
-	}
-	if (opts.has("v"))
-	    verbose = true;
-	if (opts.has("fast"))
-	    fast = true;
-	java.util.List<String> words = opts.nonOptionArguments();
-	if (words.isEmpty()) {
-	    usage();
-	    return;
-	}
-	String verb = words.get(0);
-	Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
-	if (cmd == null)
-	    throw new Command.Exception("%s: unknown command", verb);
-	if (opts.has(launcherPath))
-	    bincmd = opts.valueOf(launcherPath).toString();
-	if (opts.has(destinationPath))
-	    destination = opts.valueOf(destinationPath);
-	if (opts.has(modulePath))
-	    classes = opts.valueOf(modulePath);
-	if (opts.has(libPath)) {
-	    library = opts.valueOf(libPath);
-	} else {
-	    String jm = System.getenv("JAVA_MODULES");
-	    if (jm != null)
-		library = new File(jm);
-	}
-	if (opts.has(resourcePath))
-	    resources = opts.valueOf(resourcePath);
-	if (opts.has(includePath))
-	    includes = opts.valueOf(includePath);
-	if (opts.has(javaHomePath))
-	    javaHome = opts.valueOf(javaHomePath);
-	if (opts.has(maintainerName))
-	    maintainer_name = opts.valueOf(maintainerName);
-	if (opts.has(maintainerEmail)) {
-	    maintainer_email = opts.valueOf(maintainerEmail);
-	    // Add missing e-mail quotes if necessary
-	    maintainer_email
-		= (maintainer_email.startsWith("<") ? "" : "<") 
-		+ maintainer_email
-		+ (maintainer_email.endsWith(">") ? "" : ">") ;
-	}
-	if (opts.has(shortDescription))
-	    short_description = opts.valueOf(shortDescription);
-	if (opts.has(longDescription))
-	    long_description = opts.valueOf(longDescription);
-	if (opts.has(extraMetadata))
-	    extra_metadata = opts.valueOf(extraMetadata);
-	if (opts.has(nativeLibs))
-	    natlibs = opts.valueOf(nativeLibs);
-	if (opts.has(nativeCmds))
-	    natcmds = opts.valueOf(nativeCmds);
-	if (opts.has(config))
-	    config_dir = opts.valueOf(config);
-	if (opts.has(isize))
-	    installedSize = opts.valueOf(isize);
-	
-	if (cmd == Deb.class)
-	    (new Deb()).run(null, opts);
-	else if (cmd == Jmod.class)
-	    (new Jmod()).run(null, opts);
+        OptionSet opts = parser.parse(args);
+        if (opts.has("h")) {
+            usage();
+            return;
+        }
+        if (opts.has("v"))
+            verbose = true;
+        if (opts.has("fast"))
+            fast = true;
+        java.util.List<String> words = opts.nonOptionArguments();
+        if (words.isEmpty()) {
+            usage();
+            return;
+        }
+        String verb = words.get(0);
+        Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
+        if (cmd == null)
+            throw new Command.Exception("%s: unknown command", verb);
+        if (opts.has(launcherPath))
+            bincmd = opts.valueOf(launcherPath).toString();
+        if (opts.has(destinationPath))
+            destination = opts.valueOf(destinationPath);
+        if (opts.has(modulePath))
+            classes = opts.valueOf(modulePath);
+        if (opts.has(libPath)) {
+            library = opts.valueOf(libPath);
+        } else {
+            String jm = System.getenv("JAVA_MODULES");
+            if (jm != null)
+                library = new File(jm);
+        }
+        if (opts.has(resourcePath))
+            resources = opts.valueOf(resourcePath);
+        if (opts.has(includePath))
+            includes = opts.valueOf(includePath);
+        if (opts.has(javaHomePath))
+            javaHome = opts.valueOf(javaHomePath);
+        if (opts.has(maintainerName))
+            maintainer_name = opts.valueOf(maintainerName);
+        if (opts.has(maintainerEmail)) {
+            maintainer_email = opts.valueOf(maintainerEmail);
+            // Add missing e-mail quotes if necessary
+            maintainer_email
+                = (maintainer_email.startsWith("<") ? "" : "<")
+                + maintainer_email
+                + (maintainer_email.endsWith(">") ? "" : ">") ;
+        }
+        if (opts.has(shortDescription))
+            short_description = opts.valueOf(shortDescription);
+        if (opts.has(longDescription))
+            long_description = opts.valueOf(longDescription);
+        if (opts.has(extraMetadata))
+            extra_metadata = opts.valueOf(extraMetadata);
+        if (opts.has(nativeLibs))
+            natlibs = opts.valueOf(nativeLibs);
+        if (opts.has(nativeCmds))
+            natcmds = opts.valueOf(nativeCmds);
+        if (opts.has(config))
+            config_dir = opts.valueOf(config);
+        if (opts.has(isize))
+            installedSize = opts.valueOf(isize);
+
+        if (cmd == Deb.class)
+            (new Deb()).run(null, opts);
+        else if (cmd == Jmod.class)
+            (new Jmod()).run(null, opts);
     }
 
     private Packager() { }
 
     public static void main(String[] args) throws Exception {
-	try {
-	    new Packager().run(args);
-	} catch (OptionException x) {
-	    err.println(x.getMessage());
-	    System.exit(1);
-	} catch (Command.Exception x) {
-	    err.println(x.getMessage());
-	    System.exit(1);
-	}
+        try {
+            new Packager().run(args);
+        } catch (OptionException x) {
+            err.println(x.getMessage());
+            System.exit(1);
+        } catch (Command.Exception x) {
+            err.println(x.getMessage());
+            System.exit(1);
+        }
     }
 
 }

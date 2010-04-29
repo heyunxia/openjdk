@@ -66,14 +66,14 @@ import sun.reflect.generics.tree.*;
      * the specified input stream and resolving constant references in
      * the specified constant pool.
      *
-     * @params in    Data input stream for reading an annotation 
+     * @params in    Data input stream for reading an annotation
      * @params cpool Constant pool of module-info.class
      */
     ModuleInfoAnnotation(DataInputStream in, ConstantPool cpool) throws IOException {
         this.typeIndex = in.readUnsignedShort();
         this.numElements = in.readUnsignedShort();
 
-        this.typeSig = cpool.getUtf8(typeIndex); 
+        this.typeSig = cpool.getUtf8(typeIndex);
         // convert the field descriptor to the fully qualified class name
         this.typeName = typeSig.substring(1, typeSig.length()-1).replace('/', '.');
         this.elements = new HashSet<Element>();
@@ -90,8 +90,8 @@ import sun.reflect.generics.tree.*;
 
     /**
      * Returns an Annotation object that doesn't support element of type
-     * Class; attempting to read a Class object by invoking the relevant 
-     * method on the returned annotation will result in a 
+     * Class; attempting to read a Class object by invoking the relevant
+     * method on the returned annotation will result in a
      * UnsupportedElementTypeException.
      *
      * This method is called by the  ModuleInfo.getAnnotation() method;
@@ -102,7 +102,7 @@ import sun.reflect.generics.tree.*;
 
     /**
      * Returns an Annotation object created by the core reflection.
-     * If supportClassElementType is false, attempting to read a Class 
+     * If supportClassElementType is false, attempting to read a Class
      * object by invoking the relevant method on the returned annotation
      * will result in a UnsupportedElementTypeException.
      *
@@ -128,7 +128,7 @@ import sun.reflect.generics.tree.*;
                 memberValues.put(memberName, value);
             }
         }
- 
+
         // replace the default value of elements of Class type
         // to UnsupportedElementTypeExceptionProxy if it doesn't support
         // elements of Class type
@@ -140,7 +140,7 @@ import sun.reflect.generics.tree.*;
                 if (memberType == Class.class && !(value instanceof ExceptionProxy)) {
                     value = new DefaultValueExceptionProxy(Class.class.cast(value));
                     memberValues.put(memberName, value);
-                } else if (memberType.isArray() && 
+                } else if (memberType.isArray() &&
                            memberType.getComponentType() == Class.class) {
                     if (!(value instanceof ExceptionProxy)) {
                         value = new DefaultValueExceptionProxy((Class<?>[]) value);
@@ -168,8 +168,8 @@ import sun.reflect.generics.tree.*;
     }
 
     /**
-     * Returns a Class object of the given signature loaded by 
-     * the module class loader of the given Module. 
+     * Returns a Class object of the given signature loaded by
+     * the module class loader of the given Module.
      */
     private static Class<?> parseSig(String sig, Module module) {
         if (sig.equals("V")) return void.class;
@@ -309,7 +309,7 @@ import sun.reflect.generics.tree.*;
                     "Invalid member-value tag in annotation: " + (char) tag);
             }
         }
-        
+
         <R,P> R accept(Visitor<R,P> visitor, P p) {
             return visitor.visitPrimitive(this, p);
         }
@@ -418,7 +418,7 @@ import sun.reflect.generics.tree.*;
     // proxy exception
     private static class UnsupportedElementTypeExceptionProxy extends ExceptionProxy {
         private List<String> typeSigs;
-    
+
         UnsupportedElementTypeExceptionProxy(String sig) {
             this.typeSigs = Collections.singletonList(sig);
         }
@@ -426,7 +426,7 @@ import sun.reflect.generics.tree.*;
         UnsupportedElementTypeExceptionProxy(List<String> sigs) {
             this.typeSigs = Collections.unmodifiableList(sigs);
         }
-    
+
         protected RuntimeException generateException() {
             List<String> names = new ArrayList<String>();
             for (String sig : typeSigs) {
@@ -442,7 +442,7 @@ import sun.reflect.generics.tree.*;
             if (sig.equals("V")) return "Void";
             SignatureParser parser = SignatureParser.make();
             TypeSignature typeSig = parser.parseTypeSig(sig);
-            TypeVisitor visitor = new TypeVisitor(); 
+            TypeVisitor visitor = new TypeVisitor();
             typeSig.accept(visitor);
             return visitor.getResult();
         }
@@ -450,7 +450,7 @@ import sun.reflect.generics.tree.*;
 
     private static class DefaultValueExceptionProxy extends ExceptionProxy {
         private List<String> typeNames = new ArrayList<String>();
-    
+
         DefaultValueExceptionProxy(Class<?> cls) {
             typeNames.add(cls.getName());
         }
@@ -460,7 +460,7 @@ import sun.reflect.generics.tree.*;
                typeNames.add(c.getName());
             }
         }
-    
+
         protected RuntimeException generateException() {
             return new UnsupportedElementTypeException(typeNames);
         }
@@ -487,7 +487,7 @@ import sun.reflect.generics.tree.*;
             SimpleClassTypeSignature sc = iter.next();
             StringBuilder n = new StringBuilder(sc.getName());
             boolean dollar = sc.getDollar();
-    
+
             // phase 1: iterate over simple class types until
             // we are either done or we hit one with non-empty type parameters
             while (iter.hasNext() && sc.getTypeArguments().length == 0) {
@@ -495,7 +495,7 @@ import sun.reflect.generics.tree.*;
                 dollar = sc.getDollar();
                 n.append(dollar?"$":".").append(sc.getName());
             }
-    
+
             // Now, either sc is the last element of the list, or
             // it has type arguments (or both)
             assert(!(iter.hasNext()) || (sc.getTypeArguments().length > 0));
@@ -578,7 +578,7 @@ import sun.reflect.generics.tree.*;
                             boolean supportClassElementType) {
             this.annotationClass = annotationClass;
             this.supportClassElementType = supportClassElementType;
-        } 
+        }
 
         Object getValue(Element e, Class<?> elementType) {
             Object value;

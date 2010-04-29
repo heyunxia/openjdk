@@ -193,7 +193,7 @@ import java.util.Map;
     }
 
     private void readAnnotations() throws IOException {
-        int count = in.readUnsignedShort(); 
+        int count = in.readUnsignedShort();
         for (int i=0; i < count; i++) {
             ModuleInfoAnnotation at = new ModuleInfoAnnotation(in, cpool);
             annotationTypes.put(at.getName(), at);
@@ -254,7 +254,7 @@ import java.util.Map;
         public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
             if (annotationClass == null)
                 throw new NullPointerException("Argument annotationClass is null");
-            return annotationTypes.containsKey(annotationClass.getName()); 
+            return annotationTypes.containsKey(annotationClass.getName());
         }
 
         public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
@@ -429,9 +429,9 @@ import java.util.Map;
 
         Object getValue(int index) {
             Entry e = pool[index];
-            assert e.tag == CONSTANT_Double || 
-                   e.tag == CONSTANT_Float || 
-                   e.tag == CONSTANT_Integer || 
+            assert e.tag == CONSTANT_Double ||
+                   e.tag == CONSTANT_Float ||
+                   e.tag == CONSTANT_Integer ||
                    e.tag == CONSTANT_Long;
             return ((ValueEntry) e).value;
         }

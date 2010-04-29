@@ -213,7 +213,7 @@ public abstract class Library
      *
      * @return  The named module's {@link Configuration}, or null if the named
      *          module does not exist in this library
-     * 
+     *
      * @throws  IllegalArgumentException
      *          If the given module identifier is not a Jigsaw module
      *          identifier
@@ -265,7 +265,7 @@ public abstract class Library
     /**
      * <p> Install any modules required by the given {@linkplain Resolution
      * resolution}, and configure all of its root modules. </p>
-     * 
+     *
      * @param   res
      *          A {@link Resolution} previously computed by the
      *          {@link Library#install() install()} method

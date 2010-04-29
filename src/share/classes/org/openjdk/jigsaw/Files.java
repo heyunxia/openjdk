@@ -145,7 +145,7 @@ public final class Files {
                 copyTree(sf, df, filter);
             else
                 copy(sf, df);
-        }           
+        }
         dst.setLastModified(src.lastModified());
     }
 

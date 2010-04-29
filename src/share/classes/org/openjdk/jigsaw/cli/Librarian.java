@@ -114,25 +114,25 @@ public class Librarian {
         {
             noDry();
             while (hasArg()) {
-		File module = new File(takeArg());
-		try { 
-		    File classes = File.createTempFile("jigsaw",null);
-		    classes.toPath().delete();
-		    classes.toPath().createDirectory();
-		    FileInputStream fis = new FileInputStream(module);
-		    DataInputStream dis = new DataInputStream(fis);
-		    ModuleFileFormat.Reader reader = 
-			new ModuleFileFormat.Reader(dis);
-		    reader.readModule(classes);
-		    String name = module.getName();
-		    name = name.substring(0, name.lastIndexOf('@'));
-		    Files.copyTree(classes, new File(name));
-		    Files.deleteTree(classes);
-		}
-		catch (IOException x) {
-		    throw new Command.Exception(x);
-		}
-	    }
+                File module = new File(takeArg());
+                try {
+                    File classes = File.createTempFile("jigsaw",null);
+                    classes.toPath().delete();
+                    classes.toPath().createDirectory();
+                    FileInputStream fis = new FileInputStream(module);
+                    DataInputStream dis = new DataInputStream(fis);
+                    ModuleFileFormat.Reader reader =
+                        new ModuleFileFormat.Reader(dis);
+                    reader.readModule(classes);
+                    String name = module.getName();
+                    name = name.substring(0, name.lastIndexOf('@'));
+                    Files.copyTree(classes, new File(name));
+                    Files.deleteTree(classes);
+                }
+                catch (IOException x) {
+                    throw new Command.Exception(x);
+                }
+            }
             finishArgs();
         }
     }
@@ -498,7 +498,7 @@ public class Librarian {
     }
 
     public static void run(String [] args) throws OptionException, Command.Exception {
-	new Librarian().exec(args);
+        new Librarian().exec(args);
     }
 
     private void exec(String[] args) throws OptionException, Command.Exception {
@@ -552,66 +552,66 @@ public class Librarian {
         File homeLibrary = new File(System.getProperty("java.home"),
                                     "lib/modules");
 
-	OptionSet opts = parser.parse(args);
-	if (opts.has("h"))
-	    usage();
-	List<String> words = opts.nonOptionArguments();
-	if (words.isEmpty())
-	    usage();
-	String verb = words.get(0);
-	Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
-	if (cmd == null)
-	    throw new Command.Exception("%s: unknown command", verb);
-	File lp = null;
-	if (opts.has(libPath)) {
-	    lp = opts.valueOf(libPath);
-	} else {
-	    String jm = System.getenv("JAVA_MODULES");
-	    if (jm != null)
-		lp = new File(jm);
-	    else
-		lp = homeLibrary;
-	}
-	File pp = null;
-	if (opts.has(parentPath)) {
-	    pp = opts.valueOf(parentPath);
-	} else if (!opts.has("N")) {
-	    pp = homeLibrary;
-	}
-	SimpleLibrary lib = null;
-	try {
-	    lib = SimpleLibrary.open(lp, verb.equals("create"), pp);
-	} catch (FileNotFoundException x) {
-	    String msg = null;
-	    File f = new File(x.getMessage());
-	    try {
-		f = f.getCanonicalFile();
-		if (lp.getCanonicalFile().equals(f))
-		    msg = "No such library";
-		else
-		    msg = "Cannot open parent library " + f;
-	    } catch (IOException y) {
-		throw new Command.Exception(y);
-	    }
-	    throw new Command.Exception("%s: %s", lp, msg);
-	} catch (IOException x) {
-	    throw new Command.Exception(x);
-	}
-	try {
-	    cmd.newInstance().run(lib, opts);
-	} catch (InstantiationException x) {
-	    throw new AssertionError(x);
-	} catch (IllegalAccessException x) {
-	    throw new AssertionError(x);
-	}
+        OptionSet opts = parser.parse(args);
+        if (opts.has("h"))
+            usage();
+        List<String> words = opts.nonOptionArguments();
+        if (words.isEmpty())
+            usage();
+        String verb = words.get(0);
+        Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
+        if (cmd == null)
+            throw new Command.Exception("%s: unknown command", verb);
+        File lp = null;
+        if (opts.has(libPath)) {
+            lp = opts.valueOf(libPath);
+        } else {
+            String jm = System.getenv("JAVA_MODULES");
+            if (jm != null)
+                lp = new File(jm);
+            else
+                lp = homeLibrary;
+        }
+        File pp = null;
+        if (opts.has(parentPath)) {
+            pp = opts.valueOf(parentPath);
+        } else if (!opts.has("N")) {
+            pp = homeLibrary;
+        }
+        SimpleLibrary lib = null;
+        try {
+            lib = SimpleLibrary.open(lp, verb.equals("create"), pp);
+        } catch (FileNotFoundException x) {
+            String msg = null;
+            File f = new File(x.getMessage());
+            try {
+                f = f.getCanonicalFile();
+                if (lp.getCanonicalFile().equals(f))
+                    msg = "No such library";
+                else
+                    msg = "Cannot open parent library " + f;
+            } catch (IOException y) {
+                throw new Command.Exception(y);
+            }
+            throw new Command.Exception("%s: %s", lp, msg);
+        } catch (IOException x) {
+            throw new Command.Exception(x);
+        }
+        try {
+            cmd.newInstance().run(lib, opts);
+        } catch (InstantiationException x) {
+            throw new AssertionError(x);
+        } catch (IllegalAccessException x) {
+            throw new AssertionError(x);
+        }
     }
 
     private Librarian() { }
 
     public static void main(String[] args) {
-	try {
-	    run(args);
-	} catch (OptionException x) {
+        try {
+            run(args);
+        } catch (OptionException x) {
             err.println(x.getMessage());
             System.exit(1);
         } catch (Command.Exception x) {

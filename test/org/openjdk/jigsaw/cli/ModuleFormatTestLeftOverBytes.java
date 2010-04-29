@@ -35,18 +35,18 @@ public class ModuleFormatTestLeftOverBytes {
     final String MNAME = "hello";
     final String MVER = "0.1";
     String moduleinfo = "module " + MNAME + " @ " + MVER + " {}";
- 
+
     public static void main(String[] args) throws Exception {
         new ModuleFormatTestLeftOverBytes().run();
     }
 
     void run() throws Exception {
-	try {
-	    test();
-	} catch (Throwable t) {
-	    t.printStackTrace();
-	    errors++;
-	}
+        try {
+            test();
+        } catch (Throwable t) {
+            t.printStackTrace();
+            errors++;
+        }
 
 
         if (errors == 0)
@@ -56,34 +56,34 @@ public class ModuleFormatTestLeftOverBytes {
     }
 
     void testEmptyModule() throws Exception {
-	System.err.println("Test: Empty module");
+        System.err.println("Test: Empty module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	compress(MNAME);
-	append(MNAME, MVER, "These bytes are not made for parsing!");
-	try {
-	    extract(MNAME, MVER);
-	} catch (Exception e) {
-	    /* swallow expected IOException */
-	    if (! e.getMessage().startsWith("I/O error:"))
-		throw e;
-	}
+        compress(MNAME);
+        append(MNAME, MVER, "These bytes are not made for parsing!");
+        try {
+            extract(MNAME, MVER);
+        } catch (Exception e) {
+            /* swallow expected IOException */
+            if (! e.getMessage().startsWith("I/O error:"))
+                throw e;
+        }
     }
 
     void test() throws Exception {
-	testEmptyModule();
+        testEmptyModule();
     }
 
     /**
      * Extract a module.
      */
     void extract(String name, String version) throws Exception {
-	File module = new File(moduleDir, name + "@" + version + ".jmod"); 
-	String [] args = {"extract", module.getAbsolutePath()};
-	Librarian.run(args);
+        File module = new File(moduleDir, name + "@" + version + ".jmod");
+        String [] args = {"extract", module.getAbsolutePath()};
+        Librarian.run(args);
     }
 
     /**
@@ -101,50 +101,50 @@ public class ModuleFormatTestLeftOverBytes {
      * Compress a module.
      */
     void compress(String name) throws Exception {
-	compress(name, false);
+        compress(name, false);
     }
 
     void compress(String name, boolean haveResources) throws Exception {
-	compress(name, haveResources, false);
+        compress(name, haveResources, false);
     }
 
-    void compress(String name, boolean haveResources, boolean haveNatLibs) 
-	throws Exception {
-	compress(name, haveResources, haveNatLibs, false);
-    }
-
-    void compress(String name, boolean haveResources, boolean haveNatLibs,
-		  boolean haveNatCmds) throws Exception {
-	compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+    void compress(String name, boolean haveResources, boolean haveNatLibs)
+        throws Exception {
+        compress(name, haveResources, haveNatLibs, false);
     }
 
     void compress(String name, boolean haveResources, boolean haveNatLibs,
-		  boolean haveNatCmds, boolean haveConfig) 
-	throws Exception {
-	List<String> args = new ArrayList<String>();
-	args.add("-m");
-	args.add(classesDir.getAbsolutePath()); 
-	args.add("-d"); 
-	args.add(moduleDir.getAbsolutePath());
-	if (haveResources) {
-	    args.add("-r");
-	    args.add(resourceDir.toString());
-	}
-	if (haveNatLibs) {
-	    args.add("--natlib");
-	    args.add(natlibDir.toString());
-	}
-	if (haveNatCmds) {
-	    args.add("--natcmd");
-	    args.add(natcmdDir.toString());
-	}
-	if (haveConfig) {
-	    args.add("--config");
-	    args.add(configDir.toString());
-	}
-	args.add("jmod");
-	args.add("hello");
-	Packager.main(args.toArray(new String[0]));
+                  boolean haveNatCmds) throws Exception {
+        compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+    }
+
+    void compress(String name, boolean haveResources, boolean haveNatLibs,
+                  boolean haveNatCmds, boolean haveConfig)
+        throws Exception {
+        List<String> args = new ArrayList<String>();
+        args.add("-m");
+        args.add(classesDir.getAbsolutePath());
+        args.add("-d");
+        args.add(moduleDir.getAbsolutePath());
+        if (haveResources) {
+            args.add("-r");
+            args.add(resourceDir.toString());
+        }
+        if (haveNatLibs) {
+            args.add("--natlib");
+            args.add(natlibDir.toString());
+        }
+        if (haveNatCmds) {
+            args.add("--natcmd");
+            args.add(natcmdDir.toString());
+        }
+        if (haveConfig) {
+            args.add("--config");
+            args.add(configDir.toString());
+        }
+        args.add("jmod");
+        args.add("hello");
+        Packager.main(args.toArray(new String[0]));
     }
 
     /**
@@ -198,8 +198,8 @@ public class ModuleFormatTestLeftOverBytes {
     void reset() {
         resetDir(srcDir);
         resetDir(classesDir);
-	resetDir(moduleDir);
-	resetDir(new File(MNAME));
+        resetDir(moduleDir);
+        resetDir(new File(MNAME));
     }
 
     /**

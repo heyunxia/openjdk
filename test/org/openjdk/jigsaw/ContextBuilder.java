@@ -33,29 +33,29 @@ public class ContextBuilder {
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
 
     private static class MockContext extends Context {
-	private Map<String,ModuleId> moduleForName
-	    = new HashMap<String,ModuleId>();
-	public void add(ModuleId mid) {
-	    super.add(mid);
-	    moduleForName.put(mid.name(), mid);
-	}
-	public void putModuleForLocalClass(String cn, String mn) {
-	    super.putModuleForLocalClass(cn, moduleForName.get(mn));
-	}
-	public void putContextForRemotePackage(String pn, String cxn) {
-	    super.putContextForRemotePackage(pn, cxn);
-	}
+        private Map<String,ModuleId> moduleForName
+            = new HashMap<String,ModuleId>();
+        public void add(ModuleId mid) {
+            super.add(mid);
+            moduleForName.put(mid.name(), mid);
+        }
+        public void putModuleForLocalClass(String cn, String mn) {
+            super.putModuleForLocalClass(cn, moduleForName.get(mn));
+        }
+        public void putContextForRemotePackage(String pn, String cxn) {
+            super.putContextForRemotePackage(pn, cxn);
+        }
     }
 
     private MockContext cx = new MockContext();
 
     static class MockPathContext extends PathContext {
-	private Map<String,ModuleId> moduleForName
-	    = new HashMap<String,ModuleId>();
-	public void add(ModuleId mid) {
-	    super.add(mid);
-	    moduleForName.put(mid.name(), mid);
-	}
+        private Map<String,ModuleId> moduleForName
+            = new HashMap<String,ModuleId>();
+        public void add(ModuleId mid) {
+            super.add(mid);
+            moduleForName.put(mid.name(), mid);
+        }
         private void extend(List<ModuleId> pl, ModuleId mid) {
             if (pl.size() == 0 || !pl.get(pl.size() - 1).equals(mid))
                 pl.add(mid);
@@ -74,28 +74,28 @@ public class ContextBuilder {
     private MockPathContext pcx = new MockPathContext();
 
     private ContextBuilder(String[] mids) {
-	for (String s : mids) {
-	    ModuleId mid = jms.parseModuleId(s);
-	    if (cx.modules().contains(mid))
-		throw new IllegalArgumentException(mid + ": Duplicate");
-	    cx.add(mid);
+        for (String s : mids) {
+            ModuleId mid = jms.parseModuleId(s);
+            if (cx.modules().contains(mid))
+                throw new IllegalArgumentException(mid + ": Duplicate");
+            cx.add(mid);
             pcx.add(mid);
             pcx.extendLocalPath(mid);
-	}
+        }
     }
 
     public static ContextBuilder context(String ... mids) {
-	return new ContextBuilder(mids);
+        return new ContextBuilder(mids);
     }
 
     public ContextBuilder localClass(String cn, String mn) {
-	cx.putModuleForLocalClass(cn, mn);
-	return this;
+        cx.putModuleForLocalClass(cn, mn);
+        return this;
     }
 
     public ContextBuilder remotePackage(String pn, String cxn) {
-	cx.putContextForRemotePackage(pn, cxn);
-	return this;
+        cx.putContextForRemotePackage(pn, cxn);
+        return this;
     }
 
     public ContextBuilder remote(String ... cxns) {
@@ -108,13 +108,13 @@ public class ContextBuilder {
     }
 
     public Context build() {
-	cx.freeze();
-	return cx;
+        cx.freeze();
+        return cx;
     }
 
     public PathContext buildPath() {
-	pcx.freeze();
-	return pcx;
+        pcx.freeze();
+        return pcx;
     }
 
 }

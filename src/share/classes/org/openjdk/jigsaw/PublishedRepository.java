@@ -404,7 +404,7 @@ public class PublishedRepository
                 cat.add(e);
             }
             storeCatalogWhileLocked(cat);
-            
+
         } finally {
             lc.close();
         }

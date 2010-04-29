@@ -101,16 +101,16 @@ public interface ModuleInfo {
      * Similarly, attempting to read a {@code Class[]}-valued element
      * will result in a {@link UnsupportedElementTypeException},
      *
-     * <p> Calling methods on the returned annotation object 
-     * can throw many of the exceptions that can be thrown when calling 
-     * methods on an annotation object returned by {@link 
+     * <p> Calling methods on the returned annotation object
+     * can throw many of the exceptions that can be thrown when calling
+     * methods on an annotation object returned by {@link
      * java.lang.reflect.AnnotatedElement core reflection}.
      *
      * @param <A>  the annotation type
      * @param annotationType  the {@code Class} object corresponding to
      *          the annotation type
-     * @return this module's annotation for the 
-     *         specified annotation type if present on this element, 
+     * @return this module's annotation for the
+     *         specified annotation type if present on this element,
      *         else {@code null}
      *
      * @see java.lang.reflect.AnnotatedElement#getAnnotation

@@ -68,14 +68,14 @@ import static org.openjdk.jigsaw.Trace.*;
  *
  *   <li><p> Resolve versions -- Determine the version of each module that
  *   will be part of the resulting configuration. </p></li>
- * 
+ *
  *   <li><p> Construct contexts -- Assign modules to contexts, ensuring that
  *   the local dependences of a module are assigned to the same
  *   context. </p></li>
- * 
+ *
  *   <li><p> Link local suppliers -- For each class defined in a context,
  *   determine which of the context's modules will supply it. </p></li>
- * 
+ *
  *   <li><p> Link remote suppliers -- For each package imported into a context,
  *   either directly or indirectly (via "requires public"), determine the
  *   context which will supply it. </p></li>
@@ -238,7 +238,7 @@ public final class Configurator {
      * somewhat akin to the {@linkplain java.lang.LinkageError class-linkage
      * errors} which can occur when classes change incompatibly, and is likely
      * to be encountered mainly by advanced developers. </p>
-     * 
+     *
      * @param   cat
      *          The {@linkplain Catalog module catalog} against which
      *          dependences will be resolved

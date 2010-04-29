@@ -36,18 +36,18 @@ public class ModuleFormatHeaderHashTest {
     final String MNAME = "hello";
     final String MVER = "0.1";
     String moduleinfo = "module " + MNAME + " @ " + MVER + " {}";
- 
+
     public static void main(String[] args) throws Exception {
         new ModuleFormatHeaderHashTest().run();
     }
 
     void run() throws Exception {
-	try {
-	    test();
-	} catch (Throwable t) {
-	    t.printStackTrace();
-	    errors++;
-	}
+        try {
+            test();
+        } catch (Throwable t) {
+            t.printStackTrace();
+            errors++;
+        }
 
 
         if (errors == 0)
@@ -57,30 +57,30 @@ public class ModuleFormatHeaderHashTest {
     }
 
     void testEmptyModule() throws Exception {
-	System.err.println("Test: Empty module");
+        System.err.println("Test: Empty module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-	compress(MNAME);
-	byte [] expected = readHash(MNAME, MVER);
-	byte [] computed = hash(MNAME, MVER, "SHA-256");
-	if (!MessageDigest.isEqual(expected, computed))
-	    throw new IOException("Expected and computed file hashes don't match");
+        compress(MNAME);
+        byte [] expected = readHash(MNAME, MVER);
+        byte [] computed = hash(MNAME, MVER, "SHA-256");
+        if (!MessageDigest.isEqual(expected, computed))
+            throw new IOException("Expected and computed file hashes don't match");
     }
 
     void test() throws Exception {
-	testEmptyModule();
+        testEmptyModule();
     }
 
     /**
      * Extract a module.
      */
     void extract(String name, String version) throws Exception {
-	File module = new File(moduleDir, name + "@" + version + ".jmod"); 
-	String [] args = {"extract", module.getAbsolutePath()};
-	Librarian.run(args);
+        File module = new File(moduleDir, name + "@" + version + ".jmod");
+        String [] args = {"extract", module.getAbsolutePath()};
+        Librarian.run(args);
     }
 
 
@@ -89,9 +89,9 @@ public class ModuleFormatHeaderHashTest {
      */
     byte [] readHash(String name, String version) throws Exception {
         String fname = moduleDir + File.separator + name + "@" + version + ".jmod";
-	DataInputStream in = new DataInputStream(new FileInputStream(fname));
-	ModuleFileFormat.Reader r = new ModuleFileFormat.Reader(in);
-	return r.getHash();
+        DataInputStream in = new DataInputStream(new FileInputStream(fname));
+        ModuleFileFormat.Reader r = new ModuleFileFormat.Reader(in);
+        return r.getHash();
     }
 
     /**
@@ -99,66 +99,66 @@ public class ModuleFormatHeaderHashTest {
      */
     byte [] hash(String name, String version, String digest) throws Exception {
         String fname = moduleDir + File.separator + name + "@" + version + ".jmod";
-	FileInputStream fis = new FileInputStream(fname);
-	MessageDigest md = MessageDigest.getInstance(digest);
-	DigestInputStream dis = new DigestInputStream(fis, md);
-	dis.read(new byte [32]);
-	dis.on(false);
-	dis.read(new byte [md.getDigestLength()]);
-	dis.on(true);
-	for (int c = dis.read() ; c != -1 ; c = dis.read())
-	    ;
-	return md.digest();
+        FileInputStream fis = new FileInputStream(fname);
+        MessageDigest md = MessageDigest.getInstance(digest);
+        DigestInputStream dis = new DigestInputStream(fis, md);
+        dis.read(new byte [32]);
+        dis.on(false);
+        dis.read(new byte [md.getDigestLength()]);
+        dis.on(true);
+        for (int c = dis.read() ; c != -1 ; c = dis.read())
+            ;
+        return md.digest();
     }
 
     /**
      * Compress a module.
      */
     void compress(String name) throws Exception {
-	compress(name, false);
+        compress(name, false);
     }
 
     void compress(String name, boolean haveResources) throws Exception {
-	compress(name, haveResources, false);
+        compress(name, haveResources, false);
     }
 
-    void compress(String name, boolean haveResources, boolean haveNatLibs) 
-	throws Exception {
-	compress(name, haveResources, haveNatLibs, false);
-    }
-
-    void compress(String name, boolean haveResources, boolean haveNatLibs,
-		  boolean haveNatCmds) throws Exception {
-	compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+    void compress(String name, boolean haveResources, boolean haveNatLibs)
+        throws Exception {
+        compress(name, haveResources, haveNatLibs, false);
     }
 
     void compress(String name, boolean haveResources, boolean haveNatLibs,
-		  boolean haveNatCmds, boolean haveConfig) 
-	throws Exception {
-	List<String> args = new ArrayList<String>();
-	args.add("-m");
-	args.add(classesDir.getAbsolutePath()); 
-	args.add("-d"); 
-	args.add(moduleDir.getAbsolutePath());
-	if (haveResources) {
-	    args.add("-r");
-	    args.add(resourceDir.toString());
-	}
-	if (haveNatLibs) {
-	    args.add("--natlib");
-	    args.add(natlibDir.toString());
-	}
-	if (haveNatCmds) {
-	    args.add("--natcmd");
-	    args.add(natcmdDir.toString());
-	}
-	if (haveConfig) {
-	    args.add("--config");
-	    args.add(configDir.toString());
-	}
-	args.add("jmod");
-	args.add("hello");
-	Packager.main(args.toArray(new String[0]));
+                  boolean haveNatCmds) throws Exception {
+        compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+    }
+
+    void compress(String name, boolean haveResources, boolean haveNatLibs,
+                  boolean haveNatCmds, boolean haveConfig)
+        throws Exception {
+        List<String> args = new ArrayList<String>();
+        args.add("-m");
+        args.add(classesDir.getAbsolutePath());
+        args.add("-d");
+        args.add(moduleDir.getAbsolutePath());
+        if (haveResources) {
+            args.add("-r");
+            args.add(resourceDir.toString());
+        }
+        if (haveNatLibs) {
+            args.add("--natlib");
+            args.add(natlibDir.toString());
+        }
+        if (haveNatCmds) {
+            args.add("--natcmd");
+            args.add(natcmdDir.toString());
+        }
+        if (haveConfig) {
+            args.add("--config");
+            args.add(configDir.toString());
+        }
+        args.add("jmod");
+        args.add("hello");
+        Packager.main(args.toArray(new String[0]));
     }
 
     /**
@@ -212,8 +212,8 @@ public class ModuleFormatHeaderHashTest {
     void reset() {
         resetDir(srcDir);
         resetDir(classesDir);
-	resetDir(moduleDir);
-	resetDir(new File(MNAME));
+        resetDir(moduleDir);
+        resetDir(new File(MNAME));
     }
 
     /**

@@ -47,7 +47,7 @@ public class _RemoteRepository {
             return c2 == null;
         if (c2 == null)
             return false;
-	return c1.containsAll(c2) && c2.containsAll(c1);
+        return c1.containsAll(c2) && c2.containsAll(c1);
     }
 
     private static boolean equals(ModuleInfo mi1, ModuleInfo mi2) {

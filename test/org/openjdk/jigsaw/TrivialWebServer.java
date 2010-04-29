@@ -50,24 +50,24 @@ public class TrivialWebServer {
     }
 
     private void dump(String t, Headers hs) {
-	log.format("%s headers%n", t);
-	for (Map.Entry<String,List<String>> e : hs.entrySet()) {
-	    log.format("  %s : %s%n", e.getKey(), e.getValue());
-	}
+        log.format("%s headers%n", t);
+        for (Map.Entry<String,List<String>> e : hs.entrySet()) {
+            log.format("  %s : %s%n", e.getKey(), e.getValue());
+        }
     }
 
     private void copy(Path p, OutputStream out)
-	throws IOException
+        throws IOException
     {
-	byte[] buf = new byte[8192];
-	InputStream in = p.newInputStream();
-	try {
-	    int n;
-	    while ((n = in.read(buf)) > 0)
-		out.write(buf, 0, n);
-	} finally {
-	    in.close();
-	}
+        byte[] buf = new byte[8192];
+        InputStream in = p.newInputStream();
+        try {
+            int n;
+            while ((n = in.read(buf)) > 0)
+                out.write(buf, 0, n);
+        } finally {
+            in.close();
+        }
     }
 
     private static final SimpleDateFormat HTTP_DATE;
@@ -79,17 +79,17 @@ public class TrivialWebServer {
     }
 
     private class Handler
-	implements HttpHandler
+        implements HttpHandler
     {
 
-	private URI root;
-	private URI BARE_ROOT = URI.create("/");
+        private URI root;
+        private URI BARE_ROOT = URI.create("/");
 
-	Handler(Path rpath) {
-	    root = rpath.toAbsolutePath().toUri().normalize();
-	    if (debug)
-		log.format("root %s%n", root);
-	}
+        Handler(Path rpath) {
+            root = rpath.toAbsolutePath().toUri().normalize();
+            if (debug)
+                log.format("root %s%n", root);
+        }
 
         private void notFound(HttpExchange hx, URI hxu)
             throws IOException
@@ -107,16 +107,16 @@ public class TrivialWebServer {
             return '"' + Integer.toHexString(ob.hashCode()) + '"';
         }
 
-	public void handle(HttpExchange hx) throws IOException {
-	    try {
+        public void handle(HttpExchange hx) throws IOException {
+            try {
 
-		URI hxu = hx.getRequestURI();
-		URI u = root.resolve(BARE_ROOT.relativize(hxu));
+                URI hxu = hx.getRequestURI();
+                URI u = root.resolve(BARE_ROOT.relativize(hxu));
                 Path p = Paths.get(u);
-		if (debug) {
-		    log.format("%s --> %s%n", hxu, p);
-		    dump("req", hx.getRequestHeaders());
-		}
+                if (debug) {
+                    log.format("%s --> %s%n", hxu, p);
+                    dump("req", hx.getRequestHeaders());
+                }
                 if (!p.exists()) {
                     notFound(hx, hxu);
                     return;
@@ -126,23 +126,23 @@ public class TrivialWebServer {
 
                 // Directory -> index.html
                 //
-		if (ba.isDirectory()) {
-		    String us = hxu.toString();
-		    if (!us.endsWith("/")) {
-			Headers ahs = hx.getResponseHeaders();
-			ahs.put("Location", Arrays.asList(us + "/"));
-			hx.sendResponseHeaders(HTTP_MOVED_PERM, -1);
-			return;
-		    }
-		    p = p.resolve("index.html");
+                if (ba.isDirectory()) {
+                    String us = hxu.toString();
+                    if (!us.endsWith("/")) {
+                        Headers ahs = hx.getResponseHeaders();
+                        ahs.put("Location", Arrays.asList(us + "/"));
+                        hx.sendResponseHeaders(HTTP_MOVED_PERM, -1);
+                        return;
+                    }
+                    p = p.resolve("index.html");
                     if (!p.exists()) {
                         notFound(hx, hxu);
                         return;
                     }
                     ba = Attributes.readBasicFileAttributes(p);
-		}
-		if (debug)
-		    log.format("%s --> %s%n", hxu, p);
+                }
+                if (debug)
+                    log.format("%s --> %s%n", hxu, p);
 
                 // Check Last-Modified/ETag headers
                 //
@@ -170,32 +170,32 @@ public class TrivialWebServer {
 
                 // Send content
                 //
-		Headers ahs = hx.getResponseHeaders();
-		ahs.set("Content-Type", "application/octet-stream");
+                Headers ahs = hx.getResponseHeaders();
+                ahs.set("Content-Type", "application/octet-stream");
                 ahs.set("Last-Modified",
                         HTTP_DATE.format(new Date(mtime)));
                 if (etag != null)
                     ahs.set("ETag", etag);
-		if (debug)
-		    dump("ans", hx.getResponseHeaders());
-		hx.sendResponseHeaders(HTTP_OK, ba.size());
-		copy(p, hx.getResponseBody());
+                if (debug)
+                    dump("ans", hx.getResponseHeaders());
+                hx.sendResponseHeaders(HTTP_OK, ba.size());
+                copy(p, hx.getResponseBody());
 
-	    } catch (Exception x) {
-		x.printStackTrace(out);
-	    } finally {
-		hx.close();
-	    }
-	}
+            } catch (Exception x) {
+                x.printStackTrace(out);
+            } finally {
+                hx.close();
+            }
+        }
 
     }
 
     private HttpServer server = null;
 
     private void bind(int port) throws IOException {
-	server = HttpServer.create(new InetSocketAddress(port), 10);
-	server.createContext("/", handler);
-	server.setExecutor(Executors.newCachedThreadPool());
+        server = HttpServer.create(new InetSocketAddress(port), 10);
+        server.createContext("/", handler);
+        server.setExecutor(Executors.newCachedThreadPool());
     }
 
     private void start() throws IOException {
@@ -243,24 +243,24 @@ public class TrivialWebServer {
     }
 
     public static void main(String[] args) throws IOException {
-	int port = 8081;
-	Path root = Paths.get(".");
-	Iterator<String> ai = Arrays.asList(args).iterator();
-	while (ai.hasNext()) {
-	    String a = ai.next();
-	    if (a.matches("\\d+")) {
-		port = Integer.parseInt(a);
-		continue;
-	    }
+        int port = 8081;
+        Path root = Paths.get(".");
+        Iterator<String> ai = Arrays.asList(args).iterator();
+        while (ai.hasNext()) {
+            String a = ai.next();
+            if (a.matches("\\d+")) {
+                port = Integer.parseInt(a);
+                continue;
+            }
             if (a.equals("-r")) {
                 port = -1;
                 continue;
             }
-	    root = Paths.get(a);
-	}
-	TrivialWebServer tws
+            root = Paths.get(a);
+        }
+        TrivialWebServer tws
             = TrivialWebServer.create(root, port, System.out);
-	System.out.format("Serving %s on port %d%n", root, tws.port());
+        System.out.format("Serving %s on port %d%n", root, tws.port());
     }
 
 }
