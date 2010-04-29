@@ -260,7 +260,7 @@ final class Linker {
         List<ModuleId> rids = new ArrayList<>();
         for (ModuleIdQuery rq : cxs.rootQueries)
             rids.add(cxs.moduleForName.get(rq.name()).id());
-        return new Configuration<>(rids,
+        return new Configuration<org.openjdk.jigsaw.Context>(rids,
                                    cxs.contexts,
                                    cxs.contextForModule);
     }
