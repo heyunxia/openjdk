@@ -25,6 +25,7 @@
 
 import java.util.*;
 import java.lang.module.*;
+import java.lang.annotation.Annotation;
 import org.openjdk.jigsaw.*;
 
 import static java.lang.module.Dependence.Modifier;
@@ -59,8 +60,15 @@ public class ModuleInfoBuilder {
 	private String mainClass;
 	public String mainClass() { return mainClass; }
 
-        public String toString() { return mid.toString(); }
+        public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
+            return false;
+        }
 
+        public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
+            return null;
+        }
+
+        public String toString() { return mid.toString(); }
     }
 
     private MI mi;

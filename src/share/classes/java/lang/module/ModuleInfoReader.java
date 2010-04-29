@@ -34,10 +34,13 @@ import java.lang.module.ModuleId;
 import java.lang.module.ModuleIdQuery;
 import java.lang.module.ModuleInfo;
 import java.lang.module.VersionQuery;
+import java.security.AccessController;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.Map;
 
 
 /**
@@ -47,7 +50,7 @@ import java.util.Set;
  * and version queries to a given module system.
  */
 
-/* package */ class ModuleInfoReader {
+/* package */  class ModuleInfoReader {
 
     /* package */ static ModuleInfo
         read(ModuleSystem ms, byte[] data)
@@ -64,6 +67,7 @@ import java.util.Set;
     private Set<Dependence> requires = new LinkedHashSet<Dependence>();
     private Set<String> permits = new LinkedHashSet<String>();
     private String mainClass;
+    private Map<String, ModuleInfoAnnotation> annotationTypes = new LinkedHashMap<String, ModuleInfoAnnotation>();
 
     // ## Not surfaced in ModuleInfo interface; should probably be removed
     private Set<String> mainClassModifiers = new LinkedHashSet<String>();
@@ -104,7 +108,8 @@ import java.util.Set;
             readAttributes();
 
             moduleInfo = new ModuleInfoImpl(moduleId, provides,
-                    requires, permits, mainClass);
+                    requires, permits, mainClass,
+                    annotationTypes);
 
         } catch (IOException e) {
             throw new Error(e);
@@ -118,6 +123,8 @@ import java.util.Set;
     private static final String MODULE_REQUIRES = "ModuleRequires";
     private static final String MODULE_PERMITS = "ModulePermits";
     private static final String MODULE_CLASS = "ModuleClass";
+    private static final String RUNTIME_VISABLE_ANNOTATION = "RuntimeVisibleAnnotations";
+    private static final String RUNTIME_INVISABLE_ANNOTATION = "RuntimeInvisibleAnnotations";
 
     private void readAttributes() throws IOException {
         int count = in.readUnsignedShort();
@@ -135,7 +142,9 @@ import java.util.Set;
                 readModulePermits();
             else if (name.equals(MODULE_CLASS))
                 readModuleClass();
-            else {
+            else if (name.equals(RUNTIME_VISABLE_ANNOTATION)) {
+                readAnnotations();
+            } else {
                 in.skip(length);
             }
         }
@@ -183,7 +192,15 @@ import java.util.Set;
         }
     }
 
-    private static class ModuleInfoImpl
+    private void readAnnotations() throws IOException {
+        int count = in.readUnsignedShort(); 
+        for (int i=0; i < count; i++) {
+            ModuleInfoAnnotation at = new ModuleInfoAnnotation(in, cpool);
+            annotationTypes.put(at.getName(), at);
+        }
+    }
+
+    public static class ModuleInfoImpl
         implements ModuleInfo
     {
 
@@ -192,18 +209,21 @@ import java.util.Set;
         private Set<ModuleId> provides;
         private Set<String> permits;
         private String mainClass;
+        private Map<String, ModuleInfoAnnotation> annotationTypes;
 
         ModuleInfoImpl(ModuleId id,
                 Set<ModuleId> provides,
                 Set<Dependence> requires,
                 Set<String> permits,
-                String mainClass)
+                String mainClass,
+                Map<String, ModuleInfoAnnotation> annotationTypes)
         {
             this.id = id;
             this.provides = provides;
             this.requires = requires;
             this.permits = permits;
             this.mainClass = mainClass;
+            this.annotationTypes = annotationTypes;
         }
 
         public ModuleId id() {
@@ -231,6 +251,22 @@ import java.util.Set;
             return mainClass;
         }
 
+        public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
+            if (annotationClass == null)
+                throw new NullPointerException("Argument annotationClass is null");
+            return annotationTypes.containsKey(annotationClass.getName()); 
+        }
+
+        public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
+            if (annotationClass == null)
+                throw new NullPointerException("Argument annotationClass is null");
+            ModuleInfoAnnotation at = annotationTypes.get(annotationClass.getName());
+            if (at == null) {
+                return null;
+            }
+            return at.generateAnnotation(annotationClass);
+        }
+
         @Override
         public String toString() {
             return "ModuleInfo { id: " + id
@@ -241,9 +277,12 @@ import java.util.Set;
                     + " }";
         }
 
+        Iterable<ModuleInfoAnnotation> getAnnotationTypes() {
+            return annotationTypes.values();
+        }
     }
 
-    private static class ConstantPool {
+    static class ConstantPool {
 
         private static class Entry {
             protected Entry(int tag) {
@@ -356,7 +395,7 @@ import java.util.Set;
 
         private Entry[] pool;
 
-        private String getClassName(int index) {
+        String getClassName(int index) {
             Entry e = pool[index];
             assert e.tag == CONSTANT_Class;
             return getUtf8(((IndexEntry) e).index);
@@ -382,11 +421,37 @@ import java.util.Set;
             return new ModuleIdQuery(name, vq);
         }
 
-        private String getUtf8(int index) {
+        String getUtf8(int index) {
             Entry e = pool[index];
             assert e.tag == CONSTANT_Utf8;
             return (String) (((ValueEntry) e).value);
         }
+
+        Object getValue(int index) {
+            Entry e = pool[index];
+            assert e.tag == CONSTANT_Double || 
+                   e.tag == CONSTANT_Float || 
+                   e.tag == CONSTANT_Integer || 
+                   e.tag == CONSTANT_Long;
+            return ((ValueEntry) e).value;
+        }
     }
 
+    private static void setJavaLangModuleAccess() {
+        // Allow privileged classes outside of java.lang
+        sun.misc.SharedSecrets.setJavaLangModuleAccess(new sun.misc.JavaLangModuleAccess() {
+            public Iterable<Annotation> getAnnotations(ModuleInfo mi, java.lang.reflect.Module m) {
+                Set<Annotation> result = new LinkedHashSet<Annotation>();
+                ModuleInfoImpl miImpl = (ModuleInfoImpl) mi;
+                for (ModuleInfoAnnotation mia : miImpl.getAnnotationTypes()) {
+                    result.add(mia.getAnnotation(m));
+                }
+                return result;
+            }
+        });
+    }
+
+    static {
+        setJavaLangModuleAccess();
+    }
 }

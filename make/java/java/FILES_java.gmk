@@ -476,6 +476,7 @@ JAVA_JAVA_jigsaw = \
     java/lang/Class.java \
     java/lang/System.java \
     sun/misc/JavaLangAccess.java \
+    sun/misc/JavaLangModuleAccess.java \
     sun/launcher/LauncherHelper.java \
     \
     java/lang/module/Dependence.java \
@@ -483,10 +484,12 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/ModuleId.java \
     java/lang/module/ModuleIdQuery.java \
     java/lang/module/ModuleInfo.java \
+    java/lang/module/ModuleInfoAnnotation.java \
     java/lang/module/ModuleInfoReader.java \
     java/lang/module/ModuleSystem.java \
     java/lang/module/Version.java \
     java/lang/module/VersionQuery.java \
+    java/lang/module/UnsupportedElementTypeException.java \
     java/lang/reflect/Module.java \
     \
     org/openjdk/jigsaw/BaseContext.java \
@@ -501,7 +504,6 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/ContextFactory.java \
     org/openjdk/jigsaw/ContextSet.java \
     org/openjdk/jigsaw/FileConstants.java \
-    org/openjdk/jigsaw/FileHeader.java \
     org/openjdk/jigsaw/FileHeader.java \
     org/openjdk/jigsaw/Files.java \
     org/openjdk/jigsaw/FilePaths.java \
@@ -526,7 +528,6 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/RemoteRepository.java \
     org/openjdk/jigsaw/RemoteRepositoryList.java \
     org/openjdk/jigsaw/Repository.java \
-    org/openjdk/jigsaw/RepositoryCatalog.java \
     org/openjdk/jigsaw/RepositoryCatalog.java \
     org/openjdk/jigsaw/Resolution.java \
     org/openjdk/jigsaw/Resolver.java \

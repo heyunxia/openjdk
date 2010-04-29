@@ -26,11 +26,15 @@
 package java.lang.reflect;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.AnnotationFormatError;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.module.ModuleClassLoader;
 import java.lang.module.ModuleId;
 import java.lang.module.ModuleInfo;
 import java.lang.module.Version;
-
+import java.util.Map;
+import java.util.LinkedHashMap;
+import sun.reflect.annotation.AnnotationType;
 
 public final class Module
     implements AnnotatedElement
@@ -39,8 +43,12 @@ public final class Module
     private ModuleInfo moduleInfo;
     private ModuleClassLoader loader;
 
-    // ## TEMPORARY: Should redirect through sun.reflect.LangReflectAccess
-    public Module(ModuleInfo mi, ModuleClassLoader ld) {
+    /**
+     * Package-private constructor used by ReflectAccess to enable
+     * instantiation of these objects in Java code from the java.lang
+     * package via sun.reflect.LangReflectAccess.
+     */
+    Module(ModuleInfo mi, ModuleClassLoader ld) {
         loader = ld;
         moduleInfo = mi;
     }
@@ -70,22 +78,60 @@ public final class Module
 
     //  -- AnnotatedElement methods --
 
+    /**
+     * {@inheritDoc}
+     */
     public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-        throw new UnsupportedOperationException();
+        return getAnnotation(annotationClass) != null;
     }
 
-    public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
-        throw new UnsupportedOperationException();
+    /**
+     * {@inheritDoc}
+     */
+    public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
+        if (annotationClass == null)
+            throw new NullPointerException();
+
+        return (A) annotationsMap().get(annotationClass);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public Annotation[] getAnnotations() {
-        throw new UnsupportedOperationException();
+        // no inherited annotations
+        return getDeclaredAnnotations();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public Annotation[] getDeclaredAnnotations() {
-        throw new UnsupportedOperationException();
+        return annotationsMap.values().toArray(new Annotation[0]);
     }
 
+    private transient Map<Class<? extends Annotation>, Annotation> annotationsMap;
+    // Returns the cached annotations
+    private synchronized  Map<Class<? extends Annotation>, Annotation> annotationsMap() {
+        if (annotationsMap != null)
+            return annotationsMap;
+
+        // module-info.class is not loaded in the VM as a Class object
+        // we can't use sun.reflect.annotation.AnnotationParser here 
+        annotationsMap = new LinkedHashMap<Class<? extends Annotation>, Annotation>();
+        for (Annotation a: sun.misc.SharedSecrets.
+                               getJavaLangModuleAccess().getAnnotations(moduleInfo, this)) {
+            Class<? extends Annotation> klass = a.annotationType();
+            AnnotationType type = AnnotationType.getInstance(klass);
+            if (type.retention() == RetentionPolicy.RUNTIME) {
+                if (annotationsMap.put(klass, a) != null) {
+                    throw new AnnotationFormatError(
+                        "Duplicate annotation for class: "+klass+": " + a);
+                }
+            }
+        }
+        return annotationsMap;
+    }
 
     // ## EHS
 

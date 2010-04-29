@@ -26,7 +26,8 @@
 package java.lang.module;
 
 import java.lang.reflect.Module;
-
+import java.security.AccessController;
+import sun.reflect.ReflectionFactory;
 
 public abstract class ModuleClassLoader
     extends ClassLoader
@@ -48,14 +49,18 @@ public abstract class ModuleClassLoader
         return c;
     }
 
+    static final ReflectionFactory reflectionFactory =
+        AccessController.doPrivileged(
+            new sun.reflect.ReflectionFactory.GetReflectionFactoryAction());
+
     // Invokes a corresponding native method implemented in the VM ## ??
     protected Module defineModule(ModuleId id, byte[] bs, int off, int len)
         throws ClassFormatError
     {
         if (off != 0 || bs.length != len) // ##
             throw new IllegalArgumentException();
-        return new Module(moduleSystem.parseModuleInfo(bs),
-                          this);
+        ModuleInfo mi = moduleSystem.parseModuleInfo(bs);
+        return reflectionFactory.newModule(mi, this);
     }
 
     @Override
