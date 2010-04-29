@@ -25,6 +25,10 @@
 
 package com.sun.tools.javac.comp;
 
+import java.util.Map;
+import java.util.HashMap;
+import javax.lang.model.element.ElementVisitor;
+
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.code.*;
@@ -40,10 +44,8 @@ import com.sun.tools.javac.tree.JCTree.*;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.TypeTags.*;
-import javax.lang.model.element.ElementVisitor;
 
-import java.util.Map;
-import java.util.HashMap;
+import static com.sun.tools.javac.code.Flags.MODULE; // disambiguate
 
 /** Helper class for name resolution, used mostly by the attribution phase.
  *
@@ -144,7 +146,7 @@ public class Resolve {
      *  @param c      The class whose accessibility is checked.
      */
     public boolean isAccessible(Env<AttrContext> env, TypeSymbol c) {
-        switch ((short)(c.flags() & AccessFlags)) {
+        switch ((int)(c.flags() & AccessFlags)) {
         case PRIVATE:
             return
                 env.enclClass.sym.outermostClass() ==
@@ -160,6 +162,10 @@ public class Resolve {
                 // classes which would be inaccessible otherwise.
                 env.enclMethod != null &&
                 (env.enclMethod.mods.flags & ANONCONSTR) != 0;
+        case MODULE:
+            return
+                env.toplevel.modle == c.modle();
+
         default: // error recovery
         case PUBLIC:
             return true;
@@ -199,9 +205,9 @@ public class Resolve {
      *  @param sym    The symbol.
      */
     public boolean isAccessible(Env<AttrContext> env, Type site, Symbol sym) {
-        if (sym.name == names.init && sym.owner != site.tsym) return false;
-        ClassSymbol sub;
-        switch ((short)(sym.flags() & AccessFlags)) {
+        if (sym.name == names.init && sym.owner != site.tsym)
+            return false;
+        switch ((int)(sym.flags() & AccessFlags)) {
         case PRIVATE:
             return
                 (env.enclClass.sym == sym.owner // fast special case
@@ -215,6 +221,15 @@ public class Resolve {
                 (env.toplevel.packge == sym.owner.owner // fast special case
                  ||
                  env.toplevel.packge == sym.packge())
+                &&
+                isAccessible(env, site)
+                &&
+                sym.isInheritedIn(site.tsym, types)
+                &&
+                notOverriddenIn(site, sym);
+        case MODULE:
+            return
+                (env.toplevel.modle == sym.modle())
                 &&
                 isAccessible(env, site)
                 &&

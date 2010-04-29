@@ -245,6 +245,7 @@ public class Main {
             return null;
 
         String sourceString = options.get("-source");
+
         Source source = (sourceString != null)
             ? Source.lookup(sourceString)
             : Source.DEFAULT;
@@ -554,6 +555,7 @@ public class Main {
     public static void useRawMessages(boolean enable) {
         if (enable) {
             messages = new JavacMessages(javacBundleName) {
+                    @Override
                     public String getLocalizedString(String key, Object... args) {
                         return key;
                     }

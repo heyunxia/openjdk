@@ -46,7 +46,8 @@ public class TreeScanner extends Visitor {
     /** Visitor method: Scan a single node.
      */
     public void scan(JCTree tree) {
-        if(tree!=null) tree.accept(this);
+        if (tree != null)
+            tree.accept(this);
     }
 
     /** Visitor method: scan a list of nodes.
@@ -63,9 +64,33 @@ public class TreeScanner extends Visitor {
  ****************************************************************************/
 
     public void visitTopLevel(JCCompilationUnit tree) {
-        scan(tree.packageAnnotations);
-        scan(tree.pid);
         scan(tree.defs);
+    }
+
+    public void visitModuleDef(JCModuleDecl tree) {
+        scan(tree.annots);
+        scan(tree.id);
+    }
+
+    public void visitModuleId(JCModuleId tree) {
+        scan(tree.qualId);
+    }
+
+    public void visitModuleClass(JCModuleClass tree) {
+        scan(tree.qualId);
+    }
+
+    public void visitModulePermits(JCModulePermits tree) {
+        scan(tree.moduleNames);
+    }
+
+    public void visitModuleRequires(JCModuleRequires tree) {
+        scan(tree.moduleIds);
+    }
+
+    public void visitPackageDef(JCPackageDecl tree) {
+        scan(tree.annots);
+        scan(tree.packageId);
     }
 
     public void visitImport(JCImport tree) {
