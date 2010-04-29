@@ -25,6 +25,8 @@
 
 package sun.reflect;
 
+import java.lang.module.ModuleInfo;
+import java.lang.module.ModuleClassLoader;
 import java.lang.reflect.*;
 
 /** An interface which gives privileged packages Java-level access to
@@ -65,6 +67,9 @@ public interface LangReflectAccess {
                                              String signature,
                                              byte[] annotations,
                                              byte[] parameterAnnotations);
+     
+    /** Creates a new java.lang.reflect.Module. */
+    public Module newModule(ModuleInfo mi, ModuleClassLoader ld);
 
     /** Gets the MethodAccessor object for a java.lang.reflect.Method */
     public MethodAccessor getMethodAccessor(Method m);

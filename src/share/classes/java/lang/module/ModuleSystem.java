@@ -30,10 +30,14 @@ import org.openjdk.jigsaw.JigsawModuleSystem;
 
 public abstract class ModuleSystem {
 
-    private static ModuleSystem base = JigsawModuleSystem.instance();
+    static class ModuleSystemHolder {
+        // lazy initialize this static field to eliminate the 
+        // class initialization cycle 
+        static ModuleSystem base = JigsawModuleSystem.instance();
+    }
 
     public static ModuleSystem base() {
-        return base;
+       return ModuleSystemHolder.base;
     }
 
     // Module names must be legal Java identifiers
@@ -42,15 +46,20 @@ public abstract class ModuleSystem {
         if (nm == null)
             throw new IllegalArgumentException();
         int n = nm.length();
-        if (n == 0 || !Character.isJavaIdentifierStart(nm.charAt(0)))
+        if (n == 0 || !Character.isJavaIdentifierStart(nm.codePointAt(0)))
             throw new IllegalArgumentException();
-        for (int i = 1; i < n; i++) {
-            char c = nm.charAt(i);
-            if (!Character.isJavaIdentifierPart(c) && (c != '.'))
+
+        int cp = nm.codePointAt(0);
+        for (int i = Character.charCount(cp);
+                i < n;
+                i += Character.charCount(cp)) {
+            cp = nm.codePointAt(i);
+            if (!Character.isJavaIdentifierPart(cp) && nm.charAt(i) != '.') {
                 throw new IllegalArgumentException(nm
                                                    + ": Illegal module-name"
                                                    + " character"
                                                    + " at index " + i);
+            }
         }
         return nm;
     }
@@ -83,5 +92,4 @@ public abstract class ModuleSystem {
 	}
 	return new ModuleIdQuery(mn, vq);
     }
-
 }

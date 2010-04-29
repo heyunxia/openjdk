@@ -25,6 +25,8 @@
 
 package java.lang.reflect;
 
+import java.lang.module.ModuleInfo;
+import java.lang.module.ModuleClassLoader;
 import sun.reflect.MethodAccessor;
 import sun.reflect.ConstructorAccessor;
 
@@ -92,6 +94,10 @@ class ReflectAccess implements sun.reflect.LangReflectAccess {
                                   signature,
                                   annotations,
                                   parameterAnnotations);
+    }
+
+    public Module newModule(ModuleInfo mi, ModuleClassLoader ld) {
+        return new Module(mi, ld);
     }
 
     public MethodAccessor getMethodAccessor(Method m) {
