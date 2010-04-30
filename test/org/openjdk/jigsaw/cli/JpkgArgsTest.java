@@ -57,13 +57,17 @@ public class JpkgArgsTest {
             throw new Exception(errors + "/" + count + " tests failed");
     }
 
-    private void testEmptyModule() throws Exception {
-	System.err.println("Test: NPE if resource directory does not exist");
+    private void setUp(String name) throws IOException {
+	System.err.println("Test: " + name);
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
+    }
+
+    private void testResourceArg() throws Exception {
+	setUp("NPE if resource directory does not exist");
 	// try to compress a module pretending there is a resource dir
 	// without creating it first should result in an exception
 	try {
@@ -81,8 +85,28 @@ public class JpkgArgsTest {
 	}
     }
 
+    private void testNatLibArg() throws Exception {
+	setUp("NPE if natlib directory does not exist");
+	// try to compress a module pretending there is a natlib dir
+	// without creating it first should result in an exception
+	try {
+	    compress(MNAME, false, true);
+	}
+	// The bug resulted in an NPE being thrown
+	catch (NullPointerException e) {
+	    // Rethrow the NPE if it ever occurs again.
+	    throw (Exception) new Exception().initCause(e);
+	}
+	// Technically, we want to catch Command.Exception here,
+	// but it's package private, so let's catch the next best thing.
+	catch (Exception e) {
+	    // yay! test passed.
+	}
+    }
+
     private void test() throws Exception {
-	testEmptyModule();
+	testResourceArg();
+	testNatLibArg();
     }
 
     /**

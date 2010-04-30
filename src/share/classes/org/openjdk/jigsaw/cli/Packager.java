@@ -814,8 +814,10 @@ public class Packager {
             long_description = opts.valueOf(longDescription);
         if (opts.has(extraMetadata))
             extra_metadata = opts.valueOf(extraMetadata);
-        if (opts.has(nativeLibs))
+        if (opts.has(nativeLibs)) {
             natlibs = opts.valueOf(nativeLibs);
+	    checkIfPathExists(natlibs, "Native library");
+	}
         if (opts.has(nativeCmds))
             natcmds = opts.valueOf(nativeCmds);
         if (opts.has(config))
