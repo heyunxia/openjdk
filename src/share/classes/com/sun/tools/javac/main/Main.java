@@ -289,6 +289,14 @@ public class Main {
             options.put("invokedynamic",  "invokedynamic");
         }
 
+        // handle this here so it works even if no other options given
+        String showClass = options.get("showClass");
+        if (showClass != null) {
+            if (showClass.equals("showClass")) // no value given for option
+                showClass = "com.sun.tools.javac.Main";
+            showClass(showClass);
+        }
+
         OptionName[] bootclasspathOptions = {
 //            XBOOTCLASSPATH_PREPEND,
             ENDORSEDDIRS,
@@ -534,6 +542,7 @@ public class Main {
         ex.getCause().printStackTrace();
     }
 
+    /** Display the location and checksum of a class. */
     void showClass(String className) {
         out.println("javac: show class: " + className);
         URL url = getClass().getResource('/' + className.replace('.', '/') + ".class");
