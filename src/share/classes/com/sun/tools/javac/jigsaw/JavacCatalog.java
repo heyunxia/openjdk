@@ -27,6 +27,7 @@ package com.sun.tools.javac.jigsaw;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.lang.module.Dependence;
 import java.lang.module.ModuleId;
 import java.lang.module.ModuleInfo;
@@ -269,6 +270,18 @@ public class JavacCatalog  extends Catalog {
         @Override
         public Set<Dependence> requires() {
             return requires;
+        }
+
+	// no access to annotations for now
+        @Override
+        public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
+            throw new UnsupportedOperationException();
+        }
+
+	// no access to annotations for now
+        @Override
+        public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
+            throw new UnsupportedOperationException();
         }
     }
 }

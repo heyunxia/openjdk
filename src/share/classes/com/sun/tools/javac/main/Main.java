@@ -289,14 +289,6 @@ public class Main {
             options.put("invokedynamic",  "invokedynamic");
         }
 
-        // handle this here so it works even if no other options given
-        String showClass = options.get("showClass");
-        if (showClass != null) {
-            if (showClass.equals("showClass")) // no value given for option
-                showClass = "com.sun.tools.javac.Main";
-            showClass(showClass);
-        }
-
         OptionName[] bootclasspathOptions = {
 //            XBOOTCLASSPATH_PREPEND,
             ENDORSEDDIRS,
