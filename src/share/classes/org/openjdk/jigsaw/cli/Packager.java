@@ -622,7 +622,14 @@ public class Packager {
         out.format("%n");
     }
 
-    public void run(String[] args) throws OptionException, Command.Exception {
+    public static void run(String[] args) 
+	throws OptionException, Command.Exception {
+
+	new Packager().exec(args);
+    }
+
+    private void exec(String[] args) 
+	throws OptionException, Command.Exception {
 
         parser = new OptionParser();
 
@@ -783,8 +790,10 @@ public class Packager {
             if (jm != null)
                 library = new File(jm);
         }
-        if (opts.has(resourcePath))
+        if (opts.has(resourcePath)) {
             resources = opts.valueOf(resourcePath);
+	    checkIfPathExists(resources, "Resource");
+	}
         if (opts.has(includePath))
             includes = opts.valueOf(includePath);
         if (opts.has(javaHomePath))
@@ -820,11 +829,27 @@ public class Packager {
             (new Jmod()).run(null, opts);
     }
 
+    /**
+     * Helper method to check if a path exists before using it further.
+     *
+     * @param path to check
+     * @param type of path being checked
+     *
+     * @throws Command.Exception if path doesn't exist
+     */
+    private static final void checkIfPathExists(File path, String type) 
+        throws Command.Exception {
+
+        if (!path.exists())
+            throw new Command.Exception("%s path doesn't exist: %s", 
+                                        type, path);
+    }
+
     private Packager() { }
 
     public static void main(String[] args) throws Exception {
         try {
-            new Packager().run(args);
+            run(args);
         } catch (OptionException x) {
             err.println(x.getMessage());
             System.exit(1);
