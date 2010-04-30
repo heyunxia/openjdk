@@ -228,7 +228,7 @@ public class Enter extends JCTree.Visitor {
             ? ((JCClassDecl) env.tree).sym.members_field
             : env.info.scope;
     }
-    
+
     /** Create a fresh environment for modules.
      *
      *  @param tree     The module definition.

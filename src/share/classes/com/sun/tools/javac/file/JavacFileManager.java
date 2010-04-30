@@ -84,8 +84,8 @@ import static com.sun.tools.javac.main.OptionName.*;
  * This code and its internal interfaces are subject to change or
  * deletion without notice.</b>
  */
-public class JavacFileManager 
-        extends BaseFileManager 
+public class JavacFileManager
+        extends BaseFileManager
         implements StandardJavaFileManager, ModuleFileManager {
 
     boolean useZipFileIndex;

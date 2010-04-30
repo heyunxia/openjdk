@@ -27,11 +27,11 @@
  * @summary Emit warnings for proprietary packages in the boot class path
  * @author  Peter von der Ah\u00e9
  * @run main Test
- * 	compile WarnStaticImport.java
- * 	compile/fail -Werror WarnStaticImport.java
- * 	compile/fail -Werror -source 1.4 -nowarn WarnStaticImport.java
- * 	compile/fail -Werror -nowarn WarnStaticImport.java
- * 	compile/fail -Werror -Xlint:none WarnStaticImport.java
+ *      compile WarnStaticImport.java
+ *      compile/fail -Werror WarnStaticImport.java
+ *      compile/fail -Werror -source 1.4 -nowarn WarnStaticImport.java
+ *      compile/fail -Werror -nowarn WarnStaticImport.java
+ *      compile/fail -Werror -Xlint:none WarnStaticImport.java
  */
 
 import static sun.misc.VM.getFinalRefCount;

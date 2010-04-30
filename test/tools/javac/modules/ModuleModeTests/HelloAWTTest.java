@@ -32,27 +32,27 @@ import java.io.*;
 
 public class HelloAWTTest extends TestRunner {
     public static void main(String... args) throws Exception {
-	new HelloAWTTest().run();
+        new HelloAWTTest().run();
     }
 
     void run() throws Exception {
-	setModuleCompilationMode(ModuleCompilationMode.NO_MODULES);
-	setCommandLineFiles(createFile("HelloAWT.java", hw));
-	setExpectedClasses("HelloAWT");
-	test();
-	summary();
+        setModuleCompilationMode(ModuleCompilationMode.NO_MODULES);
+        setCommandLineFiles(createFile("HelloAWT.java", hw));
+        setExpectedClasses("HelloAWT");
+        test();
+        summary();
     }
 
     String[] hw = {
-	"import java.awt.Frame;",
-	"import java.awt.Label;",
-	"class HelloAWT {",
-	"    public static void main(String... args) {",
-	"	Frame f = new Frame();",
-	"	f.add(new Label(\"Hello World!\"));",
-	"	f.pack();",
-	"	f.setVisible(true);",
-	"    }",
-	"}"
+        "import java.awt.Frame;",
+        "import java.awt.Label;",
+        "class HelloAWT {",
+        "    public static void main(String... args) {",
+        "       Frame f = new Frame();",
+        "       f.add(new Label(\"Hello World!\"));",
+        "       f.pack();",
+        "       f.setVisible(true);",
+        "    }",
+        "}"
     };
 }

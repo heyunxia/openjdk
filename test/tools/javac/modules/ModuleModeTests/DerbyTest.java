@@ -32,52 +32,52 @@ import java.io.*;
 
 public class DerbyTest extends TestRunner {
     public static void main(String... args) throws Exception {
-	new DerbyTest().run();
+        new DerbyTest().run();
     }
 
     void run() throws Exception {
-	File mif = createFile("module-info.java", mi);
-	File testf = createFile("test/Test.java", test);
+        File mif = createFile("module-info.java", mi);
+        File testf = createFile("test/Test.java", test);
 
-	setModuleCompilationMode(ModuleCompilationMode.SINGLE_MODULE);
+        setModuleCompilationMode(ModuleCompilationMode.SINGLE_MODULE);
 
-	setCommandLineFiles(testf);
-	setExpectedClasses("test.Test");
-	test();
+        setCommandLineFiles(testf);
+        setExpectedClasses("test.Test");
+        test();
 
-	setCommandLineFiles(mif, testf);
-	setExpectedClasses("module-info", "test.Test");
-	test();
+        setCommandLineFiles(mif, testf);
+        setExpectedClasses("module-info", "test.Test");
+        test();
 
-	setCommandLineFiles(testf);
-	setSourcePath(srcDir);
-	setExpectedClasses("module-info", "test.Test");
-	test();
+        setCommandLineFiles(testf);
+        setSourcePath(srcDir);
+        setExpectedClasses("module-info", "test.Test");
+        test();
 
-	File classesDir = new File("classes");
-	classesDir.mkdirs();
-	compile(classesDir, mif);
-	setCommandLineFiles(testf);
-	setClassPath(classesDir);
-	setExpectedClasses("test.Test");
-	test();
+        File classesDir = new File("classes");
+        classesDir.mkdirs();
+        compile(classesDir, mif);
+        setCommandLineFiles(testf);
+        setClassPath(classesDir);
+        setExpectedClasses("test.Test");
+        test();
 
-	summary();
+        summary();
     }
 
     String[] mi = {
-	"module derby @ 7-ea {",
-	"    // class test.Test;",
-	"}"
+        "module derby @ 7-ea {",
+        "    // class test.Test;",
+        "}"
     };
 
     String[] test = {
-	"package test;",
-	"import com.sun.rowset.JdbcRowSetImpl;",
-	"public class Test {",
-	"    public static void main(String[] args) throws Exception {",
-	"	JdbcRowSetImpl rs = new JdbcRowSetImpl(\"jdbc:derby:/tmp/derbyDB;create=true\", \"a\", \"a\");",
-	"    }",
-	"}"
+        "package test;",
+        "import com.sun.rowset.JdbcRowSetImpl;",
+        "public class Test {",
+        "    public static void main(String[] args) throws Exception {",
+        "       JdbcRowSetImpl rs = new JdbcRowSetImpl(\"jdbc:derby:/tmp/derbyDB;create=true\", \"a\", \"a\");",
+        "    }",
+        "}"
     };
 }

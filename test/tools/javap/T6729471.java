@@ -58,7 +58,7 @@ public class T6729471
                 "public static void main(java.lang.String...)");
 
         // jar url: local jar
-	File my_jar = createJar("my.jar", getClasses(Map.class));
+        File my_jar = createJar("my.jar", getClasses(Map.class));
         try {
             verify("jar:" + my_jar.toURL() + "!/java/util/Map.class",
                 "public abstract boolean containsKey(java.lang.Object)");
@@ -71,16 +71,16 @@ public class T6729471
         if (java_home.getName().equals("jre"))
             java_home = java_home.getParentFile();
         File rt_jar = new File(new File(new File(java_home, "jre"), "lib"), "rt.jar");
-	if (rt_jar.exists()) {
+        if (rt_jar.exists()) {
             try {
                 verify("jar:" + rt_jar.toURL() + "!/java/util/Map.class",
                     "public abstract boolean containsKey(java.lang.Object)");
             } catch (MalformedURLException e) {
                 error(e.toString());
             }
-	} else {
-	    System.err.println("warning: rt.jar not found; test skipped");
-	}
+        } else {
+            System.err.println("warning: rt.jar not found; test skipped");
+        }
 
         // jar url: ct.sym, if it exists
         File ct_sym = new File(new File(java_home, "lib"), "ct.sym");
@@ -93,7 +93,7 @@ public class T6729471
             }
         } else {
             System.err.println("warning: ct.sym not found; test skipped");
-	}
+        }
 
         if (errors > 0)
             throw new Error(errors + " found.");
@@ -132,30 +132,30 @@ public class T6729471
     }
 
     Map<String,byte[]> getClasses(Class... classes) throws IOException {
-	ClassLoader cl = getClass().getClassLoader();
-	Map<String,byte[]> results = new HashMap<String, byte[]>();
-	for (Class c: classes) {
-	    String name = c.getName().replace(".", "/") + ".class";
-	    byte[] data = read(cl.getResourceAsStream(name));
-	    results.put(name, data);
-	}
-	return results;
+        ClassLoader cl = getClass().getClassLoader();
+        Map<String,byte[]> results = new HashMap<String, byte[]>();
+        for (Class c: classes) {
+            String name = c.getName().replace(".", "/") + ".class";
+            byte[] data = read(cl.getResourceAsStream(name));
+            results.put(name, data);
+        }
+        return results;
     }
 
     byte[] read(InputStream in) throws IOException {
-	try {
-	    byte[] data = new byte[8192];
-	    int offset = 0;
-	    int n;
-	    while ((n = in.read(data, offset, data.length - offset)) >= 0) {
-		offset += n;
-	        if (offset == data.length) 
-		    data = Arrays.copyOf(data, 2 * data.length);
-	    }
-	    return data;
-	} finally {
-	    in.close();
-	}
+        try {
+            byte[] data = new byte[8192];
+            int offset = 0;
+            int n;
+            while ((n = in.read(data, offset, data.length - offset)) >= 0) {
+                offset += n;
+                if (offset == data.length)
+                    data = Arrays.copyOf(data, 2 * data.length);
+            }
+            return data;
+        } finally {
+            in.close();
+        }
     }
 
     File createJar(String name, Map<String, byte[]> entries) throws IOException {

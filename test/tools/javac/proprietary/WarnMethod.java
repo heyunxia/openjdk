@@ -27,11 +27,11 @@
  * @summary Emit warnings for proprietary packages in the boot class path
  * @author  Peter von der Ah\u00e9
  * @run main Test
- * 	compile WarnMethod.java
- * 	compile/fail -Werror WarnMethod.java
- * 	compile/fail -Werror -source 1.4 -nowarn WarnMethod.java
- * 	compile/fail -Werror -nowarn WarnMethod.java
- * 	compile/fail -Werror -Xlint:none WarnMethod.java
+ *      compile WarnMethod.java
+ *      compile/fail -Werror WarnMethod.java
+ *      compile/fail -Werror -source 1.4 -nowarn WarnMethod.java
+ *      compile/fail -Werror -nowarn WarnMethod.java
+ *      compile/fail -Werror -Xlint:none WarnMethod.java
  */
 
 public class WarnMethod {

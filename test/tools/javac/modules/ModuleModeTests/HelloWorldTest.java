@@ -32,22 +32,22 @@ import java.io.*;
 
 public class HelloWorldTest extends TestRunner {
     public static void main(String... args) throws Exception {
-	new HelloWorldTest().run();
+        new HelloWorldTest().run();
     }
 
     void run() throws Exception {
-	setModuleCompilationMode(ModuleCompilationMode.NO_MODULES);
-	setCommandLineFiles(createFile("HelloWorld.java", hw));
-	setExpectedClasses("HelloWorld");
-	test();
-	summary();
+        setModuleCompilationMode(ModuleCompilationMode.NO_MODULES);
+        setCommandLineFiles(createFile("HelloWorld.java", hw));
+        setExpectedClasses("HelloWorld");
+        test();
+        summary();
     }
 
     String[] hw = {
-	"class HelloWorld {",
-	"    public static void main(String... args) {",
-	"	System.out.println(\"Hello World!\");",
-	"    }",
-	"}"
+        "class HelloWorld {",
+        "    public static void main(String... args) {",
+        "       System.out.println(\"Hello World!\");",
+        "    }",
+        "}"
     };
 }

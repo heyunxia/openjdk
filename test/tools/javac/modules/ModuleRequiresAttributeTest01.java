@@ -48,12 +48,12 @@ public class ModuleRequiresAttributeTest01 {
     }
 
     void run(String... args) throws Exception {
-	if (args.length > 0) {
-	    selectedTestCases = new HashSet<Integer>();
-	    for (String arg: args) {
-		selectedTestCases.add(Integer.parseInt(arg));
-	    }
-     	}
+        if (args.length > 0) {
+            selectedTestCases = new HashSet<Integer>();
+            for (String arg: args) {
+                selectedTestCases.add(Integer.parseInt(arg));
+            }
+        }
 
         for (int i = 0; i < (1 << Flag.values().length); i++) {
             Set<Flag> flags = new LinkedHashSet<Flag>();
@@ -79,18 +79,18 @@ public class ModuleRequiresAttributeTest01 {
     void test(Set<Flag> flags, MultiKind kind) throws Exception {
         System.err.println("Test group " + (++group) + " " + flags + " " + kind);
         srcDir = new File("group" + group + "/src");
-	srcDir.mkdirs();
+        srcDir.mkdirs();
         modulesDir = new File("group" + group + "/modules");
-	modulesDir.mkdirs();
+        modulesDir.mkdirs();
         try {
             String[] modules = { "M1", "M2.N2", "M3.N3.O3@1.0", "M4@4.0" };
-	    List<String> permitsList = new ArrayList<String>();
-	    for (String m: modules) {
-		permitsList.add(getModuleName(m));
-	    }
+            List<String> permitsList = new ArrayList<String>();
+            for (String m: modules) {
+                permitsList.add(getModuleName(m));
+            }
             List<String> requiresList = new ArrayList<String>();
             for (String m: modules) {
-	        permitsList.remove(getModuleName(m));
+                permitsList.remove(getModuleName(m));
                 test(flags, kind, m, requiresList, permitsList);
                 requiresList.add(m);
             }
@@ -104,10 +104,10 @@ public class ModuleRequiresAttributeTest01 {
     void test(Set<Flag> flags, MultiKind kind, String moduleId, List<String> requiresList, List<String> permitsList) throws Exception {
         // do not reset on each test case so that we can reuse the previously
         // generated module classes
-	++count;
-	if (selectedTestCases != null && !selectedTestCases.contains(count)) {
+        ++count;
+        if (selectedTestCases != null && !selectedTestCases.contains(count)) {
             System.err.println("Skip test " + count + " " + moduleId + " " + requiresList + " " + permitsList);
-	    return;
+            return;
         }
         System.err.println("Test " + count + " " + moduleId + " " + requiresList + " " + permitsList);
         File f = createFile(flags, kind, moduleId, requiresList, permitsList);
@@ -135,7 +135,7 @@ public class ModuleRequiresAttributeTest01 {
                     sb.append("; ");
             }
         }
-	if (permitsList.size() > 0) {
+        if (permitsList.size() > 0) {
             String sep = " permits " ;
             for (String p: permitsList) {
                 sb.append(sep);
@@ -173,8 +173,8 @@ public class ModuleRequiresAttributeTest01 {
                 List<String> attrList = new ArrayList<String>();
                 for (int i = 0; i < attr.requires_length; i++) {
                     ModuleRequires_attribute.Entry e = attr.requires_table[i];
-		    if (isSynthetic(e, cp))
-			continue;
+                    if (isSynthetic(e, cp))
+                        continue;
                     ConstantPool.CONSTANT_ModuleId_info mid = cp.getModuleIdInfo(e.requires_index);
                     String mn = cp.getUTF8Value(mid.name_index);
                     String mvq = (mid.version_index == 0 ? null : cp.getUTF8Value(mid.version_index));
@@ -193,13 +193,13 @@ public class ModuleRequiresAttributeTest01 {
         }
     }
 
-    static boolean isSynthetic(ModuleRequires_attribute.Entry e, ConstantPool cp) 
-		throws ConstantPoolException {
+    static boolean isSynthetic(ModuleRequires_attribute.Entry e, ConstantPool cp)
+                throws ConstantPoolException {
         for (int f = 0; f < e.attributes_length; f++) {
             if (cp.getUTF8Value(e.attributes[f]).equals("synthetic"))
-		return true;
-   	}
-	return false;
+                return true;
+        }
+        return false;
     }
 
     static String getModuleId(String name, String version) {
@@ -239,7 +239,7 @@ public class ModuleRequiresAttributeTest01 {
         for (File f: files)
             argList.add(f.getPath());
         String[] args = argList.toArray(new String[argList.size()]);
-	System.err.println("compile: " + Arrays.asList(args));
+        System.err.println("compile: " + Arrays.asList(args));
 
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);

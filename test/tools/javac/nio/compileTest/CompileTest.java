@@ -44,10 +44,10 @@ public class CompileTest {
     static File javaHome;
 
     static File file(File dir, String... path) {
-	File f = dir;
-	for (String p: path) 
-	    f = new File(f, p);
-	return f;
+        File f = dir;
+        for (String p: path)
+            f = new File(f, p);
+        return f;
     }
 
     public static void main(String[] args) throws Exception {
@@ -55,11 +55,11 @@ public class CompileTest {
         if (javaHome.getName().equals("jre"))
             javaHome = javaHome.getParentFile();
 
-	if (file(javaHome, "lib", "modules", "%jigsaw-library").exists()
-		&& !file(javaHome, "jre", "lib", "rt.jar").exists()) {
-	    System.err.println("PASS BY DEFAULT: modular JDK found with no rt.jar");
-	    return;
-	}
+        if (file(javaHome, "lib", "modules", "%jigsaw-library").exists()
+                && !file(javaHome, "jre", "lib", "rt.jar").exists()) {
+            System.err.println("PASS BY DEFAULT: modular JDK found with no rt.jar");
+            return;
+        }
 
         new CompileTest().run();
     }

@@ -27,11 +27,11 @@
  * @summary Emit warnings for proprietary packages in the boot class path
  * @author  Peter von der Ah\u00e9
  * @run main Test
- * 	compile WarnWildcard.java
- * 	compile/fail -Werror WarnWildcard.java
- * 	compile/fail -Werror -source 1.4 -nowarn WarnWildcard.java
- * 	compile/fail -Werror -nowarn WarnWildcard.java
- * 	compile/fail -Werror -Xlint:none WarnWildcard.java
+ *      compile WarnWildcard.java
+ *      compile/fail -Werror WarnWildcard.java
+ *      compile/fail -Werror -source 1.4 -nowarn WarnWildcard.java
+ *      compile/fail -Werror -nowarn WarnWildcard.java
+ *      compile/fail -Werror -Xlint:none WarnWildcard.java
  */
 
 public class WarnWildcard {

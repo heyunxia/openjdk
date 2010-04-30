@@ -178,7 +178,7 @@ public class ClassFile {
     }
 
     // move to top level in code or jvm?
-    public static class ModuleId 
+    public static class ModuleId
             implements ModuleElement.ModuleId, ModuleElement.ModuleIdQuery, Formattable {
         public final Name name;
         public final Name version;

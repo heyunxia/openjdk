@@ -94,7 +94,7 @@ public class JavacCatalog  extends Catalog {
         DEBUG("JavacCatalog.init: " + modules);
         for (ModuleElement me: modules) {
             ModuleSymbol msym = (ModuleSymbol) me;
-	    DEBUG("JavacCatalog.init: msym:" + msym + " msym.fullname:" + msym.fullname + " msym.version:" + msym.version);
+            DEBUG("JavacCatalog.init: msym:" + msym + " msym.fullname:" + msym.fullname + " msym.version:" + msym.version);
             addModule(msym.fullname, msym.version, msym);
             for (ClassFile.ModuleId mid: msym.provides) {
                 addModule(mid.name, mid.version, msym);
@@ -114,7 +114,7 @@ public class JavacCatalog  extends Catalog {
 
     @Override
     protected void gatherLocalModuleIds(String moduleName, Set<ModuleId> mids) throws IOException {
-	DEBUG("JavacCatalog.gatherLocalModuleIds: " + moduleName);
+        DEBUG("JavacCatalog.gatherLocalModuleIds: " + moduleName);
         Collection<Map<Version,ModuleSymbol>> maps;
         if (moduleName != null) {
             Map<Version,ModuleSymbol> syms = moduleMap.get(moduleName);
@@ -130,14 +130,14 @@ public class JavacCatalog  extends Catalog {
                 mids.add(getModuleId(sym));
         }
 
-	DEBUG("JavacCatalog.gatherLocalModuleIds: moduleName:" + moduleName + "--" + mids);
+        DEBUG("JavacCatalog.gatherLocalModuleIds: moduleName:" + moduleName + "--" + mids);
     }
 
     @Override
     protected ModuleInfo readLocalModuleInfo(ModuleId mid) throws IOException {
-	DEBUG("JavacCatalog.readLocalModuleInfo " + mid);
+        DEBUG("JavacCatalog.readLocalModuleInfo " + mid);
         ModuleSymbol msym = getModuleSymbol(mid);
-	DEBUG("JavacCatalog.readLocalModuleInfo " + mid + "--" + ((msym == null) ? null : new JavacModuleInfo(msym)));
+        DEBUG("JavacCatalog.readLocalModuleInfo " + mid + "--" + ((msym == null) ? null : new JavacModuleInfo(msym)));
         return (msym == null) ? null : new JavacModuleInfo(msym);
     }
 

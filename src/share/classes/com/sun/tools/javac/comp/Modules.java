@@ -106,7 +106,7 @@ public class Modules extends JCTree.Visitor {
 
     ModuleMode mode;
 
-    /** 
+    /**
      * The set of module locations for entered trees.
      * In single module compilation mode, it is a composite of class path and
      * source path.
@@ -162,7 +162,7 @@ public class Modules extends JCTree.Visitor {
 
         if (!enabled)
             return;
-        
+
         initModuleResolver(context);
 
         if (fileManager instanceof ModuleFileManager) {
@@ -457,7 +457,7 @@ public class Modules extends JCTree.Visitor {
             // on the user class path.   Therefore, we build and use a reversed
             // list of modules before converting the modules to the path used by
             // ClassReader.
-            
+
             List<ModuleSymbol> msyms = List.nil();
             for (ModuleElement me: modules)
                 msyms = msyms.prepend((ModuleSymbol) me);
@@ -950,7 +950,7 @@ public class Modules extends JCTree.Visitor {
                 for (List<ClassFile.ModuleId> l = sym.provides.toList(); l.nonEmpty(); l = l.tail)
                     add(table, sym, l.head);
             }
-            
+
             // Add entry for default platform module if needed
             ModuleId p = Modules.this.getDefaultPlatformModule();
             Map<Name,ModuleSymbol> versions = table.get(p.name);

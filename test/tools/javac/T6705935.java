@@ -46,7 +46,7 @@ public class T6705935 {
 
         JavaCompiler c = ToolProvider.getSystemJavaCompiler();
         StandardJavaFileManager fm = c.getStandardFileManager(null, null, null);
-	//System.err.println("platform class path: " + asList(fm.getLocation(StandardLocation.PLATFORM_CLASS_PATH)));
+        //System.err.println("platform class path: " + asList(fm.getLocation(StandardLocation.PLATFORM_CLASS_PATH)));
 
         for (JavaFileObject fo: fm.list(StandardLocation.PLATFORM_CLASS_PATH,
                                         "java.lang",
@@ -55,11 +55,11 @@ public class T6705935 {
             test++;
 
             if (!(fo instanceof ZipFileObject || fo instanceof ZipFileIndexFileObject)) {
-	        System.out.println("Skip " + fo.getClass().getSimpleName() + " " + fo.getName());
+                System.out.println("Skip " + fo.getClass().getSimpleName() + " " + fo.getName());
                 skip++;
                 continue;
             }
-            
+
             //System.err.println(fo.getName());
             String p = fo.getName();
             int bra = p.indexOf("(");
@@ -75,10 +75,10 @@ public class T6705935 {
 
         }
 
-	if (test == 0) 
+        if (test == 0)
             throw new Exception("no files found");
-	
-        if (skip == 0) 
+
+        if (skip == 0)
             System.out.println(test + " files found");
         else
             System.out.println(test + " files found, " + skip + " files skipped");
@@ -89,8 +89,8 @@ public class T6705935 {
 
     private <T> List<T> asList(Iterable<? extends T> items) {
         List<T> list = new ArrayList<T>();
-	for (T item: items)
-	    list.add(item);
+        for (T item: items)
+            list.add(item);
         return list;
      }
 

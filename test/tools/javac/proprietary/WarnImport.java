@@ -27,11 +27,11 @@
  * @summary Emit warnings for proprietary packages in the boot class path
  * @author  Peter von der Ah\u00e9
  * @run main Test
- * 	compile WarnImport.java
- * 	compile/fail -Werror WarnImport.java
- * 	compile/fail -Werror -source 1.4 -nowarn WarnImport.java
- * 	compile/fail -Werror -nowarn WarnImport.java
- * 	compile/fail -Werror -Xlint:none WarnImport.java
+ *      compile WarnImport.java
+ *      compile/fail -Werror WarnImport.java
+ *      compile/fail -Werror -source 1.4 -nowarn WarnImport.java
+ *      compile/fail -Werror -nowarn WarnImport.java
+ *      compile/fail -Werror -Xlint:none WarnImport.java
  */
 
 import sun.misc.VM;

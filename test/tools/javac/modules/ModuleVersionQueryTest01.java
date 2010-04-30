@@ -109,14 +109,14 @@ public class ModuleVersionQueryTest01 {
                         version = moduleQuery.substring(sep + 1);
                     }
                     ConstantPool cp = cf.constant_pool;
-		    for (int i = 0; i < attr.requires_length; i++) {
-			ConstantPool.CONSTANT_ModuleId_info r = cp.getModuleIdInfo(attr.requires_table[i].requires_index);
-			String rn = r.getName();
-			String rv = r.getVersion();
-			if (name.equals(rn) && (version == null ? rv == null : version.equals(rv)))
-			    return;
-		    }
-		    error("module query not found");
+                    for (int i = 0; i < attr.requires_length; i++) {
+                        ConstantPool.CONSTANT_ModuleId_info r = cp.getModuleIdInfo(attr.requires_table[i].requires_index);
+                        String rn = r.getName();
+                        String rv = r.getVersion();
+                        if (name.equals(rn) && (version == null ? rv == null : version.equals(rv)))
+                            return;
+                    }
+                    error("module query not found");
                 }
             }
         } catch (ConstantPoolException e) {
@@ -137,8 +137,8 @@ public class ModuleVersionQueryTest01 {
      */
     void compile(List<File> files) {
         List<String> options = new ArrayList<String>();
-        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath(), "-modulepath", classesDir.getPath(), 
-					"-XDzeroMod"));
+        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath(), "-modulepath", classesDir.getPath(),
+                                        "-XDzeroMod"));
         for (File f: files)
             options.add(f.getPath());
 

@@ -99,7 +99,7 @@ public class JigsawModuleResolver implements ModuleResolver {
         Collection<ModuleIdQuery> jigsawRootQueries = new LinkedHashSet<ModuleIdQuery>();
         for (ModuleElement r: roots) {
             // should use catalog here
-	    CharSequence rn = r.getModuleId().getName();
+            CharSequence rn = r.getModuleId().getName();
             if (rn.length() == 0) {
                 // unnamed module
 ////////////                // assert r.getRequires() == default platform module
@@ -170,7 +170,7 @@ public class JigsawModuleResolver implements ModuleResolver {
 
         if (debug.isEnabled())
             debug.println("JigsawModuleResolver finished; results: (" + results.size() + ")");
-        
+
         return results;
     }
 

@@ -2854,7 +2854,7 @@ public class ClassReader implements Completer {
         protected String inferBinaryName(Iterable<? extends File> path) {
             return flatname.toString();
         }
-        
+
         @Override
         protected String inferModuleTag(String binaryName) {
             return null;

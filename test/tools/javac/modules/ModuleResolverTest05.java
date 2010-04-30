@@ -71,9 +71,9 @@ public class ModuleResolverTest05 {
         ),
     };
 
-    enum ModuleResolutionMode { 
-	ZEROMOD,
-	JIGSAW
+    enum ModuleResolutionMode {
+        ZEROMOD,
+        JIGSAW
     };
 
     public static void main(String[] args) throws Exception {
@@ -81,21 +81,21 @@ public class ModuleResolverTest05 {
     }
 
     void run() throws Exception {
-	File javaHome = new File(System.getProperty("java.home"));
-	if (javaHome.getName().equals("jre")) javaHome = javaHome.getParentFile();
-	boolean jigsaw = file(javaHome, "lib", "modules", "%jigsaw-library").exists();
-	Set<ModuleResolutionMode> modes = EnumSet.of(ModuleResolutionMode.ZEROMOD);
-	if (jigsaw) modes.add(ModuleResolutionMode.JIGSAW);
+        File javaHome = new File(System.getProperty("java.home"));
+        if (javaHome.getName().equals("jre")) javaHome = javaHome.getParentFile();
+        boolean jigsaw = file(javaHome, "lib", "modules", "%jigsaw-library").exists();
+        Set<ModuleResolutionMode> modes = EnumSet.of(ModuleResolutionMode.ZEROMOD);
+        if (jigsaw) modes.add(ModuleResolutionMode.JIGSAW);
 
         for (Test test: tests) {
-	    for (ModuleResolutionMode mode: modes) {
+            for (ModuleResolutionMode mode: modes) {
                 try {
                     test(test, mode);
                 } catch (Throwable t) {
                     t.printStackTrace();
                     errors++;
                 }
-	    }
+            }
         }
 
         if (errors == 0)
@@ -117,8 +117,8 @@ public class ModuleResolverTest05 {
         add(opts, "-modulepath", modulesDir.getPath());
         add(opts, "-d", modulesDir.getPath());
 
-	if (mrm == ModuleResolutionMode.ZEROMOD)
-	    add(opts, "-XDzeroMod");
+        if (mrm == ModuleResolutionMode.ZEROMOD)
+            add(opts, "-XDzeroMod");
 
         boolean srcPath = false;
         List<File> files = new ArrayList<File>();
@@ -164,7 +164,7 @@ public class ModuleResolverTest05 {
 
         if (rc == 0)
             throw new Error("compilation succeeded unexpectedly");
-        else 
+        else
             System.err.println("compilation failed as expected, rc=" + rc);
     }
 
@@ -174,10 +174,10 @@ public class ModuleResolverTest05 {
     }
 
     File file(File dir, String... path) {
-	File f = dir;
-	for (String p: path) 
-	    f = new File(f, p);
-	return f;
+        File f = dir;
+        for (String p: path)
+            f = new File(f, p);
+        return f;
     }
 
     /**

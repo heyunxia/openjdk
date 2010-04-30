@@ -111,8 +111,8 @@ public class ConstantWriter extends BasicWriter {
 
             public Integer visitModuleId(CONSTANT_ModuleId_info info, Void p) {
                 print("#" + info.name_index + ":#" + info.version_index);
-		tab();
-		println("//  " + stringValue(info));
+                tab();
+                println("//  " + stringValue(info));
                 return 1;
             }
 

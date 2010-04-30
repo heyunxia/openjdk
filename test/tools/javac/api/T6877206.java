@@ -55,7 +55,7 @@ public class T6877206 {
         javaHome = new File(System.getProperty("java.home"));
         if (javaHome.getName().equals("jre"))
             javaHome = javaHome.getParentFile();
-	boolean modularJDK = file(javaHome, "lib", "modules", "%jigsaw-library").exists();
+        boolean modularJDK = file(javaHome, "lib", "modules", "%jigsaw-library").exists();
 
         File rt_jar = modularJDK ? null : findRtJar();
 
@@ -72,24 +72,24 @@ public class T6877206 {
             test(createFileManager(useJavaUtilZip), createJar("jar", entries), "p", entries.length);
             test(createFileManager(useJavaUtilZip), createJar("jar jar", entries), "p", entries.length);
 
-	    if (!modularJDK) {
+            if (!modularJDK) {
                 for (boolean useSymbolFile: new boolean[] { false, true }) {
                     test(createFileManager(useJavaUtilZip, useSymbolFile), rt_jar, "java.lang.ref", -1);
                 }
-	    }
+            }
         }
 
         // Verify that we hit all the impl classes we intended
-	Set<String> expectClasses = new HashSet<String>(Arrays.asList(
+        Set<String> expectClasses = new HashSet<String>(Arrays.asList(
                 "RegularFileObject", "ZipFileIndexFileObject", "ZipFileObject"));
-	if (!modularJDK) 
-	    expectClasses.add("SymbolFileObject");
+        if (!modularJDK)
+            expectClasses.add("SymbolFileObject");
         checkCoverage("classes", foundClasses, expectClasses);
 
         // Verify that we hit the jar files we intended, specifically ct.sym as well as rt.jar
-	Set<String> expectJars = new HashSet<String>(Arrays.asList("jar", "jar jar"));
-	if (!modularJDK) 
-	    expectJars.addAll(Arrays.asList("ct.sym", "rt.jar"));
+        Set<String> expectJars = new HashSet<String>(Arrays.asList("jar", "jar jar"));
+        if (!modularJDK)
+            expectJars.addAll(Arrays.asList("ct.sym", "rt.jar"));
         checkCoverage("jar files", foundJars, expectJars);
     }
 
@@ -272,9 +272,9 @@ public class T6877206 {
     File javaHome;
 
     static File file(File dir, String... path) {
-	File f = dir;
-	for (String p: path) 
-	    f = new File(f, p);
-	return f;
+        File f = dir;
+        for (String p: path)
+            f = new File(f, p);
+        return f;
     }
 }
