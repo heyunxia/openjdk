@@ -817,13 +817,15 @@ public class Packager {
         if (opts.has(nativeLibs)) {
             natlibs = opts.valueOf(nativeLibs);
             checkIfPathExists(natlibs, "Native library");
-	}
+        }
         if (opts.has(nativeCmds)) {
             natcmds = opts.valueOf(nativeCmds);
             checkIfPathExists(natcmds, "Native command");
-	}
-        if (opts.has(config))
+        }
+        if (opts.has(config)) {
             config_dir = opts.valueOf(config);
+            checkIfPathExists(config_dir, "Config");
+        }
         if (opts.has(isize))
             installedSize = opts.valueOf(isize);
 

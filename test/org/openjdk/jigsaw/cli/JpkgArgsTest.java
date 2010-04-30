@@ -123,10 +123,30 @@ public class JpkgArgsTest {
 	}
     }
 
+    private void testConfigArg() throws Exception {
+	setUp("NPE if config directory does not exist");
+	// try to compress a module pretending there is a config dir
+	// without creating it first should result in an exception
+	try {
+	    compress(MNAME, false, false, false, true);
+	}
+	// The bug resulted in an NPE being thrown
+	catch (NullPointerException e) {
+	    // Rethrow the NPE if it ever occurs again.
+	    throw (Exception) new Exception().initCause(e);
+	}
+	// Technically, we want to catch Command.Exception here,
+	// but it's package private, so let's catch the next best thing.
+	catch (Exception e) {
+	    // yay! test passed.
+	}
+    }
+
     private void test() throws Exception {
 	testResourceArg();
 	testNatLibArg();
 	testNatCmdArg();
+	testConfigArg();
     }
 
     /**
