@@ -52,7 +52,7 @@ include $(BUILDDIR)/common/Defs.gmk
 
 define make-all-launchers
 $(call make-launcher, appletviewer, sun.applet.Main, , )
-$(call make-launcher, apt, com.sun.tools.apt.Main, , )
+$(call make-launcher, apt, com.sun.tools.apt.Main, -J-Xmode:legacy, )
 $(call make-launcher, extcheck, com.sun.tools.extcheck.Main, , )
 $(call make-launcher, idlj, com.sun.tools.corba.se.idl.toJavaPortable.Compile, , )
 $(call make-launcher, jar, sun.tools.jar.Main, , )
