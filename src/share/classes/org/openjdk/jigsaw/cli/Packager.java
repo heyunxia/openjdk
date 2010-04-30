@@ -816,10 +816,12 @@ public class Packager {
             extra_metadata = opts.valueOf(extraMetadata);
         if (opts.has(nativeLibs)) {
             natlibs = opts.valueOf(nativeLibs);
-	    checkIfPathExists(natlibs, "Native library");
+            checkIfPathExists(natlibs, "Native library");
 	}
-        if (opts.has(nativeCmds))
+        if (opts.has(nativeCmds)) {
             natcmds = opts.valueOf(nativeCmds);
+            checkIfPathExists(natcmds, "Native command");
+	}
         if (opts.has(config))
             config_dir = opts.valueOf(config);
         if (opts.has(isize))
