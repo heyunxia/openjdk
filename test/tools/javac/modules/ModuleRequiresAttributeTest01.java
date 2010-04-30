@@ -25,6 +25,7 @@
  * @test
  * @bug 6802521
  * @summary add support for modules: test basic use of ModuleRequires attribute
+ * @run main ModuleRequiresAttributeTest01
  */
 
 import java.io.*;
@@ -43,10 +44,17 @@ public class ModuleRequiresAttributeTest01 {
     enum MultiKind { LIST, DISTINCT };
 
     public static void main(String[] args) throws Exception {
-        new ModuleRequiresAttributeTest01().run();
+        new ModuleRequiresAttributeTest01().run(args);
     }
 
-    void run() throws Exception {
+    void run(String... args) throws Exception {
+	if (args.length > 0) {
+	    selectedTestCases = new HashSet<Integer>();
+	    for (String arg: args) {
+		selectedTestCases.add(Integer.parseInt(arg));
+	    }
+     	}
+
         for (int i = 0; i < (1 << Flag.values().length); i++) {
             Set<Flag> flags = new LinkedHashSet<Flag>();
             if ((i & 4) != 0) flags.add(Flag.PUBLIC);
@@ -71,13 +79,19 @@ public class ModuleRequiresAttributeTest01 {
     void test(Set<Flag> flags, MultiKind kind) throws Exception {
         System.err.println("Test group " + (++group) + " " + flags + " " + kind);
         srcDir = new File("group" + group + "/src");
+	srcDir.mkdirs();
         modulesDir = new File("group" + group + "/modules");
-        resetDirs(srcDir, modulesDir);
+	modulesDir.mkdirs();
         try {
             String[] modules = { "M1", "M2.N2", "M3.N3.O3@1.0", "M4@4.0" };
+	    List<String> permitsList = new ArrayList<String>();
+	    for (String m: modules) {
+		permitsList.add(getModuleName(m));
+	    }
             List<String> requiresList = new ArrayList<String>();
             for (String m: modules) {
-                test(flags, kind, m, requiresList);
+	        permitsList.remove(getModuleName(m));
+                test(flags, kind, m, requiresList, permitsList);
                 requiresList.add(m);
             }
         } catch (Throwable t) {
@@ -87,16 +101,21 @@ public class ModuleRequiresAttributeTest01 {
 
     }
 
-    void test(Set<Flag> flags, MultiKind kind, String moduleId, List<String> requiresList) throws Exception {
+    void test(Set<Flag> flags, MultiKind kind, String moduleId, List<String> requiresList, List<String> permitsList) throws Exception {
         // do not reset on each test case so that we can reuse the previously
         // generated module classes
-        System.err.println("Test " + (++count) + " " + moduleId + " " + requiresList);
-        File f = createFile(flags, kind, moduleId, requiresList);
+	++count;
+	if (selectedTestCases != null && !selectedTestCases.contains(count)) {
+            System.err.println("Skip test " + count + " " + moduleId + " " + requiresList + " " + permitsList);
+	    return;
+        }
+        System.err.println("Test " + count + " " + moduleId + " " + requiresList + " " + permitsList);
+        File f = createFile(flags, kind, moduleId, requiresList, permitsList);
         compile(Arrays.asList(f));
         checkRequiresAttribute(getModuleName(moduleId), flags, requiresList);
     }
 
-    File createFile(Set<Flag> flags, MultiKind kind, String moduleId, List<String> requiresList) throws IOException {
+    File createFile(Set<Flag> flags, MultiKind kind, String moduleId, List<String> requiresList, List<String> permitsList) throws IOException {
         StringBuilder sb = new StringBuilder();
         sb.append("module " + moduleId + " {");
         if (requiresList.size() > 0) {
@@ -115,6 +134,15 @@ public class ModuleRequiresAttributeTest01 {
                     }
                     sb.append("; ");
             }
+        }
+	if (permitsList.size() > 0) {
+            String sep = " permits " ;
+            for (String p: permitsList) {
+                sb.append(sep);
+                sb.append(p);
+                sep = ", ";
+            }
+            sb.append("; ");
         }
         sb.append(" }");
         return createFile("test" + count + "/module-info.java", sb.toString());
@@ -210,8 +238,9 @@ public class ModuleRequiresAttributeTest01 {
         argList.addAll(Arrays.asList("-source", "7", "-d", modulesDir.getPath(), "-modulepath", modulesDir.getPath()));
         for (File f: files)
             argList.add(f.getPath());
-
         String[] args = argList.toArray(new String[argList.size()]);
+	System.err.println("compile: " + Arrays.asList(args));
+
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         int rc = com.sun.tools.javac.Main.compile(args, pw);
@@ -277,4 +306,5 @@ public class ModuleRequiresAttributeTest01 {
     int errors;
     File srcDir;
     File modulesDir;
+    Set<Integer> selectedTestCases;
 }

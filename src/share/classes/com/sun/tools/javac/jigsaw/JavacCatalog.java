@@ -65,7 +65,7 @@ public class JavacCatalog  extends Catalog {
     private Map<String, Map<Version, ModuleSymbol>> moduleMap =
             new HashMap<String, Map<Version, ModuleSymbol>>();
 
-    boolean DEBUG = true; // (System.getProperty("javac.debug.modules") != null);
+    boolean DEBUG = (System.getProperty("javac.debug.modules") != null);
     void DEBUG(String s) {
         if (DEBUG)
             System.err.println(s);

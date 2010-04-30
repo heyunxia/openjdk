@@ -37,24 +37,11 @@ public class Debug {
     public final PrintWriter out;
     Set<String> opts;
 
-    public static void main(String... args) {
-        Context c = new Context();
-        Debug d = new Debug("test", Options.instance(c), new PrintWriter(System.out, true));
-        for (String arg: args) {
-            System.out.print("<<" + arg + "|");
-            String[] lines = arg.split("n", -1);
-            for (int i = 0; i < lines.length - 1; i++)
-                d.out.println(lines[i]);
-            d.out.print(lines[lines.length - 1]);
-            d.out.flush();
-            System.out.println(">>");
-        }
-    }
-
     public Debug(String name, Options options, PrintWriter out) {
+        if (out == null) out = new PrintWriter(System.err);
         this.out = new DebugPrinter(name, out);
 
-        if (ALLOW_OPTION) {
+        if (ALLOW_OPTION && options != null) {
             String v = options.get(name + ".debug");
             if (v != null)
                 setOpts("all");
