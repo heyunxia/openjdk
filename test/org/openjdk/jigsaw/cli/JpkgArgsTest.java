@@ -66,14 +66,19 @@ public class JpkgArgsTest {
         compile(files);
     }
 
-    private void testResourceArg() throws Exception {
-	setUp("NPE if resource directory does not exist");
-	// try to compress a module pretending there is a resource dir
-	// without creating it first should result in an exception
+    private void testIfFileArgExists(boolean res, boolean natlib, 
+				     boolean natcmd, boolean config) 
+	throws Exception {
+	setUp("NPE if file argument does not exist: "
+	      + (res? " -r " : "")
+	      + (natlib? " --natlib " : "")
+	      + (natcmd? " --natcmd " : "")
+	      + (config? " --config" : ""));
+	
 	try {
-	    compress(MNAME, true);
+	    compress(MNAME, res, natlib, natcmd, config);
 	}
-	// The bug resulted in an NPE being thrown
+	// The bug resulted in a NPE being thrown
 	catch (NullPointerException e) {
 	    // Rethrow the NPE if it ever occurs again.
 	    throw (Exception) new Exception().initCause(e);
@@ -85,14 +90,25 @@ public class JpkgArgsTest {
 	}
     }
 
-    private void testNatLibArg() throws Exception {
-	setUp("NPE if natlib directory does not exist");
-	// try to compress a module pretending there is a natlib dir
-	// without creating it first should result in an exception
+    private void testIfFileArgIsNotADirectory(boolean res, boolean natlib, 
+					      boolean natcmd, boolean config) 
+	throws Exception {
+	setUp("NPE if file argument is not a directory: "
+	      + (res? " -r " : "")
+	      + (natlib? " --natlib " : "")
+	      + (natcmd? " --natcmd " : "")
+	      + (config? " --config" : ""));
+
+	// Create files rather then directories to get the exception
+	resourceDir.createNewFile();
+	natlibDir.createNewFile();
+	natcmdDir.createNewFile();
+	configDir.createNewFile();
+
 	try {
-	    compress(MNAME, false, true);
+	    compress(MNAME, res, natlib, natcmd, config);
 	}
-	// The bug resulted in an NPE being thrown
+	// The bug resulted in a NPE being thrown
 	catch (NullPointerException e) {
 	    // Rethrow the NPE if it ever occurs again.
 	    throw (Exception) new Exception().initCause(e);
@@ -104,49 +120,23 @@ public class JpkgArgsTest {
 	}
     }
 
-    private void testNatCmdArg() throws Exception {
-	setUp("NPE if natcmd directory does not exist");
-	// try to compress a module pretending there is a natcmd dir
-	// without creating it first should result in an exception
-	try {
-	    compress(MNAME, false, false, true);
-	}
-	// The bug resulted in an NPE being thrown
-	catch (NullPointerException e) {
-	    // Rethrow the NPE if it ever occurs again.
-	    throw (Exception) new Exception().initCause(e);
-	}
-	// Technically, we want to catch Command.Exception here,
-	// but it's package private, so let's catch the next best thing.
-	catch (Exception e) {
-	    // yay! test passed.
-	}
-    }
-
-    private void testConfigArg() throws Exception {
-	setUp("NPE if config directory does not exist");
-	// try to compress a module pretending there is a config dir
-	// without creating it first should result in an exception
-	try {
-	    compress(MNAME, false, false, false, true);
-	}
-	// The bug resulted in an NPE being thrown
-	catch (NullPointerException e) {
-	    // Rethrow the NPE if it ever occurs again.
-	    throw (Exception) new Exception().initCause(e);
-	}
-	// Technically, we want to catch Command.Exception here,
-	// but it's package private, so let's catch the next best thing.
-	catch (Exception e) {
-	    // yay! test passed.
-	}
-    }
 
     private void test() throws Exception {
-	testResourceArg();
-	testNatLibArg();
-	testNatCmdArg();
-	testConfigArg();
+	boolean a, b, c, d;
+	for (boolean aloop = a = false; !aloop; a = true) {
+	    aloop = a;
+	    for (boolean bloop = b = false; !bloop; b = true) {
+		bloop = b;
+		for (boolean cloop = c = false; !cloop; c = true) {
+		    cloop = c;
+		    for (boolean dloop = d = false; !dloop; d = true) {
+			dloop = d;
+			testIfFileArgExists(a, b, c, d);
+			testIfFileArgIsNotADirectory(a, b, c, d);
+		    }
+		}
+	    }
+	}
     }
 
     /**
