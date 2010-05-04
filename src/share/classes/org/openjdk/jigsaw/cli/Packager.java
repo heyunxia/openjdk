@@ -792,7 +792,7 @@ public class Packager {
         }
         if (opts.has(resourcePath)) {
             resources = opts.valueOf(resourcePath);
-	    checkIfPathExists(resources, "Resource");
+	    checkPathArgument(resources, "Resource");
 	}
         if (opts.has(includePath))
             includes = opts.valueOf(includePath);
@@ -816,15 +816,15 @@ public class Packager {
             extra_metadata = opts.valueOf(extraMetadata);
         if (opts.has(nativeLibs)) {
             natlibs = opts.valueOf(nativeLibs);
-            checkIfPathExists(natlibs, "Native library");
+            checkPathArgument(natlibs, "Native library");
         }
         if (opts.has(nativeCmds)) {
             natcmds = opts.valueOf(nativeCmds);
-            checkIfPathExists(natcmds, "Native command");
+            checkPathArgument(natcmds, "Native command");
         }
         if (opts.has(config)) {
             config_dir = opts.valueOf(config);
-            checkIfPathExists(config_dir, "Config");
+            checkPathArgument(config_dir, "Config");
         }
         if (opts.has(isize))
             installedSize = opts.valueOf(isize);
@@ -849,6 +849,37 @@ public class Packager {
         if (!path.exists())
             throw new Command.Exception("%s path doesn't exist: %s", 
                                         type, path);
+    }
+
+    /**
+     * Helper method to check if a path is a directory before using it further.
+     *
+     * @param path to check
+     * @param type of path being checked
+     *
+     * @throws Command.Exception if path is not a directory
+     */
+    private static final void checkIfPathIsDirectory(File path, String type) 
+        throws Command.Exception {
+
+        if (!path.isDirectory())
+            throw new Command.Exception("%s path is not a directory: %s", 
+                                        type, path);
+    }
+
+    /**
+     * Helper method to check if a path argument is valid.
+     *
+     * @param path to check
+     * @param type of path being checked
+     *
+     * @throws Command.Exception if path is not a directory
+     */
+    private static final void checkPathArgument(File path, String type) 
+        throws Command.Exception {
+
+	checkIfPathExists(path, type);
+	checkIfPathIsDirectory(path, type);
     }
 
     private Packager() { }
