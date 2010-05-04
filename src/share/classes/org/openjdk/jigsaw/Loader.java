@@ -59,10 +59,9 @@ public class Loader
 
     // Primary entry point from VM
     //
-    public Class<?> loadClass(String cn)
+    protected Class<?> loadClass(String cn, boolean resolve) 
         throws ClassNotFoundException
     {
-
         // Check the loaded-class cache first.  The VM guarantees not to invoke
         // this method more than once for any given class name, but we still
         // need to check the cache manually in case this method is invoked by
@@ -73,36 +72,38 @@ public class Loader
             if (tracing) {
                 trace(0, "%s: (cache) %s", this, cn);
             }
-            return c;
-        }
+        } else {
 
-        // Is the requested class local or remote?  It can be one or the other,
-        // but not both.
-        //
-        String rcxn = context.findContextForRemoteClass(cn);
-        ModuleId lmid = context.findModuleForLocalClass(cn);
-        if (rcxn != null && lmid != null) {
-            throw new AssertionError("Class " + cn
-                                     + " defined both locally and remotely");
-        }
+            // Is the requested class local or remote?  It can be one or the other,
+            // but not both.
+            //
+            String rcxn = context.findContextForRemoteClass(cn);
+            ModuleId lmid = context.findModuleForLocalClass(cn);
+            if (rcxn != null && lmid != null) {
+                throw new AssertionError("Class " + cn
+                                         + " defined both locally and remotely");
+            }
 
-        // Find a loader, and use that to load the class
-        //
-        Loader ld = null;
-        if (lmid != null) {
-            ld = this;
-            if (tracing)
-                trace(0, "%s: load %s:%s", this, lmid, cn);
-        } else if (rcxn != null) {
-            ld = pool.findLoader(rcxn);
-            if (tracing)
-                trace(0, "%s: load %s:%s", this, rcxn, cn);
+            // Find a loader, and use that to load the class
+            //
+            Loader ld = null;
+            if (lmid != null) {
+                ld = this;
+                if (tracing)
+                    trace(0, "%s: load %s:%s", this, lmid, cn);
+            } else if (rcxn != null) {
+                ld = pool.findLoader(rcxn);
+                if (tracing)
+                    trace(0, "%s: load %s:%s", this, rcxn, cn);
+            }
+            if (ld == null) {
+                throw new ClassNotFoundException(cn);
+            }
+            c = ld.findClass(lmid, cn);
         }
-        if (ld == null) {
-            throw new ClassNotFoundException(cn);
-        }
-        return ld.findClass(lmid, cn);
-
+        if (resolve)
+            resolveClass(c);
+        return c;
     }
 
     // Invoked by findClass, below, and (eventually) by LoaderPool.init()
