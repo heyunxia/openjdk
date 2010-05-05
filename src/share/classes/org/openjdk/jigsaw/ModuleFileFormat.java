@@ -221,8 +221,18 @@ public final class ModuleFileFormat {
             case GZIP:
                 short count = 0;
                 sourcedir = path;
+
+		if (!path.exists())
+		    throw new IOException("Path does not exist: " + path);
+		if (!path.isDirectory())
+		    throw new IOException("Path is not a directory: " + path);
+		if (!path.canRead())
+		    throw new IOException("Path can not be read: " + path);
                 Queue<File> files =
                     new LinkedList(Arrays.asList(path.listFiles()));
+		if (files.isEmpty())
+		    throw new IOException("Path is empty: " + path);
+
                 // System.out.println("Gipping: " + path);
                 while (!files.isEmpty()) {
                     File file = files.remove();
