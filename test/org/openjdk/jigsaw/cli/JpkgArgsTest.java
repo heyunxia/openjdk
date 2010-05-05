@@ -120,6 +120,43 @@ public class JpkgArgsTest {
 	}
     }
 
+    private void testIfFileArgIsNotReadable(boolean res, boolean natlib, 
+					    boolean natcmd, boolean config) 
+	throws Exception {
+	setUp("NPE if file argument is not readable: "
+	      + (res? " -r " : "")
+	      + (natlib? " --natlib " : "")
+	      + (natcmd? " --natcmd " : "")
+	      + (config? " --config" : ""));
+
+	// Create directories and mark then non-readable to get the exception
+	if (! (resourceDir.mkdir() && resourceDir.setReadable(false) &&
+	       natlibDir.mkdir() && natlibDir.setReadable(false) &&
+	       natcmdDir.mkdir() && natcmdDir.setReadable(false) && 
+	       configDir.mkdir() && configDir.setReadable(false)))
+	    throw new Exception("Can't set up test");
+
+	try {
+	    compress(MNAME, res, natlib, natcmd, config);
+	}
+	// The bug resulted in a NPE being thrown
+	catch (NullPointerException e) {
+	    // Rethrow the NPE if it ever occurs again.
+	    throw (Exception) new Exception().initCause(e);
+	}
+	// Technically, we want to catch Command.Exception here,
+	// but it's package private, so let's catch the next best thing.
+	catch (Exception e) {
+	    // yay! test passed.
+	}
+	finally {
+	    resourceDir.setReadable(true);
+	    natlibDir.setReadable(true);
+	    natcmdDir.setReadable(true);
+	    configDir.setReadable(true);
+	}
+    }
+
 
     private void test() throws Exception {
 	boolean a, b, c, d;
@@ -133,6 +170,7 @@ public class JpkgArgsTest {
 			dloop = d;
 			testIfFileArgExists(a, b, c, d);
 			testIfFileArgIsNotADirectory(a, b, c, d);
+			testIfFileArgIsNotReadable(a, b, c, d);
 		    }
 		}
 	    }

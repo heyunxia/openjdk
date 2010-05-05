@@ -852,6 +852,22 @@ public class Packager {
     }
 
     /**
+     * Helper method to check if a path is readable before using it further.
+     *
+     * @param path to check
+     * @param type of path being checked
+     *
+     * @throws Command.Exception if path isn't readable
+     */
+    private static final void checkIfPathIsReadable(File path, String type) 
+        throws Command.Exception {
+
+        if (!path.canRead())
+            throw new Command.Exception("%s path isn't readable: %s", 
+                                        type, path);
+    }
+
+    /**
      * Helper method to check if a path is a directory before using it further.
      *
      * @param path to check
@@ -879,6 +895,7 @@ public class Packager {
         throws Command.Exception {
 
 	checkIfPathExists(path, type);
+	checkIfPathIsReadable(path, type);
 	checkIfPathIsDirectory(path, type);
     }
 
