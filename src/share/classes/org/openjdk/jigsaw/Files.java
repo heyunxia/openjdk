@@ -121,19 +121,16 @@ public final class Files {
 
     // src, dst are directories
     // src must exist; dst created if it does not yet exist
-    // Makes dst look exactly like src, modulo filtering
+    // Copy files from src to dst, modulo filtering
     //
     public static void copyTree(File src, File dst, Filter<File> filter)
         throws IOException
     {
         ensureIsDirectory(src);
         if (dst.exists()) {
-            if (dst.isDirectory())
-                deleteTree(dst);
-            else
+            if (!dst.isDirectory())
                 delete(dst);
-        }
-        if (!dst.mkdirs())
+        } else if (!dst.mkdirs())
             throw new IOException(dst + ": Cannot create directory");
         String[] sls = list(src);
         for (int i = 0; i < sls.length; i++) {

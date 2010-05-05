@@ -586,7 +586,8 @@ public final class SimpleLibrary
         final Index ix = new Index(md);
         Files.walkTree(cd, new Files.Visitor<File>() {
             public void accept(File f) throws IOException {
-                addToIndex(f, ix);
+                if (f.getPath().endsWith(".class"))
+                    addToIndex(f, ix);
             }
         });
         ix.store();
@@ -624,6 +625,8 @@ public final class SimpleLibrary
         JigsawVersion v = (JigsawVersion)mi.id().version();
         String vs = (v == null) ? "default" : v.toString();
         File mdst = new File(new File(dst, m), vs);
+        if (mdst.exists())
+            Files.deleteTree(mdst);
         Files.mkdirs(mdst, "module");
         Files.store(bs, new File(mdst, "info"));
         File cldst = new File(mdst, "classes");
@@ -642,9 +645,8 @@ public final class SimpleLibrary
         ix.store();
 
         // Copy resources
-        File rdst = new File(mdst, "resources");
         for (File rsrc : mf.resources())
-            Files.copyTree(rsrc, rdst);
+            Files.copyTree(rsrc, cldst);
 
     }
 
@@ -835,7 +837,7 @@ public final class SimpleLibrary
         File md = findModuleDir(mid);
         if (md == null)
             return null;
-        File f = new File(new File(md, "resources"), name);
+        File f = new File(new File(md, "classes"), name);
         if (!f.exists())
             return null;
         return f;

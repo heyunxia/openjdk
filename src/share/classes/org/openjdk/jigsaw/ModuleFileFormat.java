@@ -46,9 +46,8 @@ public final class ModuleFileFormat {
         case MODULE_INFO:
             return ".";
         case CLASSES:
-            return "classes";
         case RESOURCES:
-            return "resources";
+            return "classes";
         case NATIVE_LIBS:
             return "lib";
         case NATIVE_CMDS:
