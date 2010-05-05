@@ -177,6 +177,18 @@ public class Loader
             }
         }
 
+        // Define the package
+        //
+        int i = cn.lastIndexOf('.');
+        if (i >= 0) {
+            String pn = cn.substring(0, i);
+            Package p = getPackage(pn);
+            if (p == null) {
+                // ## Should we pass in additional information here?
+                definePackage(pn, null, null, null, null, null, null, null);
+            }
+        }
+
         // The last step, of actually locating the class, is in a
         // separate method so that the kernel loader can override it
         //
@@ -334,21 +346,5 @@ public class Loader
         throw new UnsupportedOperationException();
     }
     */
-
-    protected Package definePackage(String name, String specTitle,
-                                    String specVersion, String specVendor,
-                                    String implTitle, String implVersion,
-                                    String implVendor, URL sealBase)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    protected Package getPackage(String name) {
-        throw new UnsupportedOperationException();
-    }
-
-    protected Package[] getPackages() {
-        throw new UnsupportedOperationException();
-    }
 
 }
