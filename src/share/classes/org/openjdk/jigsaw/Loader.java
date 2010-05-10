@@ -65,10 +65,10 @@ public class Loader
     protected Class<?> loadClass(String cn, boolean resolve) 
         throws ClassNotFoundException
     {
-        int i = cn.lastIndexOf('.');
-        if (i != -1) {
-            SecurityManager sm = System.getSecurityManager();
-            if (sm != null) {
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            int i = cn.lastIndexOf('.');
+            if (i != -1) {
                 sm.checkPackageAccess(cn.substring(0, i));
             }
         }
