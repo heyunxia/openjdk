@@ -38,15 +38,15 @@ public class ModuleAnnotsTest01 {
     }
 
     void run() throws Exception {
-	count++;
+        count++;
         File testDir = new File("test" + count);
         srcDir = new File(testDir, "src");
         classesDir = new File(testDir, "classes");
         resetDirs(srcDir, classesDir);
 
-	File f = createFile("module-info.java", "@Deprecated module x { }");
-	compile(Arrays.asList(f));
-	checkAnnotations("module-info.class", "java.lang.Deprecated");
+        File f = createFile("module-info.java", "@Deprecated module x { }");
+        compile(Arrays.asList(f));
+        checkAnnotations("module-info.class", "java.lang.Deprecated");
 
         if (errors == 0)
             System.out.println(count + " tests passed");
@@ -58,19 +58,19 @@ public class ModuleAnnotsTest01 {
         System.err.println("Checking " + file);
         try {
             ClassFile cf = ClassFile.read(new File(classesDir, file));
-            RuntimeVisibleAnnotations_attribute attr = 
-	 	(RuntimeVisibleAnnotations_attribute) cf.getAttribute(Attribute.RuntimeVisibleAnnotations);
+            RuntimeVisibleAnnotations_attribute attr =
+                (RuntimeVisibleAnnotations_attribute) cf.getAttribute(Attribute.RuntimeVisibleAnnotations);
             if (attr == null) {
                 error("RuntimeVisibleAnnotations attribute not found; expected " + Arrays.asList(annots));
             } else {
-		Set<String> expect = new TreeSet(Arrays.asList(annots));
-		Set<String> found = new TreeSet();
-		for (Annotation a: attr.annotations) {
-		    found.add(getAnnotName(cf.constant_pool, a));
-		}
-		if (!found.equals(expect)) {
-		    error("mismatch\nexpected: " + expect + "\nfound: " + found);
-		}
+                Set<String> expect = new TreeSet(Arrays.asList(annots));
+                Set<String> found = new TreeSet();
+                for (Annotation a: attr.annotations) {
+                    found.add(getAnnotName(cf.constant_pool, a));
+                }
+                if (!found.equals(expect)) {
+                    error("mismatch\nexpected: " + expect + "\nfound: " + found);
+                }
             }
         } catch (Descriptor.InvalidDescriptor e) {
             error("Invalid descriptor " + e);
@@ -82,7 +82,7 @@ public class ModuleAnnotsTest01 {
     }
 
     String getAnnotName(ConstantPool cp, Annotation a) throws ConstantPoolException, Descriptor.InvalidDescriptor {
-    	Descriptor d = new Descriptor(a.type_index);
+        Descriptor d = new Descriptor(a.type_index);
         return d.getFieldType(cp);
     }
 

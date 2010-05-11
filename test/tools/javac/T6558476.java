@@ -35,6 +35,19 @@ import java.util.Random;
 import com.sun.tools.javac.Main;
 
 public class T6558476 {
+    public static void main(String[] args) throws IOException {
+        File javaHome = new File(System.getProperty("java.home"));
+        if (javaHome.getName().equals("jre"))
+            javaHome = javaHome.getParentFile();
+        if (file(javaHome, "lib", "modules", "%jigsaw-library").exists()
+                && !file(javaHome, "lib", "ext", "dnsns.jar").exists()) {
+            System.err.println("PASS BY DEFAULT: modular JDK found with no dnsns.jar");
+            return;
+        }
+
+        main2(args);
+    }
+
     private static File copyFileTo(File file, File directory) throws IOException {
         File newFile = new File(directory, file.getName());
         FileInputStream fis = null;
@@ -68,7 +81,7 @@ public class T6558476 {
         return sb.toString();
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main2(String[] args) throws IOException {
         File javaHomeDir = new File(System.getProperty("java.home"));
         File tmpDir = new File(System.getProperty("java.io.tmpdir"));
         File outputDir = new File(tmpDir, "outputDir" + new Random().nextInt(65536));
@@ -97,5 +110,12 @@ public class T6558476 {
         } else {
             throw new Error("Error deleting file \"" + tmpJar.getPath() + "\"");
         }
+    }
+
+    static File file(File dir, String... path) {
+        File f = dir;
+        for (String p: path)
+            f = new File(f, p);
+        return f;
     }
 }

@@ -45,6 +45,8 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.annotation.processing.Processor;
 
+import static com.sun.tools.javac.main.OptionName.*;
+
 /** This class provides a commandline interface to the GJC compiler.
  *
  *  <p><b>This is NOT part of any API supported by Sun Microsystems.  If
@@ -282,8 +284,39 @@ public class Main {
                 }
             }
         }
+
         if (target.hasInvokedynamic()) {
             options.put("invokedynamic",  "invokedynamic");
+        }
+
+        OptionName[] bootclasspathOptions = {
+//            XBOOTCLASSPATH_PREPEND,
+            ENDORSEDDIRS,
+//            BOOTCLASSPATH,
+//            XBOOTCLASSPATH_APPEND,
+            EXTDIRS
+        };
+        OptionName[] moduleOptions = {
+            L,
+            MODULEPATH
+        };
+        List<OptionName> bcpOpts = List.nil();
+        List<OptionName> mOpts = List.nil();
+        for (OptionName n: bootclasspathOptions) {
+            if (options.get(n) != null)
+                bcpOpts = bcpOpts.prepend(n);
+        }
+        for (OptionName n: moduleOptions) {
+            if (options.get(n) != null)
+                mOpts = mOpts.prepend(n);
+        }
+        if (bcpOpts.nonEmpty() && mOpts.nonEmpty()) {
+            error("err.conficting.options", bcpOpts.head.optionName, mOpts.head.optionName);
+            return null;
+        }
+        if (mOpts.nonEmpty() && !source.allowModules()) {
+            error("err.option.not.supported.in.source", mOpts.head.optionName, source.name);
+            return null;
         }
 
         // handle this here so it works even if no other options given

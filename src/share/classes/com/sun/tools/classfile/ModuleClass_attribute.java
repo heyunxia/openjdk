@@ -58,19 +58,19 @@ public class ModuleClass_attribute extends Attribute {
         this.attributes_length = attributes.length;
         this.attributes = attributes;
     }
-    
+
     public CONSTANT_Class_info getClassInfo(ConstantPool constant_pool) throws ConstantPoolException {
         if (class_index == 0)
             return null;
         return constant_pool.getClassInfo(class_index);
     }
-    
+
     public String getClassName(ConstantPool constant_pool) throws ConstantPoolException {
         if (class_index == 0)
             return null;
         return constant_pool.getClassInfo(class_index).getName();
     }
-    
+
     public String[] getClassAttributes(ConstantPool constant_pool) throws ConstantPoolException {
         String[] attrs = new String[attributes.length];
         for (int i = 0; i < attrs.length; i++)

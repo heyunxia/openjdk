@@ -70,6 +70,8 @@ public class TreeScanner extends Visitor {
     public void visitModuleDef(JCModuleDecl tree) {
         scan(tree.annots);
         scan(tree.id);
+        scan(tree.provides);
+        scan(tree.metadata);
     }
 
     public void visitModuleId(JCModuleId tree) {

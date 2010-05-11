@@ -318,10 +318,10 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
     public static final int MODULE = MOD_ASG + 1;
     public static final int MODULE_CLASS = MODULE + 1;
     public static final int MODULE_ID = MODULE_CLASS + 1;
-    public static final int MODULE_PERMITS = MODULE_CLASS + 1;
+    public static final int MODULE_PERMITS = MODULE_ID + 1;
     public static final int MODULE_REQUIRES = MODULE_PERMITS + 1;
 
-    public static final int PACKAGE = MODULE_PERMITS + 1;
+    public static final int PACKAGE = MODULE_REQUIRES + 1;
 
     /** A synthetic let expression, of type LetExpr.
      */

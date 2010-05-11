@@ -168,7 +168,8 @@ public class RecognizedOptions {
         O,
         XJCOV,
         XD,
-        SOURCEFILE);
+        SOURCEFILE,
+        L);
 
     static Set<OptionName> javacFileManagerOptions = EnumSet.of(
         CLASSPATH,
@@ -325,6 +326,7 @@ public class RecognizedOptions {
                 return super.process(options, option, arg);
             }
         },
+        new Option(L,                      "opt.arg.library",   "opt.L"),
         new Option(EXTDIRS,                "opt.arg.dirs",      "opt.extdirs"),
         new XOption(DJAVA_EXT_DIRS,        "opt.arg.dirs",      "opt.extdirs") {
             @Override

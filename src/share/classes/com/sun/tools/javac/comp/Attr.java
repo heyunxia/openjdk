@@ -2844,7 +2844,7 @@ public class Attr extends JCTree.Visitor {
         ModuleSymbol msym = env.toplevel.modle;
         Type t = attribType(tree.qualId, env);
         if (t.tag == CLASS) {
-            // check duplicates
+            // FIXME: should check for duplicates
             msym.className = (ClassSymbol) tree.qualId.type.tsym;
             msym.classFlags = tree.flags;
         }

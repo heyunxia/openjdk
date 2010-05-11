@@ -38,6 +38,9 @@ public interface ModuleResolver {
 
     class ResolutionException extends Exception {
         private static final long serialVersionUID = -5294493995009985322L;
+        ResolutionException(Throwable cause) {
+            initCause(cause);
+        }
     }
 
     /**

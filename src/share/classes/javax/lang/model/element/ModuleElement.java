@@ -34,11 +34,17 @@ public interface ModuleElement extends Element {
         CharSequence getVersion();
     }
 
+    interface ModuleIdQuery {
+        CharSequence getName();
+        CharSequence getVersionQuery();
+    }
+
     interface ModuleRequires {
-        ModuleId getModuleId();
+        ModuleIdQuery getModuleIdQuery();
         List<? extends CharSequence> getFlags();
     }
 
+    ModuleId getModuleId();
     List<? extends ModuleRequires> getRequires();
 
 }

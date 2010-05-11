@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.zip.ZipFile;
 
 import javax.lang.model.SourceVersion;
+import javax.tools.ExtendedLocation;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileManager.Location;
@@ -83,8 +84,9 @@ import static com.sun.tools.javac.main.OptionName.*;
  * This code and its internal interfaces are subject to change or
  * deletion without notice.</b>
  */
-public class JavacFileManager extends BaseFileManager
-        implements StandardJavaFileManager,ModuleFileManager {
+public class JavacFileManager
+        extends BaseFileManager
+        implements StandardJavaFileManager, ModuleFileManager {
 
     boolean useZipFileIndex;
 
@@ -441,19 +443,20 @@ public class JavacFileManager extends BaseFileManager
         StringBuilder sb = new StringBuilder("{");
         String sep = "";
         for (Location l: locations) {
-            if (l instanceof StandardLocation || l instanceof PathLocation) {
+            if (l instanceof StandardLocation || l instanceof PathLocation || l instanceof ExtendedLocation) {
                 sb.append(sep);
                 sb.append(l.getName());
                 sep = ",";
             } else
                 throw new IllegalArgumentException(l.toString());
         }
-        sb.append("{");
+        sb.append("}");
         String name = sb.toString();
 
         Location result = locationCache.get(name);
         if (result == null) {
-            Path p = paths.new Path();
+            ListBuffer<Location> mergeList = new ListBuffer<Location>();
+            Path currPath = null;
             for (Location l: locations) {
                 if (l instanceof StandardLocation) {
                     if (hasLocation(l)) {
@@ -472,13 +475,27 @@ public class JavacFileManager extends BaseFileManager
                                 kinds = noSourceKind;
                                 break;
                         }
-                        p.addAll(getEntriesForLocation(l), kinds);
+                        if (currPath == null)
+                            currPath = paths.new Path();
+                        currPath.addAll(getEntriesForLocation(l), kinds);
                     }
                 } else if (l instanceof PathLocation) {
-                    p.addAll(((PathLocation) l).path);
+                    if (currPath == null)
+                        currPath = paths.new Path();
+                    currPath.addAll(((PathLocation) l).path);
+                } else if (l instanceof ExtendedLocation) {
+                    if (currPath != null) {
+                        mergeList.add(new PathLocation(currPath));
+                        currPath = null;
+                    }
+                    mergeList.add(l);
                 }
             }
-            result = new PathLocation(p, name);
+            if (currPath != null) {
+                mergeList.add(new PathLocation(currPath));
+                currPath = null;
+            }
+            result = (mergeList.size() == 1) ? mergeList.first() : new CompositeLocation(mergeList, this);
             locationCache.put(name, result);
         }
 
@@ -520,20 +537,37 @@ public class JavacFileManager extends BaseFileManager
         return result;
     }
 
-    private <T> String toString(Iterable<T> items) {
-        ArrayList<T> list = new ArrayList<T>();
-        for (T t: items)
-            list.add(t);
-        return list.toString();
-    }
+    /**
+     * Update a location based on the bootclasspath options.
+     * @param l the default platform location if no bootclasspath options are given
+     * @param first whether or not this is the first platform location
+     * @param last whether or not this is the last platform location
+     * @return a list of locations based on the default location and on the
+     *  values of any bootclasspath options.
+     */
+    public List<Location> augmentPlatformLocation(Location l, boolean first, boolean last) {
+        if (l == StandardLocation.PLATFORM_CLASS_PATH) {
+            assert (first && last);
+            return List.of(l);
+        }
 
-    private boolean isArchive(File f) {
-        String name = f.getName();
-        String extn = name.substring(name.lastIndexOf(".")).toLowerCase(); // safe if not found
-        return archiveExtns.contains(extn);
-    }
+        Path ppPrepend = first ? paths.getPlatformPathPrepend() : null;
+        Path ppBase = paths.getPlatformPathBase();
+        Path ppAppend = last ? paths.getPlatformPathAppend() : null;
 
-    private static final Set<String> archiveExtns = new HashSet<String>(Arrays.asList(".jar"));
+        ListBuffer<Location> results = new ListBuffer<Location>();
+        if (ppPrepend != null)
+            results.add(new PathLocation(ppPrepend));
+        if (ppBase != null) {
+            if (first)
+                results.add(new PathLocation(ppBase));
+        } else
+            results.add(l);
+        if (ppAppend != null)
+            results.add(new PathLocation(ppAppend));
+        //System.out.println("JFM:augmentPlatformLocation: " + l + " " + first + " " + last + " " + results);
+        return results.toList();
+    }
 
     private static Set<JavaFileObject.Kind> allKinds, noSourceKind, noClassKind;
     static {
@@ -747,6 +781,10 @@ public class JavacFileManager extends BaseFileManager
         nullCheck(packageName);
         nullCheck(kinds);
 
+        if (location instanceof ExtendedLocation) {
+            return ((ExtendedLocation) location).list(packageName, kinds, recurse);
+        }
+
         Iterable<? extends PathEntry> entries = getEntriesForLocation(location);
         if (entries == null)
             return List.nil();
@@ -766,6 +804,10 @@ public class JavacFileManager extends BaseFileManager
     public String inferBinaryName(Location location, JavaFileObject file) {
         file.getClass(); // null check
         location.getClass(); // null check
+
+        if (location instanceof ExtendedLocation)
+            return ((ExtendedLocation) location).inferBinaryName(file);
+
         // Need to match the path semantics of list(location, ...)
         Iterable<? extends File> path = getLocation(location);
         if (path == null) {
@@ -775,7 +817,8 @@ public class JavacFileManager extends BaseFileManager
         if (file instanceof BaseFileObject) {
             return ((BaseFileObject) file).inferBinaryName(path);
         } else
-            throw new IllegalArgumentException(file.getClass().getName());
+//            throw new IllegalArgumentException(file.getClass().getName() + ":" + file.toString());
+            return null; // FIXME -- seems OK per spec but need to check
     }
 
     public boolean isSameFile(FileObject a, FileObject b) {

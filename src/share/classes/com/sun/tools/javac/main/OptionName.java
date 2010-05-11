@@ -88,7 +88,8 @@ public enum OptionName {
     O("-O"),
     XJCOV("-Xjcov"),
     XD("-XD"),
-    SOURCEFILE("sourcefile");
+    SOURCEFILE("sourcefile"),
+    L("-L");
 
     public final String optionName;
 

@@ -383,6 +383,8 @@ public class TreeScanner<R,P> implements TreeVisitor<R,P> {
     public R visitModule(ModuleTree node, P p) {
         R r = scan(node.getAnnotations(), p);
         r = scanAndReduce(node.getId(), p, r);
+        r = scanAndReduce(node.getProvides(), p, r);
+        r = scanAndReduce(node.getMetadataList(), p, r);
         return r;
     }
 

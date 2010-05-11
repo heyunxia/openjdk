@@ -228,12 +228,14 @@ public class Enter extends JCTree.Visitor {
             ? ((JCClassDecl) env.tree).sym.members_field
             : env.info.scope;
     }
+
     /** Create a fresh environment for modules.
      *
      *  @param tree     The module definition.
      *  @param env      The environment current outside of the module definition.
      */
     public Env<AttrContext> moduleEnv(JCModuleDecl tree, Env<AttrContext> env) {
+        assert tree.sym != null;
         Env<AttrContext> localEnv =
             env.dup(tree, env.info.dup(new Scope(tree.sym)));
         localEnv.enclClass = predefClassDef;

@@ -948,41 +948,41 @@ public class Scanner implements Lexer {
                         scanModuleVersion();
                     } else {
                         scanChar();
-			if (ch == 'x' || ch == 'X') {
-			    scanChar();
-			    skipIllegalUnderscores();
-			    if (ch == '.') {
-				scanHexFractionAndSuffix(false);
-			    } else if (digit(16) < 0) {
-				lexError("invalid.hex.number");
-			    } else {
-				scanNumber(16);
-			    }
-			} else if (ch == 'b' || ch == 'B') {
-			    if (!allowBinaryLiterals) {
-				lexError("unsupported.binary.lit", source.name);
-				allowBinaryLiterals = true;
-			    }
-			    scanChar();
-			    skipIllegalUnderscores();
-			    if (digit(2) < 0) {
-				lexError("invalid.binary.number");
-			    } else {
-				scanNumber(2);
-			    }
-			} else {
-			    putChar('0');
-			    if (ch == '_') {
-				int savePos = bp;
-				do {
-				    scanChar();
-				} while (ch == '_');
-				if (digit(10) < 0) {
-				    lexError(savePos, "illegal.underscore");
-				}
-			    }
-			    scanNumber(8);
-			}
+                        if (ch == 'x' || ch == 'X') {
+                            scanChar();
+                            skipIllegalUnderscores();
+                            if (ch == '.') {
+                                scanHexFractionAndSuffix(false);
+                            } else if (digit(16) < 0) {
+                                lexError("invalid.hex.number");
+                            } else {
+                                scanNumber(16);
+                            }
+                        } else if (ch == 'b' || ch == 'B') {
+                            if (!allowBinaryLiterals) {
+                                lexError("unsupported.binary.lit", source.name);
+                                allowBinaryLiterals = true;
+                            }
+                            scanChar();
+                            skipIllegalUnderscores();
+                            if (digit(2) < 0) {
+                                lexError("invalid.binary.number");
+                            } else {
+                                scanNumber(2);
+                            }
+                        } else {
+                            putChar('0');
+                            if (ch == '_') {
+                                int savePos = bp;
+                                do {
+                                    scanChar();
+                                } while (ch == '_');
+                                if (digit(10) < 0) {
+                                    lexError(savePos, "illegal.underscore");
+                                }
+                            }
+                            scanNumber(8);
+                        }
                     }
                     return;
                 case '1': case '2': case '3': case '4':

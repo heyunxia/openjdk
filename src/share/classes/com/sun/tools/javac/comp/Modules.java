@@ -26,44 +26,21 @@
 
 package com.sun.tools.javac.comp;
 
-import com.sun.tools.javac.code.Scope;
-import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.code.Symbol.CompletionFailure;
-import com.sun.tools.javac.code.Symbol.ModuleRequires;
-import com.sun.tools.javac.code.Symbol.ModuleSymbol;
-import com.sun.tools.javac.code.Symtab;
-import com.sun.tools.javac.jvm.ClassFile;
-import com.sun.tools.javac.jvm.ClassFile.ModuleId;
-import com.sun.tools.javac.jvm.ClassReader;
-import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.tree.JCTree.JCExpression;
-import com.sun.tools.javac.tree.JCTree.JCModuleClass;
-import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
-import com.sun.tools.javac.tree.JCTree.JCModuleId;
-import com.sun.tools.javac.tree.JCTree.JCModulePermits;
-import com.sun.tools.javac.tree.JCTree.JCModuleRequires;
-import com.sun.tools.javac.tree.TreeInfo;
-import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.JCDiagnostic;
-import com.sun.tools.javac.util.List;
-import com.sun.tools.javac.util.ListBuffer;
-import com.sun.tools.javac.util.Log;
-import com.sun.tools.javac.util.Name;
-import com.sun.tools.javac.util.Names;
-
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
 import javax.lang.model.element.ModuleElement;
 import javax.lang.model.util.ModuleResolver;
 import javax.tools.JavaFileManager;
@@ -72,8 +49,44 @@ import javax.tools.JavaFileObject;
 import javax.tools.ModuleFileManager;
 import javax.tools.ModuleFileManager.InvalidFileObjectException;
 import javax.tools.ModuleFileManager.ModuleMode;
+import javax.tools.StandardLocation;
 
 import static javax.tools.StandardLocation.*;
+
+import com.sun.tools.javac.code.Scope;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.code.Symbol.CompletionFailure;
+import com.sun.tools.javac.code.Symbol.ModuleRequires;
+import com.sun.tools.javac.code.Symbol.ModuleSymbol;
+import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.file.JavacFileManager;
+import com.sun.tools.javac.jvm.ClassFile;
+import com.sun.tools.javac.jvm.ClassFile.ModuleId;
+import com.sun.tools.javac.jvm.ClassReader;
+import com.sun.tools.javac.main.OptionName;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.JCTree.JCModuleClass;
+import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
+import com.sun.tools.javac.tree.JCTree.JCModuleId;
+import com.sun.tools.javac.tree.JCTree.JCModulePermits;
+import com.sun.tools.javac.tree.JCTree.JCModuleRequires;
+import com.sun.tools.javac.tree.TreeInfo;
+import com.sun.tools.javac.tree.TreeScanner;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Debug;
+import com.sun.tools.javac.util.JCDiagnostic;
+import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.ListBuffer;
+import com.sun.tools.javac.util.Log;
+import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
+import com.sun.tools.javac.util.Options;
+
+import static com.sun.tools.javac.main.OptionName.*;
 
 /**
  * <p><b>This is NOT part of any API supported by Sun Microsystems.
@@ -88,10 +101,19 @@ public class Modules extends JCTree.Visitor {
     ModuleFileManager moduleFileManager;
     Names names;
     Symtab syms;
+    Debug debug;
+    boolean enabled;
 
     ModuleMode mode;
 
-    /** The set of locations for entered trees */
+    /**
+     * The set of module locations for entered trees.
+     * In single module compilation mode, it is a composite of class path and
+     * source path.
+     * In multi-module compilation mode, it is the set of "module directories"
+     * for the files on the command line (i.e. the directories above each
+     * source files package hierarchy.)
+     */
     Set<Location> rootLocns = new LinkedHashSet<Location>();
 
     // The following should be moved to Symtab, with possible reference in ClassReader
@@ -132,6 +154,16 @@ public class Modules extends JCTree.Visitor {
         fileManager = context.get(JavaFileManager.class);
         names = Names.instance(context);
         syms = Symtab.instance(context);
+        Options options = Options.instance(context);
+        debug = new Debug("modules", options, log.noticeWriter);
+
+        // module system features enabled unless -XDnomodules is set
+        enabled = (options.get("nomodules") == null);
+
+        if (!enabled)
+            return;
+
+        initModuleResolver(context);
 
         if (fileManager instanceof ModuleFileManager) {
             moduleFileManager = (ModuleFileManager) fileManager;
@@ -203,6 +235,7 @@ public class Modules extends JCTree.Visitor {
             acceptAll(tree.metadata);
 
             if (!env.info.seenPlatformRequires) {
+                DEBUG("Modules.visitModuleDef seenPlatformRequires:" + env.info.seenPlatformRequires);
                 ModuleId mid = getDefaultPlatformModule();
                 sym.requires.put(mid, new ModuleRequires(mid, List.of(names.synthetic)));
             }
@@ -306,7 +339,11 @@ public class Modules extends JCTree.Visitor {
         JavaFileObject file;
         if (srcFile == null) {
             if (classFile == null) {
-                sym.name = names.empty; // unnamed module
+                sym.name = sym.fullname = names.empty; // unnamed module
+                DEBUG("Modules.readModule: (" + sym.hashCode() + ") no module info found for " + locn );
+                ModuleId p = getDefaultPlatformModule();
+                sym.requires = new HashMap<ModuleId, ModuleRequires>(1);
+                sym.requires.put(p, new ModuleRequires(p, List.<Name>nil()));
                 return;
             }
             file = classFile;
@@ -353,7 +390,11 @@ public class Modules extends JCTree.Visitor {
         if (moduleFileManagerUnavailable)
             return false;
 
-        DEBUG("Modules.resolve mode=" + mode + ", rootLocns=" + rootLocns + " (" + rootLocns.size() + "]" );
+        DEBUG("Modules.resolve: resolve modules");
+        ModuleResolver mr = getModuleResolver();
+        DEBUG("Modules.resolve: module resolver: " + mr);
+
+        DEBUG("Modules.resolve mode=" + mode + ", rootLocns=" + rootLocns + " (" + rootLocns.size() + ")" );
         if (mode == ModuleMode.SINGLE && rootLocns.isEmpty()) {
             if (moduleFileManager != null) {
                 rootLocns.add(moduleFileManager.join(List.of(CLASS_PATH, SOURCE_PATH)));
@@ -365,6 +406,9 @@ public class Modules extends JCTree.Visitor {
         }
 
         DEBUG("Modules.resolve: building roots, rootLocns=" + rootLocns);
+        if (debug.isEnabled("initialRootLocns"))
+            showRootLocations(rootLocns);
+
         List<ModuleSymbol> roots = List.nil();
         for (Location locn: rootLocns) {
             DEBUG("Modules.resolve: building roots: locn: " + locn);
@@ -372,16 +416,12 @@ public class Modules extends JCTree.Visitor {
             DEBUG("Modules.resolve: building roots: msym: " + msym);
             msym.complete();
             DEBUG("Modules.resolve: building roots: completed: " + msym);
-            if (msym.name != names.empty)
-                roots = roots.prepend(msym);
+            roots = roots.prepend(msym);
         }
         roots = roots.reverse();
         DEBUG("Modules.resolve: roots: " + roots);
 
         updateTrees(trees);
-
-        if (roots.isEmpty())
-            return true;
 
         DEBUG("Modules.resolve: modules so far: " + allModules);
 
@@ -393,28 +433,67 @@ public class Modules extends JCTree.Visitor {
             enterModule(locn).complete();
         }
 
-        DEBUG("Modules.resolve: resolve modules");
-        ModuleResolver mr = getModuleResolver();
-        DEBUG("Modules.resolve: module resolver: " + mr);
+        ListBuffer<ModuleSymbol> namedModules = new ListBuffer<ModuleSymbol>();
+        for (ModuleSymbol msym: allModules.values()) {
+            if (msym.name != names.empty)
+                namedModules.add(msym);
+        }
+
         try {
-            ListBuffer<ModuleSymbol> namedModules = new ListBuffer<ModuleSymbol>();
-            for (ModuleSymbol msym: allModules.values()) {
-                if (msym.name != names.empty)
-                    namedModules.add(msym);
+
+            if (debug.isEnabled("resolve")) {
+                debug.println("Module resolver: " + mr.getClass().getSimpleName());
+                showModules("Module resolution roots:", roots);
+                showModules("Modules in compilation environment:", namedModules);
             }
-            Iterable<? extends ModuleElement> modules =
-                    mr.resolve(roots, namedModules);
+
+            Iterable<? extends ModuleElement> modules = mr.resolve(roots, namedModules);
+
+            // modules is returned in an order such that if A requires B, then
+            // A will be earlier than B. This means that the root modules, such
+            // as the unnamed module appear ahead of the platform modules,
+            // which will appear last.  This is the reverse of the traditional
+            // ordering, in which the platform classes are read ahead of classes
+            // on the user class path.   Therefore, we build and use a reversed
+            // list of modules before converting the modules to the path used by
+            // ClassReader.
+
+            List<ModuleSymbol> msyms = List.nil();
+            for (ModuleElement me: modules)
+                msyms = msyms.prepend((ModuleSymbol) me);
+
+            if (debug.isEnabled("resolve"))
+                showModules("Resolved modules: ", msyms);
+
+            JavacFileManager jfm = (fileManager instanceof JavacFileManager)
+                    ? (JavacFileManager)fileManager : null;
+
+            ModuleSymbol firstPlatformModule = null;
+            ModuleSymbol lastPlatformModule = null;
+            for (ModuleSymbol msym: msyms) {
+                DEBUG("Modules.resolve: " + msym.fullname + " " + mr.isPlatformName(msym.fullname));
+                if (mr.isPlatformName(msym.fullname)) {
+                    if (firstPlatformModule == null)
+                        firstPlatformModule = msym;
+                    lastPlatformModule = msym;
+                }
+            }
 
             ListBuffer<Location> locns = new ListBuffer<Location>();
-            for (ModuleElement me: modules) {
-                ModuleSymbol msym = (ModuleSymbol) me;
+            for (ModuleSymbol msym: msyms) {
                 DEBUG("Modules.resolve: msym: " + msym);
                 DEBUG("Modules.resolve: msym.location: " + msym.location);
-                locns.add(msym.location);
+                if (jfm != null && mr.isPlatformName(msym.fullname)) {
+                    locns.addAll(jfm.augmentPlatformLocation(msym.location,
+                            msym == firstPlatformModule,
+                            msym == lastPlatformModule));
+                } else
+                    locns.add(msym.location);
             }
             Location merged = moduleFileManager.join(locns);
             DEBUG("Modules.resolve: merged result: " + merged);
             reader.setPathLocation(merged);
+
         } catch (ModuleResolver.ResolutionException e) {
             DEBUG("Modules.resolve: resolution error " + e);
             e.printStackTrace();
@@ -425,17 +504,75 @@ public class Modules extends JCTree.Visitor {
     }
 
     protected ModuleResolver getModuleResolver() {
-        if (moduleResolver != null)
-            return moduleResolver;
+        return moduleResolver;
+    }
 
-        ServiceLoader<ModuleResolver> loader = ServiceLoader.load(ModuleResolver.class);
-        // for now, use the first available, if any
-        for (Iterator<ModuleResolver> iter = loader.iterator(); iter.hasNext(); ) {
-            moduleResolver = iter.next();
-            return moduleResolver;
+    protected void initModuleResolver(Context context) {
+        Options options = Options.instance(context);
+        boolean useZeroMod = (options.get("zeroMod") != null);
+
+        if (!useZeroMod) {
+//            ServiceLoader<ModuleResolver> loader = ServiceLoader.load(ModuleResolver.class);
+//            // for now, use the first available, if any
+//            for (Iterator<ModuleResolver> iter = loader.iterator(); iter.hasNext(); ) {
+//                moduleResolver = iter.next();
+//                moduleResolver.init(options);
+//                return;
+//            }
+
+            String library = options.get(OptionName.L);
+            if (library != null || !isLegacyRuntime()) {
+                // use Class.forName on jigsaw module resolver, to avoid bootstrap dependency
+                try {
+                    String jigsawModuleResolver = "com.sun.tools.javac.jigsaw.JigsawModuleResolver";
+                    Class<? extends ModuleResolver> c =
+                            Class.forName(jigsawModuleResolver).asSubclass(ModuleResolver.class);
+                    Constructor<? extends ModuleResolver> constr =
+                            c.getDeclaredConstructor(new Class<?>[] { Context.class });
+                    moduleResolver = constr.newInstance(context);
+                    DEBUG("Modules.initModuleResolver: " + moduleResolver);
+
+                    OptionName[] unsupportedOptions = {
+            //            XBOOTCLASSPATH_PREPEND,
+                        ENDORSEDDIRS,
+            //            BOOTCLASSPATH,
+            //            XBOOTCLASSPATH_APPEND,
+                        EXTDIRS
+                    };
+                    for (OptionName o: unsupportedOptions) {
+                        if (options.get(o) != null) {
+
+                        }
+                    }
+                    return;
+                } catch (ClassNotFoundException e) {
+                    // running in JDK 6 mode
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (IllegalAccessException e) {
+                    // FIXME: fall through for now; should report error
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (NoSuchMethodException e) {
+                    // FIXME: fall through for now; should report error
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (InstantiationException e) {
+                    // FIXME: fall through for now; should report error
+                    DEBUG("Modules.initModuleResolver: " + e);
+                } catch (InvocationTargetException e) {
+                    DEBUG("Modules.initModuleResolver: " + e);
+                    Throwable t = e.getTargetException();
+                    if (t instanceof FileNotFoundException)
+                        log.error("module.library.not.found", t.getMessage());
+                    else if (t instanceof IOException)
+                        log.error("canot.open.module.library", t.getMessage()); // FIXME, t.getMessage is a barely helpful string
+                    else if (t instanceof RuntimeException)
+                        throw new RuntimeException(t);
+                    else if (t instanceof Error)
+                        throw new Error(t);
+                    else
+                        throw new AssertionError(t);
+                }
+            }
         }
-
-        // use Class.forName on jigsaw module resolve
 
         // use ZeroMod
         moduleResolver = new ZeroMod(new ErrorHandler() {
@@ -443,34 +580,44 @@ public class Modules extends JCTree.Visitor {
                 error(msym, mid, key, args);
             }
         });
-        return moduleResolver;
+        DEBUG("Modules.initModuleResolver: zeromod: " + moduleResolver);
     }
     // where
     private ModuleResolver moduleResolver;
 
+    private boolean isLegacyRuntime() {
+        File javaHome = new File(System.getProperty("java.home"));
+        File rt_jar = new File(new File(javaHome, "lib"), "rt.jar");
+        return rt_jar.exists();
+    }
+
     private void error(ModuleSymbol msym, ModuleId id, String key, Object... args) {
-        // TODO, determine error location from msym, mid
-        ClassSymbol minfo = msym.module_info;
-
-        Env<ModuleContext> menv = moduleEnvs.get(msym);
-        DEBUG("Modules.error " + msym + " -- " + moduleEnvs.get(msym));
-        JavaFileObject fo;
-        JCDiagnostic.DiagnosticPosition pos;
-        if (menv == null) {
-            fo = (minfo.sourcefile != null ? minfo.sourcefile : minfo.classfile);
-            if (fo == null)
-                fo = msym.module_info.classfile;
-            pos = null;
+        if (msym == null) {
+            log.error(key, args);
         } else {
-            fo = menv.toplevel.sourcefile;
-            pos = treeFinder.find(menv.info.decl, id);
-        }
+            // TODO, determine error location from msym, mid
+            ClassSymbol minfo = msym.module_info;
 
-        JavaFileObject prev = log.useSource(fo);
-        try {
-            log.error(pos, key, args);
-        } finally {
-            log.useSource(prev);
+            Env<ModuleContext> menv = moduleEnvs.get(msym);
+            DEBUG("Modules.error " + msym + " -- " + moduleEnvs.get(msym));
+            JavaFileObject fo;
+            JCDiagnostic.DiagnosticPosition pos;
+            if (menv == null) {
+                fo = (minfo.sourcefile != null ? minfo.sourcefile : minfo.classfile);
+                if (fo == null)
+                    fo = msym.module_info.classfile;
+                pos = null;
+            } else {
+                fo = menv.toplevel.sourcefile;
+                pos = treeFinder.find(menv.info.decl, id);
+            }
+
+            JavaFileObject prev = log.useSource(fo);
+            try {
+                log.error(pos, key, args);
+            } finally {
+                log.useSource(prev);
+            }
         }
     }
 
@@ -570,6 +717,11 @@ public class Modules extends JCTree.Visitor {
     private int enterCount = 0; // debug only
 
     public boolean enter(List<JCCompilationUnit> trees) {
+        if (!enabled) {
+            CheckNoModulesVisitor v = new CheckNoModulesVisitor(log);
+            return v.checkNoModules(trees);
+        }
+
         int count = enterCount++;
         DEBUG("Modules.enter " + count + " " + state);
 
@@ -603,13 +755,112 @@ public class Modules extends JCTree.Visitor {
              DEBUG("Modules.enter " + count + ": exit " + state);
         }
     }
+    // where
+    private static class CheckNoModulesVisitor extends TreeScanner {
+        private final Log log;
+        private boolean result = true;
+        CheckNoModulesVisitor(Log log) {
+            this.log = log;
+        }
+        boolean checkNoModules(List<? extends JCTree> trees) {
+            scan(trees);
+            return result;
+        }
+        @Override
+        public void visitClassDef(JCClassDecl tree) {
+        }
+        @Override
+        public void visitModuleDef(JCModuleDecl tree) {
+            result = false;
+            log.error(tree, "module.decl.not.permitted");
+        }
+        @Override
+        public void visitTopLevel(JCCompilationUnit tree) {
+            JavaFileObject prev = log.useSource(tree.sourcefile);
+            try {
+                 super.visitTopLevel(tree);
+            } finally {
+                log.useSource(prev);
+            }
+        }
+    }
 
     // Quick and dirty temporary debug printing;
     // this should all be removed prior to final integration
-    boolean DEBUG = false;
+    boolean DEBUG = (System.getProperty("javac.debug.modules") != null);
     void DEBUG(String s) {
         if (DEBUG)
             System.err.println(s);
+    }
+
+    void showModuleResolver(ModuleResolver mr) {
+        debug.println("Module resolver: " + mr.getClass().getSimpleName());
+    }
+
+    void showRootLocations(Collection<Location> rootLocns) {
+        debug.println("Module root locations: (" + (rootLocns == null ? "null" : rootLocns.size()) + ")");
+        if (rootLocns == null)
+            return;
+        int i = 0;
+        for (Location l: rootLocns) {
+            debug.println("  " + (i++) +": " + l);
+        }
+    }
+
+    void showModules(String desc, Collection<ModuleSymbol> msyms) {
+        boolean showAll = debug.isEnabled("all");
+        boolean showLocation = showAll || debug.isEnabled("location");
+        boolean showRequires = showAll || debug.isEnabled("requires");
+        if (showLocation || showRequires || showAll) {
+            debug.println(desc + " (" + msyms.size() + ")");
+            for (ModuleSymbol msym: msyms) {
+                debug.println("  " + msym);
+                if (showLocation) {
+                    debug.println("    location: " + msym.location);
+                }
+                if (showRequires) {
+                    // short form only, for now
+                    debug.print("    requires: ");
+                    String sep = "";
+                    for (ModuleRequires r: msym.getRequires()) {
+                        debug.print(sep);
+                        showNameAndVersion(r.moduleId.name, r.moduleId.version);
+                        sep = ", ";
+                    }
+                    debug.println();
+                }
+            }
+
+        } else {
+            debug.print(desc + " (" + msyms.size() + ")");
+            debug.print(" ");
+            String sep = "";
+            for (ModuleSymbol msym: msyms) {
+                debug.print(sep + msym);
+                sep = ", ";
+            }
+            debug.println();
+        }
+    }
+
+    void showModuleIds(String desc, Collection<ModuleId> mids) {
+        debug.print(desc + " (" + mids.size() + ")");
+        debug.print(" ");
+        String sep = "";
+        for (ModuleId mid: mids) {
+            debug.print(sep);
+            showNameAndVersion(mid.name, mid.version);
+            sep = ", ";
+        }
+        debug.println();
+    }
+
+    private void showNameAndVersion(Name name, Name version) {
+        debug.print(name);
+        if (version != null) {
+            debug.print("@");
+            debug.print(version);
+        }
     }
 
     private static <T> String toString(Iterable<T> items) {
@@ -699,6 +950,20 @@ public class Modules extends JCTree.Visitor {
                 for (List<ClassFile.ModuleId> l = sym.provides.toList(); l.nonEmpty(); l = l.tail)
                     add(table, sym, l.head);
             }
+
+            // Add entry for default platform module if needed
+            ModuleId p = Modules.this.getDefaultPlatformModule();
+            Map<Name,ModuleSymbol> versions = table.get(p.name);
+            ModuleSymbol psym = (versions == null) ? null : versions.get(p.version);
+            if (psym == null) {
+                if (versions == null)
+                    table.put(p.name, versions = new HashMap<Name,ModuleSymbol>());
+                psym = new ModuleSymbol(p.name, syms.rootModule);
+                psym.location = StandardLocation.PLATFORM_CLASS_PATH;
+                psym.requires = new HashMap<ModuleId,ModuleRequires>();
+                versions.put(p.version, psym);
+            }
+
             return table;
         }
 
@@ -752,6 +1017,19 @@ public class Modules extends JCTree.Visitor {
             final ModuleId moduleId;
         }
 
+////////        List<Node> getNodes(Iterable<? extends ModuleElement.ModuleIdQuery> queries) {
+////////            ListBuffer<Node> nodes = new ListBuffer<Node>();
+////////            for (ModuleElement.ModuleIdQuery midq: queries) {
+////////                ModuleId mid = (ModuleId) midq;
+////////                try {
+////////                    nodes.add(getNode(getModule(mid)));
+////////                } catch (ModuleException e) {
+////////                    errorHandler.report(null, e.moduleId, e.key, e.moduleId);
+////////                }
+////////            }
+////////            return nodes.toList();
+////////        }
+
         List<Node> getNodes(Iterable<? extends ModuleElement> elems) {
             ListBuffer<Node> lb = new ListBuffer<Node>();
             for (ModuleElement elem: elems) {
@@ -785,10 +1063,6 @@ public class Modules extends JCTree.Visitor {
                 DEBUG("ZeroMod.Node.getDependencies: " + sym + " " + sym.requires);
                 ListBuffer<Node> nodes = new ListBuffer<Node>();
                 for (ModuleRequires mr: sym.requires.values()) {
-                    if (isPlatformName(mr.moduleId.name)) {
-                        DEBUG("ZeroMod.Node.getDependencies: ignore platform module " + mr.moduleId.name);
-                        continue;
-                    }
                     try {
                         nodes.add(getNode(getModule(mr.moduleId)));
                     } catch (ModuleException e) {
