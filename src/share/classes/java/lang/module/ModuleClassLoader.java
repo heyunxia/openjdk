@@ -32,7 +32,8 @@ import java.security.CodeSource;
 import java.security.SecureClassLoader;
 import sun.reflect.ReflectionFactory;
 
-public class ModuleClassLoader extends SecureClassLoader
+public class ModuleClassLoader 
+    extends SecureClassLoader
 {
 
     private ModuleSystem moduleSystem;
@@ -46,9 +47,10 @@ public class ModuleClassLoader extends SecureClassLoader
                                    byte[] b, int off, int len)
         throws ClassFormatError
     {
-        // ToDo: get CodeSigners from signed module
-        Class<?> c = super.defineClass
-            (name, b, off, len, new CodeSource(null, (CodeSigner[])null));
+        // ## get CodeSigners from signed module
+        Class<?> c = super.defineClass(name, b, off, len, 
+                                       new CodeSource(null,
+                                                      (CodeSigner[])null));
         sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
         return c;
     }

@@ -91,7 +91,7 @@ public final class Launcher {
         String s = System.getProperty("java.security.manager");
         if (s != null) {
             SecurityManager sm = null;
-            if ("".equals(s) || "default".equals(s)) {
+            if (s.isEmpty() || "default".equals(s)) {
                 sm = new java.lang.SecurityManager();
             } else {
                 try {
