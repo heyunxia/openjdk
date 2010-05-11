@@ -27,10 +27,13 @@ package java.lang.module;
 
 import java.lang.reflect.Module;
 import java.security.AccessController;
+import java.security.CodeSigner;
+import java.security.CodeSource;
+import java.security.SecureClassLoader;
 import sun.reflect.ReflectionFactory;
 
-public abstract class ModuleClassLoader
-    extends ClassLoader
+public class ModuleClassLoader 
+    extends SecureClassLoader
 {
 
     private ModuleSystem moduleSystem;
@@ -44,7 +47,10 @@ public abstract class ModuleClassLoader
                                    byte[] b, int off, int len)
         throws ClassFormatError
     {
-        Class<?> c = super.defineClass(name, b, off, len);
+        // ## get CodeSigners from signed module
+        Class<?> c = super.defineClass(name, b, off, len, 
+                                       new CodeSource(null,
+                                                      (CodeSigner[])null));
         sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
         return c;
     }
