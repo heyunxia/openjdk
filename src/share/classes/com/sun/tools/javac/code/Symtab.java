@@ -77,6 +77,14 @@ public class Symtab {
     private final ClassReader reader;
     private final Target target;
 
+    /** A symbol for the root module.
+     */
+    public final ModuleSymbol rootModule;
+
+    /** A symbol for the unnamed module.
+     */
+    public final ModuleSymbol unnamedModule;
+
     /** A symbol for the root package.
      */
     public final PackageSymbol rootPackage;
@@ -355,9 +363,17 @@ public class Symtab {
         unknownType = new Type(TypeTags.UNKNOWN, null);
 
         // create the basic builtin symbols
-        rootPackage = new PackageSymbol(names.empty, null);
         final JavacMessages messages = JavacMessages.instance(context);
+        rootModule = new ModuleSymbol(names.empty, null);
+        unnamedModule = new ModuleSymbol(names.empty, rootModule) {
+                @Override
+                public String toString() {
+                    return messages.getLocalizedString("compiler.misc.unnamed.module");
+                }
+            };
+        rootPackage = new PackageSymbol(names.empty, null);
         unnamedPackage = new PackageSymbol(names.empty, rootPackage) {
+                @Override
                 public String toString() {
                     return messages.getLocalizedString("compiler.misc.unnamed.package");
                 }

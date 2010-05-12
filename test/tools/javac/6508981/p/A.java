@@ -21,4 +21,4 @@
  * have any questions.
  */
 package p;
-class A { }
+public class A { }

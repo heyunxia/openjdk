@@ -1230,8 +1230,18 @@ public class JavacProcessingEnvironment implements ProcessingEnvironment, Closea
                     node.type = null;
             }
             public void visitTopLevel(JCCompilationUnit node) {
+                node.locn = null;
+                node.modle = null;
                 node.packge = null;
                 super.visitTopLevel(node);
+            }
+            public void visitModuleDef(JCModuleDecl node) {
+                node.sym = null;
+                super.visitModuleDef(node);
+            }
+            public void visitPackageDef(JCPackageDecl node) {
+                node.sym = null;
+                super.visitPackageDef(node);
             }
             public void visitClassDef(JCClassDecl node) {
                 node.sym = null;
