@@ -51,3 +51,12 @@ IMPORT_RT_PACKAGES += \
 
 IMPORT_TOOLS_PACKAGES +=
 
+#
+# Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
+#
+IMPORT_RT_MODULES += \
+     sun.xml \
+     sun.xalan
+
+IMPORT_TOOLS_MODULES += 
+

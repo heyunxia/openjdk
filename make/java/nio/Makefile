@@ -28,7 +28,7 @@
 #
 
 BUILDDIR = ../..
-MODULE  = nio
+MODULE  = base
 PACKAGE = java.nio
 LIBRARY = nio
 PRODUCT = java
