@@ -108,7 +108,8 @@ LINK_FLAGS=$(LINK_FLAGS) $(STACK_SIZE) /subsystem:windows /dll /base:0x8000000 \
   /export:JVM_GetVersionInfo                 \
   /export:JVM_GetThreadStateNames            \
   /export:JVM_GetThreadStateValues           \
-  /export:JVM_InitAgentProperties
+  /export:JVM_InitAgentProperties            \
+  /export:JVM_ExtendBootClassPath
 
 CPP_INCLUDE_DIRS=\
   /I "..\generated"                          \
