@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -86,7 +86,29 @@ public final class Launcher {
             throw y;
         }
         Thread.currentThread().setContextClassLoader(ld);
-        // ## Install optional security manager here? (cf. sun.misc.Launcher)
+
+        // Install optional security manager
+        String s = System.getProperty("java.security.manager");
+        if (s != null) {
+            SecurityManager sm = null;
+            if (s.isEmpty() || "default".equals(s)) {
+                sm = new java.lang.SecurityManager();
+            } else {
+                try {
+                    sm = (SecurityManager)ld.loadClass(s).newInstance();
+                } catch (IllegalAccessException e) {
+                } catch (InstantiationException e) {
+                } catch (ClassNotFoundException e) {
+                } catch (ClassCastException e) {
+                }
+            }
+            if (sm != null) {
+                System.setSecurityManager(sm);
+            } else {
+                throw new InternalError(
+                    "Could not create SecurityManager: " + s);
+            }
+        }
         return ld;
     }
 

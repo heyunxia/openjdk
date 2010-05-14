@@ -29,6 +29,8 @@ import java.lang.module.*;
 import java.lang.reflect.Method;
 import java.lang.reflect.Module;
 import java.io.*;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -84,15 +86,20 @@ public final class LoaderPool {
 
     // Find a loader for the given context, or else create one
     //
-    Loader findLoader(Context cx) {
+    Loader findLoader(final Context cx) {
         if (cx == null)
             throw new AssertionError();
         Loader ld = loaderForContext.get(cx);
         if (ld == null) {
-            if (Platform.isPlatformContext(cx)) {
-                ld = new BootLoader(this, cx);
-            } else
-                ld = new Loader(this, cx);
+            ld = AccessController.doPrivileged(new PrivilegedAction<Loader>() {
+                public Loader run() {
+                    if (Platform.isPlatformContext(cx)) {
+                        return new BootLoader(LoaderPool.this, cx);
+                    } else {
+                        return new Loader(LoaderPool.this, cx);
+                    }
+                }
+            });
             loaders.add(ld);
             loaderForContext.put(cx, ld);
         }

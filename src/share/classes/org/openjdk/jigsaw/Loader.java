@@ -32,6 +32,9 @@ import java.lang.reflect.Module;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -62,6 +65,14 @@ public class Loader
     protected Class<?> loadClass(String cn, boolean resolve) 
         throws ClassNotFoundException
     {
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            int i = cn.lastIndexOf('.');
+            if (i != -1) {
+                sm.checkPackageAccess(cn.substring(0, i));
+            }
+        }
+
         // Check the loaded-class cache first.  The VM guarantees not to invoke
         // this method more than once for any given class name, but we still
         // need to check the cache manually in case this method is invoked by
@@ -166,14 +177,22 @@ public class Loader
         //
         if (m == null) {
             try {
-                byte[] bs = lib.readLocalModuleInfoBytes(mid);
+                final ModuleId modid = mid;
+                final Library library = lib;
+                byte[] bs = (byte[]) AccessController.doPrivileged(
+                    new PrivilegedExceptionAction() {
+                        public Object run() throws IOException {
+                            return library.readLocalModuleInfoBytes(modid);
+                        }
+                    }
+                );
                 if (bs == null)
                     throw new AssertionError();
                 m = defineModule(mid, bs);
                 if (tracing)
                     trace(0, "%s: define %s [%s]", this, mid, lib.name());
-            } catch (IOException x) {
-                throw cnf(m, cn, x);
+            } catch (PrivilegedActionException x) {
+                throw cnf(m, cn, (IOException) x.getException());
             }
         }
 
@@ -196,20 +215,27 @@ public class Loader
 
     }
 
-    Class<?> finishFindingClass(Library lib, ModuleId mid, Module m, String cn)
+    Class<?> finishFindingClass(final Library lib, final ModuleId mid, 
+                                Module m, final String cn)
         throws ClassNotFoundException
     {
 
         try {
-            byte[] bs = lib.readLocalClass(mid, cn);
+            byte[] bs = (byte[]) AccessController.doPrivileged(
+                new PrivilegedExceptionAction() {
+                    public Object run() throws IOException {
+                        return lib.readLocalClass(mid, cn);
+                    }
+                }
+            );
             if (bs == null)
                 throw new ClassNotFoundException(mid + ":" + cn);
             Class<?> c = defineClass(m, cn, bs, 0, bs.length);
             if (tracing)
                 trace(0, "%s: define %s:%s [%s]", this, mid, cn, lib.name());
             return c;
-        } catch (IOException x) {
-            throw cnf(m, cn, x);
+        } catch (PrivilegedActionException x) {
+            throw cnf(m, cn, (IOException) x.getException());
         }
 
     }

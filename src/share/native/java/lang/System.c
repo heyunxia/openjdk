@@ -77,7 +77,7 @@ Java_java_lang_System_identityHashCode(JNIEnv *env, jobject this, jobject x)
             JNU_ThrowInternalError(env, "Cannot decode property key"); \
             return; \
         } else { \
-            jstring jval = JNU_NewStringPlatform(env, val); \
+            jstring jval = GetStringPlatform(env, val); \
             if (jval == NULL) { \
                 JNU_ThrowInternalError(env, "Cannot decode property value"); \
                 return; \
