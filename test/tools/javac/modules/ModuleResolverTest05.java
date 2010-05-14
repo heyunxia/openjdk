@@ -40,6 +40,12 @@ public class ModuleResolverTest05 {
         final Unit[] units;
     };
 
+    static class JigsawTest extends Test {
+	JigsawTest(String desc, Unit... units) {
+	    super(desc, units);
+	}
+    }
+
     // uugh can't static import these because this class is in unnamed package
     Unit.Kind CMDLINE = Unit.Kind.CMDLINE;
     Unit.Kind SRCPATH = Unit.Kind.SRCPATH;
@@ -69,6 +75,12 @@ public class ModuleResolverTest05 {
             new Unit(SRCPATH, "m1/module-info.java", "module m1 { requires m2; }"),
             new Unit(SRCPATH, "m1/q/B.java",         "package q; public class B { }")
         ),
+
+	new JigsawTest(
+	    "local without permits",
+	    new Unit(CMDLINE, "m1/module-info.java", "module m1 { }"),
+	    new Unit(CMDLINE, "m2/module-info.java", "module m2 { requires local m1; }")
+	),
     };
 
     enum ModuleResolutionMode {
@@ -89,6 +101,9 @@ public class ModuleResolverTest05 {
 
         for (Test test: tests) {
             for (ModuleResolutionMode mode: modes) {
+		if (test instanceof JigsawTest && mode != ModuleResolutionMode.JIGSAW)
+		    continue;
+
                 try {
                     test(test, mode);
                 } catch (Throwable t) {
@@ -105,7 +120,7 @@ public class ModuleResolverTest05 {
     }
 
     void test(Test t, ModuleResolutionMode mrm) throws IOException {
-        System.err.println("Test " + (++count) + " " + t.desc + " " + mrm);
+        System.err.println(t.getClass().getSimpleName() + " " + (++count) + " " + t.desc + " " + mrm);
 
         File testDir = new File("test" + count);
         srcDir = new File(testDir, "src");
@@ -113,9 +128,9 @@ public class ModuleResolverTest05 {
         resetDirs(srcDir, modulesDir);
 
         List<String> opts = new ArrayList<String>();
-        add(opts, "-source", "7");
         add(opts, "-modulepath", modulesDir.getPath());
         add(opts, "-d", modulesDir.getPath());
+	add(opts, "-XDrawDiagnostics");
 
         if (mrm == ModuleResolutionMode.ZEROMOD)
             add(opts, "-XDzeroMod");
@@ -161,6 +176,9 @@ public class ModuleResolverTest05 {
         String out = sw.toString();
         if (out.trim().length() > 0)
             System.err.println(out);
+
+	if (out.contains("err.fatal") || out.contains("Fatal Error")) // fatal error does not honor -XDrawDiagnostics
+	    throw new Error("fatal error found");
 
         if (rc == 0)
             throw new Error("compilation succeeded unexpectedly");

@@ -103,6 +103,7 @@ public class Enter extends JCTree.Visitor {
     Names names;
     JavaFileManager fileManager;
     Modules modules;
+    JCDiagnostic.Factory diags;
 
     private final Todo todo;
 
@@ -127,6 +128,7 @@ public class Enter extends JCTree.Visitor {
         lint = Lint.instance(context);
         names = Names.instance(context);
         modules = Modules.instance(context);
+        diags = JCDiagnostic.Factory.instance(context);
 
         predefClassDef = make.ClassDef(
             make.Modifiers(PUBLIC),
@@ -506,15 +508,24 @@ public class Enter extends JCTree.Visitor {
      *  @param c          The class symbol to be processed.
      */
     public void complete(List<JCCompilationUnit> trees, ClassSymbol c) {
+        // Process module declarations.
+        // If module resolution fails, ignore trees, and if trying to
+        // complete a specific symbol, throw CompletionFailure.
+        // Note that if module resolution failed, we may not even
+        // have enough modules available to access java.lang, and
+        // so risk getting FatalError("no.java.lang") from MemberEnter.
+        if (!modules.enter(trees)) {
+            if (c != null)
+                throw new CompletionFailure(c, diags.fragment("cant.resolve.modules"));
+            return;
+        }
+
         annotate.enterStart();
         ListBuffer<ClassSymbol> prevUncompleted = uncompleted;
         if (memberEnter.completionEnabled)
             uncompleted = new ListBuffer<ClassSymbol>();
 
         try {
-            // process module declarations
-            modules.enter(trees);
-
             // enter all classes, and construct uncompleted list
             classEnter(trees, null);
 

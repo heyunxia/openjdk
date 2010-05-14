@@ -36,24 +36,17 @@ import javax.lang.model.element.ModuleElement;
  */
 public interface ModuleResolver {
 
-    class ResolutionException extends Exception {
-        private static final long serialVersionUID = -5294493995009985322L;
-        ResolutionException(Throwable cause) {
-            initCause(cause);
-        }
-    }
-
     /**
      * Resolve a set of modules. The resolution may take additional modules into
      * account, such as may be found in a system module library.
+     * Returns null if the modules cannot be resolved.
      * @param roots The root modules whose dependencies need to be resolved
      * @param modules A set of modules in which to find any dependencies.
      * @throws ResolutionException if the resolution cannot be successfully completed.
      */
     Iterable<? extends ModuleElement> resolve(
         Iterable<? extends ModuleElement> roots,
-        Iterable<? extends ModuleElement> modules)
-        throws ResolutionException;
+        Iterable<? extends ModuleElement> modules);
 
     /**
      * Get the set of visible modules for a module. This method may be called

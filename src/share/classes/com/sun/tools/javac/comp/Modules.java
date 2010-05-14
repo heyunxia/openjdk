@@ -439,68 +439,62 @@ public class Modules extends JCTree.Visitor {
                 namedModules.add(msym);
         }
 
-        try {
-
-            if (debug.isEnabled("resolve")) {
-                debug.println("Module resolver: " + mr.getClass().getSimpleName());
-                showModules("Module resolution roots:", roots);
-                showModules("Modules in compilation environment:", namedModules);
-            }
-
-            Iterable<? extends ModuleElement> modules = mr.resolve(roots, namedModules);
-
-            // modules is returned in an order such that if A requires B, then
-            // A will be earlier than B. This means that the root modules, such
-            // as the unnamed module appear ahead of the platform modules,
-            // which will appear last.  This is the reverse of the traditional
-            // ordering, in which the platform classes are read ahead of classes
-            // on the user class path.   Therefore, we build and use a reversed
-            // list of modules before converting the modules to the path used by
-            // ClassReader.
-
-            List<ModuleSymbol> msyms = List.nil();
-            for (ModuleElement me: modules)
-                msyms = msyms.prepend((ModuleSymbol) me);
-
-            if (debug.isEnabled("resolve"))
-                showModules("Resolved modules: ", msyms);
-
-            JavacFileManager jfm = (fileManager instanceof JavacFileManager)
-                    ? (JavacFileManager)fileManager : null;
-
-            ModuleSymbol firstPlatformModule = null;
-            ModuleSymbol lastPlatformModule = null;
-            for (ModuleSymbol msym: msyms) {
-                DEBUG("Modules.resolve: " + msym.fullname + " " + mr.isPlatformName(msym.fullname));
-                if (mr.isPlatformName(msym.fullname)) {
-                    if (firstPlatformModule == null)
-                        firstPlatformModule = msym;
-                    lastPlatformModule = msym;
-                }
-            }
-
-            ListBuffer<Location> locns = new ListBuffer<Location>();
-            for (ModuleSymbol msym: msyms) {
-                DEBUG("Modules.resolve: msym: " + msym);
-                DEBUG("Modules.resolve: msym.location: " + msym.location);
-                if (jfm != null && mr.isPlatformName(msym.fullname)) {
-                    locns.addAll(jfm.augmentPlatformLocation(msym.location,
-                            msym == firstPlatformModule,
-                            msym == lastPlatformModule));
-                } else
-                    locns.add(msym.location);
-            }
-            Location merged = moduleFileManager.join(locns);
-            DEBUG("Modules.resolve: merged result: " + merged);
-            reader.setPathLocation(merged);
-
-        } catch (ModuleResolver.ResolutionException e) {
-            DEBUG("Modules.resolve: resolution error " + e);
-            e.printStackTrace();
-            return false;
+        if (debug.isEnabled("resolve")) {
+            debug.println("Module resolver: " + mr.getClass().getSimpleName());
+            showModules("Module resolution roots:", roots);
+            showModules("Modules in compilation environment:", namedModules);
         }
-        return true;
 
+        Iterable<? extends ModuleElement> modules = mr.resolve(roots, namedModules);
+        if (modules == null)
+            return false;
+
+        // modules is returned in an order such that if A requires B, then
+        // A will be earlier than B. This means that the root modules, such
+        // as the unnamed module appear ahead of the platform modules,
+        // which will appear last.  This is the reverse of the traditional
+        // ordering, in which the platform classes are read ahead of classes
+        // on the user class path.   Therefore, we build and use a reversed
+        // list of modules before converting the modules to the path used by
+        // ClassReader.
+
+        List<ModuleSymbol> msyms = List.nil();
+        for (ModuleElement me: modules)
+            msyms = msyms.prepend((ModuleSymbol) me);
+
+        if (debug.isEnabled("resolve"))
+            showModules("Resolved modules: ", msyms);
+
+        JavacFileManager jfm = (fileManager instanceof JavacFileManager)
+                ? (JavacFileManager)fileManager : null;
+
+        ModuleSymbol firstPlatformModule = null;
+        ModuleSymbol lastPlatformModule = null;
+        for (ModuleSymbol msym: msyms) {
+            DEBUG("Modules.resolve: " + msym.fullname + " " + mr.isPlatformName(msym.fullname));
+            if (mr.isPlatformName(msym.fullname)) {
+                if (firstPlatformModule == null)
+                    firstPlatformModule = msym;
+                lastPlatformModule = msym;
+            }
+        }
+
+        ListBuffer<Location> locns = new ListBuffer<Location>();
+        for (ModuleSymbol msym: msyms) {
+            DEBUG("Modules.resolve: msym: " + msym);
+            DEBUG("Modules.resolve: msym.location: " + msym.location);
+            if (jfm != null && mr.isPlatformName(msym.fullname)) {
+                locns.addAll(jfm.augmentPlatformLocation(msym.location,
+                        msym == firstPlatformModule,
+                        msym == lastPlatformModule));
+            } else
+                locns.add(msym.location);
+        }
+        Location merged = moduleFileManager.join(locns);
+        DEBUG("Modules.resolve: merged result: " + merged);
+        reader.setPathLocation(merged);
+
+        return true;
     }
 
     protected ModuleResolver getModuleResolver() {

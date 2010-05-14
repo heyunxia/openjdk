@@ -90,8 +90,7 @@ public class JigsawModuleResolver implements ModuleResolver {
 
     public Iterable<? extends ModuleElement> resolve(
             Iterable<? extends ModuleElement> roots,
-            Iterable<? extends ModuleElement> modules)
-            throws ResolutionException {
+            Iterable<? extends ModuleElement> modules) {
         if (debug.isEnabled())
             debug.println("JigsawModuleResolver starting");
 
@@ -116,11 +115,11 @@ public class JigsawModuleResolver implements ModuleResolver {
         try {
             config = Configurator.configurePaths(catalog, jigsawRootQueries);
         } catch (IOException e) {
-            log.error("module.resolution.ioerror", e);
-            return Collections.<ModuleElement>emptySet();
+            log.error("jigsaw.resolver.ioerror", e);
+            return null;
         } catch (ConfigurationException e) {
-            log.error("module.resolution.error", e.getLocalizedMessage());
-            return Collections.<ModuleElement>emptySet();
+            log.error("jigsaw.resolver.error", e.getLocalizedMessage());
+            return null;
         }
 
         // have config.roots: set of root module ids
