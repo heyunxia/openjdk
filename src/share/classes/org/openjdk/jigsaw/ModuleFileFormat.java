@@ -221,18 +221,18 @@ public final class ModuleFileFormat {
                 short count = 0;
                 sourcedir = path;
 
-		if (!path.exists())
-		    throw new IOException("Path does not exist: " + path);
-		if (!path.isDirectory())
-		    throw new IOException("Path is not a directory: " + path);
-		if (!path.canRead())
-		    throw new IOException("Path can not be read: " + path);
+                if (!path.exists())
+                    throw new IOException("Path does not exist: " + path);
+                if (!path.isDirectory())
+                    throw new IOException("Path is not a directory: " + path);
+                if (!path.canRead())
+                    throw new IOException("Path can not be read: " + path);
                 Queue<File> files =
                     new LinkedList(Arrays.asList(path.listFiles()));
-		if (files.isEmpty())
-		    throw new IOException("Path is empty: " + path);
+                if (files.isEmpty())
+                    throw new IOException("Path is empty: " + path);
 
-                // System.out.println("Gipping: " + path);
+                // System.out.println("Gzipping: " + path);
                 while (!files.isEmpty()) {
                     File file = files.remove();
                     if (file.isDirectory()) {
@@ -323,8 +323,6 @@ public final class ModuleFileFormat {
 
         private File computeRealPath(File path)
             throws IOException {
-            // Absolute path names are not permitted.
-            ensureNonAbsolute(path);
             String name = path.toString();
             if (name.startsWith(sourcedir.toString()))
                 name = sourcedir.toPath().relativize(path.toPath()).toString();

@@ -230,6 +230,26 @@ public class JpkgArgsTest {
         throw new Exception("Should have caught an exception");
     }
 
+    private void testAbsolutePathArg()
+        throws Exception {
+        setUp("Check if absolute resource path argument is accepted");
+
+        try {
+            resourceDir.mkdir();
+            File testfile = new File(resourceDir, "test");
+            testfile.createNewFile();
+            String [] args = {"-m", classesDir.getAbsolutePath(),
+                              "-r", resourceDir.getAbsolutePath(),
+                              "jmod", "hello"};
+            Packager.run(args);
+        }
+        // The bug resulted in an exception being thrown
+        catch (Exception e) {
+            // Rethrow the exception if it ever occurs again.
+            throw (Exception) new Exception().initCause(e);
+        }
+    }
+
     private void testModulePathArg() throws Exception {
         testIfModulePathArgExists();
         testIfModulePathArgIsNotADirectory();
@@ -238,6 +258,7 @@ public class JpkgArgsTest {
 
     private void test() throws Exception {
         testModulePathArg();
+        testAbsolutePathArg();
         boolean a, b, c, d;
         for (boolean aloop = a = false; !aloop; a = true) {
             aloop = a;
