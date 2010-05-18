@@ -89,6 +89,9 @@ public class Test {
                 args.set(i, new File(testSrc, arg).getPath());
         }
 
+	args.add("-d");
+	args.add(System.getProperty("test.classes"));
+
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         int rc = com.sun.tools.javac.Main.compile(args.toArray(new String[args.size()]), pw);

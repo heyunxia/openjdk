@@ -642,9 +642,6 @@ public class Paths {
         else
             path.addDirectories(System.getProperty("java.ext.dirs"), false);
 
-        if (path.size() > 0)
-            System.out.println("Paths.getPlatformPathAppend " + path);
-
         return (path.size() == 0 ? null : path);
     }
 
