@@ -622,14 +622,14 @@ public class Packager {
         out.format("%n");
     }
 
-    public static void run(String[] args) 
-	throws OptionException, Command.Exception {
+    public static void run(String[] args)
+        throws OptionException, Command.Exception {
 
-	new Packager().exec(args);
+        new Packager().exec(args);
     }
 
-    private void exec(String[] args) 
-	throws OptionException, Command.Exception {
+    private void exec(String[] args)
+        throws OptionException, Command.Exception {
 
         parser = new OptionParser();
 
@@ -781,8 +781,10 @@ public class Packager {
             bincmd = opts.valueOf(launcherPath).toString();
         if (opts.has(destinationPath))
             destination = opts.valueOf(destinationPath);
-        if (opts.has(modulePath))
+        if (opts.has(modulePath)) {
             classes = opts.valueOf(modulePath);
+            checkPathArgument(classes, "Module");
+        }
         if (opts.has(libPath)) {
             library = opts.valueOf(libPath);
         } else {
@@ -792,8 +794,8 @@ public class Packager {
         }
         if (opts.has(resourcePath)) {
             resources = opts.valueOf(resourcePath);
-	    checkPathArgument(resources, "Resource");
-	}
+            checkPathArgument(resources, "Resource");
+        }
         if (opts.has(includePath))
             includes = opts.valueOf(includePath);
         if (opts.has(javaHomePath))
@@ -843,11 +845,11 @@ public class Packager {
      *
      * @throws Command.Exception if path doesn't exist
      */
-    private static final void checkIfPathExists(File path, String type) 
+    private static final void checkIfPathExists(File path, String type)
         throws Command.Exception {
 
         if (!path.exists())
-            throw new Command.Exception("%s path doesn't exist: %s", 
+            throw new Command.Exception("%s path doesn't exist: %s",
                                         type, path);
     }
 
@@ -859,11 +861,11 @@ public class Packager {
      *
      * @throws Command.Exception if path isn't readable
      */
-    private static final void checkIfPathIsReadable(File path, String type) 
+    private static final void checkIfPathIsReadable(File path, String type)
         throws Command.Exception {
 
         if (!path.canRead())
-            throw new Command.Exception("%s path isn't readable: %s", 
+            throw new Command.Exception("%s path isn't readable: %s",
                                         type, path);
     }
 
@@ -875,11 +877,11 @@ public class Packager {
      *
      * @throws Command.Exception if path is not a directory
      */
-    private static final void checkIfPathIsDirectory(File path, String type) 
+    private static final void checkIfPathIsDirectory(File path, String type)
         throws Command.Exception {
 
         if (!path.isDirectory())
-            throw new Command.Exception("%s path is not a directory: %s", 
+            throw new Command.Exception("%s path is not a directory: %s",
                                         type, path);
     }
 
@@ -891,12 +893,12 @@ public class Packager {
      *
      * @throws Command.Exception if path is not a directory
      */
-    private static final void checkPathArgument(File path, String type) 
+    private static final void checkPathArgument(File path, String type)
         throws Command.Exception {
 
-	checkIfPathExists(path, type);
-	checkIfPathIsReadable(path, type);
-	checkIfPathIsDirectory(path, type);
+        checkIfPathExists(path, type);
+        checkIfPathIsReadable(path, type);
+        checkIfPathIsDirectory(path, type);
     }
 
     private Packager() { }
