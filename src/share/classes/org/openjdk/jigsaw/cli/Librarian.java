@@ -115,8 +115,9 @@ public class Librarian {
             noDry();
             while (hasArg()) {
                 File module = new File(takeArg());
+                File classes = null;
                 try {
-                    File classes = File.createTempFile("jigsaw",null);
+                    classes = File.createTempFile("jigsaw",null);
                     classes.toPath().delete();
                     classes.toPath().createDirectory();
                     FileInputStream fis = new FileInputStream(module);
@@ -130,6 +131,14 @@ public class Librarian {
                     Files.deleteTree(classes);
                 }
                 catch (IOException x) {
+                    // Try to cleanup if an exception is thrown
+                    if (classes != null && classes.exists())
+                        try {
+                            Files.deleteTree(classes);
+                        }
+                        catch (IOException y) {
+                            throw new Command.Exception(y);
+                        }
                     throw new Command.Exception(x);
                 }
             }
