@@ -157,6 +157,23 @@ public class JpkgArgsTest {
         }
     }
 
+    private void testIfFileArgIsEmpty(boolean res, boolean natlib,
+                                      boolean natcmd, boolean config)
+        throws Exception {
+        setUp("IOException if file argument is an empty directory: "
+              + (res? " -r " : "")
+              + (natlib? " --natlib " : "")
+              + (natcmd? " --natcmd " : "")
+              + (config? " --config" : ""));
+
+        // Create empty directories for jpkg to ignore
+        if (! (resourceDir.mkdir() && natlibDir.mkdir() &&
+               natcmdDir.mkdir() && configDir.mkdir()))
+            throw new Exception("Can't set up test");
+
+        compress(res, natlib, natcmd, config);
+    }
+
     private void testIfModulePathArgIsNotADirectory()
         throws Exception {
         setUp("Check if module path argument is not a directory");
@@ -271,6 +288,7 @@ public class JpkgArgsTest {
                         testIfFileArgExists(a, b, c, d);
                         testIfFileArgIsNotADirectory(a, b, c, d);
                         testIfFileArgIsNotReadable(a, b, c, d);
+                        testIfFileArgIsEmpty(a, b, c, d);
                     }
                 }
             }

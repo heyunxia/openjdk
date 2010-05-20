@@ -103,27 +103,27 @@ public final class ModuleFileFormat {
 
             short sections = 1;
 
-            if (classes != null) {
+            if (classes != null && directoryIsNotEmpty(classes)) {
                 writeSection(file, ModuleFile.SectionType.CLASSES,
                              classes, ModuleFile.Compressor.PACK200_GZIP);
                 sections++;
             }
-            if (resources != null) {
+            if (resources != null && directoryIsNotEmpty(resources)) {
                 writeSection(file, ModuleFile.SectionType.RESOURCES,
                              resources, ModuleFile.Compressor.GZIP);
                 sections++;
             }
-            if (nativelibs != null) {
+            if (nativelibs != null && directoryIsNotEmpty(nativelibs)) {
                 writeSection(file, ModuleFile.SectionType.NATIVE_LIBS,
                              nativelibs, ModuleFile.Compressor.GZIP);
                 sections++;
             }
-            if (nativecmds != null) {
+            if (nativecmds != null && directoryIsNotEmpty(nativecmds)) {
                 writeSection(file, ModuleFile.SectionType.NATIVE_CMDS,
                              nativecmds, ModuleFile.Compressor.GZIP);
                 sections++;
             }
-            if (config != null) {
+            if (config != null && directoryIsNotEmpty(config)) {
                 writeSection(file, ModuleFile.SectionType.CONFIG,
                              config, ModuleFile.Compressor.GZIP);
                 sections++;
@@ -799,6 +799,11 @@ public final class ModuleFileFormat {
                                    int count)
         throws IOException{
         copyStream(in, (DataOutput) new DataOutputStream(out), count);
+    }
+
+    private static boolean directoryIsNotEmpty(File dir)
+        throws IOException {
+        return dir.toPath().newDirectoryStream().iterator().hasNext();
     }
 
     private static void ensureNonAbsolute(File path) throws IOException {
