@@ -117,18 +117,15 @@ public class Librarian {
                 File module = new File(takeArg());
                 File classes = null;
                 try {
-                    classes = File.createTempFile("jigsaw",null);
-                    classes.toPath().delete();
-                    classes.toPath().createDirectory();
                     FileInputStream fis = new FileInputStream(module);
                     DataInputStream dis = new DataInputStream(fis);
                     ModuleFileFormat.Reader reader =
                         new ModuleFileFormat.Reader(dis);
-                    reader.readModule(classes);
-                    String name = module.getName();
-                    name = name.substring(0, name.lastIndexOf('@'));
-                    Files.copyTree(classes, new File(name));
-                    Files.deleteTree(classes);
+                    classes = new File(jms.parseModuleInfo(reader.readStart())
+                                       .id().name());
+                    if (!classes.exists())
+                        classes.toPath().createDirectory();
+                    reader.readRest(classes);
                 }
                 catch (IOException x) {
                     // Try to cleanup if an exception is thrown
@@ -137,7 +134,8 @@ public class Librarian {
                             Files.deleteTree(classes);
                         }
                         catch (IOException y) {
-                            throw new Command.Exception(y);
+                            throw (Command.Exception)
+                                new Command.Exception(y).initCause(x);
                         }
                     throw new Command.Exception(x);
                 }
