@@ -307,9 +307,6 @@ INCLUDEDIR          = $(OUTPUTDIR)/include
 # for generated class files
 CLASSBINDIR         = $(OUTPUTDIR)/classes
 DEMOCLASSDIR        = $(OUTPUTDIR)/democlasses
-# for modules
-MODULES_DIR         = $(OUTPUTDIR)/modules
-ABS_MODULES_DIR     = $(ABS_OUTPUTDIR)/modules
 # for generated tool class files
 BUILDTOOLCLASSDIR   = $(OUTPUTDIR)/btclasses
 # for build tool jar files
@@ -384,22 +381,6 @@ endif
 ifneq ($(THREADDIR),)
   UNIQUE_LOCATION_STRING += /$(THREADDIR)
 endif
-
-#
-# Build units may or may not define MODULE.  Default to "other".
-#
-# MODULE variable defines the lowest-level module name that
-# might or might not be the name of the modules created in
-# the modules build (see make/modules/modules.config and
-# modules.group).
-#
-MODULES_TEMPDIR     = $(OUTPUTDIR)/tmp/modules
-ABS_MODULES_TEMPDIR = $(ABS_OUTPUTDIR)/tmp/modules
-
-ifndef MODULE
-  MODULE = other
-endif
-override MODULE_DEST_DIR = $(MODULES_TEMPDIR)/$(MODULE)
 
 # the use of += above makes a space separated list which we need to 
 # remove for filespecs.
@@ -511,6 +492,11 @@ PKGDIR		= $(subst .,/,$(PACKAGE))
 include $(JDK_MAKE_SHARED_DIR)/Defs-java.gmk
 
 #
+# The modules variables
+#
+include $(JDK_TOPDIR)/make/common/Defs-modules.gmk
+
+#
 # Macros to find the module that $@ belongs to
 #
 
@@ -559,8 +545,8 @@ $(MAKE) -f Makefile.launcher \
         MAIN_CLASS=$(strip $2) \
         MAIN_JAVA_ARGS="$(strip $3)" \
         MAIN_ARGS="$(strip $4)" \
-        MODULE=$(strip $1) \
-        PROGRAM_MODULE=$(strip $1)
+        MODULE=jdk.$(strip $1) \
+        PROGRAM_MODULE=jdk.$(strip $1)
 endef
 
 #
@@ -586,8 +572,8 @@ define install-include-file
 $(prep-target)
 $(CP) $< $@
 dest=`echo $(@D)/ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(MKDIR) -p $(MODULES_TEMPDIR)/base/$$dest; \
-$(CP) -f $@ $(MODULES_TEMPDIR)/base/$$dest
+$(MKDIR) -p $(SUBMODULES_DIR)/base/$$dest; \
+$(CP) -f $@ $(SUBMODULES_DIR)/base/$$dest
 endef
 
 define chmod-file

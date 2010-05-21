@@ -36,9 +36,6 @@ $(PKGS)/%:
 	$(RM) -r $@
 	$(MKDIR) -p $@
 
-MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
-MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
-
 # Rules to generate jmod packages
 #
 jmod-pkgs: $(JMOD_PKGS)
@@ -78,7 +75,7 @@ deb-pkgs: $(DEB_PKGS)
 	       fi ; \
 	   done ; \
            (ISZ=$$(expr $$(du -s $(MODULES_DIR)/$$m | cut -f1)); \
-            RES="$$(if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then $(ECHO) "-r $(MODULES_DIR)/$$m/resources" ; fi)"; \
+            RES="$$(if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then $(ECHO) "-r $(MODULES_DIR)/$$m/resources" ; fi)"; \
             $(HOST_JPKG_CMD) -v -m $(MODULES_DIR)/$$m/classes \
 	         -i $(JIGSAW_IMAGE)/$$m $$RES \
                  --java-home /usr/local/jigsaw \
