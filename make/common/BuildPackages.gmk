@@ -39,6 +39,20 @@ $(PKGS)/%:
 MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
 MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
 
+# Prepare to sign modules
+ifdef BUILD_SIGNED_MODULES
+
+include $(BUILDDIR)/javax/crypto/Defs-jce.gmk
+SIGNER_ARGS = --sign --keystore $(SIGNING_KEYSTORE) --signer $(SIGNING_ALIAS)
+SIGNER_PW = "< $(SIGNING_PASSPHRASE)"
+
+else #BUILD_SIGNED_MODULES
+
+SIGNER_ARGS =
+SIGNER_PW =
+
+endif #BUILD_SIGNED_MODULES
+
 # Rules to generate jmod packages
 #
 jmod-pkgs: $(JMOD_PKGS)
@@ -58,8 +72,8 @@ jmod-pkgs: $(JMOD_PKGS)
                    CONFIG="-config etc" ; \
                fi ; \
                $(HOST_JPKG_CMD) -v -m classes \
-   	          $$RES $$NATCMD $$NATLIB $$CONFIG \
-                  -d $(JMOD_PKGS) jmod $$m) || exit 1 ; \
+   	          $$RES $$NATCMD $$NATLIB $$CONFIG $(SIGNER_ARGS) \
+                  -d $(JMOD_PKGS) jmod $$m $(SIGNER_PW)) || exit 1 ; \
 	done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 

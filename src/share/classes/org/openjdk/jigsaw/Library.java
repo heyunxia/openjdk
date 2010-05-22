@@ -27,6 +27,7 @@ package org.openjdk.jigsaw;
 
 import java.lang.module.*;
 import java.io.*;
+import java.security.SignatureException;
 import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -242,7 +243,7 @@ public abstract class Library
      *          The module files to be installed
      */
     public abstract void install(Collection<File> mfs)
-        throws ConfigurationException, IOException;
+        throws ConfigurationException, IOException, SignatureException;
 
     /**
      * <p> Resolve the given collection of {@linkplain
@@ -275,9 +276,12 @@ public abstract class Library
      *
      * @throws  IOException
      *          If an I/O error occurs while accessing the module library
+     *
+     * @throws  SignatureException
+     *          If an error occurs while validating the signature
      */
     public abstract void install(Resolution res)
-        throws ConfigurationException, IOException;
+        throws ConfigurationException, IOException, SignatureException;
 
     /**
      * Find a resource within the given module in this library.

@@ -1,5 +1,5 @@
 /*
- * Copyright 1996-2005 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 1996-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,7 @@ package sun.security.pkcs;
 
 import java.io.*;
 
+import sun.misc.HexDumpEncoder;
 import sun.security.util.*;
 
 /**
@@ -212,7 +213,16 @@ public class ContentInfo {
         String out = "";
 
         out += "Content Info Sequence\n\tContent type: " + contentType + "\n";
-        out += "\tContent: " + content;
+        out += "\tContent: " + content + "\n";
+
+        try {
+            out +=
+                new HexDumpEncoder().encodeBuffer(content.toByteArray()) + "\n";
+
+        } catch (IOException e) {
+            // ignore
+        }
+
         return out;
     }
 }

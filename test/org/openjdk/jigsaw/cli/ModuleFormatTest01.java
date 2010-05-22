@@ -22,15 +22,17 @@
  */
 
 /*
- * @test
+ * @see ModuleFormatTest01.sh
  * @summary test module format writing/reading
  */
 
 import java.io.*;
+import java.security.CodeSigner;
+import java.security.cert.*;
 import java.util.*;
 import org.openjdk.jigsaw.cli.*;
 import org.openjdk.jigsaw.*;
-import static org.openjdk.jigsaw.FileConstants.ModuleFile.SectionType;
+import static org.openjdk.jigsaw.FileConstants.ModuleFile.*;
 
 public class ModuleFormatTest01 {
     final String MNAME = "hello";
@@ -61,32 +63,69 @@ public class ModuleFormatTest01 {
     }
 
     void testEmptyModule() throws Exception {
-        System.err.println("Test: Empty module");
+        System.err.println("\nTest: Empty module");
+        doTestEmptyModule(null);
+    }
+
+    void testSignEmptyModule(String[] signingArgs) throws Exception {
+        System.err.println("\nTest: Signed empty module");
+        doTestEmptyModule(signingArgs);
+    }
+
+    void doTestEmptyModule(String[] signingArgs) throws Exception {
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
-        compress(MNAME);
-        extract(MNAME, MVER);
-        compare(MNAME);
+        if (signingArgs != null) {
+            compress(MNAME, false, false, false, false, signingArgs);
+            checkSignature(MNAME, MVER);
+        } else {
+            compress(MNAME);
+            extract(MNAME, MVER);
+            compare(MNAME);
+        }
     }
 
     void testSingleClassModule() throws Exception {
-        System.err.println("Test: Single class module");
+        System.err.println("\nTest: Single class module");
+        doTestSingleClassModule(null);
+    }
+
+    void testSignSingleClassModule(String[] signingArgs) throws Exception {
+        System.err.println("\nTest: Signed single class module");
+        doTestSingleClassModule(signingArgs);
+    }
+
+    void doTestSingleClassModule(String[] signingArgs) throws Exception {
         count++;
         reset();
         List<File> files = new ArrayList<File>();
         addFile(files, createFile("module-info.java", moduleinfo));
         addFile(files, createFile("World.java", code));
         compile(files);
-        compress(MNAME);
-        extract(MNAME, MVER);
-        compare(MNAME);
+        if (signingArgs != null) {
+            compress(MNAME, false, false, false, false, signingArgs);
+            checkSignature(MNAME, MVER);
+        } else {
+            compress(MNAME);
+            extract(MNAME, MVER);
+            compare(MNAME);
+        }
     }
 
     void testMultiClassModule() throws Exception {
-        System.err.println("Test: Multiple class module");
+        System.err.println("\nTest: Multiple class module");
+        doTestMultiClassModule(null);
+    }
+
+    void testSignMultiClassModule(String[] signingArgs) throws Exception {
+        System.err.println("\nTest: Signed multiple class module");
+        doTestMultiClassModule(signingArgs);
+    }
+
+    void doTestMultiClassModule(String[] signingArgs) throws Exception {
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -94,13 +133,18 @@ public class ModuleFormatTest01 {
         addFile(files, createFile("World.java", code));
         addFile(files, createFile("Another.java", code2));
         compile(files);
-        compress(MNAME);
-        extract(MNAME, MVER);
-        compare(MNAME);
+        if (signingArgs != null) {
+            compress(MNAME, false, false, false, false, signingArgs);
+            checkSignature(MNAME, MVER);
+        } else {
+            compress(MNAME);
+            extract(MNAME, MVER);
+            compare(MNAME);
+        }
     }
 
     void testSingleResourceModule() throws Exception {
-        System.err.println("Test: Single resource module");
+        System.err.println("\nTest: Single resource module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -115,7 +159,7 @@ public class ModuleFormatTest01 {
     }
 
     void testMultiResourceModule() throws Exception {
-        System.err.println("Test: Multiple resource module");
+        System.err.println("\nTest: Multiple resource module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -131,7 +175,7 @@ public class ModuleFormatTest01 {
     }
 
     void testSingleNatLibModule() throws Exception {
-        System.err.println("Test: Single native library module");
+        System.err.println("\nTest: Single native library module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -144,7 +188,7 @@ public class ModuleFormatTest01 {
     }
 
     void testMultiNatLibModule() throws Exception {
-        System.err.println("Test: Multiple native library module");
+        System.err.println("\nTest: Multiple native library module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -158,7 +202,7 @@ public class ModuleFormatTest01 {
     }
 
     void testSingleNatCmdModule() throws Exception {
-        System.err.println("Test: Single native command module");
+        System.err.println("\nTest: Single native command module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -171,7 +215,7 @@ public class ModuleFormatTest01 {
     }
 
     void testMultiNatCmdModule() throws Exception {
-        System.err.println("Test: Multi native command module");
+        System.err.println("\nTest: Multi native command module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -185,7 +229,7 @@ public class ModuleFormatTest01 {
     }
 
     void testSingleConfigModule() throws Exception {
-        System.err.println("Test: Single config module");
+        System.err.println("\nTest: Single config module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -198,7 +242,7 @@ public class ModuleFormatTest01 {
     }
 
     void testMultiConfigModule() throws Exception {
-        System.err.println("Test: Multi config module");
+        System.err.println("\nTest: Multi config module");
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -212,7 +256,16 @@ public class ModuleFormatTest01 {
     }
 
     void testBloatedModule() throws Exception {
-        System.err.println("Test: Bloated module");
+        System.err.println("\nTest: Bloated module");
+        doTestBloatedModule(null);
+    }
+
+    void testSignBloatedModule(String[] signingArgs) throws Exception {
+        System.err.println("\nTest: Signed bloated module");
+        doTestBloatedModule(signingArgs);
+    }
+
+    void doTestBloatedModule(String[] signingArgs) throws Exception {
         count++;
         reset();
         List<File> files = new ArrayList<File>();
@@ -232,9 +285,15 @@ public class ModuleFormatTest01 {
         createFile("natcmd" + File.separator + "yo.exe", largefile);
         createFile("config" + File.separator + "yo", largefile);
         createFile("config" + File.separator + "hey", largefile);
-        compress(MNAME, true, true, true, true);
-        extract(MNAME, MVER);
-        compare(MNAME);
+
+        if (signingArgs != null) {
+            compress(MNAME, true, true, true, true, signingArgs);
+            checkSignature(MNAME, MVER);
+        } else {
+            compress(MNAME, true, true, true, true);
+            extract(MNAME, MVER);
+            compare(MNAME);
+        }
     }
 
     void test() throws Exception {
@@ -250,6 +309,40 @@ public class ModuleFormatTest01 {
         testSingleConfigModule();
         testMultiConfigModule();
         testBloatedModule();
+
+        for (String[] s : signingArgs) {
+            testSignEmptyModule(s);
+            testSignSingleClassModule(s);
+            testSignMultiClassModule(s);
+            testSignBloatedModule(s);
+        }
+    }
+
+    void checkSignature(String name, String version) throws Exception {
+        File module = new File(moduleDir, name + "@" + version + ".jmod");
+        FileInputStream fis = new FileInputStream(module);
+        DataInputStream dis = new DataInputStream(fis);
+        ModuleFileFormat.Reader reader = new ModuleFileFormat.Reader(dis);
+        if (reader.hasSignature()) {
+            System.out.println("Module '" + name + "' is signed by:");
+            if (reader.getSignatureType() == SignatureType.PKCS7.value()) {
+                reader.setVerificationMechanism(
+                    new ModuleFileFormat.PKCS7Verifier(), null);
+                int i = 1;
+                for (CodeSigner signer : reader.verifySignature()) {
+                    X509Certificate signerCert =
+                        (X509Certificate)
+                            signer.getSignerCertPath().getCertificates().get(0);
+                    System.out.println("    [" + (i++) + "] " +
+                        signerCert.getSubjectX500Principal().getName());
+                }
+            } else {
+                throw new Exception("Unsupported signature format");
+            }
+        } else {
+            throw new Exception("Module '" + name + "' is unsigned");
+        }
+        reader.close();
     }
 
     /**
@@ -366,7 +459,8 @@ public class ModuleFormatTest01 {
      */
     void extract(String name, String version) throws Exception {
         File module = new File(moduleDir, name + "@" + version + ".jmod");
-        String [] args = {"extract", module.getAbsolutePath()};
+        String [] args = {"extract", module.getAbsolutePath(), "-v"};
+        System.err.println("      jmod arguments: " + Arrays.toString(args));
         Librarian.main(args);
     }
 
@@ -392,7 +486,13 @@ public class ModuleFormatTest01 {
     }
 
     void compress(String name, boolean haveResources, boolean haveNatLibs,
-                  boolean haveNatCmds, boolean haveConfig)
+                  boolean haveNatCmds, boolean haveConfig) throws Exception {
+        compress(name, haveResources, haveNatLibs, haveNatCmds, haveConfig,
+            null);
+    }
+
+    void compress(String name, boolean haveResources, boolean haveNatLibs,
+                  boolean haveNatCmds, boolean haveConfig, String[] signingArgs)
         throws Exception {
         List<String> args = new ArrayList<String>();
         args.add("-m");
@@ -415,8 +515,13 @@ public class ModuleFormatTest01 {
             args.add("--config");
             args.add(configDir.toString());
         }
+        if (signingArgs != null) {
+            args.addAll(Arrays.asList(signingArgs));
+            args.add("-v");
+        }
         args.add("jmod");
         args.add("hello");
+        System.err.println("      jpkg arguments: " + args);
         Packager.main(args.toArray(new String[0]));
     }
 
@@ -514,4 +619,30 @@ public class ModuleFormatTest01 {
     File natlibDir = new File(srcDir, "natlib");
     File natcmdDir = new File(srcDir, "natcmd");
     File configDir = new File(srcDir, "config");
+    String baseDir = System.getProperty("test.src", ".");
+    File keystoreJKSFile = new File(baseDir, "keystore.jks");
+    File keystoreP12File = new File(baseDir, "keystore.p12");
+    File keystorePwFile = new File(baseDir, "keystore.pw");
+
+    String[][] signingArgs = {
+        { "--sign",
+          "--signer", "mykey",
+          "--storetype", "JKS",
+          "--keystore", keystoreJKSFile.toString() },
+
+        { "-S", "mykey",
+          "-t", "JKS",
+          "-k", keystoreJKSFile.toString() },
+
+        { "-k", keystoreJKSFile.toString() },
+
+/* PKCS12 keystores are not yet supported
+        { "-S", "mykey",
+          "-t", "PKCS12",
+          "-k", keystoreP12File.toString() },
+
+        { "-t", "PKCS12",
+          "-k", keystoreP12File.toString() },
+*/
+    };
 }

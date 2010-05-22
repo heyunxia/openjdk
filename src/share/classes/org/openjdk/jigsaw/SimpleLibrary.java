@@ -28,6 +28,7 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
+import java.security.*;
 import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -665,7 +666,15 @@ public final class SimpleLibrary
     }
 
     private ModuleId install(InputStream is)
-        throws ConfigurationException, IOException
+        throws ConfigurationException, IOException, SignatureException
+    {
+        return install(is, new ModuleFileFormat.PKCS7Verifier(), null);
+    }
+
+    private ModuleId install(InputStream is,
+                             ModuleFileVerifier verifier,
+                             ModuleFileVerifier.Parameters parameters)
+        throws ConfigurationException, IOException, SignatureException
     {
         BufferedInputStream bin = new BufferedInputStream(is);
         DataInputStream in = new DataInputStream(bin);
@@ -680,10 +689,24 @@ public final class SimpleLibrary
                 throw new ConfigurationException(mid + ": Already installed");
             if (!md.mkdirs())
                 throw new IOException(md + ": Cannot create");
+            mr.setVerificationMechanism(verifier, parameters);
+            Set<CodeSigner> signers = mr.verifySignature();
             mr.readRest(md);
+            mr.verifyHashes();
             reIndex(mid);         // ## Could do this while reading module file
             return mid;
+
         } catch (IOException x) {
+            if (md != null && md.exists()) {
+                try {
+                    Files.deleteTree(md);
+                } catch (IOException y) {
+                    y.initCause(x);
+                    throw y;
+                }
+            }
+            throw x;
+        } catch (SignatureException x) {
             if (md != null && md.exists()) {
                 try {
                     Files.deleteTree(md);
@@ -699,13 +722,13 @@ public final class SimpleLibrary
     }
 
     private ModuleId install(File mf)
-        throws ConfigurationException, IOException
+        throws ConfigurationException, IOException, SignatureException
     {
         return install(new FileInputStream(mf));
     }
 
     public void install(Collection<File> mfs)
-        throws ConfigurationException, IOException
+        throws ConfigurationException, IOException, SignatureException
     {
         List<ModuleId> mids = new ArrayList<>();
         boolean complete = false;
@@ -744,7 +767,7 @@ public final class SimpleLibrary
     }
 
     public void install(Resolution res)
-        throws ConfigurationException, IOException
+        throws ConfigurationException, IOException, SignatureException
     {
 
         // ## Handle case of installing multiple root modules

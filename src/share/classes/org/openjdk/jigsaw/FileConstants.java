@@ -63,11 +63,12 @@ public final class FileConstants {
         public static enum SectionType {
 
             MODULE_INFO(0, false),
-            CLASSES(1, false),
-            RESOURCES(2, true),
-            NATIVE_LIBS(3, true),
-            NATIVE_CMDS(4, true),
-            CONFIG(5, true);
+            SIGNATURE(1, false),
+            CLASSES(2, false),
+            RESOURCES(3, true),
+            NATIVE_LIBS(4, true),
+            NATIVE_CMDS(5, true),
+            CONFIG(6, true);
 
             private final int value;
             public int value() { return value; }
@@ -147,6 +148,26 @@ public final class FileConstants {
                 algorithm = a;
             }
 
+        }
+
+        public static enum SignatureType {
+
+            PKCS7(0);
+
+            private final int value;
+            public int value() { return value; }
+
+            public static SignatureType valueOf(int v) {
+                for (SignatureType st : values()) {
+                    if (st.value() == v)
+                        return st;
+                }
+                throw new IllegalArgumentException();
+            }
+
+            private SignatureType(int v) {
+                value = v;
+            }
         }
 
     }

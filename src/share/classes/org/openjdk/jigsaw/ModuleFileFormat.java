@@ -26,14 +26,23 @@
 package org.openjdk.jigsaw;
 
 import java.io.*;
+import java.math.BigInteger;
 import java.nio.*;
 import java.nio.channels.*;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.*;
 import java.security.*;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.cert.CertPath;
+import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
+import javax.security.auth.x500.X500Principal;
+import sun.security.pkcs.*;
+import sun.security.timestamp.*;
+import sun.security.x509.*;
 
 import static org.openjdk.jigsaw.FileConstants.*;
 
@@ -44,6 +53,7 @@ public final class ModuleFileFormat {
     public static String getSubdirOfSection(ModuleFile.SectionType type) {
         switch (type) {
         case MODULE_INFO:
+        case SIGNATURE:
             return ".";
         case CLASSES:
         case RESOURCES:
@@ -60,12 +70,17 @@ public final class ModuleFileFormat {
     }
 
     public final static class Writer {
+        private static final int SIGNATURE_HEADER_LENGTH = 4;
         private boolean fastestCompression;
         private File outfile;
         private RandomAccessFile file;
         private File sourcedir;
         private ModuleFile.HashType hashtype;
         private long usize;
+        private boolean doSign = false;
+        private ModuleFileSigner signatureMechanism = null;
+        private ModuleFileSigner.Parameters signatureParameters = null;
+        private List<byte[]> signatureHashes = null;
 
         private static class ByteArrayDataOutputStream
             extends ByteArrayOutputStream {
@@ -80,81 +95,73 @@ public final class ModuleFileFormat {
             this.sourcedir = sourcedir;
         }
 
+        /*
+         * Generates a module file.
+         */
         public void writeModule(File classes,
                                 File resources,
                                 File nativelibs,
                                 File nativecmds,
                                 File config)
-            throws IOException {
+            throws IOException, SignatureException {
 
             file = new RandomAccessFile(outfile, "rw");
 
-            // trucate the file if it already exists.
+            // Truncate the file if it already exists
             file.setLength(0);
 
-            // Reset module file to right after module header
+            // Set constants that depend on the hash length
             MessageDigest md = getHashInstance(hashtype);
-            final int HEADERLEN = 32 + md.getDigestLength();
-            file.seek(HEADERLEN);
+            int hashLength = md.getDigestLength();
+            final int FILE_HEADER_LENGTH = 32 + hashLength;
 
+            if (doSign) {
+                // Record the hashes as they get generated
+                signatureHashes = new ArrayList<byte[]>();
+            }
+
+            // Reset module file to right after module header
+            file.seek(FILE_HEADER_LENGTH);
+
+            // Write out the Module-Info Section
             File miclass = new File("module-info.class");
             writeSection(file, ModuleFile.SectionType.MODULE_INFO,
                          miclass, ModuleFile.Compressor.NONE);
 
             short sections = 1;
+            int signatureSectionStart = 0;
+            int signatureSectionLength = 0;
 
-            if (classes != null && directoryIsNotEmpty(classes)) {
-                writeSection(file, ModuleFile.SectionType.CLASSES,
-                             classes, ModuleFile.Compressor.PACK200_GZIP);
-                sections++;
-            }
-            if (resources != null && directoryIsNotEmpty(resources)) {
-                writeSection(file, ModuleFile.SectionType.RESOURCES,
-                             resources, ModuleFile.Compressor.GZIP);
-                sections++;
-            }
-            if (nativelibs != null && directoryIsNotEmpty(nativelibs)) {
-                writeSection(file, ModuleFile.SectionType.NATIVE_LIBS,
-                             nativelibs, ModuleFile.Compressor.GZIP);
-                sections++;
-            }
-            if (nativecmds != null && directoryIsNotEmpty(nativecmds)) {
-                writeSection(file, ModuleFile.SectionType.NATIVE_CMDS,
-                             nativecmds, ModuleFile.Compressor.GZIP);
-                sections++;
-            }
-            if (config != null && directoryIsNotEmpty(config)) {
-                writeSection(file, ModuleFile.SectionType.CONFIG,
-                             config, ModuleFile.Compressor.GZIP);
+            // Signature Step 1
+            // Generate a false signature (using dummy hash values).
+            if (doSign) {
+                // Record the file location for the Signature Section
+                signatureSectionStart = (int) file.getFilePointer();
+                int optionalSections =
+                    countOptionalSections(classes, resources, nativelibs,
+                                          nativecmds, config);
+                // Determine the length of the Signature Section
+                signatureSectionLength =
+                    prepareSignatureSection(file, hashLength, optionalSections);
+                usize += signatureSectionLength;
                 sections++;
             }
 
+            // Write out the optional file sections
+            sections += writeOptionalSections(classes, resources, nativelibs,
+                                              nativecmds, config);
 
-            /* Create a module file header with bad hash, but correct
-               remaining data in order to be able to compute the
-               correct file hash. */
-            long csize = file.length() - HEADERLEN;
-            ModuleFileHeader header =
-                new ModuleFileHeader(csize, usize, sections, hashtype,
-                                     getHashInstance(hashtype).digest());
-            file.seek(0);
-            header.write(file);
+            // Write out the module file header
+            writeModuleFileHeader(md, FILE_HEADER_LENGTH, sections, hashtype,
+                                  hashLength, signatureSectionStart,
+                                  signatureSectionLength);
 
-            FileChannel channel = file.getChannel();
-
-            /* Compute hash of module file header without the hash bytes. */
-            ByteBuffer content = channel.map(MapMode.READ_ONLY, 0, 32);
-            md.update(content);
-            /* Compute hash of the remainder of the file. */
-            content = channel.map(MapMode.READ_ONLY, HEADERLEN, csize);
-            md.update(content);
-            byte [] hash = md.digest();
-
-            header =
-                new ModuleFileHeader(csize, usize, sections, hashtype, hash);
-
-            file.seek(0);
-            header.write(file);
+            // Signature Step 2
+            // Generate the true signature (using correct hash values).
+            if (doSign) {
+                // Write out the Signature Section
+                writeSignatureSection(file, md, signatureSectionStart);
+            }
             file.close();
         }
 
@@ -189,6 +196,11 @@ public final class ModuleFileFormat {
             md.update(content);
             final byte [] hash = md.digest();
 
+            if (doSign) {
+                // section hash is needed for the signature
+                signatureHashes.add(hash);
+            }
+
             // A section type that only allows a single file
             // has a section count of 0.
             if (count > Short.MAX_VALUE)
@@ -206,8 +218,8 @@ public final class ModuleFileFormat {
         }
 
         public short writeFile(DataOutput out, File path,
-                                ModuleFile.Compressor compressor,
-                                ModuleFile.SectionType type)
+                               ModuleFile.Compressor compressor,
+                               ModuleFile.SectionType type)
             throws IOException {
 
             switch (compressor) {
@@ -255,7 +267,6 @@ public final class ModuleFileFormat {
             }
         }
 
-
         public void writeClasses(DataOutput out, File dir)
             throws IOException {
 
@@ -263,7 +274,8 @@ public final class ModuleFileFormat {
         }
 
         public void writeGZIPCompressedFile(DataOutput out,
-                                            File path) throws IOException {
+                                            File path)
+            throws IOException {
 
             File realpath = computeRealPath(path);
             String storedpath = computeStoredPath(realpath);
@@ -416,12 +428,289 @@ public final class ModuleFileFormat {
         public void useFastestCompression(boolean fastest) {
             fastestCompression = fastest;
         }
+
+        /**
+         * Set the module signer mechanism.
+         */
+        public void setSignatureMechanism(ModuleFileSigner mechanism,
+                                          ModuleFileSigner.Parameters
+                                              parameters)
+        {
+            if (mechanism == null || parameters == null) {
+                throw new IllegalArgumentException();
+            }
+            signatureMechanism = mechanism;
+            signatureParameters = parameters;
+            doSign = true;
+        }
+
+        /*
+         * Counts the number of optional file sections.
+         */
+        private int countOptionalSections(File classes,
+                                          File resources,
+                                          File nativelibs,
+                                          File nativecmds,
+                                          File config)
+        {
+            int count = 0;
+
+            if (classes != null)
+                count++;
+            if (resources != null)
+                count++;
+            if (nativelibs != null)
+                count++;
+            if (nativecmds != null)
+                count++;
+            if (config != null)
+                count++;
+
+            return count;
+        }
+
+        /*
+         * Processes each of the optional file sections.
+         */
+        private int writeOptionalSections(File classes,
+                                          File resources,
+                                          File nativelibs,
+                                          File nativecmds,
+                                          File config)
+            throws IOException {
+
+            int count = 0;
+
+            if (classes != null) {
+                writeSection(file, ModuleFile.SectionType.CLASSES,
+                             classes, ModuleFile.Compressor.PACK200_GZIP);
+                count++;
+            }
+            if (resources != null) {
+                writeSection(file, ModuleFile.SectionType.RESOURCES,
+                             resources, ModuleFile.Compressor.GZIP);
+                count++;
+            }
+            if (nativelibs != null) {
+                writeSection(file, ModuleFile.SectionType.NATIVE_LIBS,
+                             nativelibs, ModuleFile.Compressor.GZIP);
+                count++;
+            }
+            if (nativecmds != null) {
+                writeSection(file, ModuleFile.SectionType.NATIVE_CMDS,
+                             nativecmds, ModuleFile.Compressor.GZIP);
+                count++;
+            }
+            if (config != null) {
+                writeSection(file, ModuleFile.SectionType.CONFIG,
+                             config, ModuleFile.Compressor.GZIP);
+                count++;
+            }
+
+            return count;
+        }
+
+        /*
+         * Writes out the module file header.
+         */
+        private void writeModuleFileHeader(MessageDigest md,
+                                           int remainderStart,
+                                           short sections,
+                                           ModuleFile.HashType hashtype,
+                                           int hashLength,
+                                           int signatureSectionStart,
+                                           int signatureSectionLength)
+            throws IOException {
+
+            long csize = file.length() - remainderStart;
+
+            // Header Step 1
+            // Write out the module file header (using a dummy file hash value)
+            ModuleFileHeader header =
+                new ModuleFileHeader(csize, usize, sections, hashtype,
+                                     new byte[hashLength]);
+            file.seek(0);
+            header.write(file);
+
+            // Generate the module file hash
+            byte[] fileHash = null;
+            fileHash = generateFileHash(file, md, remainderStart,
+                                        signatureSectionStart,
+                                        signatureSectionLength);
+
+            // Header Step 2
+            // Write out the module file header (using correct file hash value)
+            header = new ModuleFileHeader(csize, usize, sections, hashtype,
+                                          fileHash);
+            file.seek(0);
+            header.write(file);
+
+            if (doSign) {
+                md.update(header.toByteArray());
+                // module header hash must be first
+                signatureHashes.add(0, md.digest());
+                // module file hash must be last
+                signatureHashes.add(fileHash);
+            }
+        }
+
+        /*
+         * Generates the hash value for a module file.
+         * Excludes itself (the hash bytes in the module file header) and
+         * the Signature Section, if present.
+         */
+        private byte[] generateFileHash(RandomAccessFile file,
+                                        MessageDigest md,
+                                        int remainderPosition,
+                                        int signatureSectionPosition,
+                                        int signatureSectionSize)
+            throws IOException {
+
+            long remainderSize = file.length() - remainderPosition;
+            FileChannel channel = file.getChannel();
+
+            // Module file header without the hash bytes
+            ByteBuffer content = channel.map(MapMode.READ_ONLY, 0, 32);
+            md.update(content);
+
+            // Module-Info Section is handled separately when Signature Section
+            // is present 
+            if (signatureSectionPosition > 0 && signatureSectionSize > 0) {
+                int moduleInfoSectionPosition = remainderPosition;
+                int moduleInfoSectionSize = signatureSectionPosition
+                                            - remainderPosition;
+                content = channel.map(MapMode.READ_ONLY,
+                                      moduleInfoSectionPosition,
+                                      moduleInfoSectionSize);
+                md.update(content);
+
+                remainderPosition = signatureSectionPosition
+                                    + signatureSectionSize;
+                remainderSize -= (moduleInfoSectionSize + signatureSectionSize);
+            }
+
+            // Remainder of file
+            content = channel.map(MapMode.READ_ONLY, remainderPosition,
+                                  remainderSize);
+            md.update(content);
+
+            return md.digest();
+        }
+
+        /*
+         * Determines the length of the Signature Section. The module file is
+         * extended to make space for the Signature Section.
+         *
+         * @see writeSignatureSection
+         */
+        private int prepareSignatureSection(DataOutput stream,
+                                            int hashLength,
+                                            int optionalSectionCount)
+            throws IOException, SignatureException {
+
+            // Each optional section has its own hash plus the header hash,
+            // the Module-Info hash and the file hash.
+            // Each hash is prefixed with a 2-byte length value.
+            byte[] dummyToBeSigned =
+                new byte[(optionalSectionCount + 3) * (2 + hashLength)];
+            final int SECTION_HEADER_LENGTH = 12 + hashLength;
+
+            // Compute the false signature using the dummy hash values
+            byte[] dummySignature =
+                signatureMechanism.generateSignature(dummyToBeSigned,
+                                                     signatureParameters);
+
+            // Make space for the Signature Section
+            int signatureSectionPrefix =
+                SECTION_HEADER_LENGTH + SIGNATURE_HEADER_LENGTH;
+            int signatureSectionLength =
+                signatureSectionPrefix + dummySignature.length;
+
+            file.setLength(file.length() + signatureSectionLength); // extend
+            file.write(new byte[signatureSectionPrefix]);
+            file.write(dummySignature);
+
+            return signatureSectionLength;
+        }
+
+        /*
+         * Generates the module file signature and writes the Signature Section
+         * into the space already prepared.
+         *
+         * The data to be signed is a list of hash values:
+         *
+         *     ToBeSignedContent {
+         *         u2 moduleHeaderHashLength;
+         *         b* moduleHeaderHash;
+         *         u2 moduleInfoHashLength;
+         *         b* moduleInfoHash;
+         *         u2 sectionHashLength;
+         *         b* sectionHash;
+         *         ...
+         *         // other section hashes (in same order as module file)
+         *         ...
+         *         u2 moduleFileHashLength;
+         *         b* moduleFileHash;
+         *     }
+         *
+         * @see prepareSignatureSection
+         */
+        private void writeSignatureSection(DataOutput stream,
+                                           MessageDigest md,
+                                           int signatureSectionStart)
+            throws IOException, SignatureException {
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            short hashLength;
+            for (byte[] hash : signatureHashes) {
+                hashLength = (short) hash.length;
+                baos.write((byte) ((hashLength >>> 8) & 0xFF));
+                baos.write((byte) ((hashLength >>> 0) & 0xFF));
+                baos.write(hash, 0, hashLength);
+            }
+            byte[] toBeSigned = baos.toByteArray();
+
+            // Compute the signature
+            byte[] signature =
+                signatureMechanism.generateSignature(toBeSigned,
+                                                     signatureParameters);
+
+            // Generate the hash for the signature header and content
+            byte[] signatureHeader = new byte[SIGNATURE_HEADER_LENGTH];
+            short signatureType =
+                (short) signatureParameters.getSignatureType().value();
+            // TODO: use an int rather than a short since sig may be > 32K?
+            //       Also, adjust SIGNATURE_HEADER_LENGTH (from 4 to 6, if int)
+            short signatureLength = (short) signature.length;
+            writeShort(signatureHeader, 0, signatureType);
+            writeShort(signatureHeader, 2, signatureLength);
+            md.update(signatureHeader);
+            md.update(signature);
+            byte[] hash = md.digest();
+
+            // Write out the Signature Section
+            file.seek(signatureSectionStart);
+            new SectionHeader(ModuleFile.SectionType.SIGNATURE,
+                              ModuleFile.Compressor.NONE,
+                              signature.length + SIGNATURE_HEADER_LENGTH,
+                              (short)0, hash).write(file);
+            file.write(signatureHeader);
+            file.write(signature);
+        }
+
+        private void writeShort(byte[] out, int offset, short value) {
+            out[offset] = (byte) ((value >>> 8) & 0xFF);
+            out[++offset] = (byte) ((value >>> 0) & 0xFF);
+        }
     }
 
     public final static class Reader {
         private DataInputStream stream;
         private File destination;
         private ModuleFile.HashType hashtype;
+        private boolean doVerify = false;
+        private ModuleFileVerifier verificationMechanism = null;
+        private ModuleFileVerifier.Parameters verificationParameters = null;
 
         private static class CountingInputStream extends FilterInputStream {
             int count;
@@ -474,7 +763,13 @@ public final class ModuleFileFormat {
 
         public Reader(DataInputStream stream) {
             hashtype = ModuleFile.HashType.SHA256;
-            this.stream = stream;
+            // Ensure that mark/reset is supported
+            if (stream.markSupported()) {
+                this.stream = stream;
+            } else {
+                this.stream =
+                    new DataInputStream(new BufferedInputStream(stream));
+            }
         }
 
         private void checkHashMatch(byte [] expected, byte [] computed)
@@ -490,10 +785,16 @@ public final class ModuleFileFormat {
         private MessageDigest fileDigest = null;
         private DataInputStream fileIn = null;
         private byte[] moduleInfoBytes = null;
+        private Integer moduleSignatureType = null;
+        private byte[] moduleSignatureBytes = null;
+        private final int MAX_SECTION_HEADER_LENGTH = 128;
 
-        // Reads the MODULE_INFO section, but does not write any files
-        //
+        /*
+         * Reads the MODULE_INFO section and the Signature section, if present,
+         * but does not write any files.
+         */
         public byte[] readStart() throws IOException {
+
             try {
                 // System.out.println(fileHeader.toString());
                 fileDigest = getHashInstance(hashtype);
@@ -509,6 +810,10 @@ public final class ModuleFileFormat {
                     throw new IOException("First module-file section"
                                           + " is not MODULE_INFO");
                 assert moduleInfoBytes != null;
+
+                // Read the Signature Section, if present
+                readSignatureSection(fileIn, dis);
+
                 return moduleInfoBytes.clone();
             } catch (IOException x) {
                 close();
@@ -517,11 +822,17 @@ public final class ModuleFileFormat {
         }
 
         public void readRest(File dst) throws IOException {
+
             destination = dst;
             try {
                 Files.store(moduleInfoBytes, computeRealPath("info"));
-                for (int ns = fileHeader.getSections() - 1; ns > 0; ns--)
+                // Module-Info and Signature, if present, have been consumed
+                int consumedSections = hasSignature() ? 2 : 1;
+                for (int ns = fileHeader.getSections() - consumedSections;
+                     ns > 0;
+                     ns--)
                     readSection(fileIn);
+
                 // There should be no bytes left over to read.
                 if (-1 != fileIn.read())
                     throw new IOException( 1 + fileIn.available()
@@ -539,6 +850,26 @@ public final class ModuleFileFormat {
             return fileHeader.getHash();
         }
 
+        public boolean hasSignature() throws IOException {
+            if (null == fileHeader)
+                readStart();
+            return moduleSignatureBytes != null;
+        }
+
+        public Integer getSignatureType() throws IOException {
+            if (null == fileHeader)
+                readStart();
+            return moduleSignatureType;
+        }
+
+        public byte[] getSignature() throws IOException {
+            if (null == fileHeader)
+                readStart();
+            return moduleSignatureBytes != null
+                ? moduleSignatureBytes.clone()
+                : null;
+        }
+
         public void close() throws IOException {
             if (fileIn != null) {
                 fileIn.close();
@@ -549,6 +880,62 @@ public final class ModuleFileFormat {
         public void readModule(File dst) throws IOException {
             readStart();
             readRest(dst);
+        }
+
+        /**
+         * Set the module signature verification mechanism.
+         */
+        public void setVerificationMechanism(ModuleFileVerifier mechanism,
+                                             ModuleFileVerifier.Parameters
+                                                 parameters)
+        {
+            if (mechanism == null) {
+                throw new IllegalArgumentException();
+            }
+            verificationMechanism = mechanism;
+            verificationParameters = parameters;
+            doVerify = true;
+        }
+
+        public Set<CodeSigner> verifySignature()
+            throws IOException, SignatureException {
+
+            Set<CodeSigner> signers = new HashSet<>();
+            if (doVerify && hasSignature()) {
+                signers = verificationMechanism
+                              .verifySignature(getSignature(),
+                                               verificationParameters);
+            }
+            return signers;
+        }
+
+        public void verifyHashes() throws IOException, SignatureException {
+
+            if (doVerify && hasSignature()) {
+                verificationMechanism.verifyHashes(getSignature(),
+                                                   verificationParameters);
+            }
+        }
+
+        private void readSignatureSection(DataInputStream stream,
+                                          DigestInputStream dis)
+            throws IOException {
+
+            // Turn off digest computation before reading Signature Section
+            dis.on(false);
+
+            // Mark the starting position
+            stream.mark(MAX_SECTION_HEADER_LENGTH);
+            SectionHeader header = SectionHeader.read(stream);
+            // Revert back to the starting position
+            stream.reset();
+            if (header != null &&
+                header.getType() == ModuleFile.SectionType.SIGNATURE) {
+                readSection(stream);
+            }
+
+            // Turn on digest computation again
+            dis.on(true);
         }
 
         private ModuleFile.SectionType readSection(DataInputStream stream)
@@ -583,16 +970,27 @@ public final class ModuleFileFormat {
 
             switch (compressor) {
             case NONE:
-                 if (type == ModuleFile.SectionType.MODULE_INFO)
-                     moduleInfoBytes = readModuleInfo(in, csize);
-                 else
-                     readUncompressedFile(in, type, csize);
+                if (type == ModuleFile.SectionType.MODULE_INFO) {
+                    moduleInfoBytes = readModuleInfo(in, csize);
+
+                } else if (type == ModuleFile.SectionType.SIGNATURE) {
+                    // Examine the Signature header
+                    moduleSignatureType = (int) in.readShort();
+                    short length = in.readShort();
+                    moduleSignatureBytes = readModuleSignature(in, csize - 4);
+                    if (length != moduleSignatureBytes.length) {
+                        throw new IOException("Invalid Signature length");
+                    }
+                } else {
+                    readUncompressedFile(in, type, csize);
+                }
                 break;
             case GZIP:
                 readGZIPCompressedFile(in, type);
                 break;
             case PACK200_GZIP:
-                readClasses(new DataInputStream(new CountingInputStream(in, csize)));
+                readClasses(
+                    new DataInputStream(new CountingInputStream(in, csize)));
                 break;
             default:
                 throw new IOException("Unsupported Compressor for files: " +
@@ -617,7 +1015,8 @@ public final class ModuleFileFormat {
             copyStream(new CountingInputStream(in, csize), baos, csize);
 
             byte [] compressedfile = baos.toByteArray();
-            ByteArrayInputStream bain = new ByteArrayInputStream(compressedfile);
+            ByteArrayInputStream bain =
+                new ByteArrayInputStream(compressedfile);
             GZIPInputStream gin = new GZIPInputStream(bain);
 
             OutputStream os = new FileOutputStream(path);
@@ -663,7 +1062,7 @@ public final class ModuleFileFormat {
 
             markNativeCodeExecutable(type, realpath);
          }
-
+ 
         public byte[] readModuleInfo(DataInputStream in, int csize)
             throws IOException
         {
@@ -676,7 +1075,14 @@ public final class ModuleFileFormat {
             return out.toByteArray();
         }
 
+        public byte[] readModuleSignature(DataInputStream in, int csize)
+            throws IOException
+        {
+            return readModuleInfo(in, csize); // signature has the same format
+        }
+
         private File computeRealPath(String storedpath) throws IOException {
+
             String convertedpath = storedpath.replace('/', File.separatorChar);
             File path = new File(convertedpath);
 
@@ -750,7 +1156,8 @@ public final class ModuleFileFormat {
              ModuleFile.Compressor.NONE != compressor)
             || (ModuleFile.SectionType.CLASSES == type &&
                 ModuleFile.Compressor.PACK200_GZIP != compressor))
-            throw new IllegalArgumentException(type + " may not use compressor "
+            throw new IllegalArgumentException(type
+                                               + " may not use compressor "
                                                + compressor);
     }
 
@@ -759,14 +1166,15 @@ public final class ModuleFileFormat {
         throws IllegalArgumentException {
 
         if (!type.hasFiles() && subsections != 0)
-            throw new IllegalArgumentException(type + " subsection count not 0: "
+            throw new IllegalArgumentException(type
+                                               + " subsection count not 0: "
                                                + subsections);
         else if (type.hasFiles() && subsections == 0)
             throw new IllegalArgumentException(type + " subsection count is 0");
     }
 
     private static void copyStream(InputStream in, DataOutput out)
-        throws IOException{
+        throws IOException {
 
         byte [] buffer = new byte[1024 * 8];
         for (int b_read = in.read(buffer);
@@ -776,13 +1184,13 @@ public final class ModuleFileFormat {
     }
 
     private static void copyStream(InputStream in, OutputStream out)
-        throws IOException{
+        throws IOException {
         copyStream(in, (DataOutput) new DataOutputStream(out));
     }
 
     private static void copyStream(InputStream in, DataOutput out,
                                    int count)
-        throws IOException{
+        throws IOException {
 
         byte [] buffer = new byte[1024 * 8];
 
@@ -834,7 +1242,8 @@ public final class ModuleFileFormat {
                 + Integer.toHexString(found));
     }
 
-    private static void ensureShortNativePath(File path, String name) throws IOException {
+    private static void ensureShortNativePath(File path, String name)
+        throws IOException {
             // TODO: check for native code file in a stricter way
             if (path.canExecute()
                 && name.indexOf('/') != -1)
@@ -919,9 +1328,12 @@ public final class ModuleFileFormat {
         return hashLength;
     }
 
-    private static byte [] readHashBytes(DataInputStream in, short hashLength) throws IOException {
+    private static byte [] readHashBytes(DataInputStream in, short hashLength)
+        throws IOException {
+
         final byte [] hash = new byte[hashLength];
         in.readFully(hash);
+
         return hash;
     }
 
@@ -929,15 +1341,17 @@ public final class ModuleFileFormat {
         return readHashBytes(in, readHashLength(in));
     }
 
-    private static byte [] readFileHash(DigestInputStream dis) throws IOException {
+    private static byte [] readFileHash(DigestInputStream dis)
+        throws IOException {
+
         DataInputStream in = new DataInputStream(dis);
 
         final short hashLength = readHashLength(in);
 
-        /* Turn digest computation off before reading the file hash */
+        // Turn digest computation off before reading the file hash
         dis.on(false);
         byte [] hash = readHashBytes(in, hashLength);
-        /* Turn digest computation on again afterwards. */
+        // Turn digest computation on again afterwards.
         dis.on(true);
 
         return hash;
@@ -955,7 +1369,8 @@ public final class ModuleFileFormat {
         short sections;             // Number of following sections
         ModuleFile.HashType hashType;// One of ModuleFile.HashType
                                     //   (applies to all hashes in this file)
-        byte[] hash;                // Hash of entire file (except this hash)
+        byte[] hash;                // Hash of entire file (except this hash
+                                    // and the Signature section, if present)
 
         public String toString() {
             return "MODULE{csize=" + csize
@@ -978,7 +1393,7 @@ public final class ModuleFileFormat {
             ensureNonNegativity(csize, "csize");
             ensureNonNegativity(usize, "usize");
             ensureNonNegativity(sections, "sections");
-
+ 
             magic = MAGIC;
             type = Type.MODULE_FILE;
             major = ModuleFile.MAJOR_VERSION;
@@ -1012,7 +1427,7 @@ public final class ModuleFileFormat {
                 if (i.value() == value) return i;
 
             throw new IllegalArgumentException("No HashType exists with value "
-                                                + value);
+                                               + value);
         }
 
         public static ModuleFileHeader read(final DigestInputStream dis)
@@ -1039,13 +1454,19 @@ public final class ModuleFileFormat {
             final short sections = in.readShort();
             final short hashTypeValue = in.readShort();
             ModuleFile.HashType hashType = lookupHashType(hashTypeValue);
-
             final byte [] hash = readFileHash(dis);
 
             return new ModuleFileHeader(csize, usize, sections, hashType, hash);
         }
-        }
 
+        private byte[] toByteArray() throws IOException {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            write(new DataOutputStream(baos));
+
+            return baos.toByteArray();
+        }
+        }
+       
         public final static class SectionHeader {
             // Fields are specified as unsigned. Treat signed values as bugs.
             private ModuleFile.SectionType type;
@@ -1111,7 +1532,8 @@ public final class ModuleFileFormat {
                 short tvalue = in.readShort();
                 final ModuleFile.SectionType type = lookupSectionType(tvalue);
                 short cvalue = in.readShort();
-                final ModuleFile.Compressor compressor = lookupCompressor(cvalue);
+                final ModuleFile.Compressor compressor =
+                    lookupCompressor(cvalue);
                 final int csize = in.readInt();
                 final short sections = in.readShort();
                 final byte [] hash = readHash(in);
@@ -1185,6 +1607,202 @@ public final class ModuleFileFormat {
                 final String path = in.readUTF();
 
                 return new SubSectionFileHeader(csize, path);
+            }
+        }
+
+        public final static class PKCS7Signer implements ModuleFileSigner {
+
+            public byte[] generateSignature(byte[] toBeSigned,
+                                            ModuleFileSigner.Parameters
+                                                parameters)
+                throws SignatureException {
+
+                // Compute the signature
+
+                Signature signatureAlgorithm =
+                    parameters.getSignatureAlgorithm();
+                signatureAlgorithm.update(toBeSigned);
+                byte[] signature = signatureAlgorithm.sign();
+
+                // Create the PKCS #7 signed data message
+
+                AlgorithmId keyAlgorithmId = null;
+                AlgorithmId digestAlgorithmId = null;
+                String signatureAlgorithmName =
+                    signatureAlgorithm.getAlgorithm();
+
+                try {
+                    keyAlgorithmId =
+                        AlgorithmId.get(AlgorithmId.getEncAlgFromSigAlg(
+                            signatureAlgorithmName));
+                    digestAlgorithmId =
+                        AlgorithmId.get(AlgorithmId.getDigAlgFromSigAlg(
+                            signatureAlgorithmName));
+
+                } catch (NoSuchAlgorithmException nsae) {
+                    throw new SignatureException(nsae);
+                }
+
+                AlgorithmId[] algorithms = {digestAlgorithmId};
+                ContentInfo contentInfo = new ContentInfo(toBeSigned);
+                Certificate[] signerCertificateChain =
+                    parameters.getSignerCertificateChain();
+                X509Certificate[] signerX509CertificateChain = null;
+                X500Principal issuerName = null;
+                BigInteger serialNumber = null;
+
+                List<Certificate> certs = Arrays.asList(signerCertificateChain);
+                signerX509CertificateChain =
+                    certs.toArray(new X509Certificate[0]);
+                issuerName =
+                        signerX509CertificateChain[0].getIssuerX500Principal();
+                serialNumber = signerX509CertificateChain[0].getSerialNumber();
+
+                SignerInfo signerInfo = new SignerInfo(
+                    X500Name.asX500Name(issuerName), serialNumber,
+                    digestAlgorithmId, keyAlgorithmId, signature);
+                SignerInfo[] signerInfos = {signerInfo};
+
+                ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+                PKCS7 pkcs7 = new PKCS7(algorithms, contentInfo,
+                    signerX509CertificateChain, signerInfos);
+
+                try {
+                    pkcs7.encodeSignedData(outStream);
+
+                } catch (IOException ioe) {
+                    throw new SignatureException(ioe);
+                }
+
+                return outStream.toByteArray();
+            }
+        }
+
+        public final static class PKCS7SignerParameters
+            implements ModuleFileSigner.Parameters {
+
+            private ModuleFile.SignatureType signatureType =
+                ModuleFile.SignatureType.PKCS7;
+
+            private Signature signatureAlgorithm;
+
+            private Certificate[] signerCertificateChain;
+
+            public PKCS7SignerParameters(ModuleFile.SignatureType type,
+                                         Signature signature,
+                                         Certificate[] certificateChain) {
+                signatureType = type;
+                signatureAlgorithm = signature;
+                signerCertificateChain = certificateChain;
+            }
+
+            public ModuleFile.SignatureType getSignatureType() {
+                return signatureType;
+            }
+
+            public Signature getSignatureAlgorithm() {
+                return signatureAlgorithm;
+            }
+
+            public Certificate[] getSignerCertificateChain() {
+                return signerCertificateChain;
+            }
+        }
+
+        public final static class PKCS7Verifier implements ModuleFileVerifier {
+
+            private PKCS7 pkcs7 = null;
+            private SignerInfo[] signerInfos = null;
+            private ModuleFileVerifier.Parameters parameters = null;
+            private static CertificateFactory certificateFactory = null;
+
+            public Set<CodeSigner> verifySignature(byte[] signature,
+                                                   ModuleFileVerifier.Parameters
+                                                       parameters)
+                throws SignatureException {
+
+                try {
+                    if (pkcs7 == null) {
+                        pkcs7 = new PKCS7(signature);
+                    }
+                    if (signerInfos == null) {
+                        signerInfos = pkcs7.verify();
+                    }
+                    parameters = parameters;
+
+                    return getSigners();
+
+                } catch (IOException ioe) {
+                    throw new SignatureException(ioe);
+
+                } catch (GeneralSecurityException gse) {
+                    throw new SignatureException(gse);
+                }
+            }
+
+            public void verifyHashes(byte[] signature,
+                                     ModuleFileVerifier.Parameters parameters)
+                throws SignatureException {
+
+                // TODO - check signature hashes
+            }
+
+            private Set<CodeSigner> getSigners()
+                throws IOException, GeneralSecurityException {
+
+                Set<CodeSigner> signers = new HashSet<>();
+
+                for (SignerInfo signerInfo : signerInfos) {
+                    List<X509Certificate> certChain =
+                        signerInfo.getCertificateChain(pkcs7);
+                    if (certificateFactory == null) {
+                        certificateFactory =
+                            CertificateFactory.getInstance("X509");
+                    }
+                    CertPath certPath =
+                        certificateFactory.generateCertPath(certChain);
+                    signers.add(new CodeSigner(certPath,
+                                               getTimestamp(signerInfo)));
+                }
+                return signers;
+            }
+
+            private Timestamp getTimestamp(SignerInfo signerInfo)
+                throws IOException, GeneralSecurityException {
+
+                Timestamp timestamp = null;
+
+                // Extract the signer's unsigned attributes
+                PKCS9Attributes unsignedAttrs =
+                    signerInfo.getUnauthenticatedAttributes();
+                if (unsignedAttrs != null) {
+                    PKCS9Attribute timestampTokenAttr =
+                        unsignedAttrs.getAttribute("signatureTimestampToken");
+                    if (timestampTokenAttr != null) {
+                        PKCS7 timestampToken =
+                            new PKCS7((byte[])timestampTokenAttr.getValue());
+                        // Extract the content (an encoded timestamp token info)
+                        byte[] encodedTimestampTokenInfo =
+                            timestampToken.getContentInfo().getData();
+                        // Extract the signer (the Timestamping Authority)
+                        // while verifying the content
+                        SignerInfo[] tsaSigner =
+                            timestampToken.verify(encodedTimestampTokenInfo);
+                        // Expect only one signer
+                        List<X509Certificate> tsaCertChain =
+                            tsaSigner[0].getCertificateChain(timestampToken);
+                        CertPath tsaCertPath =
+                            certificateFactory.generateCertPath(tsaCertChain);
+                        // Create a timestamp token info object
+                        TimestampToken timestampTokenInfo =
+                            new TimestampToken(encodedTimestampTokenInfo);
+                        // Create a timestamp object
+                        timestamp = new Timestamp(timestampTokenInfo.getDate(),
+                                                  tsaCertPath);
+                    }
+                }
+                return timestamp;
+
             }
         }
 }

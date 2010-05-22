@@ -27,6 +27,9 @@ package org.openjdk.jigsaw.cli;
 
 import java.lang.module.*;
 import java.io.*;
+import java.security.*;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.util.*;
 
 import static java.lang.System.out;
@@ -35,9 +38,11 @@ import static java.lang.System.err;
 import org.openjdk.jigsaw.*;
 import org.openjdk.internal.joptsimple.*;
 
+import sun.security.util.Password;
+
 /* Interface:
 
-jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] [-d <output_dir>] [-c <command>] [-n <name>] [-e <e-mail@address>] [-s <short description>] [-l <long description>] [-x <extra metadata>] deb <module_name>*
+jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] [-d <output_dir>] [-c <command>] [-n <name>] [-e <e-mail@address>] [-s <short description>] [-l <long description>] [-x <extra metadata>] [-S <signer_ID>] [-k <keystore_location>] [-t <keystore_type>] [--sign] [--nopassword] deb <module_name>*
 
   -v           : verbose output
   -L           : library the modules are installed to
@@ -52,7 +57,11 @@ jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] 
   -l           : long description
   -x           : additional metadata - for Debian packages, a file whose contents gets appended to DEBIAN/control
   --fast       : use fastest, rather then best compression
-
+  --sign           : sign the module
+  --nopassword     : do not prompt for a keystore password
+  -S, --signer     : module signer's identifier
+  -k, --keystore   : module signer's keystore location
+  -t, --storetype  : module signer's keystore type
 */
 
 public class Packager {
@@ -124,6 +133,21 @@ public class Packager {
     private File natcmds;
     private File config_dir;
 
+    // Sign the module
+    private boolean sign = false;
+
+    // Do not prompt for a keystore password
+    private boolean nopassword = false;
+
+    // Module signer's identifier
+    private String signer = null;
+
+    // Module signer's keystore location
+    private String keystore = null;
+
+    // Module signer's keystore type
+    private String storetype = null;
+
     // Installed size
     private Integer installedSize = null;
 
@@ -169,6 +193,40 @@ public class Packager {
                     ModuleFileFormat.Writer writer
                         = new ModuleFileFormat.Writer(outputfile, classes);
                     writer.useFastestCompression(fast || jigsawDevMode);
+
+                    // Prepare to sign the module
+                    if (signer != null || keystore != null || storetype != null
+                        || sign) {
+
+                        // Get signer's private key and public key certificates
+                        KeyStore.PrivateKeyEntry signerEntry = getSignerEntry();
+                        PrivateKey privateKey = signerEntry.getPrivateKey();
+
+                        if (verbose) {
+                            System.out.println("Signing module using '"
+                                               + signer
+                                               + "' from "
+                                               + storetype
+                                               + " keystore "
+                                               + (keystore != null ?
+                                                  keystore : ""));
+                        }
+
+                        // Create the signing mechanism
+                        Signature signature =
+                            Signature.getInstance(
+                                getSignatureAlgorithm(privateKey));
+                        signature.initSign(privateKey);
+
+                        ModuleFileSigner.Parameters parameters =
+                            new ModuleFileFormat.PKCS7SignerParameters(
+                                FileConstants.ModuleFile.SignatureType.PKCS7,
+                                signature, signerEntry.getCertificateChain());
+
+                        // Supply the signing details
+                        writer.setSignatureMechanism(
+                            new ModuleFileFormat.PKCS7Signer(), parameters);
+                    }
                     writer.writeModule(classes, resources,
                                        natlibs, natcmds, config_dir);
                 }
@@ -176,8 +234,178 @@ public class Packager {
                     x.printStackTrace();
                     throw new Command.Exception(x);
                 }
+                catch (GeneralSecurityException gse) {
+                    throw new Command.Exception(gse);
+                }
             }
             finishArgs();
+        }       
+
+        /*
+         * Retrieve the signer's entry from the keystore.
+         */
+        private KeyStore.PrivateKeyEntry getSignerEntry()
+            throws IOException, GeneralSecurityException {
+
+            FileInputStream inStream = null;
+            char[] storePassword = null;
+            char[] keyPassword = null;
+
+            if (storetype == null) {
+                storetype = KeyStore.getDefaultType();
+            }
+            KeyStore ks = KeyStore.getInstance(storetype);
+            storetype = ks.getType();
+
+            try {
+                if (keystore == null) {
+                    if ("JKS".equalsIgnoreCase(storetype)) {
+                        keystore = System.getProperty("user.home")
+                                   + File.separator
+                                   + ".keystore";
+                        inStream = new FileInputStream(keystore);
+                    }
+                } else {
+                    inStream = new FileInputStream(keystore);
+                }
+
+                // Prompt user for the keystore password (except when
+                // prohibited or when using Windows MY native keystore)
+                if (!nopassword || !storetype.equalsIgnoreCase("Windows-MY")) {
+                    System.err.print("Enter password for "
+                                     + storetype
+                                     + " keystore: ");
+                    System.err.flush();
+                    storePassword = Password.readPassword(System.in);
+                }
+
+                // Load the keystore
+                ks.load(inStream, storePassword);
+
+                // Check that signer identifies a private key entry
+                if (!findSignerKeyEntry(ks)) {
+                    throw new KeyStoreException("Signer key not found in "
+                                                + storetype
+                                                + " keystore "
+                                                + (inStream != null ?
+                                                   keystore : ""));
+                }
+
+                Certificate[] certificateChain = ks.getCertificateChain(signer);
+                PrivateKey privateKey = null;
+
+                // First try to recover the key using keystore password
+                try {
+                    privateKey = (PrivateKey) ks.getKey(signer, storePassword);
+
+                } catch (UnrecoverableKeyException e) {
+                    if (nopassword ||
+                        storetype.equalsIgnoreCase("PKCS11") ||
+                        storetype.equalsIgnoreCase("Windows-MY")) {
+
+                        throw e;
+                    }
+                    // Otherwise prompt the user for key password
+                    System.err.print("Enter password for '"
+                                     + signer
+                                     + "' key: ");
+                    System.err.flush();
+                    keyPassword = Password.readPassword(System.in);
+                    privateKey = (PrivateKey) ks.getKey(signer, keyPassword);
+                }
+
+                return new KeyStore.PrivateKeyEntry(privateKey,
+                                                    certificateChain);
+
+            } finally { // clean-up
+                if (storePassword != null) {
+                    Arrays.fill(storePassword, ' ');
+                    storePassword = null;
+                }
+                if (keyPassword != null) {
+                    Arrays.fill(keyPassword, ' ');
+                    keyPassword = null;
+                }
+                if (inStream != null) {
+                    try {
+                        inStream.close();
+                    } catch (IOException ioe) {
+                        // ignore
+                    }
+                }
+            }
+        }
+
+
+        /*
+         * Checks that the signer identifies a private key entry.
+         */
+        private boolean findSignerKeyEntry(KeyStore ks)
+            throws KeyStoreException {
+
+            if (signer == null) {
+                return ((signer = findSignerAlias(ks)) != null);
+
+            } else {
+                return (ks.containsAlias(signer) &&
+                        ks.entryInstanceOf(signer,
+                                           KeyStore.PrivateKeyEntry.class));
+            }
+        }
+
+        /*
+         * When the keystore has only one private key entry then the signer
+         * need not be specified.
+         */
+        private String findSignerAlias(KeyStore keystore)
+                throws KeyStoreException {
+            int size = keystore.size();
+            Enumeration<String> aliases = keystore.aliases();
+            String alias = null;
+
+            if (size == 1) {
+                alias = aliases.nextElement();
+                if (!keystore.entryInstanceOf(alias,
+                        KeyStore.PrivateKeyEntry.class)) {
+                    alias = null;
+                }
+            } else if (size > 0) {
+                int privateKeyCount = 0;
+                while (aliases.hasMoreElements()) {
+                    String a = aliases.nextElement();
+                    if (keystore.entryInstanceOf(a,
+                            KeyStore.PrivateKeyEntry.class)) {
+                        alias = a;
+                        privateKeyCount++;
+                    }
+                    if (privateKeyCount > 1) {
+                        alias = null;
+                        break;
+                    }
+                }
+            }
+            return alias;
+        }
+
+        /*
+         * The signature algorithm is derived from the signer key.
+         */
+        private String getSignatureAlgorithm(PrivateKey privateKey) {
+            String signatureAlgorithm = null;
+
+            switch (privateKey.getAlgorithm()) {
+                case "RSA":
+                    signatureAlgorithm = "SHA256withRSA";
+                    break;
+                case "DSA":
+                    signatureAlgorithm = "SHA256withDSA";
+                    break;
+                case "EC":
+                    signatureAlgorithm = "SHA256withECDSA";
+                    break;
+                }
+
+            return signatureAlgorithm;
         }
     }
 
@@ -612,7 +840,7 @@ public class Packager {
 
     private void usage() {
         out.format("%n");
-        out.format("usage: jpkg [-v] [-L <library>] [-r <resource-dir>] [-i <include-dir>] [-m <module-dir>] [-d <output-dir>]  [-c <command>] [-n <name>] [-e <e-mail@address>] [-s <short description>] [-l <long description>] [-x <extra metadata>] [deb|jmod] <module-name>%n");
+        out.format("usage: jpkg [-v] [-L <library>] [-r <resource-dir>] [-i <include-dir>] [-m <module-dir>] [-d <output-dir>]  [-c <command>] [-n <name>] [-e <e-mail@address>] [-s <short description>] [-l <long description>] [-x <extra metadata>] [-S <signer_ID>] [-k <keystore_location>] [-t <keystore_type>] [--sign] [--nopassword] [deb|jmod] <module-name>%n");
         out.format("%n");
         try {
             parser.printHelpOn(out);
@@ -754,6 +982,33 @@ public class Packager {
                .describedAs("dir")
                .ofType(File.class));
 
+        parser.acceptsAll(Arrays.asList("sign"),
+                          "Sign the module");
+
+        parser.acceptsAll(Arrays.asList("nopassword"),
+                          "Do not prompt for a keystore password");
+
+        OptionSpec<String> signerId
+            = (parser.acceptsAll(Arrays.asList("S", "signer"),
+                                "Module signer's identifier")
+               .withRequiredArg()
+               .describedAs("ID")
+               .ofType(String.class));
+
+        OptionSpec<String> keystoreUrl
+            = (parser.acceptsAll(Arrays.asList("k", "keystore"),
+                                "Module signer's keystore location")
+               .withRequiredArg()
+               .describedAs("location")
+               .ofType(String.class));
+
+        OptionSpec<String> keystoreType
+            = (parser.acceptsAll(Arrays.asList("t", "storetype"),
+                                "Module signer's keystore type")
+               .withRequiredArg()
+               .describedAs("type")
+               .ofType(String.class));
+
         if (args.length == 0) {
             usage();
             return;
@@ -831,6 +1086,26 @@ public class Packager {
         if (opts.has(isize))
             installedSize = opts.valueOf(isize);
 
+        if (opts.has("signer")) {
+            signer = opts.valueOf(signerId);
+        }
+        if (opts.has("keystore")) {
+            keystore = opts.valueOf(keystoreUrl);
+            // Compatibility with keytool and jarsigner options
+            if (keystore.equals("NONE")) {
+                keystore = null;
+            }
+        }
+        if (opts.has("storetype")) {
+            storetype = opts.valueOf(keystoreType);
+        }
+        if (opts.has("sign")) {
+            sign = true;
+        }
+        if (opts.has("nopassword")) {
+            nopassword = true;
+        }
+       
         if (cmd == Deb.class)
             (new Deb()).run(null, opts);
         else if (cmd == Jmod.class)

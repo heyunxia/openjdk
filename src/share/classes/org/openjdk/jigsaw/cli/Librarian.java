@@ -28,6 +28,7 @@ package org.openjdk.jigsaw.cli;
 import java.lang.module.*;
 import java.io.*;
 import java.net.*;
+import java.security.*;
 import java.util.*;
 import java.util.regex.*;
 
@@ -189,6 +190,8 @@ public class Librarian {
                     throw new Command.Exception(x);
                 } catch (IOException x) {
                     throw new Command.Exception(x);
+                } catch (SignatureException x) {
+                    throw new Command.Exception(x);
                 }
                 return;
             }
@@ -231,6 +234,8 @@ public class Librarian {
             } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
             } catch (IOException x) {
+                throw new Command.Exception(x);
+            } catch (SignatureException x) {
                 throw new Command.Exception(x);
             }
 
