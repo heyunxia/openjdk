@@ -75,6 +75,7 @@ public class Names {
     public final Name java_lang_Enum;
     public final Name java_dyn_MethodHandle;
     public final Name java_dyn_InvokeDynamic;
+    public final Name module_info;
     public final Name package_info;
     public final Name ConstantValue;
     public final Name LineNumberTable;
@@ -148,6 +149,16 @@ public class Names {
     public final Name getDeclaringClass;
     public final Name ex;
     public final Name finalize;
+    public final Name module;
+    public final Name Module;
+    public final Name requires;
+    public final Name provides;
+    public final Name permits;
+    public final Name synthetic;
+    public final Name ModuleClass;
+    public final Name ModulePermits;
+    public final Name ModuleProvides;
+    public final Name ModuleRequires;
 
     public final Name.Table table;
 
@@ -184,6 +195,7 @@ public class Names {
         java_lang_Enum = fromString("java.lang.Enum");
         java_dyn_MethodHandle = fromString("java.dyn.MethodHandle");
         java_dyn_InvokeDynamic = fromString("java.dyn.InvokeDynamic");
+        module_info = fromString("module-info");
         package_info = fromString("package-info");
         serialVersionUID = fromString("serialVersionUID");
         ConstantValue = fromString("ConstantValue");
@@ -263,6 +275,16 @@ public class Names {
         getDeclaringClass = fromString("getDeclaringClass");
         ex = fromString("ex");
         finalize = fromString("finalize");
+        module = fromString("module");
+        Module = fromString("Module");
+        requires = fromString("requires");
+        provides = fromString("provides");
+        permits = fromString("permits");
+        synthetic = fromString("synthetic");
+        ModuleClass = fromString("ModuleClass");
+        ModulePermits = fromString("ModulePermits");
+        ModuleProvides = fromString("ModuleProvides");
+        ModuleRequires = fromString("ModuleRequires");
     }
 
     protected Name.Table createTable(Options options) {

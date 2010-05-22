@@ -3,11 +3,11 @@
  * @bug 4880220
  * @summary Add a warning when accessing a static method via an reference
  *
- * @compile/ref=T4880220.empty.out                                                   T4880220.java
- * @compile/ref=T4880220.warn.out       -XDrawDiagnostics         -Xlint:static      T4880220.java
- * @compile/ref=T4880220.warn.out       -XDrawDiagnostics         -Xlint:all         T4880220.java
- * @compile/ref=T4880220.empty.out      -XDrawDiagnostics         -Xlint:all,-static T4880220.java
- * @compile/ref=T4880220.error.out/fail -XDrawDiagnostics -Werror -Xlint:all         T4880220.java
+ * @compile/ref=T4880220.empty.out                                                         T4880220.java
+ * @compile/ref=T4880220.warn.out       -XDrawDiagnostics         -Xlint:static            T4880220.java
+ * @compile/ref=T4880220.warn.out       -XDrawDiagnostics         -Xlint:all,-path         T4880220.java
+ * @compile/ref=T4880220.empty.out      -XDrawDiagnostics         -Xlint:all,-path,-static T4880220.java
+ * @compile/ref=T4880220.error.out/fail -XDrawDiagnostics -Werror -Xlint:all,-path         T4880220.java
  */
 
 public class T4880220 {

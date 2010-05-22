@@ -96,7 +96,7 @@ public class Scope {
         this.shared = 0;
     }
 
-    /** Construct a new scope, within scope next, with given owner,
+    /** Construct a new scope, with given owner,
      *  using a fresh table of length INITIAL_SIZE.
      */
     public Scope(Symbol owner) {

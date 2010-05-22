@@ -42,6 +42,15 @@ import com.sun.tools.javac.util.Context;
 
 public class T6725036 {
     public static void main(String... args) throws Exception {
+        File javaHome = new File(System.getProperty("java.home"));
+        if (javaHome.getName().equals("jre"))
+            javaHome = javaHome.getParentFile();
+        if (file(javaHome, "lib", "modules", "%jigsaw-library").exists()
+                && !file(javaHome, "jre", "lib", "rt.jar").exists()) {
+            System.err.println("PASS BY DEFAULT: modular JDK found with no rt.jar");
+            return;
+        }
+
         new T6725036().run();
     }
 
@@ -91,4 +100,11 @@ public class T6725036 {
     }
 
     int errors;
+
+    static File file(File dir, String... path) {
+        File f = dir;
+        for (String p: path)
+            f = new File(f, p);
+        return f;
+    }
 }
