@@ -27,7 +27,8 @@ package org.openjdk.jigsaw;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-
+import java.util.List;
+import java.util.ArrayList;
 
 class Trace {
 
@@ -44,9 +45,48 @@ class Trace {
         }
     }
 
+    // Trace.trace method may be called while the classes for tracing
+    // e.g. java.util.Formatter) are being loaded.  Cache the traces
+    // to avoid infinite loop until the very first call completes.
+    static class Cache {
+        static List<String> formats = new ArrayList<String>(); 
+        static List<Object[]> traceArgs = new ArrayList<Object[]>(); 
+        static boolean caching = false;
+
+        /**
+         * Returns true if the trace message is added to the cache.
+         */
+        static synchronized boolean add(String fmt, Object ... args) {
+            if (caching && formats != null) {
+                formats.add(fmt);
+                traceArgs.add(args);
+                return true;
+            }
+            caching = true;
+            return false;
+        }
+
+        static synchronized boolean isEmpty() {
+            return formats == null;
+        }
+
+        static synchronized void printAndClear() {
+            if (isEmpty())
+                return;
+
+            for (int i=0; i < formats.size(); i++)  {
+                System.out.format(formats.get(i), traceArgs.get(i));
+            }
+            caching = false;
+            formats = null;
+            traceArgs = null;
+        }
+    }
+
     static void trace(int level, int depth, String fmt, Object ... args) {
         if (level >= traceLevel)
             return;
+
         StringBuilder sb = new StringBuilder();
         sb.append("| ");
         for (int i = 0; i < level; i++)
@@ -56,7 +96,22 @@ class Trace {
                 sb.append("-");
             sb.append(" ");
         }
-        System.out.format(sb.toString() + fmt + "%n", args);
+        sb.append(fmt);
+        sb.append("%n");
+       
+        // Cache the traces until the first call to the format method
+        // returns to avoid recursion while classes are being loaded
+        if (Cache.add(sb.toString(), args)) {
+            return;
+        }
+
+        System.out.format(sb.toString(), args);
+
+        if (!Cache.isEmpty()) {
+            // now classes needed by tracing are loaded and initialized
+            // print all cached traces
+            Cache.printAndClear();
+        }
     }
 
     static void trace(int level, String fmt, Object ... args) {
