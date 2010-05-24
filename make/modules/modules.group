@@ -49,6 +49,9 @@ module jdk.base {
     // They have to be bundled in signed jars.
     include US_export_policy;
     include local_policy;
+
+    // include JSR-292 in the base module for now
+    include invokedynamic;
     requires jdk.boot;
     class org.openjdk.jigsaw.Hi;    // testing
 }
