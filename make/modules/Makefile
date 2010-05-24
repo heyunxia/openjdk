@@ -77,17 +77,14 @@ include $(BUILDDIR)/common/Defs.gmk
 #       multi-module path is <modulepath>/<module>.
 #       
 
-TMP = $(ABS_MODULES_TEMPDIR)
-MODULE_CLASSLIST = $(ABS_MODULES_TEMPDIR)/classlist
+CLASSANALYZER_JAR_FILE = $(BUILDTOOLJARDIR)/classanalyzer.jar
+MODULES_CONFIG = modules.config
+MODULES_GROUP = modules.group
+DEP_CONFIG = jdk7.depconfig
+OPTIONAL_DEP_CONFIG = optional.depconfig
 MODULE_CLASSES = $(ABS_MODULES_TEMPDIR)/classes
-MODULES_LIST = $(MODULE_CLASSLIST)/modules.list
-MODULEINFO_SRC = $(MODULES_TEMPDIR)/src
-JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
 
-# FIXME: need to determine at build time
-MODULE_VERSION = 7-ea 
-
-all:: install-modules
+all:: $(MODULES_LIST) install-modules
 
 JAR_LIST := $(shell $(FIND) $(ABS_OUTPUTDIR)/lib -name \*.jar -print) 
 unpack-jars:
@@ -102,8 +99,25 @@ unpack-jars:
 	done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
-gen-classlist: unpack-jars
-	$(CD) tools && $(MAKE) all
+$(MODULES_LIST): $(MODULES_CONFIG) $(MODULES_GROUP) \
+                 $(DEP_CONFIG) $(OPTIONAL_DEP_CONFIG) \
+                 $(CLASSANALYZER_JAR_FILE)
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	@$(RM) -rf $(MODULE_CLASSLIST_DIR)
+	@$(RM) -rf $(MODULEINFO_SRC)
+	@$(MKDIR) -p $(MODULE_CLASSLIST_DIR)
+	$(HOST_JAVA_CMD) \
+                -Dclassanalyzer.debug \
+                -jar $(CLASSANALYZER_JAR_FILE) \
+                -jdkhome $(OUTPUTDIR) \
+                -config $(MODULES_CONFIG) \
+                -config $(MODULES_GROUP) \
+                -depconfig $(DEP_CONFIG) \
+                -depconfig $(OPTIONAL_DEP_CONFIG) \
+                -base $(BASE_MODULE) \
+                -output $(MODULE_CLASSLIST_DIR) \
+                -moduleinfo $(MODULEINFO_SRC)
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 #
 # TODO: create only modules that belong to the specified
@@ -140,12 +154,12 @@ prep-module-lib:
 	$(RM) -rf $(JIGSAW_MODULE_LIB)
 	$(HOST_JMOD_CMD) create -N -L $(JIGSAW_MODULE_LIB)
 
-modularize: gen-classlist prep-module-lib
+modularize: unpack-jars prep-module-lib
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(MODULES_DIR)
 	@$(MKDIR) -p $(MODULES_DIR)
 	$(HOST_JAVAC_CMD) -d $(MODULES_DIR) \
-            -Xbootclasspath:$(MODULE_CLASSES)\
+	    -Xbootclasspath:$(MODULE_CLASSES) \
 	    -modulepath $(MODULES_DIR) \
             -sourcepath $(MODULEINFO_SRC) \
             $(MODULEINFO_SRC)/*/module-info.java
@@ -155,23 +169,23 @@ modularize: gen-classlist prep-module-lib
 	   mlib=$(ABS_MODULES_DIR)/$$m ; \
            $(MKDIR) -p $$mlib ; \
 	   for s in `$(GREP) "^$$m " $(MODULES_LIST)` ; do \
-              if [ -d $(TMP)/$$s ] ; then \
+              if [ -d $(ABS_SUBMODULES_DIR)/$$s ] ; then \
                  for d in bin lib etc include ; do \
-                    if [ -d $(TMP)/$$s/$$d ] ; then \
-                       $(CP) -rf $(TMP)/$$s/$$d  $$mlib; \
+                    if [ -d $(ABS_SUBMODULES_DIR)/$$s/$$d ] ; then \
+                       $(CP) -rf $(ABS_SUBMODULES_DIR)/$$s/$$d  $$mlib; \
                     fi ; \
                  done \
               fi ; \
 	   done ; \
            $(MKDIR) -p $$mlib/classes ; \
 	   $(MV) $$mlib/module-info.class $$mlib/classes ; \
-	   if [ -f $(MODULE_CLASSLIST)/$$m.classlist ] ; then \
-   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.classlist \
+	   if [ -f $(MODULE_CLASSLIST_DIR)/$$m.classlist ] ; then \
+   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST_DIR)/$$m.classlist \
 	           | $(CPIO) -pdum $$mlib/classes ; \
            fi ; \
-	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
+	   if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then \
                $(MKDIR) -p $$mlib/resources ; \
-   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST)/$$m.resources \
+   	       $(SED) -e 's%\\%\/%g' < $(MODULE_CLASSLIST_DIR)/$$m.resources \
 	           | $(CPIO) -pdum $$mlib/resources ; \
            fi ; \
 	   $(FIND) $$mlib -name '*.map' -exec $(RM) \{} \; ; \
@@ -198,7 +212,7 @@ install-modules: modularize $(ORB_IDL) $(IR_IDL)
 	$(CD) $(MODULES_DIR) && \
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
    	   $(ECHO) "Installing module $$m" ; \
-	   if [ -f $(MODULE_CLASSLIST)/$$m.resources ] ; then \
+	   if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then \
 	       $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources $$m \
                   -L $(JIGSAW_MODULE_LIB) || exit 1 ; \
            else \
@@ -209,7 +223,7 @@ install-modules: modularize $(ORB_IDL) $(IR_IDL)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 clean clobber::
-	$(RM) -rf $(ABS_MODULES_TEMPDIR)
+	$(RM) -rf $(MODULEINFO_DIR)
 	$(RM) -rf $(MODULES_DIR)
 	$(RM) -rf $(JIGSAW_MODULE_LIB)
 

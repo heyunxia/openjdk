@@ -241,8 +241,11 @@ import_product:
 all build:: sanity-all post-sanity-all
 
 SUBDIRS       = tools java javax sun com
-SUBDIRS_tools = launchers
 SUBDIRS_misc  = org sunw jpda mkdemo mksample
+
+# tools/classanalyzer depends on the com.sun.tools.classfile library
+# added in jdk 7.  Build it after java is built.
+SUBDIRS_tools = modules/tools launchers
 
 include $(BUILDDIR)/common/Subdirs.gmk
 

@@ -255,12 +255,6 @@ else \
 fi
 endef
 
-# Modules for JDK only
-MODULES_LIST_DIR = $(MODULES_TEMPDIR)/classlist
-JDK_MODULES = $(MODULES_LIST_DIR)/jdk.modules.list
-JRE_MODULES = $(MODULES_LIST_DIR)/jdk.jre.modules.list
-JDK_BASE_MODULES = $(MODULES_LIST_DIR)/jdk.base.tools.modules.list
-JRE_BASE_MODULES = $(MODULES_LIST_DIR)/jdk.base.modules.list
 
 # Rules for building packages
 include $(BUILDDIR)/common/BuildPackages.gmk
@@ -273,6 +267,13 @@ DEBIAN := $(shell \
                   $(ECHO) false; \
                fi)
 
+
+# set BUILD_PACKAGES=false to skip building jmod and native packages
+# 
+ifeq ($(BUILD_PACKAGES), false)
+PKG_TYPES =
+DEBIAN = false
+endif
 
 ifeq ($(DEBIAN), true)
 PKG_TYPES += deb-pkgs
