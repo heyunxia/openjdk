@@ -25,14 +25,17 @@ package com.sun.classanalyzer;
 import com.sun.classanalyzer.AnnotatedDependency.*;
 import com.sun.classanalyzer.Module.Dependency;
 import com.sun.classanalyzer.Module.PackageInfo;
+import com.sun.classanalyzer.Module.RequiresModule;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.File;
+import java.io.FileReader;
 import java.io.PrintWriter;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -50,6 +53,8 @@ public class ClassAnalyzer {
         List<String> depconfigs = new ArrayList<String>();
         String output = ".";
         String minfoPath = null;
+        String nonCorePkgs = null;
+        String properties = null;
         boolean mergeModules = true;
         boolean showDynamic = false;
 
@@ -58,43 +63,25 @@ public class ClassAnalyzer {
         while (i < args.length) {
             String arg = args[i++];
             if (arg.equals("-jdkhome")) {
-                if (i < args.length) {
-                    jdkhome = args[i++];
-                } else {
-                    usage();
-                }
+                jdkhome = getOption(args, i++);
             } else if (arg.equals("-cpath")) {
-                if (i < args.length) {
-                    cpath = args[i++];
-                } else {
-                    usage();
-                }
+                    cpath = getOption(args, i++);
             } else if (arg.equals("-config")) {
-                if (i < args.length) {
-                    configs.add(args[i++]);
-                } else {
-                    usage();
-                }
+                    configs.add(getOption(args, i++));
             } else if (arg.equals("-depconfig")) {
-                if (i < args.length) {
-                    depconfigs.add(args[i++]);
-                } else {
-                    usage();
-                }
+                        depconfigs.add(getOption(args, i++));
             } else if (arg.equals("-output")) {
-                if (i < args.length) {
-                    output = args[i++];
-                } else {
-                    usage();
-                }
+                output = getOption(args, i++);
             } else if (arg.equals("-moduleinfo")) {
-                if (i < args.length) {
-                    minfoPath = args[i++];
-                } else {
-                    usage();
-                }
+                    minfoPath = getOption(args, i++);
             } else if (arg.equals("-base")) {
-                Module.setBaseModule(args[i++]);
+                Module.setBaseModule(getOption(args, i++));
+            } else if (arg.equals("-version")) {
+                Module.setVersion(getOption(args, i++));
+            } else if (arg.equals("-properties")) {
+                Module.setModuleProperties(getOption(args, i++));
+            } else if (arg.equals("-noncorepkgs")) {
+                nonCorePkgs = getOption(args, i++);
             } else if (arg.equals("-nomerge")) {
                 // analyze the fine-grained module dependencies
                 mergeModules = false;
@@ -118,6 +105,10 @@ public class ClassAnalyzer {
         } else if (cpath != null) {
             ClassPath.setClassPath(cpath);
         }
+        
+        if (nonCorePkgs != null) {
+            Platform.addNonCorePkgs(nonCorePkgs);
+        }
 
         // create output directory if it doesn't exist
         File dir = getDir(output);
@@ -138,37 +129,36 @@ public class ClassAnalyzer {
             m.printResourceListTo(resolve(dir, module, "resources"));
             m.printSummaryTo(resolve(dir, module, "summary"));
             m.printDependenciesTo(resolve(dir, module, "dependencies"), showDynamic);
-
-            File mdir = getDir(moduleInfoSrc, module);
-            m.printModuleInfoTo(resolve(mdir, "module-info", "java"));
-
-            if (m.isBase() || Module.JDK_BASE_TOOLS.equals(m.name())) {
-                m.printModuleDependenciesTo(resolve(dir, module, "modules.list"));
-            }
         }
 
         // Generate other summary reports
         printModulesSummary(dir, showDynamic);
         printModulesDot(dir, showDynamic);
-        printModulesList(dir);
         printPackagesSummary(dir);
 
+        // Generate module-info.java for all modules
+        printModuleInfos(moduleInfoSrc);
 
-        // print module-info.java for the platform modules
-        for (Module m : Module.platformModules()) {
-            File mdir = getDir(moduleInfoSrc, m.name());
-            m.printModuleInfoTo(resolve(mdir, "module-info", "java"));
-            if (Module.JDK_MODULE.equals(m.name()) ||
-                    Module.JRE_MODULE.equals(m.name())) {
-                m.printModuleDependenciesTo(resolve(dir, m.name(), "modules.list"));
-            }
-        }
+        // generate modules.list file that list the top-level modules
+        // and its sub-modules.  The modules build reads this file
+        // to reconstruct the module content for each top-level module
+        printModulesList(dir);
     }
-    private static List<Module> modules = new ArrayList<Module>();
+
+    private static String getOption(String[] args, int index) {
+        if (index < args.length) {
+           return args[index];
+        } else {
+           usage();
+        }
+        return null;
+    }
 
     static void buildModules(List<String> configs,
             List<String> depconfigs,
             boolean mergeModules) throws IOException {
+        List<Module> modules = new ArrayList<Module>();
+
         // create modules based on the input config files
         for (String file : configs) {
             for (ModuleConfig mconfig : ModuleConfig.readConfigurationFile(file)) {
@@ -199,7 +189,7 @@ public class ClassAnalyzer {
             Module.buildModuleMembers();
         }
 
-        Module.initPlatformModules();
+        Platform.fixupPlatformModules();
     }
 
     private static void printModulesSummary(File dir, boolean showDynamic) throws IOException {
@@ -207,19 +197,17 @@ public class ClassAnalyzer {
         PrintWriter writer = new PrintWriter(new File(dir, "modules.summary"));
         try {
             for (Module m : Module.getTopLevelModules()) {
-                for (Dependency dep : m.dependents()) {
-                    if (!showDynamic && dep.dynamic && dep.optional) {
+                for (Dependency dep : m.dependences()) {
+                    if (!showDynamic && dep.dynamic && !dep.optional) {
                         continue;
                     }
                     if (dep.module == null || !dep.module.isBase()) {
 
                         String prefix = "";
                         if (dep.optional) {
-                            if (dep.dynamic) {
-                                prefix = "[dynamic] ";
-                            } else {
-                                prefix = "[optional] ";
-                            }
+                            prefix = "[optional] ";
+                        } else if (dep.dynamic) {
+                            prefix = "[dynamic] ";
                         }
 
                         Module other = dep != null ? dep.module : null;
@@ -237,8 +225,8 @@ public class ClassAnalyzer {
         try {
             writer.println("digraph jdk {");
             for (Module m : Module.getTopLevelModules()) {
-                for (Dependency dep : m.dependents()) {
-                    if (!showDynamic && dep.dynamic && dep.optional) {
+                for (Dependency dep : m.dependences()) {
+                    if (!showDynamic && dep.dynamic && !dep.optional) {
                         continue;
                     }
                     if (dep.module == null || !dep.module.isBase()) {
@@ -269,14 +257,27 @@ public class ClassAnalyzer {
         }
     }
 
+    private static boolean isJdkTool(Module m) {
+        Set<RequiresModule> tools = Module.findModule(Platform.JDK_TOOLS).requires();
+        for (RequiresModule t : tools) {
+            if (t.module() == m) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void printMembers(Module m, PrintWriter writer) {
         for (Module member : m.members()) {
-            if (!member.isEmpty()) {
+            if (!member.isEmpty() || m.allowEmpty()) {
                 writer.format("%s ", member);
                 printMembers(member, writer);
             }
         }
-
+        if (m.members().isEmpty() && isJdkTool(m)) {
+            String name = m.name().substring(4, m.name().length());
+            writer.format("%s ", name);
+        } 
     }
 
     private static void printModuleGroup(Module group, PrintWriter writer) {
@@ -285,39 +286,45 @@ public class ClassAnalyzer {
         writer.println();
     }
 
+    private static void printPlatformModulesList(File dir, Module m) throws IOException {
+        m.printDepModuleListTo(resolve(dir, m.name(), "modules.list"));
+    }
+
     private static void printModulesList(File dir) throws IOException {
-        // print module group / members relationship
+        // Generate ordered list of dependences
+        // for constructing the base/module images
+        printPlatformModulesList(dir, Platform.jdkModule());
+        printPlatformModulesList(dir, Platform.jreModule());
+        printPlatformModulesList(dir, Platform.jdkBaseModule());
+        printPlatformModulesList(dir, Platform.jdkBaseToolModule());
+
+        // print module group / members relationship in
+        // the dependences order so that its dependences are listed first
         PrintWriter writer = new PrintWriter(new File(dir, "modules.list"));
         try {
-            Module jdk = null;
-            Module jre = null;
-
-            // First get an order
-            for (Module m : Module.platformModules()) {
-                if (Module.JDK_MODULE.equals(m.name())) {
-                    jdk = m;
-                }
-            }
-
+            Module jdk = Platform.jdkModule();
             Set<Module> allModules = new LinkedHashSet<Module>(jdk.orderedDependencies());
             // put the boot module first
-            allModules.add(Module.bootModule());
+            allModules.add(Platform.bootModule());
             for (Module m : Module.getTopLevelModules()) {
                 if (!allModules.contains(m)) {
                     allModules.addAll(m.orderedDependencies());
                 }
             }
-            for (Module m : Module.platformModules()) {
-                if (!allModules.contains(m)) {
-                    allModules.addAll(m.orderedDependencies());
-                }
-            }
+
             for (Module m : allModules) {
                 printModuleGroup(m, writer);
             }
 
         } finally {
             writer.close();
+        }
+    }
+
+    private static void printModuleInfos(File dir) throws IOException {
+        for (Module m : Module.getTopLevelModules()) {
+            File mdir = getDir(dir, m.name());
+            m.printModuleInfoTo(resolve(mdir, "module-info", "java"));
         }
     }
 
@@ -413,14 +420,17 @@ public class ClassAnalyzer {
     private static void usage() {
         System.out.println("Usage: ClassAnalyzer <options>");
         System.out.println("Options: ");
-        System.out.println("\t-jdkhome <JDK home> where all jars will be parsed");
-        System.out.println("\t-cpath   <classpath> where classes and jars will be parsed");
-        System.out.println("\t         Either -jdkhome or -cpath option can be used.");
-        System.out.println("\t-config  <module config file>");
-        System.out.println("\t         This option can be repeated for multiple module config files");
-        System.out.println("\t-output  <output dir>");
-        System.out.println("\t-nomerge specify not to merge modules");
+        System.out.println("\t-jdkhome     <JDK home> where all jars will be parsed");
+        System.out.println("\t-cpath       <classpath> where classes and jars will be parsed");
+        System.out.println("\t             Either -jdkhome or -cpath option can be used.");
+        System.out.println("\t-config      <module config file>");
+        System.out.println("\t             This option can be repeated for multiple module config files");
+        System.out.println("\t-output      <output dir>");
+        System.out.println("\t-moduleinfo  <output dir of module-info.java>");
+        System.out.println("\t-base        <base module>");
+        System.out.println("\t-version     <module's version>");
         System.out.println("\t-showdynamic show dynamic dependencies in the reports");
+        System.out.println("\t-nomerge     specify not to merge modules");
         System.exit(-1);
     }
 }

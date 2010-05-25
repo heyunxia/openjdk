@@ -21,7 +21,6 @@
  * have any questions.
  *
  */
-
 package com.sun.classanalyzer;
 
 import java.io.File;
@@ -41,15 +40,17 @@ import com.sun.tools.classfile.AccessFlags;
  * @author Mandy Chung
  */
 public class Klass implements Comparable<Klass> {
+
     private final String classname;
     private final String packagename;
     private Module module;
-    private boolean isJavaLangObject;
     private String[] paths;
     private Map<String, Set<Method>> methods;
     private AccessFlags accessFlags;
     private long filesize;
-
+    private boolean isJavaLangObject;
+    private boolean isPlatformAPI;
+    private boolean isNonCoreAPI;
     private SortedMap<Klass, Set<ResolutionInfo>> deps;
     private SortedMap<Klass, Set<ResolutionInfo>> referrers;
     private List<AnnotatedDependency> annotatedDeps;
@@ -59,12 +60,13 @@ public class Klass implements Comparable<Klass> {
         this.classname = classname;
         this.paths = classname.replace('.', '/').split("/");
         this.isJavaLangObject = classname.equals("java.lang.Object");
+        this.isPlatformAPI = Platform.isPlatformAPI(classname);
+        this.isNonCoreAPI = Platform.isNonCoreAPI(classname);
         this.deps = new TreeMap<Klass, Set<ResolutionInfo>>();
         this.referrers = new TreeMap<Klass, Set<ResolutionInfo>>();
         this.methods = new HashMap<String, Set<Method>>();
         this.annotatedDeps = new ArrayList<AnnotatedDependency>();
         this.classForNameRefs = new TreeSet<String>();
-
         int pos = classname.lastIndexOf('.');
         this.packagename = (pos > 0) ? classname.substring(0, pos) : "<unnamed>";
     }
@@ -92,6 +94,14 @@ public class Klass implements Comparable<Klass> {
 
     boolean isPublic() {
         return accessFlags == null || accessFlags.is(AccessFlags.ACC_PUBLIC);
+    }
+
+    boolean isPlatformAPI() {
+        return isPlatformAPI;
+    }
+
+    boolean isNonCoreAPI() {
+        return isNonCoreAPI;
     }
 
     Module getModule() {
@@ -214,8 +224,8 @@ public class Klass implements Comparable<Klass> {
     List<AnnotatedDependency> getAnnotatedDeps() {
         return annotatedDeps;
     }
-
     private static Map<String, Klass> classes = new TreeMap<String, Klass>();
+
     static Set<Klass> getAllClasses() {
         return new TreeSet<Klass>(classes.values());
     }

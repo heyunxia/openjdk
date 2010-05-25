@@ -143,11 +143,6 @@ final class Resolver {
             trace(1, depth, "resolving %s %s",
                   rmi != null ? rmi.id() : "ROOT", dep);
 
-        if (dep.modifiers().contains(Modifier.OPTIONAL)) {
-            // Skip for now; we'll handle these later
-            return resolve(depth + 1, choice.next);
-        }
-
         String mn = dep.query().name();
 
         // First check to see whether we've already resolved a module with
@@ -204,6 +199,11 @@ final class Resolver {
                         return true;
                 }
             }
+        }
+
+        if (dep.modifiers().contains(Modifier.OPTIONAL)) {
+            // Skip for now; we'll handle these later
+            return resolve(depth + 1, choice.next);
         }
 
         if (tracing)

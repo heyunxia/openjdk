@@ -24,6 +24,9 @@
 package com.sun.classanalyzer;
 
 import com.sun.classanalyzer.AnnotatedDependency.OptionalDependency;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayDeque;
@@ -36,9 +39,13 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+
+import static com.sun.classanalyzer.Platform.*;
+import static com.sun.classanalyzer.Trace.*;
 
 /**
  *
@@ -47,15 +54,39 @@ import java.util.TreeSet;
 public class Module implements Comparable<Module> {
 
     private static final Map<String, Module> modules = new LinkedHashMap<String, Module>();
-    private static final Set<Module> platformModules = new TreeSet<Module>();
+
+    /**
+     * Returns the top-level modules that are defined in
+     * the input module config files.
+     *
+     */
+    static Collection<Module> getTopLevelModules() {
+        Set<Module> result = new LinkedHashSet<Module>();
+        // always put the boot module first and then the base
+        if (Platform.bootModule() != null) {
+            result.add(Platform.bootModule());
+        }
+        result.add(findModule(baseModuleName));
+
+        for (Module m : modules.values()) {
+            if (m.isTopLevel()) {
+                result.add(m);
+            }
+        }
+        return Collections.unmodifiableCollection(result);
+    }
 
     public static Module addModule(ModuleConfig config) {
         String name = config.module;
         if (modules.containsKey(name)) {
             throw new RuntimeException("module \"" + name + "\" already exists");
         }
-
-        Module m = new Module(config);
+        Module m;
+        if (Platform.isBootModule(config.module)) {
+            m = Platform.createBootModule(config);
+        } else {
+            m = new Module(config);
+        }
         modules.put(name, m);
         return m;
     }
@@ -63,194 +94,48 @@ public class Module implements Comparable<Module> {
     public static Module findModule(String name) {
         return modules.get(name);
     }
-    static final String DEFAULT_BOOT_MODULE = "jdk.boot";
-    static final String JDK_MODULE = "jdk";
-    static final String JRE_MODULE = "jdk.jre";
-    static final String JDK_TOOLS = "jdk.tools";
-    static final String JRE_TOOLS = "jdk.jre.tools";
-    static final String JDK_BASE_TOOLS = "jdk.base.tools";
-
-    static void initPlatformModules() {
-        if (platformModules.isEmpty()) {
-            try {
-                Module boot = bootModule();
-                Module jreTools = findModule(JRE_TOOLS);
-                Module jdkTools = findModule(JDK_TOOLS);
-                Module jdkBaseTools = findModule(JDK_BASE_TOOLS);
-
-                // Add the full jdk and jre modules
-                Module jdk = new Module(new ModuleConfig(JDK_MODULE));
-                Module jre = new Module(new ModuleConfig(JRE_MODULE));
-                platformModules.add(jdk);
-                platformModules.add(jre);
-
-                // Create one aggregrate module for each sun module
-                for (Module m : getTopLevelModules()) {
-                    Module pm = m;
-                    if (!m.name().startsWith("jdk") && !m.name().startsWith("sun.")) {
-                        trace("Non-platform module: %s%n", m.name());
-                    }
-                    if (m.name().startsWith("sun.")) {
-                        // create an aggregate module for each sun.* module
-                        String name = m.name().replaceFirst("sun", "jdk");
-                        pm = new Module(new ModuleConfig(name, m.config.mainClass()));
-                        platformModules.add(pm);
-                        pm.requires.add(m);
-                        m.permits.add(pm);
-                        if (m.isBase() && boot != null) {
-                            // permits the base module to require the boot module
-                            m.requires.add(boot);
-                            boot.permits.add(m);
-                        }
-                    }
-                    if (pm.isPlatformModule()) {
-                        // add all platform modules in jdk module
-                        jdk.requires.add(pm);
-
-                        if (pm != jdkTools && pm != jdkBaseTools) {
-                            // add non-tools module to JRE
-                            jre.requires.add(pm);
-                        }
-                    }
-                    if (pm == jdkTools || pm == jdkBaseTools) {
-                        pm.permits.add(jdk);
-                    }
-                    if (pm == jreTools) {
-                        // make jdk.tools only useable by jdk
-                        pm.permits.add(jdk);
-                        pm.permits.add(jre);
-                    }
-                }
-
-                // fixup non-platform modules to require non-local dependence
-                for (Module m : getTopLevelModules()) {
-                    if (m != boot && !m.isPlatformModule() && !m.name().startsWith("sun.")) {
-                        fixupModuleRequires(m);
-                    }
-                }
-
-                // fixup the tools modules that are defined in modules.group
-                fixupModuleRequires(jdkTools);
-                fixupModuleRequires(jreTools);
-                fixupModuleRequires(jdkBaseTools);
-
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    private static Module mapPlatformModule(Module rm) {
-        if (rm.name().startsWith("sun.")) {
-            String name = rm.name().replaceFirst("sun", "jdk");
-            for (Module pm : platformModules) {
-                if (pm.name().equals(name)) {
-                    return pm;
-                }
-            }
-            throw new RuntimeException("Platform module for " + rm + " not found");
-        }
-        return null;
-    }
-
-    private static void fixupModuleRequires(Module m) {
-        Set<Module> requires = new TreeSet<Module>(m.requires);
-        Module boot = bootModule();
-        Module base = findModule(baseModuleName);
-
-        if (!m.isPlatformModule()) {
-            requires.add(base);
-        }
-        for (Module rm : m.requires) {
-            Module req = rm;
-            if (rm == boot && !m.isPlatformModule()) {
-                // skip boot module
-                rm.permits.remove(m);
-                continue;
-            }
-            if (rm.name().startsWith("sun.")) {
-                req = mapPlatformModule(rm);
-                rm.permits.remove(m);
-            }
-            requires.add(req);
-        }
-        m.requires.clear();
-        m.requires.addAll(requires);
-
-        Set<Dependency> deps = new TreeSet<Dependency>();
-        for (Dependency d : m.dependents()) {
-            Module dm = d.module.group();
-            if (dm == boot && !m.isPlatformModule()) {
-                // skip boot module
-                dm.permits.remove(m);
-                continue;
-            }
-            if (dm.name().startsWith("sun.")) {
-                dm.permits.remove(m);
-                dm = mapPlatformModule(dm);
-            }
-            deps.add(new Dependency(dm, d.optional, d.dynamic));
-        }
-        m.dependents.clear();
-        m.dependents.addAll(deps);
-
-    }
-
-    static Collection<Module> platformModules() {
-        return Collections.unmodifiableCollection(platformModules);
-    }
-    private static Module boot;
-
-    static Module bootModule() {
-        if (boot == null) {
-            boot = findModule(DEFAULT_BOOT_MODULE);
-        }
-        return boot;
-    }
-
-    static Collection<Module> getTopLevelModules() {
-        Set<Module> result = new LinkedHashSet<Module>();
-        // always put the boot module first and then the base
-        if (bootModule() != null) {
-            result.add(bootModule());
-        }
-
-        result.add(findModule(baseModuleName));
-        for (Module m : modules.values()) {
-            if (m.group == m) {
-                // include only modules with classes except the base module
-                if (m.isBase() || m.isPlatformModule() || !m.isEmpty()) {
-                    result.add(m);
-                }
-            }
-        }
-        return Collections.unmodifiableCollection(result);
-    }
     private static String baseModuleName = "base";
+    private static String version = "7-ea";
 
     static void setBaseModule(String name) {
         baseModuleName = name;
+    }
+
+    static void setVersion(String ver) {
+        version = ver;
+    }
+    private static Properties moduleProps = new Properties();
+
+    static void setModuleProperties(String file) throws IOException {
+        File f = new File(file);
+        BufferedReader reader = null;
+        try {
+            reader = new BufferedReader(new FileReader(f));
+            moduleProps.load(reader);
+        } finally {
+            if (reader != null) {
+                reader.close();
+            }
+        }
     }
     private final String name;
     private final ModuleConfig config;
     private final Set<Klass> classes;
     private final Set<ResourceFile> resources;
     private final Set<Reference> unresolved;
-    private final Set<Dependency> dependents;
     private final Map<String, PackageInfo> packages;
+    private final Set<Dependency> dependents;
     private final Set<Module> members;
-    private final Set<Module> requires;
-    private final Set<Module> permits;
+    private final Set<RequiresModule> requires;
+    // update during the analysis
+    private Set<Module> permits;
     private Module group;
     private boolean isBaseModule;
-    private final boolean reexport;
-    private final boolean isLocalModule;
-    private final boolean isPlatformModule;
+    private int platformApiCount;
 
-    private Module(ModuleConfig config) {
+    protected Module(ModuleConfig config) {
         this.name = config.module;
         this.isBaseModule = name.equals(baseModuleName);
-        this.isPlatformModule = (name.startsWith("jdk.") && !name.equals(DEFAULT_BOOT_MODULE)) || name.equals("jdk");
         this.classes = new TreeSet<Klass>();
         this.resources = new TreeSet<ResourceFile>();
         this.config = config;
@@ -258,13 +143,9 @@ public class Module implements Comparable<Module> {
         this.dependents = new TreeSet<Dependency>();
         this.packages = new TreeMap<String, PackageInfo>();
         this.members = new TreeSet<Module>();
-        this.permits = new TreeSet<Module>();
-        this.requires = new TreeSet<Module>();
+        this.requires = new TreeSet<RequiresModule>(config.requires());
         this.group = this; // initialize to itself
-        this.isLocalModule = name.equals(DEFAULT_BOOT_MODULE) || name.startsWith("sun.");
-        this.reexport = name.startsWith("jdk") &&
-                !(name.equals(DEFAULT_BOOT_MODULE) || name.equals(JDK_TOOLS) ||
-                name.equals(JRE_TOOLS) || name.equals(JDK_BASE_TOOLS));
+        this.platformApiCount = 0;
     }
 
     String name() {
@@ -279,20 +160,32 @@ public class Module implements Comparable<Module> {
         return isBaseModule;
     }
 
-    boolean isLocalModule() {
-        return isLocalModule;
+    // requires local for JRE modules that are strongly
+    // connected with the boot module
+    boolean isBootConnected() {
+        for (RequiresModule rm : requires) {
+            if (Platform.isBootModule(rm.modulename)) {
+                return true;
+            }
+        }
+        return false;
     }
+    private Module moduleForRequires;
 
-    boolean reexport() {
-        return reexport;
-    }
-
-    boolean isPlatformModule() {
-        return isPlatformModule;
+    synchronized Module toRequiredModule() {
+        if (moduleForRequires == null) {
+            // create a module for external requires if needed
+            moduleForRequires = Platform.toRequiresModule(this);
+        }
+        return moduleForRequires;
     }
 
     Set<Module> members() {
         return members;
+    }
+
+    boolean hasPlatformAPIs() {
+        return platformApiCount > 0;
     }
 
     boolean contains(Klass k) {
@@ -300,81 +193,91 @@ public class Module implements Comparable<Module> {
     }
 
     boolean isEmpty() {
-        return classes.isEmpty() && resources.isEmpty() && mainClass() == null;
+        return classes.isEmpty() &&
+                resources.isEmpty() &&
+                mainClass() == null;
     }
 
-    private void initModuleInfo() {
-        // initialize the permits set
-        for (String s : config.permits()) {
-            Module m = findModule(s);
-            if (m != null) {
-                permits.add(m.group());
-            } else {
-                throw new RuntimeException("module " + s +
-                        " specified in the permits rule for " + name +
-                        " doesn't exist");
-            }
-        }
-        // add the requires set to the dependents list
-        for (String s : config.requires()) {
-            Module m = findModule(s);
-            if (m != null) {
-                requires.add(m.group());
-            } else {
-                throw new RuntimeException("module " + s +
-                        " specified in the permits rule for " + name +
-                        " doesn't exist");
-            }
-        }
+    boolean allowEmpty() {
+        return moduleProps.getProperty(name + ".allow.empty") != null;
     }
 
-    private void fixupModuleInfo() {
-        // fixup permits set
+    Module alias() {
+        String mn = moduleProps.getProperty(name + ".alias");
+        Module m = this;
+        if (mn != null) {
+            m = findModule(mn);
+            if (m == null) {
+                throw new RuntimeException(name + ".alias = " + mn + " not found");
+            }
+        }
+        return m;
+    }
+
+    protected boolean isTopLevel() {
+        // module with no class is not included except the base module
+        return this.group == this &&
+                (isBase() || !isEmpty() || isAggregator() || allowEmpty());
+    }
+
+    boolean isAggregator() {
+        // a module is an aggregator if it has no class and resource and no main class
+        // but has a list of requires.
+        if (isEmpty() && requires.size() > 0) {
+            // return false if it requires only jdk.boot
+            if (requires.size() == 1) {
+                for (RequiresModule rm : requires) {
+                    if (Platform.isBootModule(rm.modulename)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    // fixup permits and requires set after modules are merged
+    void fixupModuleInfo() {
         Set<Module> newPermits = new TreeSet<Module>();
-        for (Module m : permits) {
+        for (Module m : permits()) {
+            // in case multiple permits from the same group
             newPermits.add(m.group());
         }
-
         permits.clear();
         permits.addAll(newPermits);
 
-        for (Dependency d : dependents()) {
-            if (d.dynamic || d.optional) {
-                // ignore optional dependencies for now
+        // fixup requires set
+        Set<RequiresModule> newRequires = new TreeSet<RequiresModule>();
+        for (RequiresModule rm : requires) {
+            Module req = rm.module();
+            if (req.isEmpty() && !req.isAggregator()) {
+                // remove from requires set if empty and not a module aggregator
+                continue;
+            }
+
+            newRequires.add(rm);
+            if (req.requirePermits()) {
+                req.permits().add(this.group());
+            }
+        }
+        requires.clear();
+        requires.addAll(newRequires);
+
+        // add this to the permits set of its dependences if needed
+        for (Dependency d : dependences()) {
+            if (d.dynamic && !d.optional) {
+                // ignore dynamic dependencies for now
                 continue;
             }
 
             // add permits for all local dependencies
-            if (d.module.group().isLocalModule()) {
-                d.module.group().permits.add(this.group());
+            Module dm = d.module();
+            if (dm.requirePermits()) {
+                dm.permits().add(this.group());
             }
         }
-
-        // fixup requires set
-        Set<Module> newRequires = new TreeSet<Module>();
-        for (Module m : requires) {
-            Module req = m.group();
-            if (req.isEmpty()) {
-                // remove from requires set if empty
-                continue;
-            }
-
-            newRequires.add(req);
-            if (req == bootModule() || req.name().startsWith("sun.")) {
-                req.permits.add(this);
-            }
-        }
-
-        requires.clear();
-        requires.addAll(newRequires);
-    }
-
-    Set<Module> permits() {
-        return permits;
-    }
-
-    Set<Module> requires() {
-        return requires;
     }
 
     Klass mainClass() {
@@ -384,26 +287,74 @@ public class Module implements Comparable<Module> {
         }
 
         Klass k = Klass.findKlass(cls);
-        if (k == null) {
-            trace("module %s: main-class %s does not exist%n", name, cls);
-        }
         return k;
     }
 
+    synchronized Set<Module> permits() {
+        if (permits == null) {
+            this.permits = new TreeSet<Module>();
+            // initialize the permits set
+            for (String s : config.permits()) {
+                Module m = findModule(s);
+                if (m != null) {
+                    permits.add(m.group());
+                } else {
+                    throw new RuntimeException("module " + s +
+                            " specified in the permits rule for " + name + " doesn't exist");
+                }
+            }
+        }
+        return permits;
+    }
+
+    Set<RequiresModule> requires() {
+        return requires;
+    }
+
+    Collection<Dependency> dependents() {
+        Map<Module, Dependency> deps = new LinkedHashMap<Module, Dependency>();
+        for (Dependency dep : dependents) {
+            Dependency d = deps.get(dep.module());
+            if (d == null || dep.compareTo(d) > 0) {
+                deps.put(dep.module(), dep);
+            }
+        }
+        return deps.values();
+    }
+
+    boolean requires(Module m) {
+        for (RequiresModule rm : requires()) {
+            if (rm.module() == m)
+                return true;
+        }
+        return false;
+    }
     /**
      * Returns a Collection of Dependency, only one for each dependent
      * module of the strongest dependency (i.e.
      * hard static > hard dynamic > optional static > optional dynamic
      */
-    Collection<Dependency> dependents() {
-        Map<Module, Dependency> deps = new LinkedHashMap<Module, Dependency>();
-        for (Dependency dep : dependents) {
-            Dependency d = deps.get(dep.module);
-            if (d == null || dep.compareTo(d) > 0) {
-                deps.put(dep.module, dep);
+    Collection<Dependency> dependences() {
+        Set<Dependency> result = new TreeSet<Dependency>();
+        for (Dependency d : dependents()) {
+            Module dm = d.module();
+            Module rm = dm;
+            if (!dm.alias().requires(this)) {
+                // use alias as the dependence except this module
+                // is required by the alias that will result in
+                // a recursive dependence.
+                rm = dm.alias();
             }
+            if (!isBootConnected()) {
+                // If it's a local module requiring jdk.boot, retain
+                // the original requires; otherwise, use its external
+                // module
+                rm = rm.toRequiredModule();
+            }
+
+            result.add(new Dependency(rm, d.optional, d.dynamic));
         }
-        return deps.values();
+        return result;
     }
 
     @Override
@@ -422,6 +373,9 @@ public class Module implements Comparable<Module> {
     void addKlass(Klass k) {
         classes.add(k);
         k.setModule(this);
+        if (k.isPlatformAPI()) {
+            platformApiCount++;
+        }
 
         // update package statistics
         String pkg = k.getPackageName();
@@ -435,7 +389,6 @@ public class Module implements Comparable<Module> {
             // only count the class that is parsed
             pkginfo.add(k.getFileSize());
         }
-
     }
 
     void addResource(ResourceFile res) {
@@ -522,10 +475,25 @@ public class Module implements Comparable<Module> {
         dependents.add(dep);
     }
 
+    void addRequiresModule(Module m) {
+        addRequiresModule(m, false);
+    }
+
+    void addRequiresModule(Module m, boolean optional) {
+        requires.add(new RequiresModule(m, optional));
+        if (m.requirePermits()) {
+            m.permits().add(this);
+        }
+    }
+
+    boolean requirePermits() {
+        return (name().startsWith("sun.") ||
+                permits().size() > 0);
+    }
+
     void fixupDependencies() {
         // update dependencies for classes that were allocated to modules after
         // this module was processed.
-
         for (Reference ref : unresolved) {
             Module m = ref.referree().getModule();
             if (m == null || m != this) {
@@ -539,10 +507,6 @@ public class Module implements Comparable<Module> {
             dependents.add(new Dependency(k.getModule(), false, false));
         }
         fixupAnnotatedDependencies();
-
-        // fixup requires and permits set
-        initModuleInfo();
-
     }
 
     private void fixupAnnotatedDependencies() {
@@ -583,14 +547,21 @@ public class Module implements Comparable<Module> {
         }
     }
 
-    private Set<Module> getDependencies() {
-        Set<Module> deps = new TreeSet<Module>(requires);
-        for (Dependency d : dependents()) {
+    private Set<Module> getDepModules() {
+        Set<Module> deps = new TreeSet<Module>();
+        for (Dependency d : dependences()) {
             if (d.dynamic || d.optional) {
+                // ignore dynamic or optional dependencies for now
+                continue;
+            }
+            deps.add(d.module());
+        }
+        for (RequiresModule req : requires) {
+            if (req.optional) {
                 // ignore optional dependencies for now
                 continue;
             }
-            deps.add(d.module);
+            deps.add(req.module());
         }
         return deps;
     }
@@ -600,7 +571,7 @@ public class Module implements Comparable<Module> {
             visited.add(this);
 
             visitor.preVisit(this, p);
-            for (Module m : getDependencies()) {
+            for (Module m : getDepModules()) {
                 m.visitDependence(visited, visitor, p);
                 visitor.visited(this, m, p);
             }
@@ -619,6 +590,8 @@ public class Module implements Comparable<Module> {
             resources.add(res);
         }
 
+        platformApiCount += m.platformApiCount;
+
         // merge the package statistics
         for (PackageInfo pinfo : m.getPackageInfos()) {
             String packageName = pinfo.pkgName;
@@ -632,8 +605,8 @@ public class Module implements Comparable<Module> {
         }
 
         // merge all permits and requires set
-        permits.addAll(m.permits);
-        requires.addAll(m.requires);
+        permits().addAll(m.permits());
+        requires().addAll(m.requires());
     }
 
     static void buildModuleMembers() {
@@ -645,10 +618,8 @@ public class Module implements Comparable<Module> {
                 if (member == null) {
                     throw new RuntimeException("module \"" + name + "\" doesn't exist");
                 }
-
                 m.members.add(member);
             }
-
         }
 
         // set up the top-level module
@@ -660,7 +631,6 @@ public class Module implements Comparable<Module> {
                     // all members are also base
                     m.isBaseModule = true;
                 }
-
             }
 
             public void visited(Module m, Module child, Module p) {
@@ -696,8 +666,10 @@ public class Module implements Comparable<Module> {
         };
 
         Set<Module> visited = new TreeSet<Module>();
+        Set<Module> groups = new TreeSet<Module>();
         for (Module m : modules.values()) {
             if (m.group() == m) {
+                groups.add(m);
                 if (m.members().size() > 0) {
                     // merge class list from all its members
                     m.visitMember(visited, mergeClassList, m);
@@ -724,13 +696,6 @@ public class Module implements Comparable<Module> {
 
                 // add dependencies that this klass may depend on due to the AnnotatedDependency
                 m.fixupAnnotatedDependencies();
-            }
-        }
-
-        for (Module m : modules.values()) {
-            if (m.group() == m) {
-                // fixup permits set
-                m.fixupModuleInfo();
             }
         }
     }
@@ -795,20 +760,29 @@ public class Module implements Comparable<Module> {
         try {
             long total = 0L;
             int count = 0;
-            writer.format("%10s\t%10s\t%s\n", "Bytes", "Classes", "Package name");
+            int nonCoreAPIs = 0;
+            writer.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
             for (String pkg : packages.keySet()) {
                 PackageInfo info = packages.get(pkg);
                 if (info.count > 0) {
-                    writer.format("%10d\t%10d\t%s\n", info.filesize, info.count, pkg);
-                    total +=
-                            info.filesize;
-                    count +=
-                            info.count;
+                    if (Platform.isNonCoreAPI(pkg)) {
+                        nonCoreAPIs += info.count;
+                        writer.format("%10d\t%10d\t%s (*)%n",
+                                info.filesize, info.count, pkg);
+                    } else {
+                        writer.format("%10d\t%10d\t%s%n",
+                                info.filesize, info.count, pkg);
+                    }
+                    total += info.filesize;
+                    count += info.count;
                 }
-
             }
 
-            writer.format("\nTotal: %d bytes (uncompressed) %d classes\n", total, count);
+
+            writer.format("%nTotal: %d bytes (uncompressed) %d classes%n",
+                    total, count);
+            writer.format("APIs: %d core %d non-core (*)%n",
+                    platformApiCount, nonCoreAPIs);
         } finally {
             writer.close();
         }
@@ -828,7 +802,6 @@ public class Module implements Comparable<Module> {
                 } else {
                     trace("%s in module %s missing\n", c, this);
                 }
-
             }
 
         } finally {
@@ -883,10 +856,8 @@ public class Module implements Comparable<Module> {
                         }
                         writer.format("\n");
                     }
-
                 }
             }
-
 
             // print remaining dependencies specified in AnnotatedDependency list
             if (annotatedDeps.size() > 0) {
@@ -913,79 +884,104 @@ public class Module implements Comparable<Module> {
                         }
 
                         if (optional) {
-                            if (dynamic) {
-                                classname = "[dynamic] " + classname;
-                            } else {
-                                classname = "[optional] " + classname;
-                            }
+                            classname = "[optional] " + classname;
+                        } else if (dynamic) {
+                            classname = "[dynamic] " + classname;
                         }
                         writer.format("%-40s -> %s (%s) %s%n", classname, ref.referree, m, tag);
                     }
-
                 }
             }
-
         } finally {
             writer.close();
         }
 
     }
 
+    // print module dependency list
+    void printDepModuleListTo(String output) throws IOException {
+        PrintWriter writer = new PrintWriter(output);
+        try {
+            for (Module m : orderedDependencies()) {
+                writer.format("%s\n", m.name());
+            }
+            if (Platform.legacyModule() != null &&
+                    (this == Platform.jdkBaseModule() ||
+                    this == Platform.jdkModule() ||
+                    this == Platform.jreModule())) {
+                // add legacy module in the modules.list
+                // so that it will install legacy module as well.
+                writer.format("%s\n", Platform.legacyModule());
+            }
+        } finally {
+            writer.close();
+        }
+    }
+
     void printModuleInfoTo(String output) throws IOException {
-        String version = "7-ea";  // hardcode for now
         PrintWriter writer = new PrintWriter(output);
         try {
             writer.format("module %s @ %s {%n", name, version);
             String formatSep = "    requires";
-            Set<Module> reqs = new TreeSet<Module>(requires);
-            for (Dependency dep : dependents()) {
-                if (dep.module == null) {
+            Map<String, RequiresModule> reqs = new TreeMap<String, RequiresModule>();
+            for (RequiresModule rm : requires()) {
+                reqs.put(rm.module().name(), rm);
+            }
+
+            for (Dependency dep : dependences()) {
+                Module dm = dep.module();
+                if (!isBootConnected()) {
+                    // If it's a local module requiring jdk.boot, retain
+                    // the original requires
+                    dm = dm.toRequiredModule();
+                }
+
+                if (dm == null) {
                     System.err.format("WARNING: module %s has a dependency on null module%n", name);
                 }
 
-                if (dep.module.isBase()) {
-                    // skip base module
-                    continue;
-                }
-
                 StringBuilder attributes = new StringBuilder();
-                if (reexport) {
+                RequiresModule rm = reqs.get(dm.name());
+
+                if (rm != null && rm.reexport) {
                     attributes.append(" public");
                 }
 
-                if (dep.module.group().isLocalModule()) {
+                if (isBootConnected() || (rm != null && rm.local)) {
                     attributes.append(" local");
                 }
 
-                if (dep.optional) {
-                    if (!dep.dynamic) {
-                        attributes.append(" optional");
-                    }
+                if (dep.optional || (rm != null && rm.optional)) {
+                    attributes.append(" optional");
                 }
 
-                // FIXME: ignore optional dependencies
-                if (!dep.dynamic && !dep.optional) {
-                    reqs.remove(dep.module);
+                // FIXME: ignore dynamic dependencies
+                // Filter out optional dependencies for the boot module
+                // which are addded in the jdk.base module instead
+                if (!dep.dynamic || dep.optional) {
+                    reqs.remove(dm.name());
                     writer.format("%s%s %s @ %s;%n",
                             formatSep,
                             attributes.toString(),
-                            dep != null ? dep.module : "null", version);
+                            dep != null ? dm : "null", version);
                 }
 
             }
             // additional requires
             if (reqs.size() > 0) {
-                for (Module p : reqs) {
+                for (RequiresModule rm : reqs.values()) {
                     StringBuilder attributes = new StringBuilder();
-                    if (reexport) {
+                    if (rm.reexport) {
                         attributes.append(" public");
                     }
-
-                    if (p.isLocalModule()) {
+                    if (rm.optional) {
+                        attributes.append(" optional");
+                    }
+                    if (isBootConnected() || rm.local) {
                         attributes.append(" local");
                     }
 
-                    writer.format("%s%s %s @ %s;%n", formatSep, attributes.toString(), p, version);
+                    writer.format("%s%s %s @ %s;%n", formatSep, attributes.toString(), rm.module(), version);
                 }
             }
 
@@ -996,7 +992,6 @@ public class Module implements Comparable<Module> {
                     writer.format("%s %s", formatSep, p);
                     formatSep = ",";
                 }
-
                 writer.format(";%n");
             }
             if (mainClass() != null) {
@@ -1008,23 +1003,9 @@ public class Module implements Comparable<Module> {
         }
     }
 
-    void printModuleDependenciesTo(String output) throws IOException {
-
-        PrintWriter writer = new PrintWriter(output);
-        try {
-            for (Module m : orderedDependencies()) {
-                writer.format("%s\n", m.name());
-            }
-
-        } finally {
-            writer.close();
-        }
-
-    }
-
     static class Dependency implements Comparable<Dependency> {
 
-        final Module module;
+        protected Module module;
         final boolean optional;
         final boolean dynamic;
 
@@ -1041,8 +1022,12 @@ public class Module implements Comparable<Module> {
             this.dynamic = dynamic;
         }
 
+        Module module() {
+            return module;
+        }
+
         public boolean isLocal(Module from) {
-            if (module.name().startsWith("sun.") || module == bootModule()) {
+            if (module().isBootConnected()) {
                 // local requires if the requesting module is the boot module
                 // or it's an aggregate platform module
                 return true;
@@ -1051,7 +1036,7 @@ public class Module implements Comparable<Module> {
             for (PackageInfo pkg : from.getPackageInfos()) {
                 // local dependence if any package this module owns is splitted
                 // across its dependence
-                for (PackageInfo p : module.getPackageInfos()) {
+                for (PackageInfo p : module().getPackageInfos()) {
                     if (pkg.pkgName.equals(p.pkgName)) {
                         return true;
                     }
@@ -1070,7 +1055,7 @@ public class Module implements Comparable<Module> {
             }
 
             Dependency d = (Dependency) obj;
-            if (this.module != d.module) {
+            if (this.module() != d.module()) {
                 return false;
             } else {
                 return this.optional == d.optional && this.dynamic == d.dynamic;
@@ -1080,7 +1065,7 @@ public class Module implements Comparable<Module> {
         @Override
         public int hashCode() {
             int hash = 3;
-            hash = 19 * hash + (this.module != null ? this.module.hashCode() : 0);
+            hash = 19 * hash + (this.module() != null ? this.module().hashCode() : 0);
             hash = 19 * hash + (this.optional ? 1 : 0);
             hash = 19 * hash + (this.dynamic ? 1 : 0);
             return hash;
@@ -1093,27 +1078,105 @@ public class Module implements Comparable<Module> {
             }
 
             // Hard static > hard dynamic > optional static > optional dynamic
-            if (this.module == d.module) {
+            if (this.module() == d.module()) {
                 if (this.optional == d.optional) {
                     return this.dynamic ? -1 : 1;
                 } else {
                     return this.optional ? -1 : 1;
                 }
-            } else if (this.module != null && d.module != null) {
-                return (this.module.compareTo(d.module));
+            } else if (this.module() != null && d.module() != null) {
+                return (this.module().compareTo(d.module()));
             } else {
-                return (this.module == null) ? -1 : 1;
+                return (this.module() == null) ? -1 : 1;
             }
         }
 
         @Override
         public String toString() {
-            String s = module.name();
-            if (dynamic && optional) {
-                s += " (dynamic)";
-            } else if (optional) {
+            String s = module().name();
+            if (optional) {
                 s += " (optional)";
+            } else if (dynamic) {
+                s += " (dynamic)";
             }
+            return s;
+        }
+    }
+
+    static class RequiresModule extends Dependency {
+
+        final String modulename;
+        final boolean reexport;
+        final boolean local;
+
+        public RequiresModule(String name, boolean optional, boolean reexport, boolean local) {
+            super(null, optional, false /* dynamic */);
+            this.modulename = name;
+            this.reexport = reexport;
+            this.local = local;
+        }
+
+        public RequiresModule(Module m, boolean optional) {
+            super(m, optional, false);
+            this.modulename = m.name();
+            this.reexport = true;
+            this.local = false;
+        }
+
+        // deferred initialization until it's called.
+        // must call after all modules are merged.
+        synchronized Module fixupModule() {
+            if (module == null) {
+                Module m = findModule(modulename);
+                if (m == null) {
+                    throw new RuntimeException("Required module \"" + modulename + "\" doesn't exist");
+                }
+                module = m.group();
+            }
+            return module;
+        }
+
+        @Override
+        Module module() {
+            return fixupModule();
+        }
+
+        @Override
+        public int compareTo(Dependency d) {
+            RequiresModule rm = (RequiresModule) d;
+            if (this.equals(rm)) {
+                return 0;
+            }
+            return modulename.compareTo(rm.modulename);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof RequiresModule)) {
+                return false;
+            }
+            if (this == obj) {
+                return true;
+            }
+
+            RequiresModule d = (RequiresModule) obj;
+            return this.modulename.equals(d.modulename);
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 3;
+            hash = 19 * hash + this.modulename.hashCode();
+            return hash;
+        }
+
+        @Override
+        public String toString() {
+            String s = reexport ? "public " : "";
+            if (optional) {
+                s += "optional ";
+            }
+            s += modulename;
             return s;
         }
     }
@@ -1150,8 +1213,7 @@ public class Module implements Comparable<Module> {
             }
 
             Reference r = (Reference) obj;
-            return (this.referrer.equals(r.referrer) &&
-                    this.referree.equals(r.referree));
+            return (this.referrer.equals(r.referrer) && this.referree.equals(r.referree));
         }
 
         @Override
@@ -1171,10 +1233,5 @@ public class Module implements Comparable<Module> {
         public void visited(Module m, Module child, P param);
 
         public void postVisit(Module m, P param);
-    }
-    private static boolean traceOn = System.getProperty("classanalyzer.debug") != null;
-
-    private static void trace(String format, Object... params) {
-        System.err.format(format, params);
     }
 }

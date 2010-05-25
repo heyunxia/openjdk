@@ -62,8 +62,8 @@ IMPORT_TOOLS_PACKAGES += \
 # Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
 #
 IMPORT_RT_MODULES += \
-     sun.jaxws \
-     sun.enterprise
+     $(SUN_JAXWS_MODULE) \
+     $(SUN_JX_ANNOTATION_MODULE)
 
 IMPORT_TOOLS_MODULES += \
-     jaxws.tools
+     $(JAXWS_TOOLS_MODULE)

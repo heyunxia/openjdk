@@ -28,7 +28,7 @@
 #
 
 BUILDDIR = ../..
-MODULE  = debugging
+MODULE  = jdwp
 LIBRARY = jdwp
 PRODUCT = jpda
 

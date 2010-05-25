@@ -72,5 +72,17 @@ JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
 # Modules for JDK only
 JDK_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.modules.list
 JRE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.jre.modules.list
-JDK_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.base.tools.modules.list
+JDK_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.tools.base.modules.list
 JRE_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.base.modules.list
+
+# Modules for imports 
+SUN_CORBA_MODULE         = sun.corba
+SUN_JTA_MODULE           = sun.jta
+SUN_XML_MODULE           = sun.xml
+SUN_XALAN_MODULE         = sun.xalan
+SUN_JAXWS_MODULE         = sun.jaxws
+SUN_JX_ANNOTATION_MODULE = sun.jx.annotations
+JAXWS_TOOLS_MODULE       = sun.tools.jaxws
+IDLJ_MODULE              = jdk.idlj
+RMIC_MODULE              = jdk.rmic
+JDWP_MODULE              = jdk.jdwp

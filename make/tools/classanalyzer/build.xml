@@ -26,4 +26,5 @@
 -->
 
 <project name="classanalyzer" default="build" basedir=".">
+    <import file="nbproject/build-impl.xml"/>
 </project>
