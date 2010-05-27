@@ -470,6 +470,15 @@ public final class ModuleFileFormat {
         }
 
         /*
+         * Check if a given directory is not empty.
+         */
+
+        private static boolean directoryIsNotEmpty(File dir)
+            throws IOException {
+            return dir.toPath().newDirectoryStream().iterator().hasNext();
+        }
+
+        /*
          * Processes each of the optional file sections.
          */
         private int writeOptionalSections(File classes,
@@ -481,27 +490,27 @@ public final class ModuleFileFormat {
 
             int count = 0;
 
-            if (classes != null) {
+            if (classes != null && directoryIsNotEmpty(classes)) {
                 writeSection(file, ModuleFile.SectionType.CLASSES,
                              classes, ModuleFile.Compressor.PACK200_GZIP);
                 count++;
             }
-            if (resources != null) {
+            if (resources != null && directoryIsNotEmpty(resources)) {
                 writeSection(file, ModuleFile.SectionType.RESOURCES,
                              resources, ModuleFile.Compressor.GZIP);
                 count++;
             }
-            if (nativelibs != null) {
+            if (nativelibs != null && directoryIsNotEmpty(nativelibs)) {
                 writeSection(file, ModuleFile.SectionType.NATIVE_LIBS,
                              nativelibs, ModuleFile.Compressor.GZIP);
                 count++;
             }
-            if (nativecmds != null) {
+            if (nativecmds != null && directoryIsNotEmpty(nativecmds)) {
                 writeSection(file, ModuleFile.SectionType.NATIVE_CMDS,
                              nativecmds, ModuleFile.Compressor.GZIP);
                 count++;
             }
-            if (config != null) {
+            if (config != null && directoryIsNotEmpty(config)) {
                 writeSection(file, ModuleFile.SectionType.CONFIG,
                              config, ModuleFile.Compressor.GZIP);
                 count++;
@@ -574,7 +583,7 @@ public final class ModuleFileFormat {
             md.update(content);
 
             // Module-Info Section is handled separately when Signature Section
-            // is present 
+            // is present
             if (signatureSectionPosition > 0 && signatureSectionSize > 0) {
                 int moduleInfoSectionPosition = remainderPosition;
                 int moduleInfoSectionSize = signatureSectionPosition
@@ -1062,7 +1071,7 @@ public final class ModuleFileFormat {
 
             markNativeCodeExecutable(type, realpath);
          }
- 
+
         public byte[] readModuleInfo(DataInputStream in, int csize)
             throws IOException
         {
@@ -1393,7 +1402,7 @@ public final class ModuleFileFormat {
             ensureNonNegativity(csize, "csize");
             ensureNonNegativity(usize, "usize");
             ensureNonNegativity(sections, "sections");
- 
+
             magic = MAGIC;
             type = Type.MODULE_FILE;
             major = ModuleFile.MAJOR_VERSION;
@@ -1466,7 +1475,7 @@ public final class ModuleFileFormat {
             return baos.toByteArray();
         }
         }
-       
+
         public final static class SectionHeader {
             // Fields are specified as unsigned. Treat signed values as bugs.
             private ModuleFile.SectionType type;
