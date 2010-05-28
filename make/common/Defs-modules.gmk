@@ -38,20 +38,6 @@ SUBMODULES_DIR      = $(OUTPUTDIR)/submodules
 ABS_SUBMODULES_DIR  = $(ABS_OUTPUTDIR)/submodules
 
 
-#
-# Build units may or may not define MODULE.  Default to "other".
-#
-# MODULE variable defines the lowest-level module name that
-# might or might not be the name of the modules created in
-# the modules build (see make/modules/modules.config and
-# modules.group).
-#
-
-ifndef MODULE
-  MODULE = other
-endif
-override MODULE_DEST_DIR = $(SUBMODULES_DIR)/$(strip $(MODULE))
-
 # genmoduleslist - files generated from make/modules/Makefile
 MODULEINFO_DIR = $(OUTPUTDIR)/moduleinfo
 ABS_MODULEINFO_DIR = $(ABS_OUTPUTDIR)/moduleinfo
@@ -86,3 +72,37 @@ JAXWS_TOOLS_MODULE       = sun.tools.jaxws
 IDLJ_MODULE              = jdk.idlj
 RMIC_MODULE              = jdk.rmic
 JDWP_MODULE              = jdk.jdwp
+
+#
+# Build units may or may not define MODULE.  Default to "other".
+#
+# MODULE variable defines the lowest-level module name that
+# might or might not be the name of the modules created in
+# the modules build (see make/modules/modules.config and
+# modules.group).
+#
+
+ifndef MODULE
+  MODULE = other
+endif
+override MODULE_DEST_DIR = $(SUBMODULES_DIR)/$(strip $(MODULE))
+
+UNIQUE_PATH_PATTERN = $(subst /,.,$(UNIQUE_PATH))
+MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
+                      -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
+                      -e 's%.*\/lib\/%lib\/%' \
+                      -e 's%.*\/bin\/%bin\/%' \
+                      -e 's%.*\/include\/%include\/%' \
+                      -e 's%.*\/demo\/%demo\/%' \
+                      -e 's%.*\/sample\/%sample\/%'
+
+# Gets the module destination corresponding to the specified directory
+define GetModuleDest
+$(shell $(ECHO) $1 | $(SED) $(MODULE_PATH_PATTERN) | \
+    $(NAWK) '{print "$(MODULE_DEST_DIR)/"$$0}')
+endef
+
+define GetBaseModuleDest
+$(shell $(ECHO) $1 | $(SED) $(MODULE_PATH_PATTERN) | \
+    $(NAWK) '{print "$(SUBMODULES_DIR)/base/"$$0}')
+endef
