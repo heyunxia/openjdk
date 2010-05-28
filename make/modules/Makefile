@@ -92,12 +92,12 @@ unpack-jars:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(MODULE_CLASSES)
 	$(MKDIR) -p $(MODULE_CLASSES)
-	$(CP) -rf $(CLASSBINDIR)/* $(MODULE_CLASSES)
 	@for jf in  $(JAR_LIST) ; do \
            if [ -f $$jf ] ; then \
 	       $(CD) $(MODULE_CLASSES) && $(BOOT_JAR_CMD) xf $$jf $(BOOT_JAR_JFLAGS); \
            fi ; \
 	done
+	$(CP) -rf $(CLASSBINDIR)/* $(MODULE_CLASSES)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 $(MODULES_LIST): $(MODULES_CONFIG) $(MODULES_GROUP) \
