@@ -27,6 +27,7 @@ package org.openjdk.jigsaw;
 
 import java.lang.module.*;
 import java.io.*;
+import java.net.URI;
 import java.security.SignatureException;
 import java.util.*;
 
@@ -297,8 +298,9 @@ public abstract class Library
      *          or {@code null} if the named module does not define that
      *          resource
      */
-    // ## Returning file paths here is EVIL!
-    public abstract File findLocalResource(ModuleId mid, String rn)
+    // ## Returning file or jar URIs here is EVIL!
+    // ## Define a jmod: hierarchical URI scheme?
+    public abstract URI findLocalResource(ModuleId mid, String rn)
         throws IOException;
 
     /**

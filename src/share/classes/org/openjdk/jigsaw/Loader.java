@@ -31,6 +31,7 @@ import java.lang.module.*;
 import java.lang.reflect.Module;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
@@ -298,52 +299,54 @@ public class Loader
     // --
 
     private static interface ResourceVisitor {
-        // Return null to continue the search or a File to terminate
-        // the search, returning that File
-        public File accept(File f) throws IOException;
+        // Return null to continue the search or a URI to terminate
+        // the search, returning that URI
+        public URI accept(URI u) throws IOException;
     }
 
-    private File visitLocalResources(String rn, ResourceVisitor rv)
+    private URI visitLocalResources(String rn, ResourceVisitor rv)
         throws IOException
     {
+        if (rn.startsWith("/"))
+            rn = rn.substring(1);
         for (ModuleId mid : context.modules()) {
-            File f = pool.library(context, mid).findLocalResource(mid, rn);
-            if (f != null) {
-                f = rv.accept(f);
-                if (f != null)
-                    return f;
+            URI u = pool.library(context, mid).findLocalResource(mid, rn);
+            if (u != null) {
+                u = rv.accept(u);
+                if (u != null)
+                    return u;
             }
         }
         return null;
     }
 
-    private File visitResources(String rn, ResourceVisitor rv)
+    private URI visitResources(String rn, ResourceVisitor rv)
         throws IOException
     {
         // ## Should look up "platform" resources first,
         // ## in order to mimic current behavior
-        File f = visitLocalResources(rn, rv);
-        if (f != null)
-            return f;
+        URI u = visitLocalResources(rn, rv);
+        if (u != null)
+            return u;
         for (Context cx : pool.config().contexts()) {
             if (context == cx)
                 continue;
-            f = pool.findLoader(cx).visitLocalResources(rn, rv);
-            if (f != null)
-                return f;
+            u = pool.findLoader(cx).visitLocalResources(rn, rv);
+            if (u != null)
+                return u;
         }
         return null;
     }
 
     public URL getResource(String rn) {
         try {
-            File f = visitResources(rn, new ResourceVisitor() {
-                    public File accept(File f) {
-                        return f;
+            URI u = visitResources(rn, new ResourceVisitor() {
+                    public URI accept(URI u) {
+                        return u;
                     }
                 });
-            if (f != null)
-                return f.toURI().toURL();
+            if (u != null)
+                return u.toURL();
             return null;
         } catch (IOException x) {
             // ClassLoader.getResource doesn't throw IOException (!)
@@ -354,14 +357,14 @@ public class Loader
     public Enumeration<URL> getResources(String rn)
         throws IOException
     {
-        final List<URL> fs = new ArrayList<URL>();
+        final List<URL> us = new ArrayList<>();
         visitResources(rn, new ResourceVisitor() {
-                public File accept(File f) throws IOException {
-                    fs.add(f.toURI().toURL());
+                public URI accept(URI u) throws IOException {
+                    us.add(u.toURL());
                     return null;
                 }
             });
-        return Collections.enumeration(fs);
+        return Collections.enumeration(us);
     }
 
 

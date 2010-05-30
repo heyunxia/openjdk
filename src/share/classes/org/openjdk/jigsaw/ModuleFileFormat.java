@@ -714,6 +714,7 @@ public final class ModuleFileFormat {
     }
 
     public final static class Reader {
+
         private DataInputStream stream;
         private File destination;
         private ModuleFile.HashType hashtype;
@@ -879,10 +880,29 @@ public final class ModuleFileFormat {
                 : null;
         }
 
+        private JarOutputStream contentStream = null;
+
+        private JarOutputStream contentStream() throws IOException {
+            if (contentStream == null) {
+                FileOutputStream fos
+                    = new FileOutputStream(computeRealPath("classes"));
+                contentStream
+                    = new JarOutputStream(new BufferedOutputStream(fos));
+            }
+            return contentStream;
+        }
+
         public void close() throws IOException {
-            if (fileIn != null) {
-                fileIn.close();
-                fileIn = null;
+            try {
+                if (contentStream != null) {
+                    contentStream.close();
+                    contentStream = null;
+                }
+            } finally {
+                if (fileIn != null) {
+                    fileIn.close();
+                    fileIn = null;
+                }
             }
         }
 
@@ -1008,7 +1028,24 @@ public final class ModuleFileFormat {
         }
 
         public void readClasses(DataInputStream in) throws IOException {
-            extractClasses(unpack200gzip(in));
+            unpack200gzip(in);
+        }
+
+        private File currentPath = null;
+
+        private OutputStream openOutputStream(ModuleFile.SectionType type,
+                                              String path)
+            throws IOException
+        {
+            currentPath = null;
+            assert type != ModuleFile.SectionType.CLASSES;
+            if (type == ModuleFile.SectionType.RESOURCES)
+                return Files.newOutputStream(contentStream(), path);
+            currentPath = computeRealPath(type, path);
+            File parent = currentPath.getParentFile();
+            if (!parent.exists())
+                Files.mkdirs(parent, currentPath.getName());
+            return new BufferedOutputStream(new FileOutputStream(currentPath));
         }
 
         public void readGZIPCompressedFile(DataInputStream in,
@@ -1017,24 +1054,22 @@ public final class ModuleFileFormat {
 
             SubSectionFileHeader header = SubSectionFileHeader.read(in);
             int csize = header.getCSize();
-            File path = computeRealPath(type, header.getPath());
 
             // Splice off the compressed file from input stream
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             copyStream(new CountingInputStream(in, csize), baos, csize);
 
-            byte [] compressedfile = baos.toByteArray();
-            ByteArrayInputStream bain =
-                new ByteArrayInputStream(compressedfile);
+            byte[] compressedfile = baos.toByteArray();
+            ByteArrayInputStream bain
+                = new ByteArrayInputStream(compressedfile);
             GZIPInputStream gin = new GZIPInputStream(bain);
 
-            OutputStream os = new FileOutputStream(path);
-            BufferedOutputStream out = new BufferedOutputStream(os);
+            OutputStream out = openOutputStream(type, header.getPath());
             copyStream(gin, out);
-            out.close();
             gin.close();
+            out.close();
 
-            markNativeCodeExecutable(type, path);
+            markNativeCodeExecutable(type, currentPath);
         }
 
         public void readUncompressedFile(DataInputStream in,
@@ -1045,31 +1080,14 @@ public final class ModuleFileFormat {
             assert type != ModuleFile.SectionType.MODULE_INFO;
             SubSectionFileHeader header = SubSectionFileHeader.read(in);
             csize = header.getCSize();
-            File realpath = computeRealPath(type, header.getPath());
-
-            // Create the file
-            File parent = realpath.getParentFile();
-            if (!parent.exists())
-                Files.mkdirs(parent, realpath.getName());
-
-            // Write the file
-            OutputStream out = new FileOutputStream(realpath);
+            OutputStream out = openOutputStream(type, header.getPath());
             CountingInputStream cin = new CountingInputStream(in, csize);
-            ByteArrayOutputStream bout = null;
-            if (type == ModuleFile.SectionType.MODULE_INFO)
-                bout = new ByteArrayOutputStream();
             byte[] buf = new byte[8192];
             int n;
-            while ((n = cin.read(buf)) >= 0) {
+            while ((n = cin.read(buf)) >= 0)
                 out.write(buf, 0, n);
-                if (bout != null)
-                    bout.write(buf, 0, n);
-            }
             out.close();
-            if (type == ModuleFile.SectionType.MODULE_INFO)
-                moduleInfoBytes = bout.toByteArray();
-
-            markNativeCodeExecutable(type, realpath);
+            markNativeCodeExecutable(type, currentPath);
          }
 
         public byte[] readModuleInfo(DataInputStream in, int csize)
@@ -1125,36 +1143,14 @@ public final class ModuleFileFormat {
                 }
         }
 
-        private JarInputStream unpack200gzip(DataInputStream in)
-            throws IOException {
-
+        private void unpack200gzip(DataInputStream in) throws IOException {
             GZIPInputStream gis = new GZIPInputStream(in) {
                     public void close() throws IOException {}
                 };
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            JarOutputStream jos = new JarOutputStream(baos);
             Pack200.Unpacker unpacker = Pack200.newUnpacker();
-            unpacker.unpack(gis, jos);
-            jos.close();
-
-            byte[] unpacked = baos.toByteArray();
-            ByteArrayInputStream bin = new ByteArrayInputStream(unpacked);
-            return new JarInputStream(bin);
+            unpacker.unpack(gis, contentStream());
         }
 
-        private void extractClasses(JarInputStream jin)
-            throws IOException {
-
-            for (JarEntry entry = jin.getNextJarEntry();
-                 entry != null;
-                 entry = jin.getNextJarEntry()) {
-                File path = computeRealPath(ModuleFile.SectionType.CLASSES,
-                                            entry.getName());
-                FileOutputStream file = new FileOutputStream(path);
-                copyStream(jin, file);
-                file.close();
-            }
-        }
     }
 
     private static void checkCompressor(ModuleFile.SectionType type,

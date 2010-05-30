@@ -166,32 +166,14 @@ VERSION=7-ea
 # Import packages $3 from modules $2 in a modules image into directory $1
 # 
 define import-from-modules-image
-if [ "$3" != "" ] ; then \
-  for m in $2 dummy ; do \
-    mdir=$(JDK_MODULES_LIB)/$$m/$(VERSION); \
-    for p in $3 dummy ; do \
-      if [ -d $$mdir/classes/$$p ] ; then \
-        $(ECHO) "Importing $$p classes from $$m module" ; \
-        $(MKDIR) -p $1/$$p; \
-        $(CP) -r $$mdir/classes/$$p/* $1/$$p ; \
-      elif [ -d $$mdir/resources/$$p ] ; then \
-        $(ECHO) "Importing $$p resources from $$m module" ; \
-        $(MKDIR) -p $1/$$p; \
-        $(CP) -r $$mdir/resources/$$p/* $1/$$p ; \
-      elif [ -f $$mdir/classes/$$p ] ; then \
-        $(ECHO) "Importing $$p classes from $$m module" ; \
-        pdir=`$(DIRNAME) $$p`; \
-        $(MKDIR) -p $1/$$pdir; \
-        $(CP) $$mdir/classes/$$p $1/$$pdir ; \
-      elif [ -f $$mdir/resources/$$p ] ; then \
-        $(ECHO) "Importing $$p resources from $$m module" ; \
-        pdir=`$(DIRNAME) $$p`; \
-        $(MKDIR) -p $1/$$pdir; \
-        $(CP) $$mdir/resources/$$p $1/$$pdir ; \
+  if [ "$3" != "" ] ; then \
+    for m in $2 dummy ; do \
+      mdir=$(JDK_MODULES_LIB)/$$m/$(VERSION) ; \
+      if [ -f $$mdir/classes ] ; then \
+         $(call Unjar,$1,$$mdir/classes,$3); \
       fi ; \
     done ; \
-  done ; \
-fi
+  fi
 endef
 
 # Import all component classes into directory $1
@@ -221,4 +203,3 @@ define import-component-classes-clean
 $(RM) -r $(IMPORT_TOOLS_PACKAGES:%=$1/%)
 $(RM) -r $(IMPORT_RT_PACKAGES:%=$1/%)
 endef
-

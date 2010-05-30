@@ -30,6 +30,7 @@ import java.io.*;
 import java.security.CodeSigner;
 import java.security.cert.*;
 import java.util.*;
+import java.util.zip.*;
 import org.openjdk.jigsaw.cli.*;
 import org.openjdk.jigsaw.*;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.*;
@@ -54,8 +55,6 @@ public class ModuleFormatTest01 {
             t.printStackTrace();
             errors++;
         }
-
-
         if (errors == 0)
             System.out.println(count + " tests passed");
         else
@@ -384,8 +383,24 @@ public class ModuleFormatTest01 {
         }
     }
 
-    void compare(String module, String [] fnames, SectionType type)
-        throws IOException {
+    void compare(String [] fnames, File origDir, ZipFile content)
+        throws IOException
+    {
+        for (String fname : fnames) {
+            File file = new File(origDir, fname);
+            if (file.exists()) {
+                ZipEntry ze = content.getEntry(fname);
+                if (ze == null)
+                    throw new FileNotFoundException(fname);
+                compare(file, content.getInputStream(ze));
+            }
+        }
+    }
+
+    void compare(String module, String [] fnames, SectionType type,
+                 ZipFile content)
+        throws IOException
+    {
         File extractedDir = new File(module);
         String sectionDir =  ModuleFileFormat.getSubdirOfSection(type);
         File copyDir = new File(extractedDir, sectionDir);
@@ -395,10 +410,10 @@ public class ModuleFormatTest01 {
             compare(fnames, classesDir, copyDir);
             break;
         case CLASSES:
-            compare(fnames, classesDir, copyDir);
+            compare(fnames, classesDir, content);
             break;
         case RESOURCES:
-            compare(fnames, resourceDir, copyDir);
+            compare(fnames, resourceDir, content);
             break;
         case NATIVE_LIBS:
             compare(fnames, natlibDir, copyDir);
@@ -415,28 +430,28 @@ public class ModuleFormatTest01 {
     }
 
     void compare(String module) throws IOException {
+        ZipFile content = new ZipFile(new File(module, "classes"));
         compare(module, new String [] {"module-info.class"},
-                SectionType.MODULE_INFO);
+                SectionType.MODULE_INFO, content);
         compare(module, new String [] {"World.class", "Another.class"},
-                SectionType.CLASSES);
+                SectionType.CLASSES, content);
         compare(module, new String [] {"yo", "hey"},
-                SectionType.RESOURCES);
+                SectionType.RESOURCES, content);
         compare(module, new String [] {"yo.so", "yo.dll"},
-                SectionType.NATIVE_LIBS);
+                SectionType.NATIVE_LIBS, content);
         compare(module, new String [] {"yo", "yo.exe"},
-                SectionType.NATIVE_CMDS);
+                SectionType.NATIVE_CMDS, content);
         compare(module, new String [] {"yo", "hey"},
-                SectionType.CONFIG);
+                SectionType.CONFIG, content);
+        content.close();
     }
 
     /**
      * Compare two files for identity.
      */
 
-    static void compare (File f1, File f2) throws IOException {
+    static void compare (File f1, InputStream i2) throws IOException {
         InputStream i1 = new BufferedInputStream (new FileInputStream(f1));
-        InputStream i2 = new BufferedInputStream (new FileInputStream(f2));
-
         int c1,c2;
         try {
             while ((c1=i1.read()) != -1) {
@@ -452,6 +467,10 @@ public class ModuleFormatTest01 {
             i1.close();
             i2.close();
         }
+    }
+
+    static void compare (File f1, File f2) throws IOException {
+        compare(f1, new BufferedInputStream (new FileInputStream(f2)));
     }
 
     /**

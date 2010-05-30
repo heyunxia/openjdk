@@ -30,6 +30,8 @@ import java.io.*;
 import java.net.URI;
 import java.security.*;
 import java.util.*;
+import java.util.jar.*;
+import java.util.zip.*;
 
 import static org.openjdk.jigsaw.Trace.*;
 
@@ -518,17 +520,98 @@ public final class SimpleLibrary
         return Files.load(new File(md, "info"));
     }
 
+    // ## Close all zip files when we close this library
+    private Map<ModuleId, Object> contentForModule = new HashMap<>();
+    private Object NONE = new Object();
+
+    private Object findContent(ModuleId mid)
+        throws IOException
+    {
+        Object o = contentForModule.get(mid);
+        if (o != null)
+            return o;
+        if (o == NONE)
+            return null;
+        File md = findModuleDir(mid);
+        if (md == null) {
+            contentForModule.put(mid, NONE);
+            return null;
+        }
+        File cf = new File(md, "classes");
+        if (cf.isFile()) {
+            ZipFile zf = new ZipFile(cf);
+            contentForModule.put(mid, zf);
+            return zf;
+        }
+        if (cf.isDirectory()) {
+            contentForModule.put(mid, cf);
+            return cf;
+        }
+        contentForModule.put(mid, NONE);
+        return null;
+    }
+
+    private byte[] loadContent(ZipFile zf, String path)
+        throws IOException
+    {
+        ZipEntry ze = zf.getEntry(path);
+        if (ze == null)
+            return null;
+        return Files.load(zf.getInputStream(ze), (int)ze.getSize());
+    }
+
+    private byte[] loadContent(ModuleId mid, String path)
+        throws IOException
+    {
+        Object o = findContent(mid);
+        if (o == null)
+            return null;
+        if (o instanceof ZipFile) {
+            ZipFile zf = (ZipFile)o;
+            ZipEntry ze = zf.getEntry(path);
+            if (ze == null)
+                return null;
+            return Files.load(zf.getInputStream(ze), (int)ze.getSize());
+        }
+        if (o instanceof File) {
+            File f = new File((File)o, path);
+            if (!f.exists())
+                return null;
+            return Files.load(f);
+        }
+        assert false;
+        return null;
+    }
+
+    private URI locateContent(ModuleId mid, String path)
+        throws IOException
+    {
+        Object o = findContent(mid);
+        if (o == null)
+            return null;
+        if (o instanceof ZipFile) {
+            ZipFile zf = (ZipFile)o;
+            ZipEntry ze = zf.getEntry(path);
+            if (ze == null)
+                return null;
+            return URI.create("jar:"
+                              + new File(zf.getName()).toURI().toString()
+                              + "!/" + path);
+        }
+        if (o instanceof File) {
+            File f = new File((File)o, path);
+            if (!f.exists())
+                return null;
+            return f.toURI();
+        }
+        assert false;
+        return null;
+    }
+
     public byte[] readLocalClass(ModuleId mid, String className)
         throws IOException
     {
-        File md = findModuleDir(mid);
-        if (md == null)
-            return null;
-        File cf = new File(new File(md, "classes"),
-                           className.replace('.', '/') + ".class");
-        if (!cf.exists())
-            return null;
-        return Files.load(cf);
+        return loadContent(mid, className.replace('.', '/') + ".class");
     }
 
     public List<String> listLocalClasses(ModuleId mid, boolean all)
@@ -560,14 +643,14 @@ public final class SimpleLibrary
         return scf.cf;
     }
 
-    private boolean addToIndex(File f, Index ix)
+    private boolean addToIndex(ClassInfo ci, Index ix)
         throws IOException
     {
-        ClassInfo ci = ClassInfo.read(f);
         if (ci.isModuleInfo())
             return false;
         if (ci.moduleName() != null) {
-            throw new IOException(f + ": Old-style class file with"
+            // ## From early Jigsaw development; can probably delete now
+            throw new IOException("Old-style class file with"
                                   + " module attribute");
         }
         if (ci.isPublic())
@@ -580,17 +663,34 @@ public final class SimpleLibrary
     private void reIndex(ModuleId mid)
         throws IOException
     {
+
         File md = findModuleDir(mid);
         if (md == null)
             throw new IllegalArgumentException(mid + ": No such module");
         File cd = new File(md, "classes");
         final Index ix = new Index(md);
-        Files.walkTree(cd, new Files.Visitor<File>() {
-            public void accept(File f) throws IOException {
-                if (f.getPath().endsWith(".class"))
-                    addToIndex(f, ix);
+
+        if (cd.isDirectory()) {
+            Files.walkTree(cd, new Files.Visitor<File>() {
+                public void accept(File f) throws IOException {
+                    if (f.getPath().endsWith(".class"))
+                        addToIndex(ClassInfo.read(f), ix);
+                }
+            });
+        } else {
+            FileInputStream fis = new FileInputStream(cd);
+            ZipInputStream zis = new ZipInputStream(fis);
+            ZipEntry ze;
+            while ((ze = zis.getNextEntry()) != null) {
+                if (!ze.getName().endsWith(".class"))
+                    continue;
+                addToIndex(ClassInfo.read(Files.nonClosingStream(zis),
+                                          ze.getSize(),
+                                          mid + ":" + ze.getName()),
+                           ix);
             }
-        });
+        }
+
         ix.store();
     }
 
@@ -635,19 +735,52 @@ public final class SimpleLibrary
         // Delete the config file, if one exists
         StoredConfiguration.delete(mdst);
 
-        // Copy class files and build index
-        final Index ix = new Index(mdst);
-        Files.copyTree(src, cldst, new Files.Filter<File>() {
-            public boolean accept(File f) throws IOException {
-                if (f.isDirectory())
-                    return true;
-                return addToIndex(f, ix);
-            }});
-        ix.store();
+        if (false) {
 
-        // Copy resources
-        for (File rsrc : mf.resources())
-            Files.copyTree(rsrc, cldst);
+            // ## Retained for now in case we later want to add an option
+            // ## to install into a tree rather than a zip file
+
+            // Copy class files and build index
+            final Index ix = new Index(mdst);
+            Files.copyTree(src, cldst, new Files.Filter<File>() {
+                    public boolean accept(File f) throws IOException {
+                        if (f.isDirectory())
+                            return true;
+                        return addToIndex(ClassInfo.read(f), ix);
+                    }});
+            ix.store();
+
+            // Copy resources
+            for (File rsrc : mf.resources())
+                Files.copyTree(rsrc, cldst);
+
+        } else {
+
+            FileOutputStream fos
+                = new FileOutputStream(new File(mdst, "classes"));
+            JarOutputStream jos
+                = new JarOutputStream(new BufferedOutputStream(fos));
+            try {
+
+                // Copy class files and build index
+                final Index ix = new Index(mdst);
+                Files.storeTree(src, jos, new Files.Filter<File>() {
+                        public boolean accept(File f) throws IOException {
+                            if (f.isDirectory())
+                                return true;
+                            return addToIndex(ClassInfo.read(f), ix);
+                        }});
+                ix.store();
+
+                // Copy resources
+                for (File rsrc : mf.resources())
+                    Files.storeTree(rsrc, jos);
+
+            } finally {
+                jos.close();
+            }
+
+        }
 
     }
 
@@ -854,16 +987,10 @@ public final class SimpleLibrary
         }
     }
 
-    public File findLocalResource(ModuleId mid, String name)
+    public URI findLocalResource(ModuleId mid, String name)
         throws IOException
     {
-        File md = findModuleDir(mid);
-        if (md == null)
-            return null;
-        File f = new File(new File(md, "classes"), name);
-        if (!f.exists())
-            return null;
-        return f;
+        return locateContent(mid, name);
     }
 
     public File findLocalNativeLibrary(ModuleId mid, String name)

@@ -232,27 +232,13 @@ public class ClassInfo {
         bb.position(bb.position() + n);
     }
 
-    private void load(File f)
+    private void load(ByteBuffer bb, String path)
         throws IOException
     {
 
-        ByteBuffer bb = null;
-        FileInputStream fin = new FileInputStream(f);
-        try {
-            FileChannel fc = fin.getChannel();
-            bb = ByteBuffer.allocate((int)(fc.size() & 0xffffffff));
-            while (bb.hasRemaining()) {
-                if (fc.read(bb) == -1)
-                    throw new EOFException();
-            }
-        } finally {
-            fin.close();
-        }
-        bb.flip();
-
         int magic = bb.getInt();
         if (magic != 0xcafebabe)
-            throw new ClassFormatError(f.toString());
+            throw new ClassFormatError(path);
         int minor = bb.getShort() & 0xffff;
         int major = bb.getShort() & 0xffff;
         int cpcount = bb.getShort() & 0xffff;
@@ -298,7 +284,8 @@ public class ClassInfo {
             int name = bb.getShort() & 0xffff;
             if (constantString(name).equals("Module")) {
                 if (bb.getInt() != 2)
-                    throw new ClassFormatError(f + ": Invalid module attribute");
+                    throw new ClassFormatError(path
+                                               + ": Invalid module attribute");
                 int mid = bb.getShort() & 0xffff;
                 int[] midp = constantIntPair(mid);
                 moduleName = constantString(midp[0]).replace('/', '.');
@@ -315,8 +302,42 @@ public class ClassInfo {
 
     }
 
-    // Primary entry point
-    //
+    private void load(File f)
+        throws IOException
+    {
+        ByteBuffer bb = null;
+        FileInputStream fin = new FileInputStream(f);
+        try {
+            FileChannel fc = fin.getChannel();
+            bb = ByteBuffer.allocate((int)(fc.size() & 0xffffffff));
+            while (bb.hasRemaining()) {
+                if (fc.read(bb) == -1)
+                    throw new EOFException();
+            }
+        } finally {
+            fin.close();
+        }
+        bb.flip();
+        load(bb, f.getPath());
+    }
+
+    private void load(InputStream in, int size, String path)
+        throws IOException
+    {
+        assert size >= 0 : "oops: " + size;
+        byte[] buf = new byte[size];
+        int i = 0, n;
+        try {
+            while ((n = in.read(buf, i, size - i)) > 0)
+                i += n;
+        } finally {
+            in.close();
+        }
+        load(ByteBuffer.wrap(buf, 0, i), path);
+    }
+
+    // -- Entry points --
+
     static ClassInfo read(File f)
         throws IOException
     {
@@ -325,6 +346,20 @@ public class ClassInfo {
             ci.load(f);
         } catch (BufferUnderflowException x) {
             throw new ClassFormatError(f.toString());
+        }
+        return ci;
+    }
+
+    static ClassInfo read(InputStream in, long size, String path)
+        throws IOException
+    {
+        assert size > 1 && size <= Integer.MAX_VALUE
+            : path + " size = " + size;
+        ClassInfo ci = new ClassInfo();
+        try {
+            ci.load(in, (int)size, path);
+        } catch (BufferUnderflowException x) {
+            throw new ClassFormatError(path);
         }
         return ci;
     }

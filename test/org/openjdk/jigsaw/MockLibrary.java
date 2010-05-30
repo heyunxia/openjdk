@@ -170,7 +170,7 @@ class MockLibrary
         throw new UnsupportedOperationException();
     }
 
-    public File findLocalResource(ModuleId mid, String name) {
+    public URI findLocalResource(ModuleId mid, String name) {
         throw new UnsupportedOperationException();
     }
 
