@@ -27,6 +27,7 @@ set -e
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../build}/bin
 alias jmod=$BIN/jmod
+alias jpkg=$BIN/jpkg
 
 /bin/sh ${TESTSRC:-.}/tester.sh $0
 
@@ -45,13 +46,24 @@ mk z.res.z/baz/z 'Hola!'
 mk z.res.z/inf/a 'and a three!'
 
 export JAVA_MODULES=z.lib
+
+echo; echo "Direct install"
 jmod create
 jmod install z.test/modules -r z.res.z z
 jmod install z.test/modules -r z.res.y y
 jmod install z.test/modules -r z.res.x x
 $BIN/java -ea -L z.lib -m x
-exit 0
 
+echo; echo "Module-file install"
+jpkg -m z.test/modules/z -r z.res.z jmod z
+jpkg -m z.test/modules/y -r z.res.y jmod y
+jpkg -m z.test/modules/x -r z.res.x jmod x
+rm -rf z.lib
+jmod create
+jmod install x@1.jmod y@1.jmod z@1.jmod
+$BIN/java -ea -L z.lib -m x
+
+exit 0
 
 # -- Setup
 

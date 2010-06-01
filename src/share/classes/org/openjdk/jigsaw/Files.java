@@ -27,6 +27,8 @@ package org.openjdk.jigsaw;
 
 import java.io.*;
 import java.util.*;
+import java.util.jar.*;
+import java.util.zip.*;
 
 
 public final class Files {
@@ -89,16 +91,13 @@ public final class Files {
         delete(dst);
     }
 
-    private static void copy(File src, File dst)
+    private static void copy(File src, OutputStream out)
         throws IOException
     {
         ensureIsFile(src);
-        if (dst.exists())
-            ensureIsFile(dst);
         byte[] buf = new byte[8192];
         FileInputStream in = new FileInputStream(src);
         try {
-            FileOutputStream out = new FileOutputStream(dst);
             try {
                 int n;
                 while ((n = in.read(buf)) > 0) {
@@ -110,6 +109,14 @@ public final class Files {
         } finally {
             in.close();
         }
+    }
+
+    private static void copy(File src, File dst)
+        throws IOException
+    {
+        if (dst.exists())
+            ensureIsFile(dst);
+        copy(src, new FileOutputStream(dst));
         dst.setLastModified(src.lastModified());
         if (src.canExecute())
             dst.setExecutable(true, false);
@@ -152,6 +159,37 @@ public final class Files {
         copyTree(src, dst, null);
     }
 
+    private static void storeTree(File src, JarOutputStream dst,
+                                  Filter<File> filter, String dstPath)
+        throws IOException
+    {
+        ensureIsDirectory(src);
+        String[] sls = list(src);
+        for (int i = 0; i < sls.length; i++) {
+            File sf = new File(src, sls[i]);
+            if (filter != null && !filter.accept(sf))
+                continue;
+            String dp = (dstPath == null) ? sls[i] : dstPath + "/" + sls[i];
+            if (sf.isDirectory())
+                storeTree(sf, dst, filter, dp);
+            else
+                copy(sf, newOutputStream(dst, dp));
+        }
+    }
+
+    public static void storeTree(File src, JarOutputStream dst,
+                                  Filter<File> filter)
+        throws IOException
+    {
+        storeTree(src, dst, filter, null);
+    }
+
+    public static void storeTree(File src, JarOutputStream dst)
+        throws IOException
+    {
+        storeTree(src, dst, null, null);
+    }
+
     public static interface Visitor<T> {
         public void accept(T x) throws IOException;
     }
@@ -170,11 +208,10 @@ public final class Files {
         }
     }
 
-    public static byte[] load(File src)
+    public static byte[] load(InputStream is, int n)
         throws IOException
     {
-        DataInputStream in = new DataInputStream(new FileInputStream(src));
-        int n = (int)src.length();
+        DataInputStream in = new DataInputStream(is);
         byte[] bs = new byte[n];
         try {
             in.readFully(bs);
@@ -182,6 +219,13 @@ public final class Files {
         } finally {
             in.close();
         }
+    }
+
+    public static byte[] load(File src)
+        throws IOException
+    {
+        FileInputStream fis = new FileInputStream(src);
+        return load(fis, (int)src.length());
     }
 
     public static void store(byte[] bs, File dst)
@@ -206,6 +250,70 @@ public final class Files {
     {
         if (!d.mkdirs())
             throw new IOException(d + ": Cannot create " + what + " directory");
+    }
+
+    private static class NonClosingInputStream
+        extends FilterInputStream
+    {
+
+        private NonClosingInputStream(InputStream out) {
+            super(out);
+        }
+
+        public void close() { }
+
+    }
+
+    public static InputStream nonClosingStream(InputStream out) {
+        return new NonClosingInputStream(out);
+    }
+
+    private static class JarEntryOutputStream
+        extends FilterOutputStream
+    {
+
+        CRC32 crc;
+        ByteArrayOutputStream baos;
+        CheckedOutputStream cos;
+        JarOutputStream jos;
+        String path;
+
+        private JarEntryOutputStream(JarOutputStream jos,
+                                     CRC32 crc,
+                                     ByteArrayOutputStream baos,
+                                     CheckedOutputStream cos,
+                                     String path)
+        {
+            super(cos);
+            this.jos = jos;
+            this.crc = crc;
+            this.baos = baos;
+            this.cos = cos;
+            this.path = path;
+        }
+
+        public void close() throws IOException {
+            cos.close();
+            JarEntry je = new JarEntry(path);
+            je.setMethod(JarEntry.STORED);
+            je.setCrc(crc.getValue());
+            je.setSize(baos.size());
+            je.setCompressedSize(baos.size());
+            jos.putNextEntry(je);
+            baos.writeTo(jos);
+            jos.closeEntry();
+        }
+
+    }
+
+    public static JarEntryOutputStream
+        newOutputStream(JarOutputStream jos, String path)
+    {
+        // Gee, dac, that zip API sure is broken, isn't it?
+        CRC32 crc = new CRC32();
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        CheckedOutputStream cos = new CheckedOutputStream(baos, crc);
+        return new JarEntryOutputStream(jos, crc, baos, cos, path);
     }
 
 }

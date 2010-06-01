@@ -122,11 +122,16 @@ public class Librarian {
                     DataInputStream dis = new DataInputStream(fis);
                     ModuleFileFormat.Reader reader =
                         new ModuleFileFormat.Reader(dis);
-                    classes = new File(jms.parseModuleInfo(reader.readStart())
-                                       .id().name());
-                    if (!classes.exists())
+                    try {
+                        ModuleInfo mi = jms.parseModuleInfo(reader.readStart());
+                        classes = new File(mi.id().name());
+                        if (classes.exists())
+                            classes.toPath().delete();
                         classes.toPath().createDirectory();
-                    reader.readRest(classes);
+                        reader.readRest(classes);
+                    } finally {
+                        reader.close();
+                    }
                 }
                 catch (IOException x) {
                     // Try to cleanup if an exception is thrown
@@ -628,6 +633,7 @@ public class Librarian {
             System.exit(1);
         } catch (Command.Exception x) {
             err.println(x.getMessage());
+            x.printStackTrace();
             System.exit(1);
         }
     }
