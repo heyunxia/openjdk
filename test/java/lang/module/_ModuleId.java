@@ -26,6 +26,7 @@
 /* @test
  * @summary java.lang.module.ModuleId unit test
  * @run main _ModuleId
+ * @key modules
  */
 
 import java.io.*;

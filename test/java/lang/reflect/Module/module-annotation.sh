@@ -23,6 +23,7 @@
 
 # @test
 # @summary Test to access annotations in java.lang.reflect.Module
+# @key modules
 
 set -e
 
@@ -270,21 +271,20 @@ run() {
    lib=z.lib.$1
    mkdir z.modules.$ver
 
-   # when javac supports -L option, we can replace
-   #    -modulepath z.modules.$ver${PS}z.modules
-   # with:
-   #    -modulepath z.modules.$ver -L z.lib 
-   $BIN/javac -d z.modules.$ver -modulepath z.modules.$ver${PS}z.modules \
-        $(find z.src.$ver -name '*.java') || exit 10
+   $BIN/javac -d z.modules.$ver -modulepath z.modules.$ver -L z.lib \
+        $(find z.src.$ver -name '*.java') \
+        $(find z.src/test -name '*.java') || exit 10
 
    $BIN/jmod -P z.lib -L $lib create  || exit 11
-   $BIN/jmod -L $lib install z.modules.$ver test.foo.bar || exit 12
-   $BIN/jmod -L $lib install z.modules test || exit 13
-   $BIN/java -L $lib -m test $lib || exit 14
+   $BIN/jmod -L $lib install z.modules.$ver test.foo.bar test || exit 12
+   $BIN/java -L $lib -m test $lib || exit 13
 }
 
-$BIN/javac -d z.modules -modulepath z.modules -sourcepath z.src.v1 \
-    $(find z.src -name '*.java') || exit 1
+#
+# Create z.lib with foo and bar modules
+$BIN/javac -d z.modules -modulepath z.modules \
+    $(find z.src/bar -name '*.java') \
+    $(find z.src/foo -name '*.java') || exit 1
 
 $BIN/jmod -L z.lib create  || exit 2
 $BIN/jmod -L z.lib install z.modules foo bar || exit 3

@@ -23,6 +23,7 @@
 
 # @test
 # @summary java.lang.module.ModuleInfoReader unit test
+# @key modules
 
 set -e
 

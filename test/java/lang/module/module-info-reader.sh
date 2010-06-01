@@ -23,6 +23,7 @@
 
 # @test
 # @summary java.lang.module.ModuleInfoReader unit test
+# @key modules
 
 set -e
 
@@ -52,8 +53,12 @@ module M @ 1.0
 package M.X.Y;
 public class Main { }
 
-module N @ 9.0 { }
+module N @ 9.0 { 
+    permits M;
+}
 
-module P @ 9.1 { }
+module P @ 9.1 {
+    permits M;
+}
 
 module Q @ 5.11 { }
