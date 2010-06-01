@@ -100,6 +100,12 @@
         <available file="${boot.java.home}/lib/modules/%jigsaw-library" type="file"/>
     </condition>
 
+    <condition property="default.bootstrap.opts"
+        value="-J-L -J${build.bootstrap.dir}/lib/modules -J-Xmode:module"
+        else="-J-Xbootclasspath/p:${build.bootstrap.dir}/classes">
+           <isset property="boot.java.provides.modules"/>
+    </condition>
+
     <condition property="target.java.provides.modules">
         <available file="${target.java.home}/lib/modules/%jigsaw-library" type="file"/>
     </condition>
@@ -307,7 +313,7 @@
         <build-bootstrap-tool    name="javac"/>
     </target>
 
-    <target name="build-classes-javac" depends="build-bootstrap-javac,-create-import-jdk-stubs">
+    <target name="build-classes-javac" depends="build-bootstrap-module-library,-create-import-jdk-stubs">
         <build-classes includes="${javac.includes}"/>
     </target>
 
@@ -898,7 +904,7 @@
             <attribute name="excludes" default="${exclude.files} **/package-info.java"/>
             <attribute name="classes.dir" default="${build.classes.dir}"/>
             <attribute name="gensrc.dir" default="${build.gensrc.dir}"/>
-            <attribute name="javac.bootclasspath" default="${build.bootstrap.dir}/classes"/>
+            <attribute name="bootstrap.opts" default="${default.bootstrap.opts}"/>
             <attribute name="bootclasspath.opt" default="${javac.bootclasspath.opt}"/>
             <attribute name="classpath" default="${javac.classpath}"/>
             <attribute name="sourcepath" default="${javac.sourcepath}"/>
@@ -908,6 +914,7 @@
             <attribute name="release" default="${release}"/>
             <attribute name="full.version" default="${full.version}"/>
             <sequential>
+                <echo message="build-classes: bootstrap.opts=@{bootstrap.opts}"/>
                 <echo level="verbose" message="build-classes: excludes=@{excludes}"/>
                 <echo level="verbose" message="build-classes: bootclasspath.opt=@{bootclasspath.opt}"/>
                 <echo level="verbose" message="build-classes: classpath=@{classpath}"/>
@@ -944,7 +951,7 @@
                        debuglevel="${javac.debuglevel}">
                     <compilerarg value="-implicit:none"/>
                     <compilerarg value="-Xprefer:source"/>
-                    <compilerarg value="-J-Xbootclasspath/p:@{javac.bootclasspath}"/>
+                    <compilerarg line="@{bootstrap.opts}"/>
                     <compilerarg line="@{bootclasspath.opt}"/>
                     <compilerarg line="${javac.no.jdk.warnings}"/>
                     <compilerarg line="${javac.version.opt}"/>
@@ -990,7 +997,7 @@
                 target="${boot.javac.target}"
                 gensrc.dir="${build.bootstrap.dir}/gensrc"
                 classes.dir="${build.bootstrap.dir}/classes"
-                javac.bootclasspath=""
+                bootstrap.opts=""
                 bootclasspath.opt="-Xbootclasspath/p:${build.bootstrap.dir}/classes"
                 sourcepath=""
                 release="${bootstrap.release}"
