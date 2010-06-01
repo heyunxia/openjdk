@@ -53,12 +53,14 @@
     <!-- Convenient shorthands for standard locations within the workspace. -->
     <property name="build.dir" location="build"/>
     <property name="build.bootstrap.dir" location="${build.dir}/bootstrap"/>
+    <property name="build.bootstrap.lib.dir" location="${build.dir}/bootstrap/lib"/>
     <property name="build.coverage.dir" location="${build.dir}/coverage"/>
     <property name="build.classes.dir" location="${build.dir}/classes"/>
     <property name="build.gensrc.dir" location="${build.dir}/gensrc"/>
     <property name="build.genstubs.dir" location="${build.dir}/genstubs"/>
     <property name="build.javadoc.dir" location="${build.dir}/javadoc"/>
     <property name="build.jtreg.dir" location="${build.dir}/jtreg"/>
+    <property name="build.modules.dir" location="${build.dir}/modules"/>
     <property name="build.toolclasses.dir" location="${build.dir}/toolclasses"/>
     <property name="dist.dir" location="dist"/>
     <property name="dist.bin.dir" location="${dist.dir}/bin"/>
@@ -92,6 +94,20 @@
     <condition property="launcher.java"
         value="${target.java.home}/bin/java" else="java">
         <isset property="target.java.home"/>
+    </condition>
+
+    <condition property="boot.java.provides.modules">
+        <available file="${boot.java.home}/lib/modules/%jigsaw-library" type="file"/>
+    </condition>
+
+    <condition property="default.bootstrap.opts"
+        value="-J-L -J${build.bootstrap.dir}/lib/modules -J-Xmode:module"
+        else="-J-Xbootclasspath/p:${build.bootstrap.dir}/classes">
+           <isset property="boot.java.provides.modules"/>
+    </condition>
+
+    <condition property="target.java.provides.modules">
+        <available file="${target.java.home}/lib/modules/%jigsaw-library" type="file"/>
     </condition>
 
     <!-- Logic for handling access import jdk classes, if available.
@@ -161,6 +177,59 @@
 
     <target name="build-all-classes" depends="build-bootstrap-javac,-create-import-jdk-stubs">
         <build-classes includes="${javac.includes} ${javadoc.includes} ${doclets.includes} ${javah.includes} ${javap.includes} ${apt.includes}"/>
+    </target>
+
+    <target name="build-module-library" depends="-check-module-library-uptodate,-def-jmod"
+            if="target.java.provides.modules" unless="module.library.uptodate">
+        <delete dir="${dist.lib.dir}/modules"/>
+        <jmod task="create" library="${dist.lib.dir}/modules">
+            <arg value="-P"/>
+            <arg file="${target.java.home}/lib/modules"/>
+        </jmod>
+        <jmod task="install" library="${dist.lib.dir}/modules">
+            <arg file="${dist.lib.dir}/${javac.module.name}@${module.version}.jmod"/>
+            <arg file="${dist.lib.dir}/${javadoc.module.name}@${module.version}.jmod"/>
+            <arg file="${dist.lib.dir}/${javah.module.name}@${module.version}.jmod"/>
+            <arg file="${dist.lib.dir}/${javap.module.name}@${module.version}.jmod"/>
+            <arg file="${dist.lib.dir}/${apt.module.name}@${module.version}.jmod"/>
+            <arg file="${dist.lib.dir}/${langtools.module.name}@${module.version}.jmod"/>
+        </jmod>
+    </target>
+
+    <target name="-check-module-library-uptodate"
+            depends="build-module-javac,build-module-javadoc,build-module-javah,build-module-javap,build-module-apt,build-module-langtools">
+        <mkdir dir="${dist.lib.dir}"/>  <!-- uugh, Ant quirk: dependset requires this to exist -->
+        <dependset>
+            <srcfileset dir="${dist.lib.dir}" includes="*.jmod"/>
+            <targetfileset dir="${dist.lib.dir}/modules"/>
+        </dependset>
+        <available property="module.library.uptodate" file="${dist.lib.dir}/modules/%jigsaw-library"/>
+    </target>
+
+    <target name="build-bootstrap-module-library" depends="-check-bootstrap-module-library-uptodate,-def-jmod"
+            if="boot.java.provides.modules" unless="bootstrap.module.library.uptodate">
+        <delete dir="${build.bootstrap.lib.dir}/modules"/>
+        <jmod task="create" library="${build.bootstrap.lib.dir}/modules" java.home="${boot.java.home}">
+            <arg value="-P"/>
+            <arg file="${boot.java.home}/lib/modules"/>
+        </jmod>
+        <jmod task="install" library="${build.bootstrap.lib.dir}/modules" java.home="${boot.java.home}">
+            <arg file="${build.bootstrap.lib.dir}/${javac.module.name}@${module.version}.jmod"/>
+            <arg file="${build.bootstrap.lib.dir}/${javadoc.module.name}@${module.version}.jmod"/>
+            <arg file="${build.bootstrap.lib.dir}/${javah.module.name}@${module.version}.jmod"/>
+            <arg file="${build.bootstrap.lib.dir}/${javap.module.name}@${module.version}.jmod"/>
+            <arg file="${build.bootstrap.lib.dir}/${langtools.module.name}@${module.version}.jmod"/>
+        </jmod>
+    </target>
+
+    <target name="-check-bootstrap-module-library-uptodate"
+            depends="build-bootstrap-module-javac,build-bootstrap-module-javadoc,build-bootstrap-module-javah,build-bootstrap-module-javap,build-bootstrap-module-langtools">
+        <mkdir dir="${build.bootstrap.lib.dir}"/>  <!-- uugh, Ant quirk: dependset requires this to exist -->
+        <dependset>
+            <srcfileset dir="${build.bootstrap.lib.dir}" includes="*.jmod"/>
+            <targetfileset dir="${build.bootstrap.lib.dir}/modules"/>
+        </dependset>
+        <available property="bootstrap.module.library.uptodate" file="${build.bootstrap.lib.dir}/modules/%jigsaw-library"/>
     </target>
 
     <!-- clean -->
@@ -244,13 +313,105 @@
         <build-bootstrap-tool    name="javac"/>
     </target>
 
-    <target name="build-classes-javac" depends="build-bootstrap-javac,-create-import-jdk-stubs">
+    <target name="build-classes-javac" depends="build-bootstrap-module-library,-create-import-jdk-stubs">
         <build-classes includes="${javac.includes}"/>
     </target>
 
-    <target name="build-javac" depends="build-classes-javac">
+    <target name="build-javac" depends="build-classes-javac,build-module-javac">
         <build-jar  name="javac" includes="${javac.includes}"/>
         <build-tool name="javac"/>
+    </target>
+
+    <target name="build-module-javac" depends="build-module-langtools,-check-module-javac-uptodate"
+            if="target.java.provides.modules" unless="javac.module.uptodate">
+        <build-module module.name="${javac.module.name}"
+            module.includes.classes="${javac.module.includes.classes}"
+            module.excludes.classes="${javac.module.excludes.classes}"
+            module.includes.resources="${javac.module.includes.resources}"
+            module.excludes.resources="${javac.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-module-javac-uptodate" depends="build-classes-javac">
+        <uptodate property="javac.module.uptodate" targetfile="${dist.lib.dir}/${javac.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javac.module.includes.classes}"
+                excludes="${javac.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javac.module.includes.resources}"
+                excludes="${javac.module.excludes.resources}"
+                />
+        </uptodate>
+    </target>
+
+    <target name="build-bootstrap-module-javac" depends="build-bootstrap-module-langtools,-check-bootstrap-module-javac-uptodate"
+            if="boot.java.provides.modules" unless="bootstrap.javac.module.uptodate">
+        <build-bootstrap-module module.name="${javac.module.name}"
+            module.includes.classes="${javac.module.includes.classes}"
+            module.excludes.classes="${javac.module.excludes.classes}"
+            module.includes.resources="${javac.module.includes.resources}"
+            module.excludes.resources="${javac.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-bootstrap-module-javac-uptodate" depends="build-bootstrap-javac">
+        <uptodate property="bootstrap.javac.module.uptodate" targetfile="${build.bootstrap.lib.dir}/${javac.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javac.module.includes.classes}"
+                excludes="${javac.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javac.module.includes.resources}"
+                excludes="${javac.module.excludes.resources}"
+                />
+        </uptodate>
+    </target>
+
+    <target name="build-module-langtools" depends="-check-module-langtools-uptodate,-def-build-module"
+            if="target.java.provides.modules" unless="langtools.module.uptodate">
+        <build-module module.name="${langtools.module.name}"
+            module.includes.classes="${langtools.module.includes.classes}"
+            module.excludes.classes="${langtools.module.excludes.classes}"
+            module.includes.resources="${langtools.module.includes.resources}"
+            module.excludes.resources="${langtools.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-module-langtools-uptodate" depends="build-classes-javac,build-classes-apt">
+        <uptodate property="langtools.module.uptodate" targetfile="${dist.lib.dir}/${langtools.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.classes.dir}"
+                includes="${langtools.module.includes.classes}"
+                excludes="${langtools.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.classes.dir}"
+                includes="${langtools.module.includes.resources}"
+                excludes="${langtools.module.excludes.resources}"
+                />
+        </uptodate>
+    </target>
+
+    <target name="build-bootstrap-module-langtools" depends="-check-bootstrap-module-langtools-uptodate,-def-build-bootstrap-module"
+            if="boot.java.provides.modules" unless="bootstrap.langtools.module.uptodate">
+        <build-bootstrap-module module.name="${langtools.module.name}"
+            module.includes.classes="${langtools.module.includes.classes}"
+            module.excludes.classes="${langtools.module.excludes.classes}"
+            module.includes.resources="${langtools.module.includes.resources}"
+            module.excludes.resources="${langtools.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-bootstrap-module-langtools-uptodate" depends="build-bootstrap-javac,build-bootstrap-apt">
+        <uptodate property="bootstrap.langtools.module.uptodate" targetfile="${build.bootstrap.lib.dir}/${langtools.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${langtools.module.includes.classes}"
+                excludes="${langtools.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${langtools.module.includes.resources}"
+                excludes="${langtools.module.excludes.resources}"
+                />
+        </uptodate>
     </target>
 
     <target name="javadoc-javac" depends="build-javac,-def-javadoc-tool">
@@ -280,10 +441,56 @@
         <build-classes includes="${javadoc.includes}"/>
     </target>
 
-    <target name="build-javadoc" depends="build-javac,build-classes-javadoc">
+    <target name="build-javadoc" depends="build-javac,build-classes-javadoc,build-module-javadoc">
         <build-jar  name="javadoc" includes="${javadoc.includes}"
                     jarclasspath="javac.jar doclets.jar"/>
         <build-tool name="javadoc"/>
+    </target>
+
+    <target name="build-module-javadoc" depends="build-module-javac,-check-module-javadoc-uptodate"
+            if="target.java.provides.modules" unless="javadoc.module.uptodate">
+        <build-module module.name="${javadoc.module.name}"
+            module.includes.classes="${javadoc.module.includes.classes}"
+            module.excludes.classes="${javadoc.module.excludes.classes}"
+            module.includes.resources="${javadoc.module.includes.resources}"
+            module.excludes.resources="${javadoc.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-module-javadoc-uptodate" depends="build-classes-javadoc,build-classes-doclets">
+        <uptodate property="javadoc.module.uptodate" targetfile="${dist.lib.dir}/${javadoc.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javadoc.module.includes.classes}"
+                excludes="${javadoc.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javadoc.module.includes.resources}"
+                excludes="${javadoc.module.excludes.resources}"
+                />
+        </uptodate>
+    </target>
+
+    <target name="build-bootstrap-module-javadoc" depends="build-bootstrap-module-javac,-check-bootstrap-module-javadoc-uptodate"
+            if="boot.java.provides.modules" unless="bootstrap.javadoc.module.uptodate">
+        <build-bootstrap-module module.name="${javadoc.module.name}"
+            module.includes.classes="${javadoc.module.includes.classes}"
+            module.excludes.classes="${javadoc.module.excludes.classes}"
+            module.includes.resources="${javadoc.module.includes.resources}"
+            module.excludes.resources="${javadoc.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-bootstrap-module-javadoc-uptodate" depends="build-bootstrap-javadoc,build-bootstrap-doclets">
+        <uptodate property="bootstrap.javadoc.module.uptodate" targetfile="${build.bootstrap.lib.dir}/${javadoc.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javadoc.module.includes.classes}"
+                excludes="${javadoc.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javadoc.module.includes.resources}"
+                excludes="${javadoc.module.excludes.resources}"
+                />
+        </uptodate>
     </target>
 
     <target name="javadoc-javadoc" depends="build-javadoc,-def-javadoc-tool">
@@ -339,13 +546,59 @@
         <build-bootstrap-tool    name="javah"/>
     </target>
 
-    <target name="build-javah" depends="build-javac,build-classes-javah">
+    <target name="build-javah" depends="build-javac,build-classes-javah,build-module-javah">
         <build-jar  name="javah" includes="${javah.includes}" jarclasspath="javac.jar"/>
         <build-tool name="javah"/>
     </target>
 
     <target name="build-classes-javah" depends="build-classes-javadoc">
         <build-classes includes="${javah.includes}"/>
+    </target>
+
+    <target name="build-module-javah" depends="build-module-javac,-check-module-javah-uptodate"
+            if="target.java.provides.modules" unless="javah.module.uptodate">
+        <build-module module.name="${javah.module.name}"
+            module.includes.classes="${javah.module.includes.classes}"
+            module.excludes.classes="${javah.module.excludes.classes}"
+            module.includes.resources="${javah.module.includes.resources}"
+            module.excludes.resources="${javah.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-module-javah-uptodate" depends="build-classes-javah">
+        <uptodate property="javah.module.uptodate" targetfile="${dist.lib.dir}/${javah.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javah.module.includes.classes}"
+                excludes="${javah.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javah.module.includes.resources}"
+                excludes="${javah.module.excludes.resources}"
+                />
+        </uptodate>
+    </target>
+
+    <target name="build-bootstrap-module-javah" depends="build-bootstrap-module-javac,-check-bootstrap-module-javah-uptodate"
+            if="boot.java.provides.modules" unless="bootstrap.javah.module.uptodate">
+        <build-bootstrap-module module.name="${javah.module.name}"
+            module.includes.classes="${javah.module.includes.classes}"
+            module.excludes.classes="${javah.module.excludes.classes}"
+            module.includes.resources="${javah.module.includes.resources}"
+            module.excludes.resources="${javah.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-bootstrap-module-javah-uptodate" depends="build-bootstrap-javah">
+        <uptodate property="bootstrap.javah.module.uptodate" targetfile="${build.bootstrap.lib.dir}/${javah.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javah.module.includes.classes}"
+                excludes="${javah.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javah.module.includes.resources}"
+                excludes="${javah.module.excludes.resources}"
+                />
+        </uptodate>
     </target>
 
     <!-- (no javadoc for javah) -->
@@ -374,11 +627,57 @@
         <build-classes includes="${javap.includes}"/>
     </target>
 
-    <target name="build-javap" depends="build-javac,build-classes-javap">
+    <target name="build-javap" depends="build-javac,build-classes-javap,build-module-javap">
         <build-jar  name="javap" includes="${javap.includes}"
                     jarmainclass="com.sun.tools.javap.Main"
                     jarclasspath="javac.jar"/>
         <build-tool name="javap"/>
+    </target>
+
+    <target name="build-module-javap" depends="build-module-javac,-check-module-javap-uptodate"
+            if="target.java.provides.modules" unless="javap.module.uptodate">
+        <build-module module.name="${javap.module.name}"
+            module.includes.classes="${javap.module.includes.classes}"
+            module.excludes.classes="${javap.module.excludes.classes}"
+            module.includes.resources="${javap.module.includes.resources}"
+            module.excludes.resources="${javap.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-module-javap-uptodate" depends="build-classes-javap">
+        <uptodate property="javap.module.uptodate" targetfile="${dist.lib.dir}/${javap.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javap.module.includes.classes}"
+                excludes="${javap.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.classes.dir}"
+                includes="${javap.module.includes.resources}"
+                excludes="${javap.module.excludes.resources}"
+                />
+        </uptodate>
+    </target>
+
+    <target name="build-bootstrap-module-javap" depends="build-bootstrap-module-javac,-check-bootstrap-module-javap-uptodate"
+            if="boot.java.provides.modules" unless="bootstrap.javap.module.uptodate">
+        <build-bootstrap-module module.name="${javap.module.name}"
+            module.includes.classes="${javap.module.includes.classes}"
+            module.excludes.classes="${javap.module.excludes.classes}"
+            module.includes.resources="${javap.module.includes.resources}"
+            module.excludes.resources="${javap.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-bootstrap-module-javap-uptodate" depends="build-bootstrap-javap">
+        <uptodate property="bootstrap.javap.module.uptodate" targetfile="${build.bootstrap.lib.dir}/${javap.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javap.module.includes.classes}"
+                excludes="${javap.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.bootstrap.dir}/classes"
+                includes="${javap.module.includes.resources}"
+                excludes="${javap.module.excludes.resources}"
+                />
+        </uptodate>
     </target>
 
     <!-- (no javadoc for javap) -->
@@ -402,9 +701,32 @@
         <build-bootstrap-tool    name="apt"/>
     </target>
 
-    <target name="build-apt" depends="build-javac,build-classes-apt">
+    <target name="build-apt" depends="build-javac,build-classes-apt,build-module-apt">
         <build-jar  name="apt" includes="${apt.includes}" jarclasspath="javac.jar"/>
         <build-tool name="apt"/>
+    </target>
+
+    <target name="build-module-apt" depends="build-module-javac,-check-module-apt-uptodate"
+            if="target.java.provides.modules" unless="apt.module.uptodate">
+        <build-module module.name="${apt.module.name}"
+            module.includes.classes="${apt.module.includes.classes}"
+            module.excludes.classes="${apt.module.excludes.classes}"
+            module.includes.resources="${apt.module.includes.resources}"
+            module.excludes.resources="${apt.module.excludes.resources}"
+            />
+    </target>
+
+    <target name="-check-module-apt-uptodate" depends="build-classes-apt">
+        <uptodate property="apt.module.uptodate" targetfile="${dist.lib.dir}/${apt.module.name}@${module.version}.jmod">
+            <srcfiles dir="${build.classes.dir}"
+                includes="${apt.module.includes.classes}"
+                excludes="${apt.module.excludes.classes}"
+                />
+            <srcfiles dir="${build.classes.dir}"
+                includes="${apt.module.includes.resources}"
+                excludes="${apt.module.excludes.resources}"
+                />
+        </uptodate>
     </target>
 
     <target name="build-classes-apt" depends="build-classes-javac">
@@ -461,6 +783,81 @@
 
     <!-- Ant macro and preset defs -->
 
+    <target name="-def-build-module">
+        <macrodef name="build-module">
+            <attribute name="module.name"/>
+            <attribute name="module.version" default="${module.version}"/>
+            <attribute name="module.includes.classes"/>
+            <attribute name="module.excludes.classes"/>
+            <attribute name="module.includes.resources"/>
+            <attribute name="module.excludes.resources"/>
+            <attribute name="classes.dir" default="${build.classes.dir}"/>
+            <attribute name="modules.dir" default="${build.modules.dir}"/>
+            <attribute name="dest.dir"    default="${dist.lib.dir}"/>
+            <attribute name="java.home"   default="${target.java.home}"/>
+            <sequential>
+                <mkdir dir="@{modules.dir}/@{module.name}/classes"/>
+                <!--
+                <exec executable="@{java.home}/bin/jmod" failonerror="true">
+                    <arg value="dump-class"/>
+                    <arg value="@{module.name}"/>
+                    <arg value="module-info"/>
+                    <arg file="@{modules.dir}/@{module.name}/classes/module-info.java"/>
+                </exec>
+                -->
+                <copy file="@{java.home}/lib/modules/@{module.name}/@{module.version}/info"
+                    tofile="@{modules.dir}/@{module.name}/classes/module-info.class"/>
+                <copy todir="@{modules.dir}/@{module.name}/classes"
+                        includeEmptyDirs="false">
+                    <fileset dir="@{classes.dir}"
+                        includes="@{module.includes.classes}"
+                        excludes="@{module.excludes.classes}"
+                        />
+                </copy>
+                <mkdir dir="@{modules.dir}/@{module.name}/resources"/>
+                <copy todir="@{modules.dir}/@{module.name}/resources"
+                        includeEmptyDirs="false">
+                    <fileset dir="@{classes.dir}"
+                        includes="@{module.includes.resources}"
+                        excludes="@{module.excludes.resources}"
+                        />
+                </copy>
+                <touch file="@{modules.dir}/@{module.name}/resources/dummy"/>
+                <mkdir dir="@{dest.dir}"/>
+                <exec executable="@{java.home}/bin/jpkg" failonerror="true">
+                    <arg value="-v"/>
+                    <arg value="-m"/>
+                    <arg file="@{modules.dir}/@{module.name}/classes"/>
+                    <arg value="-r"/>
+                    <arg file="@{modules.dir}/@{module.name}/resources"/>
+                    <arg value="-d"/>
+                    <arg file="@{dest.dir}"/>
+                    <arg value="jmod"/>
+                    <arg value="@{module.name}"/>
+                </exec>
+            </sequential>
+        </macrodef>
+    </target>
+
+    <target name="-def-jmod">
+        <macrodef name="jmod">
+            <attribute name="task"/>
+            <attribute name="library"/>
+            <attribute name="java.home" default="${target.java.home}"/>
+            <element name="args" implicit="true" optional="true"/>
+            <sequential>
+                <echo message="jmod @{task} -L @{library} ..."/>
+                <exec executable="@{java.home}/bin/jmod" failonerror="true">
+                    <arg value="@{task}"/>
+                    <arg value="--verbose"/>
+                    <arg value="-L"/>
+                    <arg file="@{library}"/>
+                    <args/>
+                </exec>
+            </sequential>
+        </macrodef>
+    </target>
+
     <target name="-def-build-tool">
         <macrodef name="build-tool">
             <attribute name="name"/>
@@ -507,7 +904,7 @@
             <attribute name="excludes" default="${exclude.files} **/package-info.java"/>
             <attribute name="classes.dir" default="${build.classes.dir}"/>
             <attribute name="gensrc.dir" default="${build.gensrc.dir}"/>
-            <attribute name="javac.bootclasspath" default="${build.bootstrap.dir}/classes"/>
+            <attribute name="bootstrap.opts" default="${default.bootstrap.opts}"/>
             <attribute name="bootclasspath.opt" default="${javac.bootclasspath.opt}"/>
             <attribute name="classpath" default="${javac.classpath}"/>
             <attribute name="sourcepath" default="${javac.sourcepath}"/>
@@ -517,6 +914,7 @@
             <attribute name="release" default="${release}"/>
             <attribute name="full.version" default="${full.version}"/>
             <sequential>
+                <echo message="build-classes: bootstrap.opts=@{bootstrap.opts}"/>
                 <echo level="verbose" message="build-classes: excludes=@{excludes}"/>
                 <echo level="verbose" message="build-classes: bootclasspath.opt=@{bootclasspath.opt}"/>
                 <echo level="verbose" message="build-classes: classpath=@{classpath}"/>
@@ -553,7 +951,7 @@
                        debuglevel="${javac.debuglevel}">
                     <compilerarg value="-implicit:none"/>
                     <compilerarg value="-Xprefer:source"/>
-                    <compilerarg value="-J-Xbootclasspath/p:@{javac.bootclasspath}"/>
+                    <compilerarg line="@{bootstrap.opts}"/>
                     <compilerarg line="@{bootclasspath.opt}"/>
                     <compilerarg line="${javac.no.jdk.warnings}"/>
                     <compilerarg line="${javac.version.opt}"/>
@@ -565,6 +963,11 @@
                         <exclude name="**/*.properties"/>
                         <exclude name="**/*-template"/>
                         <exclude name="**/package.html"/>
+                        <exclude name="**/overview.html"/>
+                        <exclude name="**/*.orig"/>
+                        <exclude name="**/*.rej"/>
+                        <exclude name="**/*.BAK"/>
+                        <exclude name="**/*~"/>
                     </fileset>
                 </copy>
             </sequential>
@@ -594,12 +997,22 @@
                 target="${boot.javac.target}"
                 gensrc.dir="${build.bootstrap.dir}/gensrc"
                 classes.dir="${build.bootstrap.dir}/classes"
-                javac.bootclasspath=""
+                bootstrap.opts=""
                 bootclasspath.opt="-Xbootclasspath/p:${build.bootstrap.dir}/classes"
                 sourcepath=""
                 release="${bootstrap.release}"
                 full.version="${bootstrap.full.version}"
                 excludes="${require.import.jdk.files} **/package-info.java"/>
+        </presetdef>
+    </target>
+
+    <target name="-def-build-bootstrap-module" depends="-def-build-module">
+        <presetdef name="build-bootstrap-module">
+            <build-module
+                classes.dir="${build.bootstrap.dir}/classes"
+                modules.dir="${build.bootstrap.dir}/modules"
+                dest.dir="${build.bootstrap.dir}/lib"
+                java.home="${boot.java.home}"/>
         </presetdef>
     </target>
 
