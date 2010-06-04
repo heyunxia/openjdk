@@ -26,7 +26,7 @@
 #    sandbox and checks that a SecurityException is thrown for
 #    various security-sensitive operations
 
-exec /bin/sh ${TESTSRC:-.}/tester.sh $0
+exec sh ${TESTSRC:-.}/tester.sh $0
 
 : getProperty pass
 

@@ -26,7 +26,7 @@
 
 set -e
 
-/bin/sh ${TESTSRC:-.}/tester.sh $0
+sh ${TESTSRC:-.}/tester.sh $0
 
 BIN=${TESTJAVA:-../../../../build}/bin
 

@@ -29,7 +29,7 @@ BIN=${TESTJAVA:-../../../../build}/bin
 alias jmod=$BIN/jmod
 alias jpkg=$BIN/jpkg
 
-/bin/sh ${TESTSRC:-.}/tester.sh $0
+sh ${TESTSRC:-.}/tester.sh $0
 
 mk() {
   mkdir -p $(dirname $1)
