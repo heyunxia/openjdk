@@ -209,7 +209,7 @@ ifndef PRODUCT_HOME
   PRODUCT_HOME := $(PRODUCT_HOME)
 endif
 
-TEST_MODULES :=                                         \
+MODULE_BUILD :=                                         \
     $(shell                             		\
       if [ -d $(PRODUCT_HOME)/lib/modules ] ; then      \
         $(ECHO) "true";	                                \
@@ -344,7 +344,6 @@ ifndef TESTDIRS
   TESTDIRS = demo
 endif
 
-   
 # Samevm settings (default is false)
 ifndef USE_JTREG_SAMEVM
   USE_JTREG_SAMEVM=false
@@ -359,7 +358,7 @@ else
 endif
 
 # exclude modules test when testing legacy image
-ifeq ($(TEST_MODULES),false)
+ifeq ($(MODULE_BUILD),false)
   JTREG_TEST_OPTIONS += "-k:\!modules"
 endif
 
@@ -369,7 +368,7 @@ PROBLEM_LISTS=$(PROBLEM_LIST) $(wildcard closed/$(PROBLEM_LIST))
 EXCLUDELIST=$(ABS_TEST_OUTPUT_DIR)/excludelist.txt
 
 MODULE_IMAGE_PROBLEM_LIST=ModulesProblemList.txt
-ifeq ($(TEST_MODULES),true)
+ifeq ($(MODULE_BUILD),true)
 PROBLEM_LISTS += $(MODULE_IMAGE_PROBLEM_LIST)
 endif
 
@@ -580,7 +579,7 @@ jdk_util: java/util sun/util
 # java/lang/module and java/lang/reflect/Module tests are tagged
 # with the "modules" keyword so that they are excluded when testing
 # legacy image.
-ifeq ($(TEST_MODULES),true)
+ifeq ($(MODULE_BUILD),true)
   JDK_ALL_TARGETS += jdk_jigsaw
   JIGSAW_TESTS = org/openjdk/jigsaw
 endif
@@ -592,7 +591,7 @@ jdk_jigsaw: java/lang/module java/lang/reflect/Module $(JIGSAW_TESTS)
 
 # Run all tests
 FILTER_OUT_LIST=jdk_awt jdk_rmi jdk_swing
-ifeq ($(TEST_MODULES),false)
+ifeq ($(MODULE_BUILD),false)
    FILTER_OUT_LIST+=jdk_jigsaw
 endif
 
