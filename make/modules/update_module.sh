@@ -57,9 +57,6 @@
 # Reinstall jdk.boot module in the build outputdir and the jdk-module-image
 #    $ update_module -image jdk-module-image jdk.boot
 #
-# Quick update in the module library
-#    $ update_module -q jdk.boot
-#
 # Reinstall javac module in a specified jdkhome from the langtools buildarea
 #    $ update_module -jdkhome mymoduleimage -classes langtools/build/classes javac
 #
@@ -74,7 +71,6 @@ do_usage() {
   printf "     -classes  : directory from which classes are copied\n"
   printf "                 Must be used with -jdkhome\n"
   printf "     -d64      : 64-bit build\n"
-  printf "     -q        : quick update - reindex the module\n"
   printf "     -h        : this help message\n"
   printf "   \n"
   printf "   Note: By default it will update the module library\n"
@@ -104,7 +100,6 @@ for i in $*; do
         -jdkhome)   jdkhome="$2"; shift 2;;
         -classes)   classesdir="$2"; shift 2;;
         -d64)       lp64=1; shift;;
-        -q)         quick=1; shift;;
         -h)         do_usage ; break ;;
         --)         shift; break;;
    esac
@@ -238,7 +233,6 @@ copy_module() {
    m=$1
    mroot=$2
    classes=$3
-   mlib=${mroot}/$m
    mcontent=${abs_builddir}/modules/$m
    if [ ! -d ${mcontent} ] ; then
       echo "module $m doesn't exist"
@@ -271,7 +265,7 @@ reinstall_module() {
    m=$1
    mroot=$2
    classes=$3
-   mlib=$mroot/lib/modules/$m
+   mlib=$mroot/lib/modules
    mcontent=${abs_builddir}/modules/$m
 
    JMOD_OPTION=
@@ -280,16 +274,17 @@ reinstall_module() {
    fi
 
    echo "Reinstalling module $m in $4"
-   rm -rf ${mlib}
+   rm -rf ${mlib}/$m
    cd ${mcontent}
-   ${mroot}/bin/jmod install classes ${JMOD_OPTION} $m || exit 1 
+   ${abs_builddir}/bin/jmod -L ${mlib} install classes ${JMOD_OPTION} $m || exit 1 
 }
 
 quick_update() {
    m=$1
    mroot=$2
    classes=$3
-   mlib=$mroot/lib/modules/$m
+   mlib=$mroot/lib/modules
+   mcontent=${abs_builddir}/modules/$m
    if [ ! -d ${mlib} ] ; then
       echo "module $m doesn't exist in ${mroot}"
       exit 1
@@ -297,16 +292,16 @@ quick_update() {
 
    cd ${classes}
    if [ -f ${classlist_dir}/$m.classlist ] ; then 
-       sed -e 's%\\%\/%g' < ${classlist_dir}/$m.classlist \
-                      | cpio -pdum ${mlib}/7-ea/classes 
+       filelist=`cat ${classlist_dir}/$m.classlist`
+       ${mroot}/bin/jar uf $mlib/$m/7-ea/classes $filelist
    fi
    if [ -f ${classlist_dir}/$m.resources ] ; then 
-       sed -e 's%\\%\/%g' < ${classlist_dir}/$m.resources \
-                      | cpio -pdum ${mlib}/7-ea/classes
+       filelist=`cat ${classlist_dir}/$m.resources`
+       ${mroot}/bin/jar uf $mlib/$m/7-ea/classes $filelist
    fi
 
    echo "Reindexing module $m in $4"
-   ${mroot}/bin/jmod reindex $m@7-ea || exit 1 
+   ${abs_builddir}/bin/jmod -L ${mlib} reindex $m@7-ea || exit 1 
 }
 
 update() {
@@ -319,22 +314,20 @@ update() {
 
 for m in ${modules} ; do
    if [ "x${jdkhome}" = x ] ; then
-       if [ ${quick} = 0 ] ; then
-           # update the module content in the build directory once
-           copy_module $m ${abs_builddir} ${abs_builddir}/classes ${abs_builddir}
-       fi 
+       # update the module content in the build directory once
+       copy_module $m ${abs_builddir} ${abs_builddir}/classes ${abs_builddir}
        update $m ${abs_builddir} ${abs_builddir}/classes "the build outputdir"
-   fi
-   if [ "x${image}" != x ] ; then
-       mroot=${module_image_dir}
-       dest=${image}
-   elif [ "x${jdkhome}" != x ] ; then
+       if [ "x${image}" != x ] ; then
+           cp -r ${abs_builddir}/lib/modules/$m ${module_image_dir}/lib/modules
+       fi
+   else 
        mroot=${jdkhome}
        dest=${jdkhome}
+       classes=${abs_builddir}/classes
+       if [ "x${classesdir}" != x ] ; then
+           classes=${classesdir}
+       fi
+       copy_module $m ${abs_builddir} ${classes} ${abs_builddir}
+       update $m ${mroot} ${classes} ${mroot} ${dest}
    fi
-   classes=${abs_builddir}/classes
-   if [ "x${classesdir}" != x ] ; then
-       classes=${classesdir}
-   fi
-   update $m ${mroot} ${classes} ${mroot} ${dest}
 done
