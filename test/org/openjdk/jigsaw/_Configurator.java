@@ -339,6 +339,43 @@ public class _Configurator {
             }
         };
 
+        new Test("optional-satisfied", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresOptional("y@1"))
+                    .add(module("y@1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1").remote("+y"))
+                    .add(context("y@1"));
+            }
+        };
+
+        new Test("optional-unsatisfied", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresOptional("y@1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"));
+            }
+        };
+
+        new Test("multi-opt-unsatisfied", true, "x@1", "y@1", "z@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requires("a@1").requires("b@1"))
+                    .add(module("y@1").requiresOptional("c@1"))
+                    .add(module("z@1").requiresOptional("b@1"))
+                    .add(module("a@1").requires("b@1"))
+                    .add(module("b@1").requiresOptional("c@1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1").remote("+a", "+b"))
+                    .add(context("y@1"))
+                    .add(context("z@1").remote("+b"))
+                    .add(context("a@1").remote("+b"))
+                    .add(context("b@1"));
+            }
+        };
+
         /* ## Not yet
 
         new Test("cycle", true, "x@1") {
@@ -350,27 +387,6 @@ public class _Configurator {
             void ref(ConfigurationBuilder cfbd) {
                 cfbd.add(context("x@1").remote("+y"))
                     .add(context("y@1").remote("+x"));
-            }
-        };
-
-        new Test("optional-satisfied", true, "x@1") {
-            void init(MockLibrary mlib) {
-                mlib.add(module("x@1").requiresOptional("y@1"))
-                    .add(module("y@1"))
-                    .addPublic("y@1", "y.Z");
-            }
-            void ref(ConfigurationBuilder cfbd) {
-                cfbd.add(context("x@1"))
-                    .add(context("y@1"));
-            }
-        };
-
-        new Test("optional-unsatisfied", true, "x@1") {
-            void init(MockLibrary mlib) {
-                mlib.add(module("x@1").requiresOptional("y@1"));
-            }
-            void ref(ConfigurationBuilder cfbd) {
-                cfbd.add(context("x@1"));
             }
         };
 
