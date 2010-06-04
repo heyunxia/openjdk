@@ -33,7 +33,7 @@ SRC=${TESTSRC:-.}
 
 cat $SRC/maze.sh \
 | sed -e 's/^: zork pass/: zork pass compile/' \
-| /bin/sh $SRC/tester.sh -
+| sh $SRC/tester.sh -
 
 mkdir -p z.classes
 $BIN/javac -d z.classes $SRC/_PublishedRepository.java

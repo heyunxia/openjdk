@@ -28,7 +28,7 @@ SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../build}/bin
 alias jmod=$BIN/jmod
 
-/bin/sh ${TESTSRC:-.}/tester.sh $0
+sh ${TESTSRC:-.}/tester.sh $0
 
 mkdir -p z.res/foo
 echo '<hello/>' >z.res/foo/x.xml
