@@ -54,6 +54,7 @@ import static org.openjdk.jigsaw.Trace.*;
 //                          resources/com/foo/bar/...
 //                          lib/libbar.so
 //                          bin/bar
+//                          signer
 
 public final class SimpleLibrary
     extends Library
@@ -520,6 +521,36 @@ public final class SimpleLibrary
         return Files.load(new File(md, "info"));
     }
 
+    public CodeSigner[] readLocalCodeSigners(ModuleId mid)
+        throws IOException
+    {
+        File md = findModuleDir(mid);
+        if (md == null)
+            return null;
+
+        // ## add support for multiple signers
+        File f = new File(md, "signer");
+        // ## concurrency issues : what is the expected behavior if file is
+        // ## removed by another thread/process here?
+        if (!f.exists())
+            return null;
+        InputStream is = new FileInputStream(f);
+        ObjectInputStream ois = null;
+        CodeSigner signer = null;
+        try {
+            ois = new ObjectInputStream(is);
+            signer = (CodeSigner)ois.readObject();
+        } catch (ClassNotFoundException cnfe) {
+            throw new InternalError(cnfe.getMessage());
+        } finally {
+            if (ois != null)
+                ois.close();
+            else
+                is.close();
+        }
+        return new CodeSigner[] {signer};
+    }
+
     // ## Close all zip files when we close this library
     private Map<ModuleId, Object> contentForModule = new HashMap<>();
     private Object NONE = new Object();
@@ -824,6 +855,11 @@ public final class SimpleLibrary
                 throw new IOException(md + ": Cannot create");
             mr.setVerificationMechanism(verifier, parameters);
             Set<CodeSigner> signers = mr.verifySignature();
+            // ## add support for storing multiple signers
+            if (!signers.isEmpty()) {
+                CodeSigner signer = signers.iterator().next();
+                Files.store(signer, new File(md, "signer"));
+            }
             mr.readRest(md);
             mr.verifyHashes();
             reIndex(mid);         // ## Could do this while reading module file

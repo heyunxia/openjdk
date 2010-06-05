@@ -27,6 +27,7 @@ import java.io.*;
 import java.net.URI;
 import java.util.*;
 import java.lang.module.*;
+import java.security.CodeSigner;
 import org.openjdk.jigsaw.*;
 
 import static java.lang.module.Dependence.Modifier;
@@ -139,6 +140,10 @@ class MockLibrary
     }
 
     public byte[] readLocalModuleInfoBytes(ModuleId mid) {
+        throw new UnsupportedOperationException();
+    }
+
+    public CodeSigner[] readLocalCodeSigners(ModuleId mid) {
         throw new UnsupportedOperationException();
     }
 

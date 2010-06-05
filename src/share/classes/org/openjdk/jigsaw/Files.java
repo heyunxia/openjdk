@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -242,6 +242,22 @@ public final class Files {
             }
         } finally {
             out.close();
+        }
+    }
+
+    public static void store(Object o, File dst)
+        throws IOException
+    {
+        OutputStream out = new FileOutputStream(dst);
+        ObjectOutputStream oos = null;
+        try {
+            oos = new ObjectOutputStream(out);
+            oos.writeObject(o);
+        } finally {
+            if (oos != null)
+                oos.close();
+            else
+                out.close();
         }
     }
 

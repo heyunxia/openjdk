@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,6 +32,7 @@ import java.lang.module.ModuleClassLoader;
 import java.lang.module.ModuleId;
 import java.lang.module.ModuleInfo;
 import java.lang.module.Version;
+import java.security.CodeSource;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import sun.reflect.annotation.AnnotationType;
@@ -42,15 +43,17 @@ public final class Module
 
     private ModuleInfo moduleInfo;
     private ModuleClassLoader loader;
+    private final CodeSource codeSource;
 
     /**
      * Package-private constructor used by ReflectAccess to enable
      * instantiation of these objects in Java code from the java.lang
      * package via sun.reflect.LangReflectAccess.
      */
-    Module(ModuleInfo mi, ModuleClassLoader ld) {
+    Module(ModuleInfo mi, ModuleClassLoader ld, CodeSource cs) {
         loader = ld;
         moduleInfo = mi;
+        codeSource = cs;
     }
 
     public ModuleClassLoader getClassLoader() {
@@ -59,6 +62,10 @@ public final class Module
 
     public ModuleInfo getModuleInfo() {
         return moduleInfo;
+    }
+
+    public CodeSource getCodeSource() {
+        return codeSource;
     }
 
     // Convenience methods

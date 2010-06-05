@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2004 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,6 +28,7 @@ package sun.reflect;
 import java.lang.module.ModuleInfo;
 import java.lang.module.ModuleClassLoader;
 import java.lang.reflect.*;
+import java.security.CodeSource;
 
 /** An interface which gives privileged packages Java-level access to
     internals of java.lang.reflect. */
@@ -69,7 +70,7 @@ public interface LangReflectAccess {
                                              byte[] parameterAnnotations);
      
     /** Creates a new java.lang.reflect.Module. */
-    public Module newModule(ModuleInfo mi, ModuleClassLoader ld);
+    public Module newModule(ModuleInfo mi, ModuleClassLoader ld, CodeSource cs);
 
     /** Gets the MethodAccessor object for a java.lang.reflect.Method */
     public MethodAccessor getMethodAccessor(Method m);

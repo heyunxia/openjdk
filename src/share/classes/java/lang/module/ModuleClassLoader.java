@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,7 +27,6 @@ package java.lang.module;
 
 import java.lang.reflect.Module;
 import java.security.AccessController;
-import java.security.CodeSigner;
 import java.security.CodeSource;
 import java.security.SecureClassLoader;
 import sun.reflect.ReflectionFactory;
@@ -47,10 +46,7 @@ public class ModuleClassLoader
                                    byte[] b, int off, int len)
         throws ClassFormatError
     {
-        // ## get CodeSigners from signed module
-        Class<?> c = super.defineClass(name, b, off, len, 
-                                       new CodeSource(null,
-                                                      (CodeSigner[])null));
+        Class<?> c = super.defineClass(name, b, off, len, m.getCodeSource());
         sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
         return c;
     }
@@ -60,13 +56,14 @@ public class ModuleClassLoader
             new sun.reflect.ReflectionFactory.GetReflectionFactoryAction());
 
     // Invokes a corresponding native method implemented in the VM ## ??
-    protected Module defineModule(ModuleId id, byte[] bs, int off, int len)
+    protected Module defineModule(ModuleId id, byte[] bs,
+                                  int off, int len, CodeSource cs)
         throws ClassFormatError
     {
         if (off != 0 || bs.length != len) // ##
             throw new IllegalArgumentException();
         ModuleInfo mi = moduleSystem.parseModuleInfo(bs);
-        return reflectionFactory.newModule(mi, this);
+        return reflectionFactory.newModule(mi, this, cs);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,6 +33,7 @@ import java.lang.reflect.Module;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.security.AccessController;
+import java.security.CodeSource;
 import java.security.Permission;
 import java.security.PrivilegedAction;
 
@@ -273,8 +274,10 @@ public class ReflectionFactory {
     }
 
     /** Creates a new java.lang.reflect.Module. */
-    public Module newModule(ModuleInfo mi, ModuleClassLoader ld) {
-        return langReflectAccess().newModule(mi, ld);
+    public Module newModule(ModuleInfo mi, ModuleClassLoader ld,
+                            CodeSource cs)
+    {
+        return langReflectAccess().newModule(mi, ld, cs);
     }
 
     /** Gets the MethodAccessor object for a java.lang.reflect.Method */

@@ -28,6 +28,7 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
+import java.security.CodeSigner;
 import java.security.SignatureException;
 import java.util.*;
 
@@ -335,5 +336,25 @@ public abstract class Library
 
 
     public abstract RemoteRepositoryList repositoryList() throws IOException;
+
+    /**
+     * <p> Read the CodeSigners for the module with the given identifier, from 
+     * this library only. </p>
+     *
+     * @param   mid
+     *          The identifier of the module being sought
+     *
+     * @return  An array of CodeSigners, or {@code null} if the module is not
+     *          signed
+     *
+     * @throws  IllegalArgumentException
+     *          If the given module identifier is not a Jigsaw module
+     *          identifier
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library
+     */
+    public abstract CodeSigner[] readLocalCodeSigners(ModuleId mid)
+        throws IOException;
 
 }

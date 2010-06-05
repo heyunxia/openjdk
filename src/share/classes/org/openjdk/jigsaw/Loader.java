@@ -34,6 +34,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.security.AccessController;
+import java.security.CodeSigner;
+import java.security.CodeSource;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.*;
@@ -48,10 +50,9 @@ public class Loader
     protected final LoaderPool pool;
     private final Context context;
 
-    private Map<String,Module> moduleForName
-        = new HashMap<String,Module>();
+    private final Map<String,Module> moduleForName = new HashMap<>();
 
-    protected final Set<ModuleId> modules = new HashSet<ModuleId>();
+    protected final Set<ModuleId> modules = new HashSet<>();
 
     public Loader(LoaderPool p, Context cx) {
         super(JigsawModuleSystem.instance());
@@ -120,8 +121,8 @@ public class Loader
 
     // Invoked by findClass, below, and (eventually) by LoaderPool.init()
     //
-    Module defineModule(ModuleId mid, byte[] bs) {
-        Module m = super.defineModule(mid, bs, 0, bs.length);
+    Module defineModule(ModuleId mid, byte[] bs, CodeSource cs) {
+        Module m = super.defineModule(mid, bs, 0, bs.length, cs);
         moduleForName.put(mid.name(), m);
         modules.add(mid);
         return m;
@@ -179,17 +180,21 @@ public class Loader
         if (m == null) {
             try {
                 final ModuleId modid = mid;
-                final Library library = lib;
-                byte[] bs = (byte[]) AccessController.doPrivileged(
-                    new PrivilegedExceptionAction() {
-                        public Object run() throws IOException {
-                            return library.readLocalModuleInfoBytes(modid);
+                final Library l = lib;
+                m = AccessController.doPrivileged(
+                    new PrivilegedExceptionAction<Module>() {
+                        public Module run()
+                            throws IOException 
+                        {
+                            byte[] bs = l.readLocalModuleInfoBytes(modid);
+                            if (bs == null)
+                                throw new AssertionError();
+                            CodeSigner[] cs = l.readLocalCodeSigners(modid);
+                            return defineModule(modid, bs,
+                                                new CodeSource(null, cs));
                         }
                     }
                 );
-                if (bs == null)
-                    throw new AssertionError();
-                m = defineModule(mid, bs);
                 if (tracing)
                     trace(0, "%s: define %s [%s]", this, mid, lib.name());
             } catch (PrivilegedActionException x) {
@@ -222,9 +227,9 @@ public class Loader
     {
 
         try {
-            byte[] bs = (byte[]) AccessController.doPrivileged(
-                new PrivilegedExceptionAction() {
-                    public Object run() throws IOException {
+            byte[] bs = AccessController.doPrivileged(
+                new PrivilegedExceptionAction<byte[]>() {
+                    public byte[] run() throws IOException {
                         return lib.readLocalClass(mid, cn);
                     }
                 }

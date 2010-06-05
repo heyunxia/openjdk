@@ -181,6 +181,7 @@ public class Packager {
             throws Command.Exception
         {
             while (hasArg()) {
+                File outputfile = null;
                 try {
                     String modulename = takeArg();
                     String version = getModuleVersion(modulename);
@@ -189,7 +190,7 @@ public class Packager {
                         System.out.println("Creating module file "
                                            + outputfilename + " for "
                                            + modulename);
-                    File outputfile = new File(destination, outputfilename);
+                    outputfile = new File(destination, outputfilename);
                     ModuleFileFormat.Writer writer
                         = new ModuleFileFormat.Writer(outputfile, classes);
                     writer.useFastestCompression(fast || jigsawDevMode);
@@ -232,9 +233,21 @@ public class Packager {
                 }
                 catch (IOException x) {
                     x.printStackTrace();
+                    if (outputfile != null && !outputfile.delete()) {
+                        Throwable t
+                            = new IOException(outputfile +
+                                              ": Cannot delete").initCause(x);
+                        throw new Command.Exception((IOException)t);
+                    }
                     throw new Command.Exception(x);
                 }
                 catch (GeneralSecurityException gse) {
+                    if (outputfile != null && !outputfile.delete()) {
+                        Throwable t
+                            = new IOException(outputfile +
+                                              ": Cannot delete").initCause(gse);
+                        throw new Command.Exception((IOException)t);
+                    }
                     throw new Command.Exception(gse);
                 }
             }

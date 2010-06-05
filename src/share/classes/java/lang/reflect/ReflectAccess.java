@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2004 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright 2001-2010 Sun Microsystems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,7 @@ package java.lang.reflect;
 
 import java.lang.module.ModuleInfo;
 import java.lang.module.ModuleClassLoader;
+import java.security.CodeSource;
 import sun.reflect.MethodAccessor;
 import sun.reflect.ConstructorAccessor;
 
@@ -96,8 +97,10 @@ class ReflectAccess implements sun.reflect.LangReflectAccess {
                                   parameterAnnotations);
     }
 
-    public Module newModule(ModuleInfo mi, ModuleClassLoader ld) {
-        return new Module(mi, ld);
+    public Module newModule(ModuleInfo mi, ModuleClassLoader ld,
+                            CodeSource cs)
+    {
+        return new Module(mi, ld, cs);
     }
 
     public MethodAccessor getMethodAccessor(Method m) {
