@@ -38,14 +38,21 @@ mk() {
   cat - >$1
 }
 
-rm -rf z.src
+rm -rf z.src keystore.jks
+
+# Create the keystore file and import the root CA cert
+$BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
+  -noprompt -storepass test123 -alias ca-cert
+
+# Import the signer's private key and cert
+$BIN/javac -source 7 -d  . ${TESTSRC}/ImportPrivateKey.java
+$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey
 
 mk z.src/test.security/module-info.java <<EOF
 module test.security @ 0.1 {
     class test.security.GetProperty;
 }
 EOF
-
 
 mk z.src/test.security/test/security/GetProperty.java <<EOF
 package test.security;
@@ -68,7 +75,7 @@ $BIN/javac -source 7 -d z.modules -modulepath z.modules $(find z.src -name '*.ja
 
 rm -f test.security@0.1.jmod
 $BIN/jpkg -v --sign --signer mykey --storetype JKS \
-          --keystore ${SRC}/keystore.jks \
+          --keystore keystore.jks \
           -m z.modules/test.security jmod test.security < ${SRC}/keystore.pw
 
 rm -rf z.lib
