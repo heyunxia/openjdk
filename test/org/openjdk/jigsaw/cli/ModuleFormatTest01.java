@@ -28,6 +28,7 @@
 
 import java.io.*;
 import java.security.CodeSigner;
+import java.security.KeyStore;
 import java.security.cert.*;
 import java.util.*;
 import java.util.zip.*;
@@ -323,11 +324,21 @@ public class ModuleFormatTest01 {
         DataInputStream dis = new DataInputStream(fis);
         ModuleFileFormat.Reader reader = new ModuleFileFormat.Reader(dis);
         if (reader.hasSignature()) {
-            System.out.println("Module '" + name + "' is signed by:");
             if (reader.getSignatureType() == SignatureType.PKCS7.value()) {
+                //File path = new File(System.getProperty("java.home")
+                                     //+ "/lib/security/cacerts");
+                File path = keystoreJKSFile;
+                if (!path.canRead()) {
+                    throw new Exception("Error loading 'cacerts' from " + path);
+                }
+                KeyStore cacerts = KeyStore.getInstance("JKS");
+                cacerts.load(new FileInputStream(path), null); // no password
                 reader.setVerificationMechanism(
-                    new ModuleFileFormat.PKCS7Verifier(), null);
+                    new ModuleFileFormat.PKCS7Verifier(),
+                    new ModuleFileFormat.PKCS7VerifierParameters(
+                        new PKIXParameters(cacerts)));
                 int i = 1;
+                System.out.println("Module '" + name + "' is signed by:");
                 for (CodeSigner signer : reader.verifySignature()) {
                     X509Certificate signerCert =
                         (X509Certificate)
@@ -335,6 +346,7 @@ public class ModuleFormatTest01 {
                     System.out.println("    [" + (i++) + "] " +
                         signerCert.getSubjectX500Principal().getName());
                 }
+                System.out.println();
             } else {
                 throw new Exception("Unsupported signature format");
             }
@@ -639,7 +651,7 @@ public class ModuleFormatTest01 {
     File natcmdDir = new File(srcDir, "natcmd");
     File configDir = new File(srcDir, "config");
     String baseDir = System.getProperty("test.src", ".");
-    File keystoreJKSFile = new File(baseDir, "keystore.jks");
+    File keystoreJKSFile = new File("keystore.jks");
     File keystoreP12File = new File(baseDir, "keystore.p12");
     File keystorePwFile = new File(baseDir, "keystore.pw");
 

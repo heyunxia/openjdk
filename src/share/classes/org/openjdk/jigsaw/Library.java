@@ -243,8 +243,21 @@ public abstract class Library
      *
      * @param   mfs
      *          The module files to be installed
+     *
+     * @param   verifySignature
+     *          Perform signature verification of signed module files, if true.
+     *          Otherwise treat the module files as unsigned.
+     *
+     * @throws  ConfigurationException
+     *          If a valid configuration cannot be computed
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library
+     *
+     * @throws  SignatureException
+     *          If an error occurs while validating the signature
      */
-    public abstract void install(Collection<File> mfs)
+    public abstract void install(Collection<File> mfs, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException;
 
     /**
@@ -273,6 +286,9 @@ public abstract class Library
      *          A {@link Resolution} previously computed by the
      *          {@link Library#install() install()} method
      *
+     * @param   verifySignature
+     *          Perform signature verification, if true
+     *
      * @throws  ConfigurationException
      *          If a valid configuration cannot be computed
      *
@@ -282,7 +298,7 @@ public abstract class Library
      * @throws  SignatureException
      *          If an error occurs while validating the signature
      */
-    public abstract void install(Resolution res)
+    public abstract void install(Resolution res, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException;
 
     /**

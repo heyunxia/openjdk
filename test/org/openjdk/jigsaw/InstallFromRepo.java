@@ -58,7 +58,7 @@ public class InstallFromRepo {
         out.format("%d bytes to download%n", res.downloadRequired());
         out.format("%d bytes to store%n", res.spaceRequired());
 
-        lib.install(res);
+        lib.install(res, true);
 
     }
 

@@ -29,6 +29,7 @@ import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
 import java.security.*;
+import java.security.cert.*;
 import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
@@ -829,15 +830,7 @@ public final class SimpleLibrary
         configure(null);
     }
 
-    private ModuleId install(InputStream is)
-        throws ConfigurationException, IOException, SignatureException
-    {
-        return install(is, new ModuleFileFormat.PKCS7Verifier(), null);
-    }
-
-    private ModuleId install(InputStream is,
-                             ModuleFileVerifier verifier,
-                             ModuleFileVerifier.Parameters parameters)
+    private ModuleId install(InputStream is, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
         BufferedInputStream bin = new BufferedInputStream(is);
@@ -846,6 +839,7 @@ public final class SimpleLibrary
         File md = null;
         try {
             byte[] mib = mr.readStart();
+            boolean doVerify = verifySignature && mr.hasSignature();
             ModuleInfo mi = jms.parseModuleInfo(mib);
             md = moduleDir(mi.id());
             ModuleId mid = mi.id();
@@ -853,15 +847,22 @@ public final class SimpleLibrary
                 throw new ConfigurationException(mid + ": Already installed");
             if (!md.mkdirs())
                 throw new IOException(md + ": Cannot create");
-            mr.setVerificationMechanism(verifier, parameters);
-            Set<CodeSigner> signers = mr.verifySignature();
-            // ## add support for storing multiple signers
-            if (!signers.isEmpty()) {
-                CodeSigner signer = signers.iterator().next();
-                Files.store(signer, new File(md, "signer"));
+            // Perform cert path validation for each of the module signers
+            if (doVerify) {
+                ModuleFileVerifier verifier =
+                    new ModuleFileFormat.PKCS7Verifier();
+                mr.setVerificationMechanism(verifier, null);
+                Set<CodeSigner> signers = mr.verifySignature();
+                // ## add support for storing multiple signers
+                if (!signers.isEmpty()) {
+                    CodeSigner signer = signers.iterator().next();
+                    Files.store(signer, new File(md, "signer"));
+                }
             }
             mr.readRest(md);
-            mr.verifyHashes();
+            if (doVerify) {
+                mr.verifyHashes();
+            }
             reIndex(mid);         // ## Could do this while reading module file
             return mid;
 
@@ -890,13 +891,13 @@ public final class SimpleLibrary
         }
     }
 
-    private ModuleId install(File mf)
+    private ModuleId install(File mf, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
-        return install(new FileInputStream(mf));
+        return install(new FileInputStream(mf), verifySignature);
     }
 
-    public void install(Collection<File> mfs)
+    public void install(Collection<File> mfs, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
         List<ModuleId> mids = new ArrayList<>();
@@ -904,7 +905,7 @@ public final class SimpleLibrary
         Throwable ox = null;
         try {
             for (File mf : mfs)
-                mids.add(install(mf));
+                mids.add(install(mf, verifySignature));
             configure(mids);
             complete = true;
         } catch (IOException x) {
@@ -935,7 +936,7 @@ public final class SimpleLibrary
         return Resolver.run(this, midqs);
     }
 
-    public void install(Resolution res)
+    public void install(Resolution res, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
 
@@ -958,7 +959,7 @@ public final class SimpleLibrary
             assert u != null;
             RemoteRepository rr = repositoryList().firstRepository();
             assert rr != null;
-            install(rr.fetch(mid));
+            install(rr.fetch(mid), verifySignature);
             res.locationForName.put(mid.name(), location());
             // ## If something goes wrong, delete all our modules
         }

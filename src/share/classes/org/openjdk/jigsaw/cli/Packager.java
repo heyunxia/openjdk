@@ -221,7 +221,6 @@ public class Packager {
 
                         ModuleFileSigner.Parameters parameters =
                             new ModuleFileFormat.PKCS7SignerParameters(
-                                FileConstants.ModuleFile.SignatureType.PKCS7,
                                 signature, signerEntry.getCertificateChain());
 
                         // Supply the signing details

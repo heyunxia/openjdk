@@ -33,15 +33,14 @@ import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.*;
 import java.security.*;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateFactory;
-import java.security.cert.CertPath;
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
 import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
 import javax.security.auth.x500.X500Principal;
 import sun.security.pkcs.*;
 import sun.security.timestamp.*;
+import sun.security.validator.*;
 import sun.security.x509.*;
 
 import static org.openjdk.jigsaw.FileConstants.*;
@@ -687,7 +686,7 @@ public final class ModuleFileFormat {
             // Generate the hash for the signature header and content
             byte[] signatureHeader = new byte[SIGNATURE_HEADER_LENGTH];
             short signatureType =
-                (short) signatureParameters.getSignatureType().value();
+                (short) signatureMechanism.getSignatureType().value();
             // TODO: use an int rather than a short since sig may be > 32K?
             //       Also, adjust SIGNATURE_HEADER_LENGTH (from 4 to 6, if int)
             short signatureLength = (short) signature.length;
@@ -1617,11 +1616,16 @@ public final class ModuleFileFormat {
 
         public final static class PKCS7Signer implements ModuleFileSigner {
 
+            public ModuleFile.SignatureType getSignatureType()
+            {
+                return ModuleFile.SignatureType.PKCS7;
+            }
+
             public byte[] generateSignature(byte[] toBeSigned,
                                             ModuleFileSigner.Parameters
                                                 parameters)
-                throws SignatureException {
-
+                throws SignatureException
+            {
                 // Compute the signature
 
                 Signature signatureAlgorithm =
@@ -1686,30 +1690,23 @@ public final class ModuleFileFormat {
         public final static class PKCS7SignerParameters
             implements ModuleFileSigner.Parameters {
 
-            private ModuleFile.SignatureType signatureType =
-                ModuleFile.SignatureType.PKCS7;
-
             private Signature signatureAlgorithm;
-
             private Certificate[] signerCertificateChain;
 
-            public PKCS7SignerParameters(ModuleFile.SignatureType type,
-                                         Signature signature,
-                                         Certificate[] certificateChain) {
-                signatureType = type;
+            public PKCS7SignerParameters(Signature signature,
+                                         Certificate[] certificateChain)
+            {
                 signatureAlgorithm = signature;
                 signerCertificateChain = certificateChain;
             }
 
-            public ModuleFile.SignatureType getSignatureType() {
-                return signatureType;
-            }
-
-            public Signature getSignatureAlgorithm() {
+            public Signature getSignatureAlgorithm()
+            {
                 return signatureAlgorithm;
             }
 
-            public Certificate[] getSignerCertificateChain() {
+            public Certificate[] getSignerCertificateChain()
+            {
                 return signerCertificateChain;
             }
         }
@@ -1718,24 +1715,62 @@ public final class ModuleFileFormat {
 
             private PKCS7 pkcs7 = null;
             private SignerInfo[] signerInfos = null;
-            private ModuleFileVerifier.Parameters parameters = null;
+            private Validator validator = null;
+            private KeyStore trustedCertStore = null;
             private static CertificateFactory certificateFactory = null;
+
+            public ModuleFile.SignatureType getSignatureType() {
+                return ModuleFile.SignatureType.PKCS7;
+            }
 
             public Set<CodeSigner> verifySignature(byte[] signature,
                                                    ModuleFileVerifier.Parameters
                                                        parameters)
-                throws SignatureException {
+                throws SignatureException
+            {
+                PKIXBuilderParameters pkixBuilderParameters = null;
 
                 try {
-                    if (pkcs7 == null) {
-                        pkcs7 = new PKCS7(signature);
-                    }
-                    if (signerInfos == null) {
-                        signerInfos = pkcs7.verify();
-                    }
-                    parameters = parameters;
+                    pkcs7 = new PKCS7(signature);
+                    signerInfos = pkcs7.verify();
 
-                    return getSigners();
+                    if (parameters == null) {
+                        if (trustedCertStore == null) {
+                            try {
+                            trustedCertStore =
+                                AccessController.doPrivileged(
+                                    new PrivilegedExceptionAction<KeyStore>() {
+                                        public KeyStore run()
+                                            throws IOException,
+                                                   GeneralSecurityException
+                                        {
+                                            return loadCACertsStore();
+                                        }
+                                    });
+                            } catch (PrivilegedActionException pe) {
+                                throw new SignatureException(pe.getException());
+                            }
+                        }
+                        pkixBuilderParameters =
+                            new PKIXBuilderParameters(trustedCertStore, null);
+                    } else {
+                        Set<TrustAnchor> trustedCertificates =
+                            parameters.getTrustAnchors();
+                        pkixBuilderParameters =
+                            new PKIXBuilderParameters(trustedCertificates,
+                                                      null);
+                    }
+                    // Disable revocation checking
+                    pkixBuilderParameters.setRevocationEnabled(false);
+                    validator =
+                        Validator.getInstance(Validator.TYPE_PKIX,
+                                              Validator.VAR_CODE_SIGNING,
+                                              pkixBuilderParameters);
+
+                    return getTrustedSigners();
+
+                } catch (ParsingException pe) {
+                    throw new SignatureException(pe);
 
                 } catch (IOException ioe) {
                     throw new SignatureException(ioe);
@@ -1747,15 +1782,43 @@ public final class ModuleFileFormat {
 
             public void verifyHashes(byte[] signature,
                                      ModuleFileVerifier.Parameters parameters)
-                throws SignatureException {
+                throws SignatureException
+            {
 
                 // TODO - check signature hashes
             }
 
-            private Set<CodeSigner> getSigners()
-                throws IOException, GeneralSecurityException {
+            /*
+             * Loads the ${java.home}/lib/security/cacerts file.
+             */
+            private static KeyStore loadCACertsStore()
+                throws IOException, GeneralSecurityException
+            {
+                KeyStore trustedCertStore = null;
+                FileInputStream inStream = null;
+                String cacerts = System.getProperty("java.home")
+                                 + "/lib/security/cacerts";
+                try {
+                    trustedCertStore = KeyStore.getInstance("JKS");
+                    inStream = new FileInputStream(cacerts);
+                    trustedCertStore.load(inStream, null);
 
+                } finally {
+                    if (inStream != null)
+                        inStream.close();
+                }
+                return trustedCertStore;
+            }
+
+            /*
+             * Performs certificate path validation for each signer.
+             * A validation failure results in an exception.
+             */
+            private Set<CodeSigner> getTrustedSigners()
+                throws IOException, GeneralSecurityException
+            {
                 Set<CodeSigner> signers = new HashSet<>();
+                X509Certificate[] arrayType = new X509Certificate[0];
 
                 for (SignerInfo signerInfo : signerInfos) {
                     List<X509Certificate> certChain =
@@ -1764,6 +1827,8 @@ public final class ModuleFileFormat {
                         certificateFactory =
                             CertificateFactory.getInstance("X509");
                     }
+
+                    validator.validate(certChain.toArray(arrayType));
                     CertPath certPath =
                         certificateFactory.generateCertPath(certChain);
                     signers.add(new CodeSigner(certPath,
@@ -1773,8 +1838,8 @@ public final class ModuleFileFormat {
             }
 
             private Timestamp getTimestamp(SignerInfo signerInfo)
-                throws IOException, GeneralSecurityException {
-
+                throws IOException, GeneralSecurityException
+            {
                 Timestamp timestamp = null;
 
                 // Extract the signer's unsigned attributes
@@ -1807,7 +1872,24 @@ public final class ModuleFileFormat {
                     }
                 }
                 return timestamp;
+            }
+        }
 
+        public final static class PKCS7VerifierParameters
+            implements ModuleFileVerifier.Parameters
+        {
+            private PKIXParameters pkixParameters = null;
+
+            public PKCS7VerifierParameters(PKIXParameters pkixParameters)
+            {
+                this.pkixParameters = pkixParameters;
+            }
+
+            public Set<TrustAnchor> getTrustAnchors()
+            {
+                return pkixParameters != null ?
+                    pkixParameters.getTrustAnchors() :
+                    new HashSet<TrustAnchor>();
             }
         }
 }

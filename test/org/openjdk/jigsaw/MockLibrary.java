@@ -100,7 +100,7 @@ class MockLibrary
         throw new UnsupportedOperationException();
     }
 
-    public void install(Collection<File> mf) {
+    public void install(Collection<File> mf, boolean verifySignature) {
         throw new UnsupportedOperationException();
     }
 
@@ -108,7 +108,7 @@ class MockLibrary
         throw new UnsupportedOperationException();
     }
 
-    public void install(Resolution res) {
+    public void install(Resolution res, boolean verifySignature) {
         throw new UnsupportedOperationException();
     }
 

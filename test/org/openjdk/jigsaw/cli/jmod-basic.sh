@@ -26,15 +26,13 @@
 # @test
 # @summary Unit test for jmod command
 
-trap "rm -f z.lib/jdk" 0        # jtreg is stupid about symlinks
-
 set -e
 
 BIN=${TESTJAVA:-../../../../../build}/bin
 
 mk() {
-  d=$(dirname $1)
-  if ! [ -d $(dirname $1) ]; then mkdir -p $d; fi
+  d=`dirname $1`
+  if [ ! -d `dirname $1` ]; then mkdir -p $d; fi
   cat - >$1
 }
 
@@ -63,10 +61,11 @@ public class Main {
 EOF
 
 rm -rf z.modules && mkdir z.modules
-$BIN/javac -source 7 -d z.modules -modulepath z.modules $(find z.src -name '*.java')
+$BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 rm -rf z.lib
-export JAVA_MODULES=z.lib
+JAVA_MODULES=z.lib
+export JAVA_MODULES
 $BIN/jmod create
 $BIN/jmod id
 $BIN/jmod install z.modules com.foo.bar

@@ -30,18 +30,46 @@ import java.security.cert.Certificate;
 
 import static org.openjdk.jigsaw.FileConstants.*;
 
-/*
- * Generate a digital signature for a module file using an extensible
- * collection of signature parameters.
+/**
+ * Generate a digital signature for a module file.
  */
 public interface ModuleFileSigner {
+
+    /**
+     * Gets the signature format that is supported by this signer.
+     *
+     * @return The supported signature type
+     *
+     * @see FileConstants.ModuleFile.SignatureType
+     */
+    public ModuleFile.SignatureType getSignatureType();
+
+    /**
+     * Generates the digital signature.
+     *
+     * @param toBeSigned The data that will be signed
+     * @param parameters The parameters used to control signing
+     *
+     * @return The raw signature bytes
+     *
+     * @throws SignatureException If an error occurs during signing
+     */
     public byte[] generateSignature(byte[] toBeSigned,
                                     ModuleFileSigner.Parameters parameters)
         throws SignatureException;
 
+    /**
+     * An extensible collection of parameters used during signing.
+     */
     public interface Parameters {
-        public ModuleFile.SignatureType getSignatureType();
+        /**
+         * Returns the signature algorithm used to generate the signature.
+         */
         public Signature getSignatureAlgorithm();
+
+        /**
+         * Returns the signer's chain of public key certificates.
+         */
         public Certificate[] getSignerCertificateChain();
     }
 }

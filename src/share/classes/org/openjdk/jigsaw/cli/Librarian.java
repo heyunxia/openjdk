@@ -156,6 +156,7 @@ public class Librarian {
         {
             String key = takeArg();
             File kf = new File(key);
+            boolean verifySignature = !opts.has("noverify");
 
             // Old form: install <classes-dir> <module-name> ...
             //
@@ -190,7 +191,7 @@ public class Librarian {
                     fs.add(new File(takeArg()));
                 finishArgs();
                 try {
-                    lib.install(fs);
+                    lib.install(fs, verifySignature);
                 } catch (ConfigurationException x) {
                     throw new Command.Exception(x);
                 } catch (IOException x) {
@@ -235,7 +236,7 @@ public class Librarian {
                 }
                 if (dry)
                     return;
-                lib.install(res);
+                lib.install(res, verifySignature);
             } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
             } catch (IOException x) {
@@ -496,8 +497,8 @@ public class Librarian {
         out.format("       jmod dump-class <module-id> <class-name> <output-file>%n");
         out.format("       jmod dump-config <module-id>%n");
         out.format("       jmod identify%n");
-        out.format("       jmod install [-n] <module-id-query> ...%n");
-        out.format("       jmod install <module-file> ...%n");
+        out.format("       jmod install [--noverify] [-n] <module-id-query> ...%n");
+        out.format("       jmod install [--noverify] <module-file> ...%n");
         out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
         out.format("       jmod list [-v] [-p] [-R] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
@@ -562,6 +563,9 @@ public class Librarian {
                           "Dry-run the requested operation");
         parser.acceptsAll(Arrays.asList("R", "repos"),
                           "List contents of associated repositories");
+        parser.acceptsAll(Arrays.asList("noverify"),
+                          "Do not verify module signatures. "
+                          + "Treat as unsigned.");
 
         if (args.length == 0)
             usage();
