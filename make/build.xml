@@ -25,12 +25,79 @@
 -->
 
 <!--
- This is the main build file for the complete langtools workspace.
- It is used both when working on the tools in NetBeans, and when building
- JDK itself, in which case it is invoked from the wrapper Makefile.
+ This is the main build file for the complete langtools repository.
+ It is used when building JDK (in which case it is invoked from the
+ Makefile), and it can be used when working on the tools themselves,
+ in an IDE such as NetBeans.
+
+ External dependencies are specified via properties. These can be given
+ on the command line, or by providing a local build.properties file.
+ (They can also be edited into make/build.properties, although that is not
+ recommended.)  At a minimum, boot.java.home must be set to the installed
+ location of the version of JDK used to build this repository. Additional
+ properties may be required, depending on the targets that are built.
+ For example, to run any of the jtreg tests you must set jtreg.home,
+ to run findbugs on the code you must set findbugs.home, and so on.
+
+ For the most part, javac can be built using the previous version of JDK.
+ However, a small number of javac files require access to the latest JDK,
+ which may not yet have been compiled. To compile these files, you can do
+ one of the following:
+ - Set boot.java.home to a recent build of the latest version of JDK.
+ - Set import.jdk to either a recent build (containing jre/lib/rt.jar)
+   or to jdk source repository.  In the latter case, stub files will
+   automatically be generated and used for the required API, to avoid
+   unnecessary compilation of the source repository.
+ If you do neither, the relevant files will not be built.
+
+ The main build happens in two phases:
+ - First, javac and other tools as needed are built using ${boot.java.home}.
+   (This implies a constraint on the source code that they can be compiled
+   with the previous version of JDK.
+ - Second, all required classes are compiled with the latest javac, created
+   in the previous step.
+ The first phase is called the bootstrap phase. All targets, properties and
+ tasks that are specific to that phase have "bootstrap" in their name.
+
+ For more details on the JDK build, see
+    http://blogs.sun.com/kto/entry/anatomy_of_the_jdk_build
+    http://openjdk.java.net/groups/build/
+ For more details on the stub generator, see
+    http://blogs.sun.com/jjg/entry/building_javac_for_jdk7
+
+ Internal details ...
+
+ Interim build products are created in the build/ directory.
+ Final build products are created in the dist/ directory.
+ When building JDK, the dist/directory will contain:
+ - A bootstrap compiler suitable for running with ${boot.java.home}
+   suitable for compiling downstream parts of JDK
+ - Source files and class files for inclusion in the JDK being built
+ When building standalone, the dist/directory will contain:
+ - Separate jar files for each of the separate langtools components
+ - Simple scripts to invoke the tools by executing the corresponding
+   jar files.
+ These jar files and scripts are "for developer use only".
+
+ This file is organized into sections as follows:
+ - global property definitions
+ - general top level targets
+ - general diagnostic/debugging targets
+ - groups of targets for each tool: javac, javadoc, doclets, javah, javap, apt
+    Within each group, the following targets are provided, where applicable
+      build-bootstrap-TOOL      build the bootstrap version of the tool
+      build-classes-TOOL        build the classes for the tool
+      build-TOOL                build the jar file and script for the tool
+      jtreg-TOOL                build the tool and run the appropriate tests
+      findbugs-TOOL             run findbugs on the tool's source oode
+      TOOL                      build the tool, run the tests, and run findbugs
+ - utility definitions
  -->
 
 <project name="langtools" default="build" basedir="..">
+    <!--
+    **** Global property definitions.
+    -->
 
     <!-- Force full debuginfo for javac if the debug.classfiles
     property is set.  This must be BEFORE the include of
@@ -87,28 +154,35 @@
     <!-- Standard property values, if not overriden by earlier settings. -->
     <property file="${make.dir}/build.properties"/>
 
-    <!-- launcher.java is used in the launcher scripts provided to run
-        the tools' jar files.  If it has not already been set, then
-        default it to use ${target.java.home}, if available, otherwise
-        quietly default to simply use "java". -->
-    <condition property="launcher.java"
-        value="${target.java.home}/bin/java" else="java">
-        <isset property="target.java.home"/>
-    </condition>
 
+    <!-- Characteristics of boot.java.home. -->
+
+    <!-- If ${boot.java.home} is a modular image, then we need to build modules
+         during the bootstrap phase for use in the second phase. -->
     <condition property="boot.java.provides.modules">
         <available file="${boot.java.home}/lib/modules/%jigsaw-library" type="file"/>
     </condition>
 
-    <condition property="default.bootstrap.opts"
-        value="-J-L -J${build.bootstrap.dir}/lib/modules -J-Xmode:module"
-        else="-J-Xbootclasspath/p:${build.bootstrap.dir}/classes">
-           <isset property="boot.java.provides.modules"/>
+    <!-- If ${boot.java.home} contains the latest JDK API, we don't need to generate stubs
+         in order to compile the javac files that use the latest API. -->
+    <condition property="boot.java.provides.latest.jdk">
+        <or>
+            <isset property="boot.java.provides.modules"/>
+            <available
+                ignoresystemclasses="true"
+                classpath="${boot.java.home}/jre/lib/rt.jar" classname="java.nio.file.Path"/>
+        </or>
     </condition>
 
+
+    <!-- Characteristics of target.java.home (if set). -->
+
+    <!-- If ${target.java.home} is a modular image, then we need to generate modules
+         in the second phase for use by the langtools launcher scripts. -->
     <condition property="target.java.provides.modules">
         <available file="${target.java.home}/lib/modules/%jigsaw-library" type="file"/>
     </condition>
+
 
     <!-- Logic for handling access import jdk classes, if available.
         import.jdk should be unset, or set to jdk home (to use rt.jar)
@@ -123,39 +197,81 @@
         ignoresystemclasses="true"
         classpath="${import.jdk}/jre/lib/rt.jar" classname="java.nio.file.Path"/>
 
-    <!-- Set the default value of the sourcepath used for javac. -->
-    <condition property="javac.sourcepath" value="${build.genstubs.dir}" else="">
-        <isset property="import.jdk.src.dir"/>
+
+    <!-- Require stubs if ${boot.java.home} does not provide latest JDK API and
+         ${import.jdk} is set to jdk/src/share/classes. -->
+    <condition property="require.import.jdk.stubs">
+        <and>
+            <not>
+                <isset property="boot.java.provides.latest.jdk"/>
+            </not>
+            <isset property="import.jdk.src.dir"/>
+        </and>
     </condition>
 
-    <!-- Set the default value of the classpath used for javac. -->
-    <property name="javac.classpath" value=""/>
 
-    <!-- Set the default bootclasspath option used for javac. 
-	Note that different variants of the option are used, meaning we can't just 
-	define the value for the option.
-	Note the explicit use of the standard property ${path.separator} in the following.
-	This is because Ant is not clever enough to handle direct use of : or ; -->
+    <!-- No need to exclude any files during bootstrap phase if ${boot.java.home}
+         provides the latest API. -->
+    <condition property="bootstrap.exclude.files" value="" else="${require.latest.jdk.files}">
+        <isset property="boot.java.provides.latest.jdk"/>
+    </condition>
+
+    <!-- No need to exclude any files during second phase if ${boot.java.home}
+         provides the latest API or if import.jdk is set. -->
+    <condition property="exclude.files" value="" else="${require.latest.jdk.files}">
+        <or>
+            <isset property="boot.java.provides.latest.jdk"/>
+            <isset property="import.jdk"/>
+        </or>
+    </condition>
+
+
+    <!-- Determine how to use bootstrap-javac in the second phase.
+         If ${boot.java.home} is a modular image, use -L <library>,
+         otherwise use -Xbootclasspath/p:<classes>.   In both cases,
+         prefix all words with -J to tunnel them through the javac
+         launcher to the underlying JVM. -->
+    <!-- -J-Xmode:module is temporary until that is the default mode for the standard javac launcher -->
+    <condition property="default.bootstrap.opts"
+        value="-J-L -J${build.bootstrap.dir}/lib/modules -J-Xmode:module"
+        else="-J-Xbootclasspath/p:${build.bootstrap.dir}/classes">
+           <isset property="boot.java.provides.modules"/>
+    </condition>
+
+
+    <!-- Set the default bootclasspath option used for javac.
+        Note that different variants of the option are used (-Xbcp: and -Xbcp/p:),
+        meaning we can't just define the value for the option (i.e the path after the ':').
+        Note the explicit use of the standard property ${path.separator} in the following.
+        This is because Ant is not clever enough to handle direct use of : or ; -->
     <condition property="javac.bootclasspath.opt"
             value="-Xbootclasspath:${build.classes.dir}${path.separator}${import.jdk.jar}"
             else="-Xbootclasspath/p:${build.classes.dir}">
         <isset property="import.jdk.jar"/>
     </condition>
 
-    <condition property="exclude.files" value="" else="${require.import.jdk.files}">
-        <isset property="import.jdk"/>
+    <!-- Set the default value of the sourcepath used for javac. -->
+    <condition property="javac.sourcepath" value="${build.genstubs.dir}" else="">
+        <isset property="require.import.jdk.stubs"/>
     </condition>
 
-    <condition property="bootstrap.exclude.files" value="" else="${require.import.jdk.files}">
-        <isset property="boot.java.provides.modules"/>
+    <!-- Set the default value of the classpath used for javac. -->
+    <property name="javac.classpath" value=""/>
+
+
+    <!-- launcher.java is used in the launcher scripts provided to run
+        the tools' jar files.  If it has not already been set, then
+        default it to use ${target.java.home}, if available, otherwise
+        quietly default to simply use "java". -->
+    <condition property="launcher.java"
+        value="${target.java.home}/bin/java" else="java">
+        <isset property="target.java.home"/>
     </condition>
 
-    <!-- for debugging -->
-    <target name="check-import.jdk">
-        <echo message="import.jdk: ${import.jdk}"/>
-        <echo message="import.jdk.jar: ${import.jdk.jar}"/>
-        <echo message="import.jdk.src.dir: ${import.jdk.src.dir}"/>
-    </target>
+
+    <!--
+    **** General top level targets.
+    -->
 
     <!-- Standard target to build deliverables for JDK build. -->
 
@@ -255,7 +371,61 @@
             datafile="${build.coverage.dir}/cobertura.ser"/>
     </target>
 
-    <!-- javac targets -->
+
+    <!--
+    **** Debugging/diagnostic targets.
+    -->
+
+    <!-- standard JDK target -->
+    <target name="sanity"
+        description="display settings of configuration values">
+        <echo level="info">ant.home = ${ant.home}</echo>
+        <echo level="info">boot.java.home = ${boot.java.home}</echo>
+        <echo level="info">target.java.home = ${target.java.home}</echo>
+        <echo level="info">jtreg.home = ${jtreg.home}</echo>
+        <echo level="info">findbugs.home = ${findbugs.home}</echo>
+    </target>
+
+    <target name="post-sanity" depends="-def-jtreg,sanity,build"
+        description="perform basic validation after a standard build">
+        <jtreg
+            dir="make/test"
+            workDir="${build.jtreg.dir}/post-sanity/work"
+            reportDir="${build.jtreg.dir}/post-sanity/report"
+            jdk="${target.java.home}"
+            verbose="summary"
+            failonerror="false" resultproperty="jtreg.post-sanity.result">
+        </jtreg>
+    </target>
+
+    <!-- use vizant tool to generate graphical image of this Ant file.-->
+    <target name="vizant" depends="-def-vizant">
+        <mkdir dir="${build.dir}"/>
+        <echo message="Generating ${build.dir}/build.dot"/>
+        <vizant antfile="${make.dir}/build.xml" outfile="${build.dir}/build.dot"/>
+        <echo message="Generating ${build.dir}/build.png"/>
+        <exec executable="${dot}" >
+            <arg value="-Tpng"/>
+            <arg value="-o"/>
+            <arg file="${build.dir}/build.png"/>
+            <arg file="${build.dir}/build.dot"/>
+        </exec>
+    </target>
+
+    <target name="check-import.jdk">
+        <echo message="import.jdk: ${import.jdk}"/>
+        <echo message="import.jdk.jar: ${import.jdk.jar}"/>
+        <echo message="import.jdk.src.dir: ${import.jdk.src.dir}"/>
+    </target>
+
+    <target name="diagnostics">
+        <diagnostics/>
+    </target>
+
+
+    <!--
+    **** javac targets.
+    -->
 
     <target name="build-bootstrap-classes-javac" depends="-check-boot.java.home,-def-build-bootstrap-classes">
         <build-bootstrap-classes includes="${javac.includes}"/>
@@ -308,8 +478,8 @@
 
     <!-- langtools module targets -->
 
-    <target name="build-bootstrap-module-langtools" 
-	    depends="build-bootstrap-classes-javac,build-bootstrap-classes-apt,-def-build-bootstrap-module"
+    <target name="build-bootstrap-module-langtools"
+            depends="build-bootstrap-classes-javac,build-bootstrap-classes-apt,-def-build-bootstrap-module"
             if="boot.java.provides.modules">
         <build-bootstrap-module module.name="${langtools.module.name}" includes="${langtools.module.includes}"/>
     </target>
@@ -319,7 +489,10 @@
         <build-module module.name="${langtools.module.name}" includes="${langtools.module.includes}"/>
     </target>
 
-    <!-- javadoc targets -->
+
+    <!--
+    **** javadoc targets.
+    -->
 
     <target name="build-bootstrap-classes-javadoc"
             depends="build-bootstrap-classes-javac">
@@ -370,7 +543,10 @@
 
     <target name="javadoc" depends="build-javadoc,jtreg-javadoc,findbugs-javadoc"/>
 
-    <!-- doclets targets -->
+
+    <!--
+    **** doclets targets.
+    -->
     <!-- no module targets ... classes are included in javadoc module -->
 
     <target name="build-bootstrap-classes-doclets" depends="build-bootstrap-classes-javadoc">
@@ -404,7 +580,10 @@
 
     <target name="doclets" depends="build-doclets,jtreg-doclets,findbugs-doclets"/>
 
-    <!-- javah targets -->
+
+    <!--
+    **** javah targets.
+    -->
 
     <target name="build-bootstrap-classes-javah"
             depends="build-bootstrap-classes-javac">
@@ -452,7 +631,10 @@
 
     <target name="javah" depends="build-javah,jtreg-javah,findbugs-javah"/>
 
-    <!-- javap targets -->
+
+    <!--
+    **** javap targets.
+    -->
 
     <target name="build-bootstrap-classes-javap"
             depends="build-bootstrap-classes-javac">
@@ -502,7 +684,10 @@
 
     <target name="javap" depends="build-javap,jtreg-javap,findbugs-javap"/>
 
-    <!-- apt targets -->
+
+    <!--
+    **** apt targets.
+    -->
 
     <target name="build-bootstrap-classes-apt"
             depends="build-bootstrap-classes-javac">
@@ -553,9 +738,12 @@
 
     <target name="apt" depends="build-apt,jtreg-apt,findbugs-apt"/>
 
-    <!-- Create import JDK stubs -->
 
-    <target name="-create-import-jdk-stubs" depends="-def-genstubs" if="import.jdk.src.dir">
+    <!--
+    **** Create import JDK stubs.
+    -->
+
+    <target name="-create-import-jdk-stubs" depends="-def-genstubs" if="require.import.jdk.stubs">
         <mkdir dir="${build.genstubs.dir}"/>
         <genstubs
             srcdir="${import.jdk.src.dir}" destdir="${build.genstubs.dir}"
@@ -564,7 +752,12 @@
         />
     </target>
 
-    <!-- Check targets -->
+
+    <!--
+    **** Check targets.
+    **** "-check-*" targets check that a required property is set, and set to a reasonable value.
+    **** A user friendly message is generated if not, and the build exits.
+    -->
 
     <target name="-check-boot.java.home" depends="-def-check">
         <check name="bootstrap java" property="boot.java.home" marker="${java.marker}"/>
@@ -586,7 +779,15 @@
         <check name="jtreg" property="jtreg.home" marker="lib/jtreg.jar"/>
     </target>
 
-    <!-- Ant macro and preset defs -->
+    <target name="-check-vizant" depends="-def-check">
+        <check name="vizant" property="vizant.jar"/>
+        <check name="dot" property="dot"/>
+    </target>
+
+
+    <!--
+    **** Targets for Ant macro and task definitions.
+    -->
 
     <target name="-def-jigsaw">
         <mkdir dir="${build.toolclasses.dir}"/>
@@ -823,7 +1024,7 @@
                  classpath="${build.toolclasses.dir}/"/>
     </target>
 
-    <target name="-def-genstubs" depends="build-bootstrap-javac">
+    <target name="-def-genstubs" depends="build-bootstrap-javac" if="require.import.jdk.stubs">
         <mkdir dir="${build.toolclasses.dir}"/>
         <javac fork="true"
                source="${boot.javac.source}"
@@ -846,7 +1047,7 @@
             <sequential>
                 <property name="javadoc.options" value=""/> <!-- default, can be overridden per user or per project -->
                 <!-- Note: even with this default value, includes
-         from src.classes.dir get javadoc'd; see packageset below -->
+                from src.classes.dir get javadoc'd; see packageset below -->
                 <property name="javadoc.packagenames" value="none"/> <!-- default, can be overridden per user or per project -->
                 <javadoc
                     executable="${target.java.home}/bin/javadoc"
@@ -972,11 +1173,16 @@
         <property name="findbugs.defined" value="true"/>
     </target>
 
+    <target name="-def-vizant" unless="vizant.defined" depends="-check-vizant">
+        <taskdef name="vizant" classname="net.sourceforge.vizant.Vizant" classpath="${vizant.jar}"/>
+        <property name="vizant.defined" value="true"/>
+    </target>
+
     <target name="-def-check">
         <macrodef name="check">
             <attribute name="name"/>
             <attribute name="property"/>
-            <attribute name="marker"/>
+            <attribute name="marker" default=""/>
             <sequential>
                 <fail message="Cannot locate @{name}: please set @{property} to its location">
                     <condition>
@@ -987,41 +1193,19 @@
                 </fail>
                 <fail message="@{name} is not installed in ${@{property}}">
                     <condition>
-                        <not>
-                            <available file="${@{property}}/@{marker}"/>
-                        </not>
+                        <and>
+                            <not>
+                                <equals arg1="@{marker}" arg2=""/>
+                            </not>
+                            <not>
+                                <available file="${@{property}}/@{marker}"/>
+                            </not>
+                        </and>
                     </condition>
                 </fail>
             </sequential>
         </macrodef>
     </target>
 
-    <!-- standard JDK target -->
-    <target name="sanity"
-        description="display settings of configuration values">
-        <echo level="info">ant.home = ${ant.home}</echo>
-        <echo level="info">boot.java.home = ${boot.java.home}</echo>
-        <echo level="info">target.java.home = ${target.java.home}</echo>
-        <echo level="info">jtreg.home = ${jtreg.home}</echo>
-        <echo level="info">findbugs.home = ${findbugs.home}</echo>
-    </target>
-
-    <!-- useful debugging targets -->
-    <target name="diagnostics">
-        <diagnostics/>
-    </target>
-
-    <target name="post-sanity" depends="-def-jtreg,sanity,build"
-        description="perform basic validation after a standard build">
-        <jtreg
-            dir="make/test"
-            workDir="${build.jtreg.dir}/post-sanity/work"
-            reportDir="${build.jtreg.dir}/post-sanity/report"
-            jdk="${target.java.home}"
-            verbose="summary"
-            failonerror="false" resultproperty="jtreg.post-sanity.result">
-        </jtreg>
-
-    </target>
 </project>
 
