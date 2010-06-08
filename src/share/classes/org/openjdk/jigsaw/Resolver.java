@@ -48,7 +48,6 @@ import static org.openjdk.jigsaw.Trace.*;
 // of the dependence graph since different versions of the same module can
 // have completely different dependences.
 
-// ## TODO: Implement optional dependences
 // ## TODO: Implement provides
 // ## TODO: Improve error messages
 
@@ -143,11 +142,6 @@ final class Resolver {
             trace(1, depth, "resolving %s %s",
                   rmi != null ? rmi.id() : "ROOT", dep);
 
-        if (dep.modifiers().contains(Modifier.OPTIONAL)) {
-            // Skip for now; we'll handle these later
-            return resolve(depth + 1, choice.next);
-        }
-
         String mn = dep.query().name();
 
         // First check to see whether we've already resolved a module with
@@ -179,6 +173,11 @@ final class Resolver {
                 continue;
             if (resolve(depth + 1, choice.next, rmi, dep, cat, mid))
                 return true;
+        }
+
+        if (dep.modifiers().contains(Modifier.OPTIONAL)) {
+            // Don't fail; it's just an optional dependence
+            return resolve(depth + 1, choice.next);
         }
 
         // No local module found, so if this catalog is a library then
