@@ -479,12 +479,12 @@
     <!-- langtools module targets -->
 
     <target name="build-bootstrap-module-langtools"
-            depends="build-bootstrap-classes-javac,build-bootstrap-classes-apt,-def-build-bootstrap-module"
+            depends="build-bootstrap-classes-javac,-def-build-bootstrap-module"
             if="boot.java.provides.modules">
         <build-bootstrap-module module.name="${langtools.module.name}" includes="${langtools.module.includes}"/>
     </target>
 
-    <target name="build-module-langtools" depends="build-classes-javac,build-classes-apt,-def-build-module"
+    <target name="build-module-langtools" depends="build-classes-javac,-def-build-module"
             if="target.java.provides.modules">
         <build-module module.name="${langtools.module.name}" includes="${langtools.module.includes}"/>
     </target>
@@ -695,7 +695,7 @@
     </target>
 
     <target name="build-bootstrap-module-apt"
-            depends="build-bootstrap-classes-apt,build-bootstrap-module-javac"
+            depends="build-bootstrap-classes-apt,build-bootstrap-module-javac,build-bootstrap-module-mirror"
             if="boot.java.provides.modules">
         <build-bootstrap-module module.name="${apt.module.name}"
             includes="${apt.module.includes}"
@@ -713,7 +713,7 @@
         <build-classes includes="${apt.includes}"/>
     </target>
 
-    <target name="build-module-apt" depends="build-classes-apt,build-module-javac"
+    <target name="build-module-apt" depends="build-classes-apt,build-module-javac,build-module-mirror"
             if="target.java.provides.modules">
         <build-module module.name="${apt.module.name}" includes="${apt.module.includes}"/>
     </target>
@@ -737,6 +737,19 @@
     </target>
 
     <target name="apt" depends="build-apt,jtreg-apt,findbugs-apt"/>
+
+    <!-- mirror module targets -->
+
+    <target name="build-bootstrap-module-mirror"
+            depends="build-bootstrap-classes-javac,-def-build-bootstrap-module"
+            if="boot.java.provides.modules">
+        <build-bootstrap-module module.name="${mirror.module.name}" includes="${mirror.module.includes}"/>
+    </target>
+
+    <target name="build-module-mirror" depends="build-classes-javac,-def-build-module"
+            if="target.java.provides.modules">
+        <build-module module.name="${mirror.module.name}" includes="${mirror.module.includes}"/>
+    </target>
 
 
     <!--
