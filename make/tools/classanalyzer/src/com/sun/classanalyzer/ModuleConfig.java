@@ -34,6 +34,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import com.sun.classanalyzer.Module.RequiresModule;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  *
  * @author Mandy Chung
@@ -42,8 +46,8 @@ public class ModuleConfig {
 
     private final Set<String> roots;
     private final Set<String> includes;
-    private final Set<String> requires;
     private final Set<String> permits;
+    private final Map<String, RequiresModule> requires;
     private final Filter filter;
     private List<String> members;
     private String mainClass;
@@ -52,13 +56,13 @@ public class ModuleConfig {
     ModuleConfig(String name) throws IOException {
         this(name, null);
     }
-    
+
     ModuleConfig(String name, String mainClass) throws IOException {
         this.module = name;
         this.roots = new TreeSet<String>();
         this.includes = new TreeSet<String>();
         this.permits = new TreeSet<String>();
-        this.requires = new TreeSet<String>();
+        this.requires = new LinkedHashMap<String, RequiresModule>();
         this.filter = new Filter(this);
         this.mainClass = mainClass;
     }
@@ -81,8 +85,8 @@ public class ModuleConfig {
         return permits;
     }
 
-    Set<String> requires() {
-        return requires;
+    Collection<RequiresModule> requires() {
+        return requires.values();
     }
 
     String mainClass() {
@@ -411,6 +415,9 @@ public class ModuleConfig {
             boolean inExcludes = false;
             boolean inPermits = false;
             boolean inRequires = false;
+            boolean optional = false;
+            boolean reexport = false;
+            boolean local = false;
 
             boolean inBlockComment = false;
             ModuleConfig config = null;
@@ -443,6 +450,7 @@ public class ModuleConfig {
                 } else {
                     String[] s = line.split("\\s+");
                     String keyword = s[0].trim();
+                    int nextIndex = keyword.length();
                     if (keyword.equals("module")) {
                         if (s.length != 3 || !s[2].trim().equals("{")) {
                             throw new RuntimeException(file + ", line " +
@@ -455,6 +463,7 @@ public class ModuleConfig {
                         inIncludes = false;
                         inExcludes = false;
                         inAllows = false;
+                        inRequires = false;
                         inPermits = false;
                         continue;
                     } else if (keyword.equals("class")) {
@@ -476,6 +485,24 @@ public class ModuleConfig {
                         inPermits = true;
                     } else if (keyword.equals("requires")) {
                         inRequires = true;
+                        optional = false;
+                        reexport = false;
+                        local = false;
+                        for (int i=1; i < s.length; i++) {
+                            String ss = s[i].trim();
+                            if (ss.equals("public")) {
+                                reexport = true;
+                                nextIndex = line.indexOf(ss) + ss.length();
+                            } else if (ss.equals("optional")) {
+                                optional = true;
+                                nextIndex = line.indexOf(ss) + ss.length();
+                            } else if (ss.equals("local")) {
+                                local = true;
+                                nextIndex = line.indexOf(ss) + ss.length();
+                            } else {
+                                break;
+                            }
+                        }
                     } else if (keyword.equals("}")) {
                         if (config == null || s.length != 1) {
                             throw new RuntimeException(file + ", line " +
@@ -489,7 +516,8 @@ public class ModuleConfig {
                         throw new RuntimeException(file + ", \"" + keyword + "\" on line " +
                                 lineNumber + ", is not recognized");
                     }
-                    values = line.substring(keyword.length(), line.length()).trim();
+
+                    values = line.substring(nextIndex, line.length()).trim();
                 }
 
                 if (config == null) {
@@ -527,9 +555,18 @@ public class ModuleConfig {
                         } else if (inPermits) {
                             config.permits.add(s);
                         } else if (inRequires) {
-                            config.requires.add(s);
+                            if (config.requires.containsKey(s)) {
+                                throw new RuntimeException(file + ", line " +
+                                    lineNumber + " duplicated requires: \"" + s + "\"");
+                            }
+                            boolean isBootModule = s.equals("jdk.boot");
+                            if (!local && isBootModule) {
+                                throw new RuntimeException(file + ", line " +
+                                    lineNumber + " requires: \"" + s + "\" must be local");
+                            }
+                            RequiresModule rm = new RequiresModule(s, optional, reexport, local);
+                            config.requires.put(s, rm);
                         }
-
                     }
                 }
                 if (lastchar == ';') {
@@ -539,7 +576,6 @@ public class ModuleConfig {
                     inAllows = false;
                     inPermits = false;
                     inRequires = false;
-
                 }
             }
 
@@ -552,7 +588,6 @@ public class ModuleConfig {
                         lineNumber + ", missing \"}\" to end module definition" +
                         " for \"" + config.module + "\"");
             }
-
         } finally {
             in.close();
         }
@@ -592,6 +627,12 @@ public class ModuleConfig {
         sb.append(format("root", roots));
         sb.append(format("allow", filter.allow));
         sb.append(format("exclude", filter.exclude));
+        Set<String> reqs = new TreeSet<String>();
+        for (RequiresModule rm : requires.values()) {
+            reqs.add(rm.toString());
+        }
+        sb.append(format("requires", reqs));
+        sb.append(format("permits", permits));
         sb.append("}\n");
         return sb.toString();
     }

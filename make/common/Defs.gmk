@@ -500,39 +500,30 @@ include $(JDK_TOPDIR)/make/common/Defs-modules.gmk
 # Macros to find the module that $@ belongs to
 #
 
-UNIQUE_PATH_PATTERN = $(subst /,.,$(UNIQUE_PATH))
-MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
-		      -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
-		      -e 's%.*\/lib\/%lib\/%' \
-	              -e 's%.*\/bin\/%bin\/%' \
-	              -e 's%.*\/include\/%include\/%' \
-		      -e 's%.*\/demo\/%demo\/%' \
-		      -e 's%.*\/sample\/%sample\/%'
-
 # Install a file to its module
 define install-module-file
-dest=`echo $(@D)/ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(MKDIR) -p $(MODULE_DEST_DIR)/$$dest; \
-$(CP) -f $@ $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -f $@ $$dest
 endef
 
 # Install all files from the directory to its module
 define install-module-dir
-dest=`echo $(@D)/ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(MKDIR) -p $(MODULE_DEST_DIR)/$$dest; \
-$(CP) -rf $(@D)/* $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -rf $(@D)/* $$dest
 endef
 
 # chmod the file in its module
 define chmod-module-file
-dest=`echo $@ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(CHMOD) $1 $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $@) ; \
+$(CHMOD) $1 $$dest
 endef
 
 # install a sym link in its module
 define install-module-sym-link
-dest=`echo $@ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(LN) -sf $1 $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $@) ; \
+$(LN) -sf $1 $$dest
 endef
 
 
@@ -545,8 +536,8 @@ $(MAKE) -f Makefile.launcher \
         MAIN_CLASS=$(strip $2) \
         MAIN_JAVA_ARGS="$(strip $3)" \
         MAIN_ARGS="$(strip $4)" \
-        MODULE=$(strip $1) \
-        PROGRAM_MODULE=$(strip $1)
+        MODULE=jdk.$(strip $1) \
+        PROGRAM_MODULE=jdk.$(strip $1)
 endef
 
 #
@@ -571,9 +562,9 @@ endef
 define install-include-file
 $(prep-target)
 $(CP) $< $@
-dest=`echo $(@D)/ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(MKDIR) -p $(SUBMODULES_DIR)/base/$$dest; \
-$(CP) -f $@ $(SUBMODULES_DIR)/base/$$dest
+dest=$(call GetBaseModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -f $@ $$dest
 endef
 
 define chmod-file

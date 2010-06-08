@@ -80,6 +80,7 @@ include $(BUILDDIR)/common/Defs.gmk
 CLASSANALYZER_JAR_FILE = $(BUILDTOOLJARDIR)/classanalyzer.jar
 MODULES_CONFIG = modules.config
 MODULES_GROUP = modules.group
+MODULES_PROPERTIES = modules.properties
 DEP_CONFIG = jdk7.depconfig
 OPTIONAL_DEP_CONFIG = optional.depconfig
 MODULE_CLASSES = $(ABS_MODULES_TEMPDIR)/classes
@@ -91,15 +92,16 @@ unpack-jars:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(RM) -rf $(MODULE_CLASSES)
 	$(MKDIR) -p $(MODULE_CLASSES)
-	$(CP) -rf $(CLASSBINDIR)/* $(MODULE_CLASSES)
 	@for jf in  $(JAR_LIST) ; do \
            if [ -f $$jf ] ; then \
 	       $(CD) $(MODULE_CLASSES) && $(BOOT_JAR_CMD) xf $$jf $(BOOT_JAR_JFLAGS); \
            fi ; \
 	done
+	$(CP) -rf $(CLASSBINDIR)/* $(MODULE_CLASSES)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 $(MODULES_LIST): $(MODULES_CONFIG) $(MODULES_GROUP) \
+                 $(MODULES_PROPERTIES) \
                  $(DEP_CONFIG) $(OPTIONAL_DEP_CONFIG) \
                  $(CLASSANALYZER_JAR_FILE)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
@@ -114,9 +116,12 @@ $(MODULES_LIST): $(MODULES_CONFIG) $(MODULES_GROUP) \
                 -config $(MODULES_GROUP) \
                 -depconfig $(DEP_CONFIG) \
                 -depconfig $(OPTIONAL_DEP_CONFIG) \
+                -properties $(MODULES_PROPERTIES) \
                 -base $(BASE_MODULE) \
+                -version $(MODULE_VERSION) \
                 -output $(MODULE_CLASSLIST_DIR) \
-                -moduleinfo $(MODULEINFO_SRC)
+                -moduleinfo $(MODULEINFO_SRC) \
+                -noncorepkgs $(BUILDDIR)/docs/NON_CORE_PKGS.gmk
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 #
@@ -201,7 +206,6 @@ modularize: unpack-jars prep-module-lib
 # 
 # A better fix would be in make/common/internal/ImportComponents.gmk
 # to install imported files in a module 
-IDLJ_MODULE=idlj
 ORB_IDL=$(MODULES_DIR)/$(IDLJ_MODULE)/lib/orb.idl
 IR_IDL=$(MODULES_DIR)/$(IDLJ_MODULE)/lib/ir.idl
 $(MODULES_DIR)/$(IDLJ_MODULE)/lib/%.idl : $(LIBDIR)/%.idl

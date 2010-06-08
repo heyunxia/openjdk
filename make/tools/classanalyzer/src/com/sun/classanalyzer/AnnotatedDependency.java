@@ -180,7 +180,8 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
     static class ClassForName extends AnnotatedDependency {
 
         public ClassForName(Klass klass, boolean optional) {
-            super(klass, optional);
+            // workaround: treat all Class.forName as optional
+            super(klass, true /* optional */);
         }
 
         @Override
@@ -228,7 +229,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         private List<String> services = new ArrayList<String>();
 
         Provider(Klass klass) {
-            super(klass, true);
+            super(klass, true /* optional */);
         }
 
         @Override

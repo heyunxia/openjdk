@@ -23,7 +23,7 @@
 
 # @test Basic resolver tests
 
-exec /bin/sh ${TESTSRC:-.}/tester.sh $0
+exec sh ${TESTSRC:-.}/tester.sh $0
 
 : trivial pass
 

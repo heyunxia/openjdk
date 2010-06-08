@@ -24,7 +24,7 @@
 # @test
 # @summary Test java.lang.Package support
 
-exec /bin/sh ${TESTSRC:-.}/tester.sh $0
+exec sh ${TESTSRC:-.}/tester.sh $0
 
 : hello pass
 

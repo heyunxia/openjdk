@@ -194,17 +194,28 @@ ABS_TEST_OUTPUT_DIR := $(ABS_PLATFORM_BUILD_ROOT)/testoutput/$(UNIQUE_DIR)
 
 # Expect JPRT to set PRODUCT_HOME (the product or jdk in this case to test)
 ifndef PRODUCT_HOME
-  # Try to use j2sdk-image if it exists
-  ABS_JDK_IMAGE = $(ABS_PLATFORM_BUILD_ROOT)/j2sdk-image
+  # Try to use j2sdk-image or jdk-module-image if it exists
+  ABS_JDK_LEGACY_IMAGE = $(ABS_PLATFORM_BUILD_ROOT)/j2sdk-image
+  ABS_JDK_MODULE_IMAGE = $(ABS_PLATFORM_BUILD_ROOT)/jdk-module-image
   PRODUCT_HOME :=                       		\
     $(shell                             		\
-      if [ -d $(ABS_JDK_IMAGE) ] ; then 		\
-         $(ECHO) "$(ABS_JDK_IMAGE)";    		\
+      if [ -d $(ABS_JDK_LEGACY_IMAGE) ] ; then 		\
+         $(ECHO) "$(ABS_JDK_LEGACY_IMAGE)";    		\
+       elif [ -d $(ABS_JDK_MODULE_IMAGE) ] ; then 	\
+         $(ECHO) "$(ABS_JDK_MODULE_IMAGE)";    		\
        else                             		\
          $(ECHO) "$(ABS_PLATFORM_BUILD_ROOT)";		\
        fi)
   PRODUCT_HOME := $(PRODUCT_HOME)
 endif
+
+MODULE_BUILD :=                                         \
+    $(shell                             		\
+      if [ -d $(PRODUCT_HOME)/lib/modules ] ; then      \
+        $(ECHO) "true";	                                \
+      else                             		        \
+        $(ECHO) "false";		                \
+      fi)
 
 # Expect JPRT to set JPRT_PRODUCT_ARGS (e.g. -server etc.)
 #   Should be passed into 'java' only.
@@ -346,10 +357,20 @@ else
   JTREG_TEST_OPTIONS = $(JAVA_ARGS:%=-javaoptions:%) $(JAVA_VM_ARGS:%=-vmoption:%)
 endif
 
+# exclude modules test when testing legacy image
+ifeq ($(MODULE_BUILD),false)
+  JTREG_TEST_OPTIONS += "-k:\!modules"
+endif
+
 # Some tests annoy me and fail frequently
 PROBLEM_LIST=ProblemList.txt
 PROBLEM_LISTS=$(PROBLEM_LIST) $(wildcard closed/$(PROBLEM_LIST))
 EXCLUDELIST=$(ABS_TEST_OUTPUT_DIR)/excludelist.txt
+
+MODULE_IMAGE_PROBLEM_LIST=ModulesProblemList.txt
+ifeq ($(MODULE_BUILD),true)
+PROBLEM_LISTS += $(MODULE_IMAGE_PROBLEM_LIST)
+endif
 
 # Create exclude list for this platform and arch
 ifdef NO_EXCLUDES
@@ -553,10 +574,27 @@ JDK_ALL_TARGETS += jdk_util
 jdk_util: java/util sun/util
 	$(call RunSamevmBatch)
 
+# jdk_jigsaw is included in jprt.properties but we only want to
+# run them when testing the jdk-module-image. 
+# java/lang/module and java/lang/reflect/Module tests are tagged
+# with the "modules" keyword so that they are excluded when testing
+# legacy image.
+ifeq ($(MODULE_BUILD),true)
+  JDK_ALL_TARGETS += jdk_jigsaw
+  JIGSAW_TESTS = org/openjdk/jigsaw
+endif
+
+jdk_jigsaw: java/lang/module java/lang/reflect/Module $(JIGSAW_TESTS)
+	$(call RunOthervmBatch)
+
 # ------------------------------------------------------------------
 
 # Run all tests
 FILTER_OUT_LIST=jdk_awt jdk_rmi jdk_swing
+ifeq ($(MODULE_BUILD),false)
+   FILTER_OUT_LIST+=jdk_jigsaw
+endif
+
 JDK_ALL_STABLE_TARGETS := $(filter-out $(FILTER_OUT_LIST), $(JDK_ALL_TARGETS))
 jdk_all: $(JDK_ALL_STABLE_TARGETS)
 	@$(SummaryInfo)

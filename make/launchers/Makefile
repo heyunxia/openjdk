@@ -34,7 +34,8 @@
 #   -J-Xmode:legacy to force it to run in legacy mode
 #   -J-Xmode:module to force it to run in module mode
 #
-# Each tool is packaged as a module whose name is same as the binary name.
+# Each tool is packaged as a module whose name is:
+#   "jdk." + the binary name (e.g. jdk.javac)
 # make/modules/modules.group contains a module definition
 # that specifies its entry point for each binary.
 # The launcher (java.c) will launch the tool in module mode 
@@ -60,6 +61,8 @@ $(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
 $(call make-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, -J-Xmode:legacy, )
 $(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , )
 $(call make-launcher, jrepo, org.openjdk.jigsaw.cli.Repositor, , )
+$(call make-launcher, keytool, sun.security.tools.KeyTool, , )
+$(call make-launcher, policytool, sun.security.tools.policytool.PolicyTool, , )
 $(call make-launcher, jarsigner, sun.security.tools.JarSigner, , )
 $(call make-launcher, javac, com.sun.tools.javac.Main, -J-Xmode:legacy, )
 $(call make-launcher, javadoc, com.sun.tools.javadoc.Main, -J-Xmode:legacy, )

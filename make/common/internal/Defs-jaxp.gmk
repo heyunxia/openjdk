@@ -55,8 +55,9 @@ IMPORT_TOOLS_PACKAGES +=
 # Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
 #
 IMPORT_RT_MODULES += \
-     sun.xml \
-     sun.xalan
+     $(SUN_XML_MODULE) \
+     $(SUN_XERCES_MODULE) \
+     $(SUN_XALAN_MODULE)
 
 IMPORT_TOOLS_MODULES += 
 

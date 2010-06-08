@@ -24,7 +24,7 @@
 # @test
 # @summary Zork
 
-exec /bin/sh ${TESTSRC:-.}/tester.sh $0
+exec sh ${TESTSRC:-.}/tester.sh $0
 
 : zork pass
 

@@ -66,6 +66,14 @@ public final class Platform {
         return true;
     }
 
+    static boolean isBootContext(BaseContext cx) {
+        for (ModuleId mid : cx.modules()) {
+            if (mid.name().equals("jdk.boot"))
+                return true;
+        }
+        return false;
+    }
+
     // ## Workaround: Compiler should not add synthetic dependences
     // ## to platform modules themselves
     //

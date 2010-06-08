@@ -793,7 +793,7 @@ public class BootAnalyzer {
                 // skip
                 return null;
             }
-    
+
             public String visitString(CONSTANT_String_info info, Void p) {
                 // skip
                 return null;
