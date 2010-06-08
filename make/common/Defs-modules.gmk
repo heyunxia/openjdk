@@ -65,6 +65,7 @@ JRE_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.base.modules.list
 SUN_CORBA_MODULE         = sun.corba
 SUN_JTA_MODULE           = sun.jta
 SUN_XML_MODULE           = sun.xml
+SUN_XERCES_MODULE        = sun.xerces
 SUN_XALAN_MODULE         = sun.xalan
 SUN_JAXWS_MODULE         = sun.jaxws
 SUN_JX_ANNOTATION_MODULE = sun.jx.annotations
