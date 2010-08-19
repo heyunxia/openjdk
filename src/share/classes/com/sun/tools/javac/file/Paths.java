@@ -1,12 +1,12 @@
 /*
- * Copyright 2003-2008 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2003, 2008, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.  Sun designates this
+ * published by the Free Software Foundation.  Oracle designates this
  * particular file as subject to the "Classpath" exception as provided
- * by Sun in the LICENSE file that accompanied this code.
+ * by Oracle in the LICENSE file that accompanied this code.
  *
  * This code is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -18,9 +18,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package com.sun.tools.javac.file;
@@ -58,8 +58,8 @@ import static com.sun.tools.javac.main.OptionName.*;
  *  into a boot class path, user class path, and source path (in
  *  Collection<PathEntry> form).
  *
- *  <p><b>This is NOT part of any API supported by Sun Microsystems.  If
- *  you write code that depends on this, you do so at your own risk.
+ *  <p><b>This is NOT part of any supported API.
+ *  If you write code that depends on this, you do so at your own risk.
  *  This code and its internal interfaces are subject to change or
  *  deletion without notice.</b>
  */
@@ -343,7 +343,8 @@ public class Paths {
         private void addDirectory(File dir, boolean warn) {
             if (!dir.isDirectory()) {
                 if (warn)
-                    log.warning("dir.path.element.not.found", dir);
+                    log.warning(Lint.LintCategory.PATH,
+                            "dir.path.element.not.found", dir);
                 return;
             }
 
@@ -389,8 +390,10 @@ public class Paths {
 
             if (! fsInfo.exists(file)) {
                 /* No such file or directory exists */
-                if (warn)
-                    log.warning("path.element.not.found", file);
+                if (warn) {
+                    log.warning(Lint.LintCategory.PATH,
+                            "path.element.not.found", file);
+                }
             } else if (fsInfo.isFile(file)) {
                 /* File is an ordinary file. */
                 if (!isArchive(file)) {
@@ -399,12 +402,16 @@ public class Paths {
                     try {
                         ZipFile z = new ZipFile(file);
                         z.close();
-                        if (warn)
-                            log.warning("unexpected.archive.file", file);
+                        if (warn) {
+                            log.warning(Lint.LintCategory.PATH,
+                                    "unexpected.archive.file", file);
+                        }
                     } catch (IOException e) {
                         // FIXME: include e.getLocalizedMessage in warning
-                        if (warn)
-                            log.warning("invalid.archive.file", file);
+                        if (warn) {
+                            log.warning(Lint.LintCategory.PATH,
+                                    "invalid.archive.file", file);
+                        }
                         return;
                     }
                 }
