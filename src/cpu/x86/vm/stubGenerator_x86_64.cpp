@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -278,11 +278,6 @@ class StubGenerator: public StubCodeGenerator {
     __ movptr(c_rarg2, parameters);       // parameter pointer
     __ movl(c_rarg1, c_rarg3);            // parameter counter is in c_rarg1
     __ BIND(loop);
-    if (TaggedStackInterpreter) {
-      __ movl(rax, Address(c_rarg2, 0)); // get tag
-      __ addptr(c_rarg2, wordSize);      // advance to next tag
-      __ push(rax);                      // pass tag
-    }
     __ movptr(rax, Address(c_rarg2, 0));// get parameter
     __ addptr(c_rarg2, wordSize);       // advance to next parameter
     __ decrementl(c_rarg1);             // decrement counter
@@ -919,6 +914,7 @@ class StubGenerator: public StubCodeGenerator {
   //  * [tos + 5]: error message (char*)
   //  * [tos + 6]: object to verify (oop)
   //  * [tos + 7]: saved rax - saved by caller and bashed
+  //  * [tos + 8]: saved r10 (rscratch1) - saved by caller
   //  * = popped on exit
   address generate_verify_oop() {
     StubCodeMark mark(this, "StubRoutines", "verify_oop");
@@ -939,6 +935,7 @@ class StubGenerator: public StubCodeGenerator {
            // After previous pushes.
            oop_to_verify = 6 * wordSize,
            saved_rax     = 7 * wordSize,
+           saved_r10     = 8 * wordSize,
 
            // Before the call to MacroAssembler::debug(), see below.
            return_addr   = 16 * wordSize,
@@ -988,15 +985,17 @@ class StubGenerator: public StubCodeGenerator {
     // return if everything seems ok
     __ bind(exit);
     __ movptr(rax, Address(rsp, saved_rax));     // get saved rax back
+    __ movptr(rscratch1, Address(rsp, saved_r10)); // get saved r10 back
     __ pop(c_rarg3);                             // restore c_rarg3
     __ pop(c_rarg2);                             // restore c_rarg2
     __ pop(r12);                                 // restore r12
     __ popf();                                   // restore flags
-    __ ret(3 * wordSize);                        // pop caller saved stuff
+    __ ret(4 * wordSize);                        // pop caller saved stuff
 
     // handle errors
     __ bind(error);
     __ movptr(rax, Address(rsp, saved_rax));     // get saved rax back
+    __ movptr(rscratch1, Address(rsp, saved_r10)); // get saved r10 back
     __ pop(c_rarg3);                             // get saved c_rarg3 back
     __ pop(c_rarg2);                             // get saved c_rarg2 back
     __ pop(r12);                                 // get saved r12 back
@@ -1014,6 +1013,7 @@ class StubGenerator: public StubCodeGenerator {
     //   * [tos + 17] error message (char*)
     //   * [tos + 18] object to verify (oop)
     //   * [tos + 19] saved rax - saved by caller and bashed
+    //   * [tos + 20] saved r10 (rscratch1) - saved by caller
     //   * = popped on exit
 
     __ movptr(c_rarg0, Address(rsp, error_msg));    // pass address of error message
@@ -1026,7 +1026,7 @@ class StubGenerator: public StubCodeGenerator {
     __ call(RuntimeAddress(CAST_FROM_FN_PTR(address, MacroAssembler::debug64)));
     __ mov(rsp, r12);                               // restore rsp
     __ popa();                                      // pop registers (includes r12)
-    __ ret(3 * wordSize);                           // pop caller saved stuff
+    __ ret(4 * wordSize);                           // pop caller saved stuff
 
     return start;
   }

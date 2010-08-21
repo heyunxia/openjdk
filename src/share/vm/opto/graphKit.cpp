@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2001, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -1789,9 +1789,10 @@ void GraphKit::increment_counter(address counter_addr) {
 
 void GraphKit::increment_counter(Node* counter_addr) {
   int adr_type = Compile::AliasIdxRaw;
-  Node* cnt  = make_load(NULL, counter_addr, TypeInt::INT, T_INT, adr_type);
+  Node* ctrl = control();
+  Node* cnt  = make_load(ctrl, counter_addr, TypeInt::INT, T_INT, adr_type);
   Node* incr = _gvn.transform(new (C, 3) AddINode(cnt, _gvn.intcon(1)));
-  store_to_memory( NULL, counter_addr, incr, T_INT, adr_type );
+  store_to_memory( ctrl, counter_addr, incr, T_INT, adr_type );
 }
 
 
@@ -2771,11 +2772,7 @@ FastLockNode* GraphKit::shared_lock(Node* obj) {
     // Update the counter for this lock.  Don't bother using an atomic
     // operation since we don't require absolute accuracy.
     lock->create_lock_counter(map()->jvms());
-    int adr_type = Compile::AliasIdxRaw;
-    Node* counter_addr = makecon(TypeRawPtr::make(lock->counter()->addr()));
-    Node* cnt  = make_load(NULL, counter_addr, TypeInt::INT, T_INT, adr_type);
-    Node* incr = _gvn.transform(new (C, 3) AddINode(cnt, _gvn.intcon(1)));
-    store_to_memory(control(), counter_addr, incr, T_INT, adr_type);
+    increment_counter(lock->counter()->addr());
   }
 #endif
 
@@ -3487,7 +3484,6 @@ void GraphKit::g1_write_barrier_post(Node* oop_store,
 
   Node* tls = __ thread(); // ThreadLocalStorage
 
-  Node* no_ctrl = NULL;
   Node* no_base = __ top();
   float likely  = PROB_LIKELY(0.999);
   float unlikely  = PROB_UNLIKELY(0.999);
@@ -3511,10 +3507,10 @@ void GraphKit::g1_write_barrier_post(Node* oop_store,
   Node* index_adr =  __ AddP(no_base, tls, __ ConX(index_offset));
 
   // Now some values
-
-  Node* index  = __ load(no_ctrl, index_adr, TypeInt::INT, T_INT, Compile::AliasIdxRaw);
-  Node* buffer = __ load(no_ctrl, buffer_adr, TypeRawPtr::NOTNULL, T_ADDRESS, Compile::AliasIdxRaw);
-
+  // Use ctrl to avoid hoisting these values past a safepoint, which could
+  // potentially reset these fields in the JavaThread.
+  Node* index  = __ load(__ ctrl(), index_adr, TypeInt::INT, T_INT, Compile::AliasIdxRaw);
+  Node* buffer = __ load(__ ctrl(), buffer_adr, TypeRawPtr::NOTNULL, T_ADDRESS, Compile::AliasIdxRaw);
 
   // Convert the store obj pointer to an int prior to doing math on it
   // Must use ctrl to prevent "integerized oop" existing across safepoint

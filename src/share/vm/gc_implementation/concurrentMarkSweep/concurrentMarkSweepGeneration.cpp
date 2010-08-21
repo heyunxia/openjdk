@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2001, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -159,7 +159,7 @@ ConcurrentMarkSweepGeneration::ConcurrentMarkSweepGeneration(
      CardTableRS* ct, bool use_adaptive_freelists,
      FreeBlockDictionary::DictionaryChoice dictionaryChoice) :
   CardGeneration(rs, initial_byte_size, level, ct),
-  _dilatation_factor(((double)MinChunkSize)/((double)(oopDesc::header_size()))),
+  _dilatation_factor(((double)MinChunkSize)/((double)(CollectedHeap::min_fill_size()))),
   _debug_collection_type(Concurrent_collection_type)
 {
   HeapWord* bottom = (HeapWord*) _virtual_space.low();
@@ -222,7 +222,7 @@ ConcurrentMarkSweepGeneration::ConcurrentMarkSweepGeneration(
   // promoting generation, we'll instead just use the mimimum
   // object size (which today is a header's worth of space);
   // note that all arithmetic is in units of HeapWords.
-  assert(MinChunkSize >= oopDesc::header_size(), "just checking");
+  assert(MinChunkSize >= CollectedHeap::min_fill_size(), "just checking");
   assert(_dilatation_factor >= 1.0, "from previous assert");
 }
 
@@ -664,19 +664,14 @@ CMSCollector::CMSCollector(ConcurrentMarkSweepGeneration* cmsGen,
         return;
       }
 
-      // XXX use a global constant instead of 64!
-      typedef struct OopTaskQueuePadded {
-        OopTaskQueue work_queue;
-        char pad[64 - sizeof(OopTaskQueue)];  // prevent false sharing
-      } OopTaskQueuePadded;
-
+      typedef Padded<OopTaskQueue> PaddedOopTaskQueue;
       for (i = 0; i < num_queues; i++) {
-        OopTaskQueuePadded *q_padded = new OopTaskQueuePadded();
-        if (q_padded == NULL) {
+        PaddedOopTaskQueue *q = new PaddedOopTaskQueue();
+        if (q == NULL) {
           warning("work_queue allocation failure.");
           return;
         }
-        _task_queues->register_queue(i, &q_padded->work_queue);
+        _task_queues->register_queue(i, q);
       }
       for (i = 0; i < num_queues; i++) {
         _task_queues->queue(i)->initialize();
@@ -789,6 +784,14 @@ CMSCollector::CMSCollector(ConcurrentMarkSweepGeneration* cmsGen,
   _gc_counters = new CollectorCounters("CMS", 1);
   _completed_initialization = true;
   _inter_sweep_timer.start();  // start of time
+#ifdef SPARC
+  // Issue a stern warning, but allow use for experimentation and debugging.
+  if (VM_Version::is_sun4v() && UseMemSetInBOT) {
+    assert(!FLAG_IS_DEFAULT(UseMemSetInBOT), "Error");
+    warning("Experimental flag -XX:+UseMemSetInBOT is known to cause instability"
+            " on sun4v; please understand that you are using at your own risk!");
+  }
+#endif
 }
 
 const char* ConcurrentMarkSweepGeneration::name() const {
@@ -1356,7 +1359,7 @@ ConcurrentMarkSweepGeneration::par_promote(int thread_num,
   obj->set_mark(m);
 
   // Now we can track the promoted object, if necessary.  We take care
-  // To delay the transition from uninitialized to full object
+  // to delay the transition from uninitialized to full object
   // (i.e., insertion of klass pointer) until after, so that it
   // atomically becomes a promoted object.
   if (promoInfo->tracking()) {
@@ -1416,10 +1419,9 @@ bool ConcurrentMarkSweepGeneration::should_collect(bool   full,
 
 bool CMSCollector::shouldConcurrentCollect() {
   if (_full_gc_requested) {
-    assert(ExplicitGCInvokesConcurrent, "Unexpected state");
     if (Verbose && PrintGCDetails) {
       gclog_or_tty->print_cr("CMSCollector: collect because of explicit "
-                             " gc request");
+                             " gc request (or gc_locker)");
     }
     return true;
   }

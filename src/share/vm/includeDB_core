@@ -1,5 +1,5 @@
 //
-// Copyright 1997-2010 Sun Microsystems, Inc.  All Rights Reserved.
+// Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 //
 // This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
 // 2 along with this work; if not, write to the Free Software Foundation,
 // Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
 //
-// Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
-// CA 95054 USA or visit www.sun.com if you need additional information or
-// have any questions.
+// Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+// or visit www.oracle.com if you need additional information or have any
+// questions.
 //
 //
 
@@ -284,6 +284,7 @@ atomic.hpp                              allocation.hpp
 atomic_<os_arch>.inline.hpp             atomic.hpp
 atomic_<os_arch>.inline.hpp             os.hpp
 atomic_<os_arch>.inline.hpp             vm_version_<arch>.hpp
+atomic_<os_arch>.inline.hpp             orderAccess_<os_arch>.inline.hpp
 
 // attachListener is jck optional, put cpp deps in includeDB_features
 
@@ -300,20 +301,6 @@ barrierSet.hpp                          oopsHierarchy.hpp
 
 barrierSet.inline.hpp                   barrierSet.hpp
 barrierSet.inline.hpp                   cardTableModRefBS.hpp
-
-bcEscapeAnalyzer.cpp                    bcEscapeAnalyzer.hpp
-bcEscapeAnalyzer.cpp                    bitMap.inline.hpp
-bcEscapeAnalyzer.cpp                    bytecode.hpp
-bcEscapeAnalyzer.cpp                    ciConstant.hpp
-bcEscapeAnalyzer.cpp                    ciField.hpp
-bcEscapeAnalyzer.cpp                    ciMethodBlocks.hpp
-bcEscapeAnalyzer.cpp                    ciStreams.hpp
-
-bcEscapeAnalyzer.hpp                    allocation.hpp
-bcEscapeAnalyzer.hpp                    ciMethod.hpp
-bcEscapeAnalyzer.hpp                    ciMethodData.hpp
-bcEscapeAnalyzer.hpp                    dependencies.hpp
-bcEscapeAnalyzer.hpp                    growableArray.hpp
 
 biasedLocking.cpp                       biasedLocking.hpp
 biasedLocking.cpp                       klass.inline.hpp
@@ -545,6 +532,7 @@ ciCPCache.cpp                           ciUtilities.hpp
 
 ciCPCache.hpp                           ciClassList.hpp
 ciCPCache.hpp                           ciObject.hpp
+ciCPCache.hpp                           cpCacheOop.hpp
 
 ciEnv.cpp                               allocation.inline.hpp
 ciEnv.cpp                               ciConstant.hpp
@@ -664,7 +652,6 @@ ciKlassKlass.hpp                        ciSymbol.hpp
 
 ciMethod.cpp                            abstractCompiler.hpp
 ciMethod.cpp                            allocation.inline.hpp
-ciMethod.cpp                            bcEscapeAnalyzer.hpp
 ciMethod.cpp                            bitMap.inline.hpp
 ciMethod.cpp                            ciCallProfile.hpp
 ciMethod.cpp                            ciExceptionHandler.hpp
@@ -823,10 +810,12 @@ ciSignature.hpp                         growableArray.hpp
 
 ciStreams.cpp                           ciCallSite.hpp
 ciStreams.cpp                           ciConstant.hpp
+ciStreams.cpp                           ciCPCache.hpp
 ciStreams.cpp                           ciField.hpp
 ciStreams.cpp                           ciStreams.hpp
 ciStreams.cpp                           ciUtilities.hpp
 
+ciStreams.hpp                           bytecode.hpp
 ciStreams.hpp                           ciClassList.hpp
 ciStreams.hpp                           ciExceptionHandler.hpp
 ciStreams.hpp                           ciInstanceKlass.hpp
@@ -961,7 +950,6 @@ classLoader.cpp                         threadService.hpp
 classLoader.cpp                         timer.hpp
 classLoader.cpp                         universe.inline.hpp
 classLoader.cpp                         vmSymbols.hpp
-classLoader.cpp                         vtune.hpp
 
 classLoader.hpp                         classFileParser.hpp
 classLoader.hpp                         perfData.hpp
@@ -1001,7 +989,6 @@ codeBlob.cpp                            relocInfo.hpp
 codeBlob.cpp                            safepoint.hpp
 codeBlob.cpp                            sharedRuntime.hpp
 codeBlob.cpp                            vframe.hpp
-codeBlob.cpp                            vtune.hpp
 
 codeBlob.hpp                            codeBuffer.hpp
 codeBlob.hpp                            frame.hpp
@@ -1748,6 +1735,7 @@ genCollectedHeap.cpp                    sharedHeap.hpp
 genCollectedHeap.cpp                    space.hpp
 genCollectedHeap.cpp                    symbolTable.hpp
 genCollectedHeap.cpp                    systemDictionary.hpp
+genCollectedHeap.cpp                    vmError.hpp
 genCollectedHeap.cpp                    vmGCOperations.hpp
 genCollectedHeap.cpp                    vmSymbols.hpp
 genCollectedHeap.cpp                    vmThread.hpp
@@ -2164,7 +2152,6 @@ interpreter.cpp                         sharedRuntime.hpp
 interpreter.cpp                         stubRoutines.hpp
 interpreter.cpp                         templateTable.hpp
 interpreter.cpp                         timer.hpp
-interpreter.cpp                         vtune.hpp
 
 interpreter.hpp                         cppInterpreter.hpp
 interpreter.hpp                         stubs.hpp
@@ -2320,7 +2307,6 @@ java.cpp                                universe.hpp
 java.cpp                                vmError.hpp
 java.cpp                                vm_operations.hpp
 java.cpp                                vm_version_<arch>.hpp
-java.cpp                                vtune.hpp
 
 java.hpp                                os.hpp
 
@@ -2867,6 +2853,7 @@ methodHandles.hpp                       frame.inline.hpp
 methodHandles.hpp                       globals.hpp
 methodHandles.hpp                       interfaceSupport.hpp
 methodHandles.hpp                       javaClasses.hpp
+methodHandles.hpp                       no_precompiled_headers
 methodHandles.hpp                       vmSymbols.hpp
 
 methodHandles.cpp                       allocation.inline.hpp
@@ -2930,6 +2917,7 @@ methodOop.cpp                           interpreter.hpp
 methodOop.cpp                           jvmtiExport.hpp
 methodOop.cpp                           klassOop.hpp
 methodOop.cpp                           methodDataOop.hpp
+methodOop.cpp                           methodHandleWalk.hpp
 methodOop.cpp                           methodOop.hpp
 methodOop.cpp                           nativeLookup.hpp
 methodOop.cpp                           oop.inline.hpp
@@ -3045,7 +3033,6 @@ nmethod.cpp                             nmethod.hpp
 nmethod.cpp                             scopeDesc.hpp
 nmethod.cpp                             sharedRuntime.hpp
 nmethod.cpp                             sweeper.hpp
-nmethod.cpp                             vtune.hpp
 nmethod.cpp                             xmlstream.hpp
 
 nmethod.hpp                             codeBlob.hpp
@@ -3245,6 +3232,7 @@ os.cpp                                  defaultStream.hpp
 os.cpp                                  events.hpp
 os.cpp                                  frame.inline.hpp
 os.cpp                                  hpi.hpp
+os.cpp					icBuffer.hpp
 os.cpp                                  interfaceSupport.hpp
 os.cpp                                  interpreter.hpp
 os.cpp                                  java.hpp
@@ -3256,6 +3244,7 @@ os.cpp                                  mutexLocker.hpp
 os.cpp                                  oop.inline.hpp
 os.cpp                                  os.hpp
 os.cpp                                  os_<os_family>.inline.hpp
+os.cpp	                                privilegedStack.hpp
 os.cpp                                  stubRoutines.hpp
 os.cpp                                  systemDictionary.hpp
 os.cpp                                  threadService.hpp
@@ -3633,6 +3622,7 @@ rewriter.cpp                            bytecodes.hpp
 rewriter.cpp                            gcLocker.hpp
 rewriter.cpp                            generateOopMap.hpp
 rewriter.cpp                            interpreter.hpp
+rewriter.cpp                            methodComparator.hpp
 rewriter.cpp                            objArrayOop.hpp
 rewriter.cpp                            oop.inline.hpp
 rewriter.cpp                            oopFactory.hpp
@@ -3767,7 +3757,6 @@ sharedRuntime.cpp                       vframeArray.hpp
 sharedRuntime.cpp                       vmSymbols.hpp
 sharedRuntime.cpp                       vmreg_<arch>.inline.hpp
 sharedRuntime.cpp                       vtableStubs.hpp
-sharedRuntime.cpp                       vtune.hpp
 sharedRuntime.cpp                       xmlstream.hpp
 
 sharedRuntime.hpp                       allocation.hpp
@@ -3931,7 +3920,6 @@ stubCodeGenerator.cpp                   disassembler.hpp
 stubCodeGenerator.cpp                   forte.hpp
 stubCodeGenerator.cpp                   oop.inline.hpp
 stubCodeGenerator.cpp                   stubCodeGenerator.hpp
-stubCodeGenerator.cpp                   vtune.hpp
 
 stubCodeGenerator.hpp                   allocation.hpp
 stubCodeGenerator.hpp                   assembler.hpp
@@ -4075,6 +4063,7 @@ systemDictionary.cpp                    jvmtiEnvBase.hpp
 systemDictionary.cpp                    klass.inline.hpp
 systemDictionary.cpp                    loaderConstraints.hpp
 systemDictionary.cpp                    methodDataOop.hpp
+systemDictionary.cpp                    methodHandles.hpp
 systemDictionary.cpp                    mutexLocker.hpp
 systemDictionary.cpp                    objArrayKlass.hpp
 systemDictionary.cpp                    oop.inline.hpp
@@ -4451,7 +4440,6 @@ universe.cpp                            universe.hpp
 universe.cpp                            universe.inline.hpp
 universe.cpp                            vmSymbols.hpp
 universe.cpp                            vm_operations.hpp
-universe.cpp                            vtune.hpp
 
 universe.hpp                            growableArray.hpp
 universe.hpp                            handles.hpp
@@ -4714,7 +4702,6 @@ vtableStubs.cpp                         mutexLocker.hpp
 vtableStubs.cpp                         resourceArea.hpp
 vtableStubs.cpp                         sharedRuntime.hpp
 vtableStubs.cpp                         vtableStubs.hpp
-vtableStubs.cpp                         vtune.hpp
 
 vtableStubs.hpp                         allocation.hpp
 
@@ -4727,11 +4714,6 @@ vtableStubs_<arch_model>.cpp            resourceArea.hpp
 vtableStubs_<arch_model>.cpp            sharedRuntime.hpp
 vtableStubs_<arch_model>.cpp            vmreg_<arch>.inline.hpp
 vtableStubs_<arch_model>.cpp            vtableStubs.hpp
-
-vtune.hpp                               allocation.hpp
-
-vtune_<os_family>.cpp                   interpreter.hpp
-vtune_<os_family>.cpp                   vtune.hpp
 
 watermark.hpp                           allocation.hpp
 watermark.hpp                           globalDefinitions.hpp

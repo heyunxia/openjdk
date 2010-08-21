@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -878,15 +878,12 @@ void GraphBuilder::load_constant() {
       case T_OBJECT :
        {
         ciObject* obj = con.as_object();
-        if (obj->is_klass()) {
-          ciKlass* klass = obj->as_klass();
-          if (!klass->is_loaded() || PatchALot) {
-            patch_state = state()->copy();
-            t = new ObjectConstant(obj);
-          } else {
-            t = new InstanceConstant(klass->java_mirror());
-          }
+        if (!obj->is_loaded()
+            || (PatchALot && obj->klass() != ciEnv::current()->String_klass())) {
+          patch_state = state()->copy();
+          t = new ObjectConstant(obj);
         } else {
+          assert(!obj->is_klass(), "must be java_mirror of klass");
           t = new InstanceConstant(obj->as_instance());
         }
         break;
@@ -2438,13 +2435,13 @@ BlockEnd* GraphBuilder::iterate_bytecodes_for_block(int bci) {
       case Bytecodes::_invokestatic   : // fall through
       case Bytecodes::_invokedynamic  : // fall through
       case Bytecodes::_invokeinterface: invoke(code); break;
-      case Bytecodes::_new            : new_instance(s.get_index_big()); break;
+      case Bytecodes::_new            : new_instance(s.get_index_u2()); break;
       case Bytecodes::_newarray       : new_type_array(); break;
       case Bytecodes::_anewarray      : new_object_array(); break;
       case Bytecodes::_arraylength    : ipush(append(new ArrayLength(apop(), lock_stack()))); break;
       case Bytecodes::_athrow         : throw_op(s.cur_bci()); break;
-      case Bytecodes::_checkcast      : check_cast(s.get_index_big()); break;
-      case Bytecodes::_instanceof     : instance_of(s.get_index_big()); break;
+      case Bytecodes::_checkcast      : check_cast(s.get_index_u2()); break;
+      case Bytecodes::_instanceof     : instance_of(s.get_index_u2()); break;
       // Note: we do not have special handling for the monitorenter bytecode if DeoptC1 && DeoptOnAsyncException
       case Bytecodes::_monitorenter   : monitorenter(apop(), s.cur_bci()); break;
       case Bytecodes::_monitorexit    : monitorexit (apop(), s.cur_bci()); break;
@@ -2530,16 +2527,10 @@ void GraphBuilder::iterate_all_blocks(bool start_in_current_block_for_inlining) 
 }
 
 
-bool GraphBuilder::_is_initialized = false;
 bool GraphBuilder::_can_trap      [Bytecodes::number_of_java_codes];
 bool GraphBuilder::_is_async[Bytecodes::number_of_java_codes];
 
 void GraphBuilder::initialize() {
-  // make sure initialization happens only once (need a
-  // lock here, if we allow the compiler to be re-entrant)
-  if (is_initialized()) return;
-  _is_initialized = true;
-
   // the following bytecodes are assumed to potentially
   // throw exceptions in compiled code - note that e.g.
   // monitorexit & the return bytecodes do not throw
@@ -2855,7 +2846,6 @@ GraphBuilder::GraphBuilder(Compilation* compilation, IRScope* scope)
   BlockList* bci2block = blm.bci2block();
   BlockBegin* start_block = bci2block->at(0);
 
-  assert(is_initialized(), "GraphBuilder must have been initialized");
   push_root_scope(scope, bci2block, start_block);
 
   // setup state for std entry
@@ -2978,7 +2968,11 @@ bool GraphBuilder::try_inline(ciMethod* callee, bool holder_known) {
 
 bool GraphBuilder::try_inline_intrinsics(ciMethod* callee) {
   if (!InlineNatives           ) INLINE_BAILOUT("intrinsic method inlining disabled");
-  if (callee->is_synchronized()) INLINE_BAILOUT("intrinsic method is synchronized");
+  if (callee->is_synchronized()) {
+    // We don't currently support any synchronized intrinsics
+    return false;
+  }
+
   // callee seems like a good candidate
   // determine id
   bool preserves_state = false;

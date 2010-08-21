@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -432,8 +432,7 @@ class LIR_OprDesc: public CompilationResourceObj {
   // for compatibility with RInfo
   int fpu () const                                  { return lo_reg_half(); }
 #endif // X86
-
-#ifdef SPARC
+#if defined(SPARC) || defined(ARM) || defined(PPC)
   FloatRegister as_float_reg   () const;
   FloatRegister as_double_reg  () const;
 #endif
@@ -505,21 +504,28 @@ class LIR_Address: public LIR_OprPtr {
      , _type(type)
      , _disp(0) { verify(); }
 
-  LIR_Address(LIR_Opr base, int disp, BasicType type):
+  LIR_Address(LIR_Opr base, intx disp, BasicType type):
        _base(base)
      , _index(LIR_OprDesc::illegalOpr())
      , _scale(times_1)
      , _type(type)
      , _disp(disp) { verify(); }
 
-#ifdef X86
-  LIR_Address(LIR_Opr base, LIR_Opr index, Scale scale, int disp, BasicType type):
+  LIR_Address(LIR_Opr base, BasicType type):
+       _base(base)
+     , _index(LIR_OprDesc::illegalOpr())
+     , _scale(times_1)
+     , _type(type)
+     , _disp(0) { verify(); }
+
+#if defined(X86) || defined(ARM)
+  LIR_Address(LIR_Opr base, LIR_Opr index, Scale scale, intx disp, BasicType type):
        _base(base)
      , _index(index)
      , _scale(scale)
      , _type(type)
      , _disp(disp) { verify(); }
-#endif // X86
+#endif // X86 || ARM
 
   LIR_Opr base()  const                          { return _base;  }
   LIR_Opr index() const                          { return _index; }
@@ -559,7 +565,11 @@ class LIR_OprFact: public AllStatic {
                                                                              LIR_OprDesc::float_type           |
                                                                              LIR_OprDesc::fpu_register         |
                                                                              LIR_OprDesc::single_size); }
-
+#if defined(ARM)
+  static LIR_Opr double_fpu(int reg1, int reg2)    { return (LIR_Opr)((reg1 << LIR_OprDesc::reg1_shift) | (reg2 << LIR_OprDesc::reg2_shift) | LIR_OprDesc::double_type | LIR_OprDesc::fpu_register | LIR_OprDesc::double_size); }
+  static LIR_Opr single_softfp(int reg)            { return (LIR_Opr)((reg  << LIR_OprDesc::reg1_shift) |                                     LIR_OprDesc::float_type  | LIR_OprDesc::cpu_register | LIR_OprDesc::single_size); }
+  static LIR_Opr double_softfp(int reg1, int reg2) { return (LIR_Opr)((reg1 << LIR_OprDesc::reg1_shift) | (reg2 << LIR_OprDesc::reg2_shift) | LIR_OprDesc::double_type | LIR_OprDesc::cpu_register | LIR_OprDesc::double_size); }
+#endif
 #ifdef SPARC
   static LIR_Opr double_fpu(int reg1, int reg2) { return (LIR_Opr)(intptr_t)((reg1 << LIR_OprDesc::reg1_shift) |
                                                                              (reg2 << LIR_OprDesc::reg2_shift) |
@@ -586,7 +596,22 @@ class LIR_OprFact: public AllStatic {
                                                                              LIR_OprDesc::double_size          |
                                                                              LIR_OprDesc::is_xmm_mask); }
 #endif // X86
-
+#ifdef PPC
+  static LIR_Opr double_fpu(int reg)            { return (LIR_Opr)(intptr_t)((reg  << LIR_OprDesc::reg1_shift) |
+                                                                             (reg  << LIR_OprDesc::reg2_shift) |
+                                                                             LIR_OprDesc::double_type          |
+                                                                             LIR_OprDesc::fpu_register         |
+                                                                             LIR_OprDesc::double_size); }
+  static LIR_Opr single_softfp(int reg)            { return (LIR_Opr)((reg  << LIR_OprDesc::reg1_shift)        |
+                                                                             LIR_OprDesc::float_type           |
+                                                                             LIR_OprDesc::cpu_register         |
+                                                                             LIR_OprDesc::single_size); }
+  static LIR_Opr double_softfp(int reg1, int reg2) { return (LIR_Opr)((reg2 << LIR_OprDesc::reg1_shift)        |
+                                                                             (reg1 << LIR_OprDesc::reg2_shift) |
+                                                                             LIR_OprDesc::double_type          |
+                                                                             LIR_OprDesc::cpu_register         |
+                                                                             LIR_OprDesc::double_size); }
+#endif // PPC
 
   static LIR_Opr virtual_register(int index, BasicType type) {
     LIR_Opr res;
@@ -616,6 +641,22 @@ class LIR_OprFact: public AllStatic {
                                   LIR_OprDesc::virtual_mask);
         break;
 
+#ifdef __SOFTFP__
+      case T_FLOAT:
+        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                  LIR_OprDesc::float_type  |
+                                  LIR_OprDesc::cpu_register |
+                                  LIR_OprDesc::single_size |
+                                  LIR_OprDesc::virtual_mask);
+        break;
+      case T_DOUBLE:
+        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                  LIR_OprDesc::double_type |
+                                  LIR_OprDesc::cpu_register |
+                                  LIR_OprDesc::double_size |
+                                  LIR_OprDesc::virtual_mask);
+        break;
+#else // __SOFTFP__
       case T_FLOAT:
         res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
                                   LIR_OprDesc::float_type           |
@@ -631,7 +672,7 @@ class LIR_OprFact: public AllStatic {
                                             LIR_OprDesc::double_size           |
                                             LIR_OprDesc::virtual_mask);
         break;
-
+#endif // __SOFTFP__
       default:       ShouldNotReachHere(); res = illegalOpr;
     }
 
@@ -643,11 +684,18 @@ class LIR_OprFact: public AllStatic {
 
     // old-style calculation; check if old and new method are equal
     LIR_OprDesc::OprType t = as_OprType(type);
+#ifdef __SOFTFP__
+    LIR_Opr old_res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                               t |
+                               LIR_OprDesc::cpu_register |
+                               LIR_OprDesc::size_for(type) | LIR_OprDesc::virtual_mask);
+#else // __SOFTFP__
     LIR_Opr old_res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) | t |
                                           ((type == T_FLOAT || type == T_DOUBLE) ?  LIR_OprDesc::fpu_register : LIR_OprDesc::cpu_register) |
                                LIR_OprDesc::size_for(type) | LIR_OprDesc::virtual_mask);
     assert(res == old_res, "old and new method not equal");
-#endif
+#endif // __SOFTFP__
+#endif // ASSERT
 
     return res;
   }
@@ -1033,8 +1081,9 @@ class LIR_OpJavaCall: public LIR_OpCall {
  friend class LIR_OpVisitState;
 
  private:
-  ciMethod*       _method;
-  LIR_Opr         _receiver;
+  ciMethod* _method;
+  LIR_Opr   _receiver;
+  LIR_Opr   _method_handle_invoke_SP_save_opr;  // Used in LIR_OpVisitState::visit to store the reference to FrameMap::method_handle_invoke_SP_save_opr.
 
  public:
   LIR_OpJavaCall(LIR_Code code, ciMethod* method,
@@ -1043,14 +1092,18 @@ class LIR_OpJavaCall: public LIR_OpCall {
                  CodeEmitInfo* info)
   : LIR_OpCall(code, addr, result, arguments, info)
   , _receiver(receiver)
-  , _method(method)          { assert(is_in_range(code, begin_opJavaCall, end_opJavaCall), "code check"); }
+  , _method(method)
+  , _method_handle_invoke_SP_save_opr(LIR_OprFact::illegalOpr)
+  { assert(is_in_range(code, begin_opJavaCall, end_opJavaCall), "code check"); }
 
   LIR_OpJavaCall(LIR_Code code, ciMethod* method,
                  LIR_Opr receiver, LIR_Opr result, intptr_t vtable_offset,
                  LIR_OprList* arguments, CodeEmitInfo* info)
   : LIR_OpCall(code, (address)vtable_offset, result, arguments, info)
   , _receiver(receiver)
-  , _method(method)          { assert(is_in_range(code, begin_opJavaCall, end_opJavaCall), "code check"); }
+  , _method(method)
+  , _method_handle_invoke_SP_save_opr(LIR_OprFact::illegalOpr)
+  { assert(is_in_range(code, begin_opJavaCall, end_opJavaCall), "code check"); }
 
   LIR_Opr receiver() const                       { return _receiver; }
   ciMethod* method() const                       { return _method;   }
@@ -1062,7 +1115,7 @@ class LIR_OpJavaCall: public LIR_OpCall {
       is_invokedynamic()  // An invokedynamic is always a MethodHandle call site.
       ||
       (method()->holder()->name() == ciSymbol::java_dyn_MethodHandle() &&
-       method()->name()           == ciSymbol::invoke_name());
+       methodOopDesc::is_method_handle_invoke_name(method()->name()->sid()));
   }
 
   intptr_t vtable_offset() const {
@@ -1294,15 +1347,37 @@ class LIR_OpConvert: public LIR_Op1 {
  private:
    Bytecodes::Code _bytecode;
    ConversionStub* _stub;
+#ifdef PPC
+  LIR_Opr _tmp1;
+  LIR_Opr _tmp2;
+#endif
 
  public:
    LIR_OpConvert(Bytecodes::Code code, LIR_Opr opr, LIR_Opr result, ConversionStub* stub)
      : LIR_Op1(lir_convert, opr, result)
      , _stub(stub)
+#ifdef PPC
+     , _tmp1(LIR_OprDesc::illegalOpr())
+     , _tmp2(LIR_OprDesc::illegalOpr())
+#endif
      , _bytecode(code)                           {}
+
+#ifdef PPC
+   LIR_OpConvert(Bytecodes::Code code, LIR_Opr opr, LIR_Opr result, ConversionStub* stub
+                 ,LIR_Opr tmp1, LIR_Opr tmp2)
+     : LIR_Op1(lir_convert, opr, result)
+     , _stub(stub)
+     , _tmp1(tmp1)
+     , _tmp2(tmp2)
+     , _bytecode(code)                           {}
+#endif
 
   Bytecodes::Code bytecode() const               { return _bytecode; }
   ConversionStub* stub() const                   { return _stub; }
+#ifdef PPC
+  LIR_Opr tmp1() const                           { return _tmp1; }
+  LIR_Opr tmp2() const                           { return _tmp2; }
+#endif
 
   virtual void emit_code(LIR_Assembler* masm);
   virtual LIR_OpConvert* as_OpConvert() { return this; }
@@ -1490,6 +1565,9 @@ class LIR_Op2: public LIR_Op {
   LIR_Condition condition() const  {
     assert(code() == lir_cmp || code() == lir_cmove, "only valid for cmp and cmove"); return _condition;
   }
+  void set_condition(LIR_Condition condition) {
+    assert(code() == lir_cmp || code() == lir_cmove, "only valid for cmp and cmove");  _condition = condition;
+  }
 
   void set_fpu_stack_size(int size)              { _fpu_stack_size = size; }
   int  fpu_stack_size() const                    { return _fpu_stack_size; }
@@ -1638,8 +1716,9 @@ class LIR_OpCompareAndSwap : public LIR_Op {
   LIR_Opr _tmp2;
 
  public:
-  LIR_OpCompareAndSwap(LIR_Code code, LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value, LIR_Opr t1, LIR_Opr t2)
-    : LIR_Op(code, LIR_OprFact::illegalOpr, NULL)  // no result, no info
+  LIR_OpCompareAndSwap(LIR_Code code, LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value,
+                       LIR_Opr t1, LIR_Opr t2, LIR_Opr result)
+    : LIR_Op(code, result, NULL)  // no result, no info
     , _addr(addr)
     , _cmp_value(cmp_value)
     , _new_value(new_value)
@@ -1820,6 +1899,9 @@ class LIR_List: public CompilationResourceObj {
 
   void safepoint(LIR_Opr tmp, CodeEmitInfo* info)  { append(new LIR_Op1(lir_safepoint, tmp, info)); }
 
+#ifdef PPC
+  void convert(Bytecodes::Code code, LIR_Opr left, LIR_Opr dst, LIR_Opr tmp1, LIR_Opr tmp2) { append(new LIR_OpConvert(code, left, dst, NULL, tmp1, tmp2)); }
+#endif
   void convert(Bytecodes::Code code, LIR_Opr left, LIR_Opr dst, ConversionStub* stub = NULL/*, bool is_32bit = false*/) { append(new LIR_OpConvert(code, left, dst, stub)); }
 
   void logical_and (LIR_Opr left, LIR_Opr right, LIR_Opr dst) { append(new LIR_Op2(lir_logic_and,  left, right, dst)); }
@@ -1855,9 +1937,12 @@ class LIR_List: public CompilationResourceObj {
     append(new LIR_Op2(lir_cmove, condition, src1, src2, dst));
   }
 
-  void cas_long(LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value, LIR_Opr t1, LIR_Opr t2);
-  void cas_obj(LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value, LIR_Opr t1, LIR_Opr t2);
-  void cas_int(LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value, LIR_Opr t1, LIR_Opr t2);
+  void cas_long(LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value,
+                LIR_Opr t1, LIR_Opr t2, LIR_Opr result = LIR_OprFact::illegalOpr);
+  void cas_obj(LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value,
+               LIR_Opr t1, LIR_Opr t2, LIR_Opr result = LIR_OprFact::illegalOpr);
+  void cas_int(LIR_Opr addr, LIR_Opr cmp_value, LIR_Opr new_value,
+               LIR_Opr t1, LIR_Opr t2, LIR_Opr result = LIR_OprFact::illegalOpr);
 
   void abs (LIR_Opr from, LIR_Opr to, LIR_Opr tmp)                { append(new LIR_Op2(lir_abs , from, tmp, to)); }
   void sqrt(LIR_Opr from, LIR_Opr to, LIR_Opr tmp)                { append(new LIR_Op2(lir_sqrt, from, tmp, to)); }
@@ -1938,7 +2023,7 @@ class LIR_List: public CompilationResourceObj {
   }
 
   void load_stack_address_monitor(int monitor_ix, LIR_Opr dst)  { append(new LIR_Op1(lir_monaddr, LIR_OprFact::intConst(monitor_ix), dst)); }
-  void unlock_object(LIR_Opr hdr, LIR_Opr obj, LIR_Opr lock, CodeStub* stub);
+  void unlock_object(LIR_Opr hdr, LIR_Opr obj, LIR_Opr lock, LIR_Opr scratch, CodeStub* stub);
   void lock_object(LIR_Opr hdr, LIR_Opr obj, LIR_Opr lock, LIR_Opr scratch, CodeStub* stub, CodeEmitInfo* info);
 
   void set_24bit_fpu()                                               { append(new LIR_Op0(lir_24bit_FPU )); }

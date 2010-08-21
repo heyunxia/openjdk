@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2001, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -539,10 +539,9 @@ ParNewGeneration(ReservedSpace rs, size_t initial_byte_size, int level)
   guarantee(_task_queues != NULL, "task_queues allocation failure.");
 
   for (uint i1 = 0; i1 < ParallelGCThreads; i1++) {
-    ObjToScanQueuePadded *q_padded = new ObjToScanQueuePadded();
-    guarantee(q_padded != NULL, "work_queue Allocation failure.");
-
-    _task_queues->register_queue(i1, &q_padded->work_queue);
+    ObjToScanQueue *q = new ObjToScanQueue();
+    guarantee(q != NULL, "work_queue Allocation failure.");
+    _task_queues->register_queue(i1, q);
   }
 
   for (uint i2 = 0; i2 < ParallelGCThreads; i2++)

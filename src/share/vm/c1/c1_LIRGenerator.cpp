@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -31,6 +31,12 @@
 #define __ gen()->lir()->
 #endif
 
+// TODO: ARM - Use some recognizable constant which still fits architectural constraints
+#ifdef ARM
+#define PATCHED_ADDR  (204)
+#else
+#define PATCHED_ADDR  (max_jint)
+#endif
 
 void PhiResolverState::reset(int max_vregs) {
   // Initialize array sizes
@@ -225,13 +231,13 @@ void LIRItem::load_for_store(BasicType type) {
 void LIRItem::load_item_force(LIR_Opr reg) {
   LIR_Opr r = result();
   if (r != reg) {
+#if !defined(ARM) && !defined(E500V2)
     if (r->type() != reg->type()) {
       // moves between different types need an intervening spill slot
-      LIR_Opr tmp = _gen->force_to_spill(r, reg->type());
-      __ move(tmp, reg);
-    } else {
-      __ move(r, reg);
+      r = _gen->force_to_spill(r, reg->type());
     }
+#endif
+    __ move(r, reg);
     _result = reg;
   }
 }
@@ -304,7 +310,7 @@ void LIRGenerator::block_do_prolog(BlockBegin* block) {
   __ branch_destination(block->label());
 
   if (LIRTraceExecution &&
-      Compilation::current_compilation()->hir()->start()->block_id() != block->block_id() &&
+      Compilation::current()->hir()->start()->block_id() != block->block_id() &&
       !block->is_set(BlockBegin::exception_entry_flag)) {
     assert(block->lir()->instructions_list()->length() == 1, "should come right after br_dst");
     trace_block_entry(block);
@@ -628,14 +634,14 @@ void LIRGenerator::monitor_enter(LIR_Opr object, LIR_Opr lock, LIR_Opr hdr, LIR_
 }
 
 
-void LIRGenerator::monitor_exit(LIR_Opr object, LIR_Opr lock, LIR_Opr new_hdr, int monitor_no) {
+void LIRGenerator::monitor_exit(LIR_Opr object, LIR_Opr lock, LIR_Opr new_hdr, LIR_Opr scratch, int monitor_no) {
   if (!GenerateSynchronizationCode) return;
   // setup registers
   LIR_Opr hdr = lock;
   lock = new_hdr;
   CodeStub* slow_path = new MonitorExitStub(lock, UseFastLocking, monitor_no);
   __ load_stack_address_monitor(monitor_no, lock);
-  __ unlock_object(hdr, object, lock, slow_path);
+  __ unlock_object(hdr, object, lock, scratch, slow_path);
 }
 
 
@@ -1309,7 +1315,7 @@ void LIRGenerator::G1SATBCardTableModRef_pre_barrier(LIR_Opr addr_opr, bool patc
   __ cmp(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0));
   if (!addr_opr->is_address()) {
     assert(addr_opr->is_register(), "must be");
-    addr_opr = LIR_OprFact::address(new LIR_Address(addr_opr, 0, T_OBJECT));
+    addr_opr = LIR_OprFact::address(new LIR_Address(addr_opr, T_OBJECT));
   }
   CodeStub* slow = new G1PreBarrierStub(addr_opr, pre_val, pre_val_patch_code,
                                         info);
@@ -1325,7 +1331,7 @@ void LIRGenerator::G1SATBCardTableModRef_post_barrier(LIR_OprDesc* addr, LIR_Opr
       new_val->as_constant_ptr()->as_jobject() == NULL) return;
 
   if (!new_val->is_register()) {
-    LIR_Opr new_val_reg = new_pointer_register();
+    LIR_Opr new_val_reg = new_register(T_OBJECT);
     if (new_val->is_constant()) {
       __ move(new_val, new_val_reg);
     } else {
@@ -1337,7 +1343,7 @@ void LIRGenerator::G1SATBCardTableModRef_post_barrier(LIR_OprDesc* addr, LIR_Opr
 
   if (addr->is_address()) {
     LIR_Address* address = addr->as_address_ptr();
-    LIR_Opr ptr = new_pointer_register();
+    LIR_Opr ptr = new_register(T_OBJECT);
     if (!address->index()->is_valid() && address->disp() == 0) {
       __ move(address->base(), ptr);
     } else {
@@ -1350,7 +1356,6 @@ void LIRGenerator::G1SATBCardTableModRef_post_barrier(LIR_OprDesc* addr, LIR_Opr
 
   LIR_Opr xor_res = new_pointer_register();
   LIR_Opr xor_shift_res = new_pointer_register();
-
   if (TwoOperandLIRForm ) {
     __ move(addr, xor_res);
     __ logical_xor(xor_res, new_val, xor_res);
@@ -1368,7 +1373,7 @@ void LIRGenerator::G1SATBCardTableModRef_post_barrier(LIR_OprDesc* addr, LIR_Opr
   }
 
   if (!new_val->is_register()) {
-    LIR_Opr new_val_reg = new_pointer_register();
+    LIR_Opr new_val_reg = new_register(T_OBJECT);
     __ leal(new_val, new_val_reg);
     new_val = new_val_reg;
   }
@@ -1377,7 +1382,7 @@ void LIRGenerator::G1SATBCardTableModRef_post_barrier(LIR_OprDesc* addr, LIR_Opr
   __ cmp(lir_cond_notEqual, xor_shift_res, LIR_OprFact::intptrConst(NULL_WORD));
 
   CodeStub* slow = new G1PostBarrierStub(addr, new_val);
-  __ branch(lir_cond_notEqual, T_INT, slow);
+  __ branch(lir_cond_notEqual, LP64_ONLY(T_LONG) NOT_LP64(T_INT), slow);
   __ branch_destination(slow->continuation());
 }
 
@@ -1401,6 +1406,25 @@ void LIRGenerator::CardTableModRef_post_barrier(LIR_OprDesc* addr, LIR_OprDesc* 
   }
   assert(addr->is_register(), "must be a register at this point");
 
+#ifdef ARM
+  // TODO: ARM - move to platform-dependent code
+  LIR_Opr tmp = FrameMap::R14_opr;
+  if (VM_Version::supports_movw()) {
+    __ move((LIR_Opr)card_table_base, tmp);
+  } else {
+    __ move(new LIR_Address(FrameMap::Rthread_opr, in_bytes(JavaThread::card_table_base_offset()), T_ADDRESS), tmp);
+  }
+
+  CardTableModRefBS* ct = (CardTableModRefBS*)_bs;
+  LIR_Address *card_addr = new LIR_Address(tmp, addr, (LIR_Address::Scale) -CardTableModRefBS::card_shift, 0, T_BYTE);
+  if(((int)ct->byte_map_base & 0xff) == 0) {
+    __ move(tmp, card_addr);
+  } else {
+    LIR_Opr tmp_zero = new_register(T_INT);
+    __ move(LIR_OprFact::intConst(0), tmp_zero);
+    __ move(tmp_zero, card_addr);
+  }
+#else // ARM
   LIR_Opr tmp = new_pointer_register();
   if (TwoOperandLIRForm) {
     __ move(addr, tmp);
@@ -1416,6 +1440,7 @@ void LIRGenerator::CardTableModRef_post_barrier(LIR_OprDesc* addr, LIR_OprDesc* 
               new LIR_Address(tmp, load_constant(card_table_base),
                               T_BYTE));
   }
+#endif // ARM
 }
 
 
@@ -1508,7 +1533,7 @@ void LIRGenerator::do_StoreField(StoreField* x) {
     // generate_address to try to be smart about emitting the -1.
     // Otherwise the patching code won't know how to find the
     // instruction to patch.
-    address = new LIR_Address(object.result(), max_jint, field_type);
+    address = new LIR_Address(object.result(), PATCHED_ADDR, field_type);
   } else {
     address = generate_address(object.result(), x->offset(), field_type);
   }
@@ -1585,7 +1610,7 @@ void LIRGenerator::do_LoadField(LoadField* x) {
     // generate_address to try to be smart about emitting the -1.
     // Otherwise the patching code won't know how to find the
     // instruction to patch.
-    address = new LIR_Address(object.result(), max_jint, field_type);
+    address = new LIR_Address(object.result(), PATCHED_ADDR, field_type);
   } else {
     address = generate_address(object.result(), x->offset(), field_type);
   }
@@ -1845,6 +1870,8 @@ void LIRGenerator::do_UnsafeGetRaw(UnsafeGetRaw* x) {
     }
 #endif
     addr = new LIR_Address(base_op, index_op, LIR_Address::Scale(log2_scale), 0, dst_type);
+#elif defined(ARM)
+    addr = generate_address(base_op, index_op, log2_scale, 0, dst_type);
 #else
     if (index_op->is_illegal() || log2_scale == 0) {
 #ifdef _LP64
@@ -1917,6 +1944,7 @@ void LIRGenerator::do_UnsafePutRaw(UnsafePutRaw* x) {
       __ convert(Bytecodes::_i2l, idx.result(), index_op);
     } else {
 #endif
+      // TODO: ARM also allows embedded shift in the address
       __ move(idx.result(), index_op);
 #ifdef _LP64
     }
@@ -2205,7 +2233,10 @@ void LIRGenerator::do_Base(Base* x) {
     // Assign new location to Local instruction for this local
     Local* local = x->state()->local_at(java_index)->as_Local();
     assert(local != NULL, "Locals for incoming arguments must have been created");
+#ifndef __SOFTFP__
+    // The java calling convention passes double as long and float as int.
     assert(as_ValueType(t)->tag() == local->type()->tag(), "check");
+#endif // __SOFTFP__
     local->set_operand(dest);
     _instruction_for_operand.at_put_grow(dest->vreg_number(), local, NULL);
     java_index += type2size[t];
@@ -2371,9 +2402,17 @@ void LIRGenerator::do_Invoke(Invoke* x) {
   bool optimized = x->target_is_loaded() && x->target_is_final();
   assert(receiver->is_illegal() || receiver->is_equal(LIR_Assembler::receiverOpr()), "must match");
 
+  // JSR 292
+  // Preserve the SP over MethodHandle call sites.
+  ciMethod* target = x->target();
+  if (target->is_method_handle_invoke()) {
+    info->set_is_method_handle_invoke(true);
+    __ move(FrameMap::stack_pointer(), FrameMap::method_handle_invoke_SP_save_opr());
+  }
+
   switch (x->code()) {
     case Bytecodes::_invokestatic:
-      __ call_static(x->target(), result_register,
+      __ call_static(target, result_register,
                      SharedRuntime::get_resolve_static_call_stub(),
                      arg_list, info);
       break;
@@ -2383,17 +2422,17 @@ void LIRGenerator::do_Invoke(Invoke* x) {
       // for final target we still produce an inline cache, in order
       // to be able to call mixed mode
       if (x->code() == Bytecodes::_invokespecial || optimized) {
-        __ call_opt_virtual(x->target(), receiver, result_register,
+        __ call_opt_virtual(target, receiver, result_register,
                             SharedRuntime::get_resolve_opt_virtual_call_stub(),
                             arg_list, info);
       } else if (x->vtable_index() < 0) {
-        __ call_icvirtual(x->target(), receiver, result_register,
+        __ call_icvirtual(target, receiver, result_register,
                           SharedRuntime::get_resolve_virtual_call_stub(),
                           arg_list, info);
       } else {
         int entry_offset = instanceKlass::vtable_start_offset() + x->vtable_index() * vtableEntry::size();
         int vtable_offset = entry_offset * wordSize + vtableEntry::method_offset_in_bytes();
-        __ call_virtual(x->target(), receiver, result_register, vtable_offset, arg_list, info);
+        __ call_virtual(target, receiver, result_register, vtable_offset, arg_list, info);
       }
       break;
     case Bytecodes::_invokedynamic: {
@@ -2432,7 +2471,7 @@ void LIRGenerator::do_Invoke(Invoke* x) {
       // Load target MethodHandle from CallSite object.
       __ load(new LIR_Address(tmp, java_dyn_CallSite::target_offset_in_bytes(), T_OBJECT), receiver);
 
-      __ call_dynamic(x->target(), receiver, result_register,
+      __ call_dynamic(target, receiver, result_register,
                       SharedRuntime::get_resolve_opt_virtual_call_stub(),
                       arg_list, info);
       break;
@@ -2440,6 +2479,12 @@ void LIRGenerator::do_Invoke(Invoke* x) {
     default:
       ShouldNotReachHere();
       break;
+  }
+
+  // JSR 292
+  // Restore the SP after MethodHandle call sites.
+  if (target->is_method_handle_invoke()) {
+    __ move(FrameMap::method_handle_invoke_SP_save_opr(), FrameMap::stack_pointer());
   }
 
   if (x->type()->is_float() || x->type()->is_double()) {

@@ -1,5 +1,6 @@
 /*
- * Copyright 1999-2007 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2000, 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2008 Red Hat, Inc.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,30 +17,13 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
 #include "incls/_precompiled.incl"
-#include "incls/_vtune_linux.cpp.incl"
+#include "incls/_shark_globals.cpp.incl"
 
-// empty implementation
-
-void VTune::start_GC() {}
-void VTune::end_GC() {}
-void VTune::start_class_load() {}
-void VTune::end_class_load() {}
-void VTune::exit() {}
-void VTune::register_stub(const char* name, address start, address end) {}
-
-void VTune::create_nmethod(nmethod* nm) {}
-void VTune::delete_nmethod(nmethod* nm) {}
-
-void vtune_init() {}
-
-
-// Reconciliation History
-// vtune_solaris.cpp    1.8 99/07/12 23:54:21
-// End
+SHARK_FLAGS(MATERIALIZE_DEVELOPER_FLAG, MATERIALIZE_PD_DEVELOPER_FLAG, MATERIALIZE_PRODUCT_FLAG, MATERIALIZE_PD_PRODUCT_FLAG, MATERIALIZE_DIAGNOSTIC_FLAG, MATERIALIZE_NOTPRODUCT_FLAG)

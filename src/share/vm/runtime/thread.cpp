@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -139,6 +139,8 @@ Thread::Thread() {
   omFreeList = NULL ;
   omFreeCount = 0 ;
   omFreeProvision = 32 ;
+  omInUseList = NULL ;
+  omInUseCount = 0 ;
 
   _SR_lock = new Monitor(Mutex::suspend_resume, "SR_lock", true);
   _suspend_flags = 0;
@@ -805,7 +807,7 @@ bool Thread::is_in_stack(address adr) const {
 // should be revisited, and they should be removed if possible.
 
 bool Thread::is_lock_owned(address adr) const {
-  return (_stack_base >= adr && adr >= (_stack_base - _stack_size));
+  return on_local_stack(adr);
 }
 
 bool Thread::set_as_starting_thread() {
@@ -1018,7 +1020,7 @@ void NamedThread::set_name(const char* format, ...) {
 // timer interrupts exists on the platform.
 
 WatcherThread* WatcherThread::_watcher_thread   = NULL;
-bool           WatcherThread::_should_terminate = false;
+volatile bool  WatcherThread::_should_terminate = false;
 
 WatcherThread::WatcherThread() : Thread() {
   assert(watcher_thread() == NULL, "we can only allocate one WatcherThread");
@@ -1050,8 +1052,26 @@ void WatcherThread::run() {
 
     // Calculate how long it'll be until the next PeriodicTask work
     // should be done, and sleep that amount of time.
-    const size_t time_to_wait = PeriodicTask::time_to_wait();
-    os::sleep(this, time_to_wait, false);
+    size_t time_to_wait = PeriodicTask::time_to_wait();
+
+    // we expect this to timeout - we only ever get unparked when
+    // we should terminate
+    {
+      OSThreadWaitState osts(this->osthread(), false /* not Object.wait() */);
+
+      jlong prev_time = os::javaTimeNanos();
+      for (;;) {
+        int res= _SleepEvent->park(time_to_wait);
+        if (res == OS_TIMEOUT || _should_terminate)
+          break;
+        // spurious wakeup of some kind
+        jlong now = os::javaTimeNanos();
+        time_to_wait -= (now - prev_time) / 1000000;
+        if (time_to_wait <= 0)
+          break;
+        prev_time = now;
+      }
+    }
 
     if (is_error_reported()) {
       // A fatal error has happened, the error handler(VMError::report_and_die)
@@ -1113,6 +1133,12 @@ void WatcherThread::stop() {
   // it is ok to take late safepoints here, if needed
   MutexLocker mu(Terminator_lock);
   _should_terminate = true;
+  OrderAccess::fence();  // ensure WatcherThread sees update in main loop
+
+  Thread* watcher = watcher_thread();
+  if (watcher != NULL)
+    watcher->_SleepEvent->unpark();
+
   while(watcher_thread() != NULL) {
     // This wait should make safepoint checks, wait without a timeout,
     // and wait as a suspend-equivalent condition.
@@ -1361,6 +1387,8 @@ void JavaThread::run() {
   this->initialize_thread_local_storage();
 
   this->create_stack_guard_pages();
+
+  this->cache_global_variables();
 
   // Thread is now sufficient initialized to be handled by the safepoint code as being
   // in the VM. Change thread state from _thread_new to _thread_in_vm
@@ -2698,7 +2726,7 @@ void JavaThread::popframe_preserve_args(ByteSize size_in_bytes, void* start) {
   if (in_bytes(size_in_bytes) != 0) {
     _popframe_preserved_args = NEW_C_HEAP_ARRAY(char, in_bytes(size_in_bytes));
     _popframe_preserved_args_size = in_bytes(size_in_bytes);
-    Copy::conjoint_bytes(start, _popframe_preserved_args, _popframe_preserved_args_size);
+    Copy::conjoint_jbytes(start, _popframe_preserved_args, _popframe_preserved_args_size);
   }
 }
 
@@ -2797,6 +2825,7 @@ CompilerThread::CompilerThread(CompileQueue* queue, CompilerCounters* counters)
   _task  = NULL;
   _queue = queue;
   _counters = counters;
+  _buffer_blob = NULL;
 
 #ifndef PRODUCT
   _ideal_graph_printer = NULL;
@@ -2951,6 +2980,9 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
     *canTryAgain = false; // don't let caller call JNI_CreateJavaVM again
     return status;
   }
+
+  // Should be done after the heap is fully created
+  main_thread->cache_global_variables();
 
   HandleMark hm;
 
@@ -3227,6 +3259,9 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
     WatcherThread::start();
   }
 
+  // Give os specific code one last chance to start
+  os::init_3();
+
   create_vm_timer.end();
   return JNI_OK;
 }
@@ -3246,12 +3281,18 @@ static OnLoadEntry_t lookup_on_load(AgentLibrary* agent, const char *on_load_sym
     char buffer[JVM_MAXPATHLEN];
     char ebuf[1024];
     const char *name = agent->name();
+    const char *msg = "Could not find agent library ";
 
     if (agent->is_absolute_path()) {
       library = hpi::dll_load(name, ebuf, sizeof ebuf);
       if (library == NULL) {
+        const char *sub_msg = " in absolute path, with error: ";
+        size_t len = strlen(msg) + strlen(name) + strlen(sub_msg) + strlen(ebuf) + 1;
+        char *buf = NEW_C_HEAP_ARRAY(char, len);
+        jio_snprintf(buf, len, "%s%s%s%s", msg, name, sub_msg, ebuf);
         // If we can't find the agent, exit.
-        vm_exit_during_initialization("Could not find agent library in absolute path", name);
+        vm_exit_during_initialization(buf, NULL);
+        FREE_C_HEAP_ARRAY(char, buf);
       }
     } else {
       // Try to load the agent from the standard dll directory
@@ -3264,17 +3305,17 @@ static OnLoadEntry_t lookup_on_load(AgentLibrary* agent, const char *on_load_sym
         char *home  = Arguments::get_java_home();
         const char *fmt   = "%s/bin/java %s -Dkernel.background.download=false"
                       " sun.jkernel.DownloadManager -download client_jvm";
-        int length = strlen(props) + strlen(home) + strlen(fmt) + 1;
-        char *cmd = AllocateHeap(length);
+        size_t length = strlen(props) + strlen(home) + strlen(fmt) + 1;
+        char *cmd = NEW_C_HEAP_ARRAY(char, length);
         jio_snprintf(cmd, length, fmt, home, props);
         int status = os::fork_and_exec(cmd);
         FreeHeap(props);
-        FreeHeap(cmd);
         if (status == -1) {
           warning(cmd);
           vm_exit_during_initialization("fork_and_exec failed: %s",
                                          strerror(errno));
         }
+        FREE_C_HEAP_ARRAY(char, cmd);
         // when this comes back the instrument.dll should be where it belongs.
         library = hpi::dll_load(buffer, ebuf, sizeof ebuf);
       }
@@ -3284,8 +3325,13 @@ static OnLoadEntry_t lookup_on_load(AgentLibrary* agent, const char *on_load_sym
         hpi::dll_build_name(buffer, sizeof(buffer), ns, name);
         library = hpi::dll_load(buffer, ebuf, sizeof ebuf);
         if (library == NULL) {
+          const char *sub_msg = " on the library path, with error: ";
+          size_t len = strlen(msg) + strlen(name) + strlen(sub_msg) + strlen(ebuf) + 1;
+          char *buf = NEW_C_HEAP_ARRAY(char, len);
+          jio_snprintf(buf, len, "%s%s%s%s", msg, name, sub_msg, ebuf);
           // If we can't find the agent, exit.
-          vm_exit_during_initialization("Could not find agent library on the library path or in the local directory", name);
+          vm_exit_during_initialization(buf, NULL);
+          FREE_C_HEAP_ARRAY(char, buf);
         }
       }
     }

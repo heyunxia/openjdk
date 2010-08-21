@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -48,7 +48,6 @@ class ciMethod : public ciObject {
   ciInstanceKlass* _holder;
   ciSignature*     _signature;
   ciMethodData*    _method_data;
-  BCEscapeAnalyzer* _bcea;
   ciMethodBlocks*   _method_blocks;
 
   // Code attributes.
@@ -71,8 +70,9 @@ class ciMethod : public ciObject {
 
   // Optional liveness analyzer.
   MethodLiveness* _liveness;
-#ifdef COMPILER2
-  ciTypeFlow*     _flow;
+#if defined(COMPILER2) || defined(SHARK)
+  ciTypeFlow*         _flow;
+  BCEscapeAnalyzer*   _bcea;
 #endif
 
   ciMethod(methodHandle h_m);
@@ -141,6 +141,9 @@ class ciMethod : public ciObject {
 
   // Runtime information.
   int           vtable_index();
+#ifdef SHARK
+  int           itable_index();
+#endif // SHARK
   address       native_entry();
   address       interpreter_entry();
 

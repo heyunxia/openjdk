@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -139,7 +139,7 @@ class StubGenerator: public StubCodeGenerator {
       __ ld_ptr(parameter_size.as_address(), t);                // get parameter size (in words)
       __ add(t, frame::memory_parameter_word_sp_offset, t);     // add space for save area (in words)
       __ round_to(t, WordsPerLong);                             // make sure it is multiple of 2 (in words)
-      __ sll(t, Interpreter::logStackElementSize(), t);                    // compute number of bytes
+      __ sll(t, Interpreter::logStackElementSize, t);           // compute number of bytes
       __ neg(t);                                                // negate so it can be used with save
       __ save(SP, t, SP);                                       // setup new frame
     }
@@ -191,19 +191,13 @@ class StubGenerator: public StubCodeGenerator {
       // copy parameters if any
       Label loop;
       __ BIND(loop);
-      // Store tag first.
-      if (TaggedStackInterpreter) {
-        __ ld_ptr(src, 0, tmp);
-        __ add(src, BytesPerWord, src);  // get next
-        __ st_ptr(tmp, dst, Interpreter::tag_offset_in_bytes());
-      }
       // Store parameter value
       __ ld_ptr(src, 0, tmp);
       __ add(src, BytesPerWord, src);
-      __ st_ptr(tmp, dst, Interpreter::value_offset_in_bytes());
+      __ st_ptr(tmp, dst, 0);
       __ deccc(cnt);
       __ br(Assembler::greater, false, Assembler::pt, loop);
-      __ delayed()->sub(dst, Interpreter::stackElementSize(), dst);
+      __ delayed()->sub(dst, Interpreter::stackElementSize, dst);
 
       // done
       __ BIND(exit);
@@ -220,7 +214,7 @@ class StubGenerator: public StubCodeGenerator {
     // setup parameters
     const Register t = G3_scratch;
     __ ld_ptr(parameter_size.as_in().as_address(), t); // get parameter size (in words)
-    __ sll(t, Interpreter::logStackElementSize(), t);            // compute number of bytes
+    __ sll(t, Interpreter::logStackElementSize, t);    // compute number of bytes
     __ sub(FP, t, Gargs);                              // setup parameter pointer
 #ifdef _LP64
     __ add( Gargs, STACK_BIAS, Gargs );                // Account for LP64 stack bias
@@ -1013,9 +1007,9 @@ class StubGenerator: public StubCodeGenerator {
         __ brx(Assembler::lessEqualUnsigned, false, Assembler::pt, (*NOLp));
       __ delayed()->cmp(to_from, byte_count);
       if (NOLp == NULL)
-        __ brx(Assembler::greaterEqual, false, Assembler::pt, no_overlap_target);
+        __ brx(Assembler::greaterEqualUnsigned, false, Assembler::pt, no_overlap_target);
       else
-        __ brx(Assembler::greaterEqual, false, Assembler::pt, (*NOLp));
+        __ brx(Assembler::greaterEqualUnsigned, false, Assembler::pt, (*NOLp));
       __ delayed()->nop();
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2002, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -570,6 +570,21 @@ public class HTMLGenerator implements /* imports */ ClassConstants {
             case JVM_CONSTANT_StringIndex:
                buf.cell("JVM_CONSTANT_StringIndex");
                buf.cell(Integer.toString(cpool.getIntAt(index)));
+               break;
+
+            case JVM_CONSTANT_MethodHandle:
+               buf.cell("JVM_CONSTANT_MethodHandle");
+               buf.cell(genLowHighShort(cpool.getIntAt(index)));
+               break;
+
+            case JVM_CONSTANT_MethodType:
+               buf.cell("JVM_CONSTANT_MethodType");
+               buf.cell(Integer.toString(cpool.getIntAt(index)));
+               break;
+
+            case JVM_CONSTANT_InvokeDynamic:
+               buf.cell("JVM_CONSTANT_InvokeDynamic");
+               buf.cell(genLowHighShort(cpool.getIntAt(index)));
                break;
 
             default:

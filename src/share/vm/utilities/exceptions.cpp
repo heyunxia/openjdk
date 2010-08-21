@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2007 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1998, 2007, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -117,7 +117,7 @@ void Exceptions::_throw(Thread* thread, const char* file, int line, Handle h_exc
                   (address)h_exception(), file, line, thread);
   }
   // for AbortVMOnException flag
-  NOT_PRODUCT(Exceptions::debug_check_abort(h_exception));
+  NOT_PRODUCT(Exceptions::debug_check_abort(h_exception, message));
 
   // Check for special boot-strapping/vm-thread handling
   if (special_exception(thread, file, line, h_exception)) return;
@@ -375,17 +375,26 @@ ExceptionMark::~ExceptionMark() {
 
 #ifndef PRODUCT
 // caller frees value_string if necessary
-void Exceptions::debug_check_abort(const char *value_string) {
+void Exceptions::debug_check_abort(const char *value_string, const char* message) {
   if (AbortVMOnException != NULL && value_string != NULL &&
       strstr(value_string, AbortVMOnException)) {
-    fatal1("Saw %s, aborting", value_string);
+    if (AbortVMOnExceptionMessage == NULL || message == NULL ||
+        strcmp(message, AbortVMOnExceptionMessage) == 0) {
+      fatal(err_msg("Saw %s, aborting", value_string));
+    }
   }
 }
 
-void Exceptions::debug_check_abort(Handle exception) {
+void Exceptions::debug_check_abort(Handle exception, const char* message) {
   if (AbortVMOnException != NULL) {
     ResourceMark rm;
-    debug_check_abort(instanceKlass::cast(exception()->klass())->external_name());
+    if (message == NULL && exception->is_a(SystemDictionary::Throwable_klass())) {
+      oop msg = java_lang_Throwable::message(exception);
+      if (msg != NULL) {
+        message = java_lang_String::as_utf8_string(msg);
+      }
+    }
+    debug_check_abort(instanceKlass::cast(exception()->klass())->external_name(), message);
   }
 }
 #endif

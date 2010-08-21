@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -461,12 +461,25 @@ void CompileQueue::add(CompileTask* task) {
 //
 // Get the next CompileTask from a CompileQueue
 CompileTask* CompileQueue::get() {
+  NMethodSweeper::possibly_sweep();
+
   MutexLocker locker(lock());
 
   // Wait for an available CompileTask.
   while (_first == NULL) {
     // There is no work to be done right now.  Wait.
-    lock()->wait();
+    if (UseCodeCacheFlushing && (!CompileBroker::should_compile_new_jobs() || CodeCache::needs_flushing())) {
+      // During the emergency sweeping periods, wake up and sweep occasionally
+      bool timedout = lock()->wait(!Mutex::_no_safepoint_check_flag, NmethodSweepCheckInterval*1000);
+      if (timedout) {
+        MutexUnlocker ul(lock());
+        // When otherwise not busy, run nmethod sweeping
+        NMethodSweeper::possibly_sweep();
+      }
+    } else {
+      // During normal operation no need to wake up on timer
+      lock()->wait();
+    }
   }
 
   CompileTask* task = _first;
@@ -554,6 +567,14 @@ void CompileBroker::compilation_init() {
   _compilers[0] = _compilers[1];
 #endif
 #endif // COMPILER2
+
+#ifdef SHARK
+#if defined(COMPILER1) || defined(COMPILER2)
+#error "Can't use COMPILER1 or COMPILER2 with shark"
+#endif
+  _compilers[0] = new SharkCompiler();
+  _compilers[1] = _compilers[0];
+#endif
 
   // Initialize the CompileTask free list
   _task_free_list = NULL;
@@ -1638,14 +1659,15 @@ void CompileBroker::handle_full_code_cache() {
       log->stamp();
       log->end_elem();
     }
-  #ifndef PRODUCT
-    warning("CodeCache is full. Compiler has been disabled");
+    warning("CodeCache is full. Compiler has been disabled.");
+    warning("Try increasing the code cache size using -XX:ReservedCodeCacheSize=");
+#ifndef PRODUCT
     if (CompileTheWorld || ExitOnFullCodeCache) {
       before_exit(JavaThread::current());
       exit_globals(); // will delete tty
       vm_direct_exit(CompileTheWorld ? 0 : 1);
     }
-  #endif
+#endif
     if (UseCodeCacheFlushing) {
       NMethodSweeper::handle_full_code_cache(true);
     } else {

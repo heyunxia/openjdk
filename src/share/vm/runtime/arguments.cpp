@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -1228,8 +1228,44 @@ void Arguments::set_cms_and_parnew_gc_flags() {
 }
 #endif // KERNEL
 
+void set_object_alignment() {
+  // Object alignment.
+  assert(is_power_of_2(ObjectAlignmentInBytes), "ObjectAlignmentInBytes must be power of 2");
+  MinObjAlignmentInBytes     = ObjectAlignmentInBytes;
+  assert(MinObjAlignmentInBytes >= HeapWordsPerLong * HeapWordSize, "ObjectAlignmentInBytes value is too small");
+  MinObjAlignment            = MinObjAlignmentInBytes / HeapWordSize;
+  assert(MinObjAlignmentInBytes == MinObjAlignment * HeapWordSize, "ObjectAlignmentInBytes value is incorrect");
+  MinObjAlignmentInBytesMask = MinObjAlignmentInBytes - 1;
+
+  LogMinObjAlignmentInBytes  = exact_log2(ObjectAlignmentInBytes);
+  LogMinObjAlignment         = LogMinObjAlignmentInBytes - LogHeapWordSize;
+
+  // Oop encoding heap max
+  OopEncodingHeapMax = (uint64_t(max_juint) + 1) << LogMinObjAlignmentInBytes;
+
+#ifndef KERNEL
+  // Set CMS global values
+  CompactibleFreeListSpace::set_cms_values();
+#endif // KERNEL
+}
+
+bool verify_object_alignment() {
+  // Object alignment.
+  if (!is_power_of_2(ObjectAlignmentInBytes)) {
+    jio_fprintf(defaultStream::error_stream(),
+                "error: ObjectAlignmentInBytes=%d must be power of 2", (int)ObjectAlignmentInBytes);
+    return false;
+  }
+  if ((int)ObjectAlignmentInBytes < BytesPerLong) {
+    jio_fprintf(defaultStream::error_stream(),
+                "error: ObjectAlignmentInBytes=%d must be greater or equal %d", (int)ObjectAlignmentInBytes, BytesPerLong);
+    return false;
+  }
+  return true;
+}
+
 inline uintx max_heap_for_compressed_oops() {
-  LP64_ONLY(return oopDesc::OopEncodingHeapMax - MaxPermSize - os::vm_page_size());
+  LP64_ONLY(return OopEncodingHeapMax - MaxPermSize - os::vm_page_size());
   NOT_LP64(ShouldNotReachHere(); return 0);
 }
 
@@ -1356,11 +1392,6 @@ void Arguments::set_g1_gc_flags() {
                      Abstract_VM_Version::parallel_worker_threads());
   }
   no_shared_spaces();
-
-  // Set the maximum pause time goal to be a reasonable default.
-  if (FLAG_IS_DEFAULT(MaxGCPauseMillis)) {
-    FLAG_SET_DEFAULT(MaxGCPauseMillis, 200);
-  }
 
   if (FLAG_IS_DEFAULT(MarkStackSize)) {
     FLAG_SET_DEFAULT(MarkStackSize, 128 * TASKQUEUE_SIZE);
@@ -1493,6 +1524,9 @@ void Arguments::set_aggressive_opts_flags() {
   }
   if (AggressiveOpts && FLAG_IS_DEFAULT(BiasedLockingStartupDelay)) {
     FLAG_SET_DEFAULT(BiasedLockingStartupDelay, 500);
+  }
+  if (AggressiveOpts && FLAG_IS_DEFAULT(OptimizeStringConcat)) {
+    FLAG_SET_DEFAULT(OptimizeStringConcat, true);
   }
 #endif
 
@@ -1678,20 +1712,21 @@ bool Arguments::check_vm_args_consistency() {
 
   status = status && verify_percentage(GCHeapFreeLimit, "GCHeapFreeLimit");
 
-  // Check user specified sharing option conflict with Parallel GC
-  bool cannot_share = ((UseConcMarkSweepGC || CMSIncrementalMode) || UseG1GC || UseParNewGC ||
-                       UseParallelGC || UseParallelOldGC ||
-                       SOLARIS_ONLY(UseISM) NOT_SOLARIS(UseLargePages));
-
+  // Check whether user-specified sharing option conflicts with GC or page size.
+  // Both sharing and large pages are enabled by default on some platforms;
+  // large pages override sharing only if explicitly set on the command line.
+  const bool cannot_share = UseConcMarkSweepGC || CMSIncrementalMode ||
+          UseG1GC || UseParNewGC || UseParallelGC || UseParallelOldGC ||
+          UseLargePages && FLAG_IS_CMDLINE(UseLargePages);
   if (cannot_share) {
     // Either force sharing on by forcing the other options off, or
     // force sharing off.
     if (DumpSharedSpaces || ForceSharedSpaces) {
       jio_fprintf(defaultStream::error_stream(),
-                  "Reverting to Serial GC because of %s\n",
-                  ForceSharedSpaces ? " -Xshare:on" : "-Xshare:dump");
+                  "Using Serial GC and default page size because of %s\n",
+                  ForceSharedSpaces ? "-Xshare:on" : "-Xshare:dump");
       force_serial_gc();
-      FLAG_SET_DEFAULT(SOLARIS_ONLY(UseISM) NOT_SOLARIS(UseLargePages), false);
+      FLAG_SET_DEFAULT(UseLargePages, false);
     } else {
       if (UseSharedSpaces && Verbose) {
         jio_fprintf(defaultStream::error_stream(),
@@ -1700,6 +1735,8 @@ bool Arguments::check_vm_args_consistency() {
       }
       no_shared_spaces();
     }
+  } else if (UseLargePages && (UseSharedSpaces || DumpSharedSpaces)) {
+    FLAG_SET_DEFAULT(UseLargePages, false);
   }
 
   status = status && check_gc_consistency();
@@ -1792,6 +1829,8 @@ bool Arguments::check_vm_args_consistency() {
   // expression.
   status = status && verify_interval(TLABWasteTargetPercent,
                                      1, 100, "TLABWasteTargetPercent");
+
+  status = status && verify_object_alignment();
 
   return status;
 }
@@ -2589,6 +2628,12 @@ SOLARIS_ONLY(
       FLAG_IS_DEFAULT(UseVMInterruptibleIO)) {
     FLAG_SET_DEFAULT(UseVMInterruptibleIO, true);
   }
+#ifdef LINUX
+ if (JDK_Version::current().compare_major(6) <= 0 &&
+      FLAG_IS_DEFAULT(UseLinuxPosixThreadCPUClocks)) {
+    FLAG_SET_DEFAULT(UseLinuxPosixThreadCPUClocks, false);
+  }
+#endif // LINUX
   return JNI_OK;
 }
 
@@ -2654,6 +2699,28 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
     FLAG_SET_DEFAULT(ReduceBulkZeroing, false);
   }
 #endif
+
+  // If we are running in a headless jre, force java.awt.headless property
+  // to be true unless the property has already been set.
+  // Also allow the OS environment variable JAVA_AWT_HEADLESS to set headless state.
+  if (os::is_headless_jre()) {
+    const char* headless = Arguments::get_property("java.awt.headless");
+    if (headless == NULL) {
+      char envbuffer[128];
+      if (!os::getenv("JAVA_AWT_HEADLESS", envbuffer, sizeof(envbuffer))) {
+        if (!add_property("java.awt.headless=true")) {
+          return JNI_ENOMEM;
+        }
+      } else {
+        char buffer[256];
+        strcpy(buffer, "java.awt.headless=");
+        strcat(buffer, envbuffer);
+        if (!add_property(buffer)) {
+          return JNI_ENOMEM;
+        }
+      }
+    }
+  }
 
   if (!check_vm_args_consistency()) {
     return JNI_ERR;
@@ -2883,6 +2950,9 @@ jint Arguments::parse(const JavaVMInitArgs* args) {
   UseCompressedOops = false;
 #endif
 
+  // Set object alignment values.
+  set_object_alignment();
+
 #ifdef SERIALGC
   force_serial_gc();
 #endif // SERIALGC
@@ -2901,12 +2971,6 @@ jint Arguments::parse(const JavaVMInitArgs* args) {
     }
   }
 #endif // _LP64
-
-  // MethodHandles code does not support TaggedStackInterpreter.
-  if (EnableMethodHandles && TaggedStackInterpreter) {
-    warning("TaggedStackInterpreter is not supported by MethodHandles code.  Disabling TaggedStackInterpreter.");
-    TaggedStackInterpreter = false;
-  }
 
   // Check the GC selections again.
   if (!check_gc_consistency()) {
@@ -2950,11 +3014,6 @@ jint Arguments::parse(const JavaVMInitArgs* args) {
   LP64_ONLY(FLAG_SET_DEFAULT(UseCompressedOops, false));
 #endif // CC_INTERP
 
-#ifdef ZERO
-  // Clear flags not supported by Zero
-  FLAG_SET_DEFAULT(TaggedStackInterpreter, false);
-#endif // ZERO
-
 #ifdef COMPILER2
   if (!UseBiasedLocking || EmitSync != 0) {
     UseOptoBiasInlining = false;
@@ -2981,6 +3040,14 @@ jint Arguments::parse(const JavaVMInitArgs* args) {
 
   if (PrintFlagsFinal) {
     CommandLineFlags::printFlags();
+  }
+
+  // Apply CPU specific policy for the BiasedLocking
+  if (UseBiasedLocking) {
+    if (!VM_Version::use_biased_locking() &&
+        !(FLAG_IS_CMDLINE(UseBiasedLocking))) {
+      UseBiasedLocking = false;
+    }
   }
 
   return JNI_OK;

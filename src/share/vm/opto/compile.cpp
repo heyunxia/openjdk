@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -637,34 +637,6 @@ Compile::Compile( ciEnv* ci_env, C2Compiler* compiler, ciMethod* target, int osr
   if (failing())  return;
   NOT_PRODUCT( verify_graph_edges(); )
 
-  // Perform escape analysis
-  if (_do_escape_analysis && ConnectionGraph::has_candidates(this)) {
-    TracePhase t2("escapeAnalysis", &_t_escapeAnalysis, true);
-    // Add ConP#NULL and ConN#NULL nodes before ConnectionGraph construction.
-    PhaseGVN* igvn = initial_gvn();
-    Node* oop_null = igvn->zerocon(T_OBJECT);
-    Node* noop_null = igvn->zerocon(T_NARROWOOP);
-
-    _congraph = new(comp_arena()) ConnectionGraph(this);
-    bool has_non_escaping_obj = _congraph->compute_escape();
-
-#ifndef PRODUCT
-    if (PrintEscapeAnalysis) {
-      _congraph->dump();
-    }
-#endif
-    // Cleanup.
-    if (oop_null->outcnt() == 0)
-      igvn->hash_delete(oop_null);
-    if (noop_null->outcnt() == 0)
-      igvn->hash_delete(noop_null);
-
-    if (!has_non_escaping_obj) {
-      _congraph = NULL;
-    }
-
-    if (failing())  return;
-  }
   // Now optimize
   Optimize();
   if (failing())  return;
@@ -932,8 +904,8 @@ void Compile::Init(int aliaslevel) {
   probe_alias_cache(NULL)->_index = AliasIdxTop;
 
   _intrinsics = NULL;
-  _macro_nodes = new GrowableArray<Node*>(comp_arena(), 8,  0, NULL);
-  _predicate_opaqs = new GrowableArray<Node*>(comp_arena(), 8,  0, NULL);
+  _macro_nodes = new(comp_arena()) GrowableArray<Node*>(comp_arena(), 8,  0, NULL);
+  _predicate_opaqs = new(comp_arena()) GrowableArray<Node*>(comp_arena(), 8,  0, NULL);
   register_library_intrinsics();
 }
 
@@ -1601,6 +1573,20 @@ void Compile::Optimize() {
 
   if (failing())  return;
 
+  // Perform escape analysis
+  if (_do_escape_analysis && ConnectionGraph::has_candidates(this)) {
+    TracePhase t2("escapeAnalysis", &_t_escapeAnalysis, true);
+    ConnectionGraph::do_analysis(this, &igvn);
+
+    if (failing())  return;
+
+    igvn.optimize();
+    print_method("Iter GVN 3", 2);
+
+    if (failing())  return;
+
+  }
+
   // Loop transforms on the ideal graph.  Range Check Elimination,
   // peeling, unrolling, etc.
 
@@ -2000,6 +1986,17 @@ static void final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc ) {
     }
   }
 
+#ifdef ASSERT
+  if( n->is_Mem() ) {
+    Compile* C = Compile::current();
+    int alias_idx = C->get_alias_index(n->as_Mem()->adr_type());
+    assert( n->in(0) != NULL || alias_idx != Compile::AliasIdxRaw ||
+            // oop will be recorded in oop map if load crosses safepoint
+            n->is_Load() && (n->as_Load()->bottom_type()->isa_oopptr() ||
+                             LoadNode::is_immutable_value(n->in(MemNode::Address))),
+            "raw memory operations should have control edge");
+  }
+#endif
   // Count FPU ops and common calls, implements item (3)
   switch( nop ) {
   // Count all float operations that may use FPU
@@ -2176,14 +2173,14 @@ static void final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc ) {
 
 #ifdef _LP64
   case Op_CastPP:
-    if (n->in(1)->is_DecodeN() && Universe::narrow_oop_use_implicit_null_checks()) {
+    if (n->in(1)->is_DecodeN() && Matcher::gen_narrow_oop_implicit_null_checks()) {
       Compile* C = Compile::current();
       Node* in1 = n->in(1);
       const Type* t = n->bottom_type();
       Node* new_in1 = in1->clone();
       new_in1->as_DecodeN()->set_type(t);
 
-      if (!Matcher::clone_shift_expressions) {
+      if (!Matcher::narrow_oop_use_complex_address()) {
         //
         // x86, ARM and friends can handle 2 adds in addressing mode
         // and Matcher can fold a DecodeN node into address by using
@@ -2231,8 +2228,12 @@ static void final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc ) {
         new_in2 = in2->in(1);
       } else if (in2->Opcode() == Op_ConP) {
         const Type* t = in2->bottom_type();
-        if (t == TypePtr::NULL_PTR && Universe::narrow_oop_use_implicit_null_checks()) {
-          new_in2 = ConNode::make(C, TypeNarrowOop::NULL_PTR);
+        if (t == TypePtr::NULL_PTR) {
+          // Don't convert CmpP null check into CmpN if compressed
+          // oops implicit null check is not generated.
+          // This will allow to generate normal oop implicit null check.
+          if (Matcher::gen_narrow_oop_implicit_null_checks())
+            new_in2 = ConNode::make(C, TypeNarrowOop::NULL_PTR);
           //
           // This transformation together with CastPP transformation above
           // will generated code for implicit NULL checks for compressed oops.
@@ -2289,9 +2290,9 @@ static void final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc ) {
 
   case Op_DecodeN:
     assert(!n->in(1)->is_EncodeP(), "should be optimized out");
-    // DecodeN could be pinned on Sparc where it can't be fold into
+    // DecodeN could be pinned when it can't be fold into
     // an address expression, see the code for Op_CastPP above.
-    assert(n->in(0) == NULL || !Matcher::clone_shift_expressions, "no control except on sparc");
+    assert(n->in(0) == NULL || !Matcher::narrow_oop_use_complex_address(), "no control");
     break;
 
   case Op_EncodeP: {
@@ -2495,6 +2496,10 @@ static void final_graph_reshaping_walk( Node_Stack &nstack, Node *root, Final_Re
       nstack.pop();        // Shift to the next node on stack
     }
   }
+
+  // Skip next transformation if compressed oops are not used.
+  if (!UseCompressedOops || !Matcher::gen_narrow_oop_implicit_null_checks())
+    return;
 
   // Go over safepoints nodes to skip DecodeN nodes for debug edges.
   // It could be done for an uncommon traps or any safepoints/calls

@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2010 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -84,10 +84,6 @@ LinearScan::LinearScan(IR* ir, LIRGenerator* gen, FrameMap* frame_map)
  , _fpu_stack_allocator(NULL)
 #endif
 {
-  // note: to use more than on instance of LinearScan at a time this function call has to
-  //       be moved somewhere outside of this constructor:
-  Interval::initialize();
-
   assert(this->ir() != NULL,          "check if valid");
   assert(this->compilation() != NULL, "check if valid");
   assert(this->gen() != NULL,         "check if valid");
@@ -173,7 +169,11 @@ bool LinearScan::is_precolored_cpu_interval(const Interval* i) {
 }
 
 bool LinearScan::is_virtual_cpu_interval(const Interval* i) {
+#if defined(__SOFTFP__) || defined(E500V2)
+  return i->reg_num() >= LIR_OprDesc::vreg_base;
+#else
   return i->reg_num() >= LIR_OprDesc::vreg_base && (i->type() != T_FLOAT && i->type() != T_DOUBLE);
+#endif // __SOFTFP__ or E500V2
 }
 
 bool LinearScan::is_precolored_fpu_interval(const Interval* i) {
@@ -181,7 +181,11 @@ bool LinearScan::is_precolored_fpu_interval(const Interval* i) {
 }
 
 bool LinearScan::is_virtual_fpu_interval(const Interval* i) {
+#if defined(__SOFTFP__) || defined(E500V2)
+  return false;
+#else
   return i->reg_num() >= LIR_OprDesc::vreg_base && (i->type() == T_FLOAT || i->type() == T_DOUBLE);
+#endif // __SOFTFP__ or E500V2
 }
 
 bool LinearScan::is_in_fpu_register(const Interval* i) {
@@ -2014,12 +2018,18 @@ LIR_Opr LinearScan::calc_operand_for_interval(const Interval* interval) {
         return LIR_OprFact::single_cpu_oop(assigned_reg);
       }
 
+#ifdef __SOFTFP__
+      case T_FLOAT:  // fall through
+#endif // __SOFTFP__
       case T_INT: {
         assert(assigned_reg >= pd_first_cpu_reg && assigned_reg <= pd_last_cpu_reg, "no cpu register");
         assert(interval->assigned_regHi() == any_reg, "must not have hi register");
         return LIR_OprFact::single_cpu(assigned_reg);
       }
 
+#ifdef __SOFTFP__
+      case T_DOUBLE:  // fall through
+#endif // __SOFTFP__
       case T_LONG: {
         int assigned_regHi = interval->assigned_regHi();
         assert(assigned_reg >= pd_first_cpu_reg && assigned_reg <= pd_last_cpu_reg, "no cpu register");
@@ -2037,7 +2047,7 @@ LIR_Opr LinearScan::calc_operand_for_interval(const Interval* interval) {
 #ifdef _LP64
         return LIR_OprFact::double_cpu(assigned_reg, assigned_reg);
 #else
-#ifdef SPARC
+#if defined(SPARC) || defined(PPC)
         return LIR_OprFact::double_cpu(assigned_regHi, assigned_reg);
 #else
         return LIR_OprFact::double_cpu(assigned_reg, assigned_regHi);
@@ -2045,6 +2055,7 @@ LIR_Opr LinearScan::calc_operand_for_interval(const Interval* interval) {
 #endif // LP64
       }
 
+#ifndef __SOFTFP__
       case T_FLOAT: {
 #ifdef X86
         if (UseSSE >= 1) {
@@ -2073,6 +2084,11 @@ LIR_Opr LinearScan::calc_operand_for_interval(const Interval* interval) {
         assert(interval->assigned_regHi() >= pd_first_fpu_reg && interval->assigned_regHi() <= pd_last_fpu_reg, "no fpu register");
         assert(assigned_reg % 2 == 0 && assigned_reg + 1 == interval->assigned_regHi(), "must be sequential and even");
         LIR_Opr result = LIR_OprFact::double_fpu(interval->assigned_regHi() - pd_first_fpu_reg, assigned_reg - pd_first_fpu_reg);
+#elif defined(ARM)
+        assert(assigned_reg >= pd_first_fpu_reg && assigned_reg <= pd_last_fpu_reg, "no fpu register");
+        assert(interval->assigned_regHi() >= pd_first_fpu_reg && interval->assigned_regHi() <= pd_last_fpu_reg, "no fpu register");
+        assert(assigned_reg % 2 == 0 && assigned_reg + 1 == interval->assigned_regHi(), "must be sequential and even");
+        LIR_Opr result = LIR_OprFact::double_fpu(assigned_reg - pd_first_fpu_reg, interval->assigned_regHi() - pd_first_fpu_reg);
 #else
         assert(assigned_reg >= pd_first_fpu_reg && assigned_reg <= pd_last_fpu_reg, "no fpu register");
         assert(interval->assigned_regHi() == any_reg, "must not have hi register (double fpu values are stored in one register on Intel)");
@@ -2080,6 +2096,7 @@ LIR_Opr LinearScan::calc_operand_for_interval(const Interval* interval) {
 #endif
         return result;
       }
+#endif // __SOFTFP__
 
       default: {
         ShouldNotReachHere();
@@ -2641,6 +2658,12 @@ int LinearScan::append_scope_value_for_operand(LIR_Opr opr, GrowableArray<ScopeV
 #endif
 #ifdef SPARC
       assert(opr->fpu_regnrLo() == opr->fpu_regnrHi() + 1, "assumed in calculation (only fpu_regnrHi is used)");
+#endif
+#ifdef ARM
+      assert(opr->fpu_regnrHi() == opr->fpu_regnrLo() + 1, "assumed in calculation (only fpu_regnrLo is used)");
+#endif
+#ifdef PPC
+      assert(opr->fpu_regnrLo() == opr->fpu_regnrHi(), "assumed in calculation (only fpu_regnrHi is used)");
 #endif
 
       VMReg rname_first = frame_map()->fpu_regname(opr->fpu_regnrHi());
@@ -3929,8 +3952,8 @@ Range::Range(int from, int to, Range* next) :
 
 // initialize sentinel
 Range* Range::_end = NULL;
-void Range::initialize() {
-  _end = new Range(max_jint, max_jint, NULL);
+void Range::initialize(Arena* arena) {
+  _end = new (arena) Range(max_jint, max_jint, NULL);
 }
 
 int Range::intersects_at(Range* r2) const {
@@ -3976,9 +3999,9 @@ void Range::print(outputStream* out) const {
 
 // initialize sentinel
 Interval* Interval::_end = NULL;
-void Interval::initialize() {
-  Range::initialize();
-  _end = new Interval(-1);
+void Interval::initialize(Arena* arena) {
+  Range::initialize(arena);
+  _end = new (arena) Interval(-1);
 }
 
 Interval::Interval(int reg_num) :
@@ -6139,6 +6162,17 @@ void ControlFlowOptimizer::delete_unnecessary_jumps(BlockList* code) {
             assert(prev_op->as_OpBranch() != NULL, "branch must be of type LIR_OpBranch");
             LIR_OpBranch* prev_branch = (LIR_OpBranch*)prev_op;
 
+            LIR_Op2* prev_cmp = NULL;
+
+            for(int j = instructions->length() - 3; j >= 0 && prev_cmp == NULL; j--) {
+              prev_op = instructions->at(j);
+              if(prev_op->code() == lir_cmp) {
+                assert(prev_op->as_Op2() != NULL, "branch must be of type LIR_Op2");
+                prev_cmp = (LIR_Op2*)prev_op;
+                assert(prev_branch->cond() == prev_cmp->condition(), "should be the same");
+              }
+            }
+            assert(prev_cmp != NULL, "should have found comp instruction for branch");
             if (prev_branch->block() == code->at(i + 1) && prev_branch->info() == NULL) {
 
               TRACE_LINEAR_SCAN(3, tty->print_cr("Negating conditional branch and deleting unconditional branch at end of block B%d", block->block_id()));
@@ -6146,6 +6180,7 @@ void ControlFlowOptimizer::delete_unnecessary_jumps(BlockList* code) {
               // eliminate a conditional branch to the immediate successor
               prev_branch->change_block(last_branch->block());
               prev_branch->negate_cond();
+              prev_cmp->set_condition(prev_branch->cond());
               instructions->truncate(instructions->length() - 1);
             }
           }

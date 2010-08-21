@@ -1,5 +1,5 @@
 /*
- * Copyright 1997-2009 Sun Microsystems, Inc.  All Rights Reserved.
+ * Copyright (c) 1997, 2009, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -16,9 +16,9 @@
  * 2 along with this work; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  *
  */
 
@@ -815,6 +815,16 @@ void LoadNode::dump_spec(outputStream *st) const {
 }
 #endif
 
+#ifdef ASSERT
+//----------------------------is_immutable_value-------------------------------
+// Helper function to allow a raw load without control edge for some cases
+bool LoadNode::is_immutable_value(Node* adr) {
+  return (adr->is_AddP() && adr->in(AddPNode::Base)->is_top() &&
+          adr->in(AddPNode::Address)->Opcode() == Op_ThreadLocal &&
+          (adr->in(AddPNode::Offset)->find_intptr_t_con(-1) ==
+           in_bytes(JavaThread::osthread_offset())));
+}
+#endif
 
 //----------------------------LoadNode::make-----------------------------------
 // Polymorphic factory method:
@@ -828,6 +838,11 @@ Node *LoadNode::make( PhaseGVN& gvn, Node *ctl, Node *mem, Node *adr, const Type
   assert(!(adr_type->isa_aryptr() &&
            adr_type->offset() == arrayOopDesc::length_offset_in_bytes()),
          "use LoadRangeNode instead");
+  // Check control edge of raw loads
+  assert( ctl != NULL || C->get_alias_index(adr_type) != Compile::AliasIdxRaw ||
+          // oop will be recorded in oop map if load crosses safepoint
+          rt->isa_oopptr() || is_immutable_value(adr),
+          "raw memory operations should have control edge");
   switch (bt) {
   case T_BOOLEAN: return new (C, 3) LoadUBNode(ctl, mem, adr, adr_type, rt->is_int()    );
   case T_BYTE:    return new (C, 3) LoadBNode (ctl, mem, adr, adr_type, rt->is_int()    );
@@ -2064,6 +2079,8 @@ Node* LoadRangeNode::Identity( PhaseTransform *phase ) {
 // Polymorphic factory method:
 StoreNode* StoreNode::make( PhaseGVN& gvn, Node* ctl, Node* mem, Node* adr, const TypePtr* adr_type, Node* val, BasicType bt ) {
   Compile* C = gvn.C;
+  assert( C->get_alias_index(adr_type) != Compile::AliasIdxRaw ||
+          ctl != NULL, "raw memory operations should have control edge");
 
   switch (bt) {
   case T_BOOLEAN:
