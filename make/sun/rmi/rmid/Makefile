@@ -29,7 +29,7 @@
 #
 
 BUILDDIR = ../../..
-MODULE  = rmi-activation
+MODULE  = rmi
 PACKAGE = sun.rmi.activation
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk

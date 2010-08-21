@@ -143,9 +143,9 @@ endif
 # Install header files.
 #
 $(INCLUDEDIR)/%.h: $(SHARE_SRC)/javavm/export/%.h
-	$(install-file)
+	$(install-include-file)
 $(PLATFORM_INCLUDE)/%.h: $(PLATFORM_SRC)/javavm/export/%.h
-	$(install-file)
+	$(install-include-file)
 
 
 #

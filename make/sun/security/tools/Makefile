@@ -24,7 +24,6 @@
 #
 
 BUILDDIR = ../../..
-MODULE  = security-tools
 PACKAGE = sun.security.tools
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk
@@ -44,8 +43,3 @@ RESOURCE_BUNDLES_JAVA = sun/security/tools/JarSignerResources.java
 # Rules
 #
 include $(BUILDDIR)/common/Classes.gmk
-
-build:
-	$(call make-launcher, keytool, sun.security.tools.KeyTool, , )
-	$(call make-launcher, policytool, sun.security.tools.policytool.PolicyTool, , )
-

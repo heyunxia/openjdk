@@ -307,9 +307,6 @@ INCLUDEDIR          = $(OUTPUTDIR)/include
 # for generated class files
 CLASSBINDIR         = $(OUTPUTDIR)/classes
 DEMOCLASSDIR        = $(OUTPUTDIR)/democlasses
-# for modules
-MODULES_DIR         = $(OUTPUTDIR)/modules
-ABS_MODULES_DIR     = $(ABS_OUTPUTDIR)/modules
 # for generated tool class files
 BUILDTOOLCLASSDIR   = $(OUTPUTDIR)/btclasses
 # for build tool jar files
@@ -384,22 +381,6 @@ endif
 ifneq ($(THREADDIR),)
   UNIQUE_LOCATION_STRING += /$(THREADDIR)
 endif
-
-#
-# Build units may or may not define MODULE.  Default to "other".
-#
-# MODULE variable defines the lowest-level module name that
-# might or might not be the name of the modules created in
-# the modules build (see make/modules/modules.config and
-# modules.group).
-#
-MODULES_TEMPDIR     = $(OUTPUTDIR)/tmp/modules
-ABS_MODULES_TEMPDIR = $(ABS_OUTPUTDIR)/tmp/modules
-
-ifndef MODULE
-  MODULE = other
-endif
-override MODULE_DEST_DIR = $(MODULES_TEMPDIR)/$(MODULE)
 
 # the use of += above makes a space separated list which we need to 
 # remove for filespecs.
@@ -511,42 +492,38 @@ PKGDIR		= $(subst .,/,$(PACKAGE))
 include $(JDK_MAKE_SHARED_DIR)/Defs-java.gmk
 
 #
+# The modules variables
+#
+include $(JDK_TOPDIR)/make/common/Defs-modules.gmk
+
+#
 # Macros to find the module that $@ belongs to
 #
 
-UNIQUE_PATH_PATTERN = $(subst /,.,$(UNIQUE_PATH))
-MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
-		      -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
-		      -e 's%.*\/lib\/%lib\/%' \
-	              -e 's%.*\/bin\/%bin\/%' \
-	              -e 's%.*\/include\/%include\/%' \
-		      -e 's%.*\/demo\/%demo\/%' \
-		      -e 's%.*\/sample\/%sample\/%'
-
 # Install a file to its module
 define install-module-file
-dest=`echo $(@D)/ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(MKDIR) -p $(MODULE_DEST_DIR)/$$dest; \
-$(CP) -f $@ $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -f $@ $$dest
 endef
 
 # Install all files from the directory to its module
 define install-module-dir
-dest=`echo $(@D)/ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(MKDIR) -p $(MODULE_DEST_DIR)/$$dest; \
-$(CP) -rf $(@D)/* $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -rf $(@D)/* $$dest
 endef
 
 # chmod the file in its module
 define chmod-module-file
-dest=`echo $@ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(CHMOD) $1 $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $@) ; \
+$(CHMOD) $1 $$dest
 endef
 
 # install a sym link in its module
 define install-module-sym-link
-dest=`echo $@ | $(SED) $(MODULE_PATH_PATTERN)` ; \
-$(LN) -sf $1 $(MODULE_DEST_DIR)/$$dest
+dest=$(call GetModuleDest, $@) ; \
+$(LN) -sf $1 $$dest
 endef
 
 
@@ -555,11 +532,12 @@ endef
 define make-launcher
 $(CD) $(BUILDDIR)/launchers && \
 $(MAKE) -f Makefile.launcher \
-        MODULE=$(MODULE) \
         PROGRAM=$(strip $1) \
         MAIN_CLASS=$(strip $2) \
         MAIN_JAVA_ARGS="$(strip $3)" \
-        MAIN_ARGS="$(strip $4)"
+        MAIN_ARGS="$(strip $4)" \
+        MODULE=jdk.$(strip $1) \
+        PROGRAM_MODULE=jdk.$(strip $1)
 endef
 
 #
@@ -573,10 +551,20 @@ $(RM) $@
 endef
 
 # Simple install of $< file to $@
+# and also install $< file to its module directory
 define install-file
 $(prep-target)
 $(CP) $< $@
 @$(install-module-file)
+endef
+
+# Include header files always belongs the base module
+define install-include-file
+$(prep-target)
+$(CP) $< $@
+dest=$(call GetBaseModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -f $@ $$dest
 endef
 
 define chmod-file

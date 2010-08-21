@@ -61,3 +61,13 @@ IMPORT_CORBA_BINARIES += \
      lib/orb.idl \
      lib/ir.idl
 
+#
+# Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
+# 
+IMPORT_RT_MODULES += \
+     $(SUN_CORBA_MODULE) \
+     $(SUN_JTA_MODULE) 
+
+IMPORT_TOOLS_MODULES += \
+     $(IDLJ_MODULE) \
+     $(RMIC_MODULE)
