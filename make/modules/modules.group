@@ -147,7 +147,7 @@ module sun.legacy {
     include private-legacy;
     include net-compat;
     include deprecated;
-    include jdbc-odbc;
+    // include jdbc-odbc;
 }
 
 module sun.kerberos {
@@ -260,6 +260,7 @@ module sun.security.misc {
 }
 
 module sun.security.compat {
+    requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include security-compat;
 }
 
