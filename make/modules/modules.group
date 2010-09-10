@@ -51,7 +51,7 @@
 module jdk.boot {
     include base;
     include unpack200-tool;
-    include jdk.jmod;
+    include tools.jmod;
     class org.openjdk.jigsaw.Hi;    // testing
 }
 
@@ -64,6 +64,7 @@ module jdk.base {
 
     // include JSR-292 in the base module for now
     include invokedynamic;
+    include instrument;
 
     requires public local jdk.boot;
 
@@ -93,43 +94,44 @@ module jdk.base {
 
 module sun.desktop {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
+
     include beans;
+    include prefs;
     include client;
-    requires sun.xmltransform;
 
     // jndi and corba have a dependency on Applet but 
     // applet can't be separated from client due to circular dependency
     include applet;
-}
 
-module sun.xml {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
-    include jaxp-api;
+    // com.sun.security.auth callback dialog
+    include sun.callback.dialog;
 }
 
 module sun.management {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include management;
-}
-
-module jdk.jmx.snmp {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include management-snmp;
-}
-
-module jdk.jmx.iiop {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
-    include management-iiop;
-}
-
-module sun.cosnaming {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
-    include jndi-cosnaming;
 }
 
 module sun.corba {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
+
     include corba;
+
+    // include COS naming service provider for JNDI 
+    // that pulls in jndi module
+    include jndi-cosnaming;
+    // include JMX RMI-IIOP connector that pulls in the management module
+    include management-iiop;
+
+    // include corba-specific tools 
+    include tools.orbd;
+    include tools.servertool;
+    include tools.tnameserv;
+
+    // development tools
+    include tools.idlj;
+    class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
 }
 
 module sun.jdbc {
@@ -137,30 +139,30 @@ module sun.jdbc {
     include jdbc;
 }
 
-module sun.jta {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
-    include jta ;
-}
-
 module sun.legacy {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include private-legacy;
     include net-compat;
     include deprecated;
-    // include jdbc-odbc;
+    include jdbc-odbc;
+}
+
+// Deprecated APIs
+module sun.security.acl {
+    requires local jdk.boot;   // ensure loaded by bootstrap class loader
+    include security-acl;
 }
 
 module sun.kerberos {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include security-kerberos;
-}
 
-module sun.sunpkcs11 {
-    include security-sunpkcs11;
-}
+    // kerberos-related tools (windows only)
+    include tools.kinit;
+    include tools.klist;
+    include tools.ktab;
 
-module sun.jce.provider {
-    include security-sunjce;
+    class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
 }
 
 module sun.sunec {
@@ -169,17 +171,30 @@ module sun.sunec {
     include security-sunec;
 }
 
-module sun.sunmscapi {
+module jdk.sunpkcs11 {
+    include security-sunpkcs11;
+}
+
+module jdk.sunjce {
+    include security-sunjce;
+}
+
+module jdk.sunmscapi {
     include security-sunmscapi;
 }
 
-module sun.xmldsig {
+module jdk.xmldsig {
     include security-xmldsig;
 }
 
 // ## TODO: make sun.security.smartcardio.** module-private
 module jdk.smartcardio {
     include security-smartcardio;
+}
+
+module sun.xml {
+    requires local jdk.boot;   // ensure loaded by bootstrap class loader
+    include jaxp-api;
 }
 
 module sun.xalan {
@@ -193,26 +208,18 @@ module sun.xerces {
     include jaxp-xerces-resolver;
 }
 
-module sun.xmlparser {
-    requires public local sun.xml;
-    requires public local sun.xerces;
-}
-
-module jdk.xmlparser {
-    requires public sun.xmlparser;
-}
-
-module sun.xmltransform {
-    requires public local sun.xml;
-    requires public local sun.xalan;
-}
-
-module jdk.xmltransform {
-    requires public sun.xmltransform;
-}
-
-module sun.jndi.providers {
+module sun.jaxp {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
+    include sun.xml;
+    include sun.xalan;
+    include sun.xerces;
+}
+
+module sun.jndi {
+    requires local jdk.boot;   // loaded by bootstrap class loader
+    include jndi;
+
+    // ## jndi providers
     include jndi-ldap;
     include jndi-dns;
     include jndi-rmiregistry;
@@ -220,84 +227,61 @@ module sun.jndi.providers {
     include sun.auth.jndi;
 }
 
-module sun.jx.annotations {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
-    include common-annotations;
-}
 
 module sun.rmi {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include rmi;
     include rmi-activation;
+
+    // rmi runtime tools
+    include tools.rmiregistry;
+    include tools.rmid;
+    class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
 }
 
-module sun.sasl {
+module sun.jaas {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
+    include security-auth;
+    include sun.callback.text;
+
+    // combine SASL with JAAS
     include security-sasl;
 }
 
 module sun.jsse {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include security-jsse;
-}
 
-module sun.jaas {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
-    include security-auth;
-}
-
-module jdk.jaas {
-    requires public sun.jaas;
-    requires public sun.callback.dialog;
-    requires public sun.callback.text;
-}
-
-// ## split sun.security.pkcs and sun.security.util package between jdk.boot
-// ## they are used by keytool only. See 6953295
-module sun.security.misc {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
+    // ## split sun.security.pkcs and sun.security.util package between jdk.boot
+    // ## they are used by keytool only. See 6953295
     include security-misc;
 }
 
-module sun.security.compat {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
-    include security-compat;
-}
-
-module sun.deploy {
+module jdk.deploy {
     include deploy;
 }
 
-// ## can this be loaded by a different class loader?
-module sun.httpserver {
-    requires local jdk.boot;
-    include httpserver;
-}
-
-module sun.hprof {
-    requires local jdk.boot;   // loaded by bootstrap class loader
-    include hprof;
-}
-
-module sun.instrument {
-    requires local jdk.boot;   // loaded by bootstrap class loader
-    include instrument;
-}
-
-module sun.jaxws {
-    requires local jdk.boot;   // loaded by bootstrap class loader
+module jdk.jaxws {
     include jaxws;
 }
 
-module sun.jndi {
-    requires local jdk.boot;   // loaded by bootstrap class loader
-    include jndi;
+// standalone technology (JSR-250) 
+module jdk.jx.annotations {
+    include common-annotations;
 }
 
-module sun.scripting {
-    requires local jdk.boot;   // loaded by bootstrap class loader
+// standalone technology (JSR-223)
+module jdk.scripting {
     include scripting;
     include scripting-rhino;
+}
+
+// ## corba and jdbc depends on javax.transaction.
+// ## jigsaw resolver fails if any of its transitive dependencies
+// ## doesn't require jdk.boot
+module sun.jta {
+    requires local jdk.boot;   // ensure loaded by bootstrap class loader
+    include jta;
 }
 
 // ## localedata is loaded by the extension class loader
@@ -313,11 +297,6 @@ module sun.logging {
     include tracing;
 }
 
-module sun.prefs {
-    requires local jdk.boot;   // loaded by bootstrap class loader
-    include prefs;
-}
-
 module sun.charsets {
     requires local jdk.boot;   // loaded by bootstrap class loader
     include charsets;
@@ -328,183 +307,89 @@ module sun.resources {
     include resources;
 }
 
-module sun.sctp {
+// Sun's platform extension (supported APIs)
+module jdk.ext {
     requires local jdk.boot;   // loaded by bootstrap class loader
+    include httpserver;
     include sctp;
 }
 
-
-/**************************************************************************/
-/* Modules with "jdk.*" prefix  (no corresponding sun.* module)           */
-/* rename module <m> to jdk.<m> so that native libraries and resources    */
-/* files in the submodule <m> will be included for modularization properly*/
-/**************************************************************************/
-
-module jdk.compiler {
-    include compiler;
+// ## langtools maintains the list of modules and names
+// ## keep jdk.javah and jdk.javap for now
+module jdk.javah {
+    include tools.javah;
 }
 
-module jdk.attach {
-    include attach;
-}
-
-module jdk.jdwp {
-    include jdwp;
-}
-
-module jdk.jvmstat {
-    include jvmstat;
-}
-
-module jdk.servicetag {
-    include servicetag;
-}
-
-module jdk.sajdi {
-    include sajdi;
-}
-
-/**************************************************************************/
-/*  Aggregator modules                                                    */
-/**************************************************************************/
-
-module jdk.serviceability {
-    requires jdk.instrument;
-    requires jdk.attach;
-    requires jdk.jvmstat;
-    requires jdk.jdwp;
-    requires jdk.jdi;
-    requires sun.hprof;
-}
-
-module jdk.langtools {
-    requires public jdk.apt;
-    requires public jdk.javac;
-    requires public jdk.javap;
-    requires public jdk.javah;
-    requires public jdk.javadoc;
-    requires public jdk.compiler;
-}
-
-module jdk.gui.tools {
-    requires jdk.appletviewer;
-    requires jdk.jconsole;
-    requires jdk.jdb.gui;
-    requires jdk.policytool;
-    requires jdk.sajdi;
-    requires jdk.serialver;
-    requires jdk.schemagen;
-    requires jdk.wsgen;
-    requires jdk.wsimport;
-    requires jdk.xjc;
-}
-
-module jdk.cli.tools {
-    requires jdk.apt;
-    requires jdk.extcheck;
-    requires jdk.idlj;
-    requires jdk.jar;
-    requires jdk.jarsigner;
-    requires jdk.javac;
-    requires jdk.javadoc;
-    requires jdk.javah;
-    requires jdk.javap;
-    requires jdk.jdb;
-    requires jdk.jhat;
-    requires jdk.jinfo;
-    requires jdk.jmap;
-    requires jdk.jpkg;
-    requires jdk.jps;
-    requires jdk.jrepo;
-    requires jdk.jrunscript;
-    requires jdk.jsadebugd;
-    requires jdk.jstack;
-    requires jdk.jstat;
-    requires jdk.jstatd;
-    requires jdk.keytool;
-    requires jdk.kinit;
-    requires jdk.klist;
-    requires jdk.ktab;
-    requires jdk.native2ascii;
-    requires jdk.orbd;
-    requires jdk.pack200;
-    requires jdk.rmic;
-    requires jdk.rmid;
-    requires jdk.rmiregistry;
-    requires jdk.servertool;
-    requires jdk.tnameserv;
+module jdk.javap {
+    include tools.javap;
 }
 
 // developer tools to be included in the jdk-base-image
 module jdk.tools.base {
-    requires jdk.javac;
+    requires jdk.javac;   // public module
+
+    // include tools.javah;
+    // include tools.javap;
+
     requires jdk.javah;
-    requires jdk.jpkg;
-    requires jdk.jrepo;
+    requires jdk.javap;
+
+    include tools.jpkg;
+    include tools.jrepo;
+    include tools.jar;
+    include tools.pack200;
+
+    class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
 }
 
 // JRE tools to be included in the jdk-module-image and jre-module-image
 module jdk.tools.jre {
-    requires jdk.jar;
-    requires jdk.pack200;
-    requires jdk.orbd;
-    requires jdk.policytool;
-    requires jdk.rmiregistry;
-    requires jdk.tnameserv;
-    requires jdk.keytool;
-    requires jdk.rmid;
-    requires jdk.servertool;
-    // windows only
-    requires jdk.kinit;
-    requires jdk.klist;
-    requires jdk.ktab;
+    // tools support
+    include hprof;
+    include servicetag;
+
+    // JRE tools
+    include tools.policytool;
+
+    // ## 6890876 adds dependency to LDAP (jndi.provider)
+    // include tools.keytool;
+
+    class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
 }
 
-// developer tools to be included in the jdk-module-image
+// Other developer tools to be included in the jdk-module-image
 module jdk.tools {
-    requires jdk.jpkg;
-    requires jdk.jrepo;
-    // langtools
-    requires jdk.javac;
-    requires jdk.javap;
-    requires jdk.javah;
-    requires jdk.javadoc;
-    // jre tools
-    requires jdk.jar;
-    requires jdk.pack200;
-    requires jdk.orbd;
-    requires jdk.policytool;
-    requires jdk.rmiregistry;
-    requires jdk.tnameserv;
-    requires jdk.keytool;
-    requires jdk.rmid;
-    requires jdk.servertool;
-    // windows only
-    requires jdk.kinit;
-    requires jdk.klist;
-    requires jdk.ktab;
-    // other jdk tools
-    requires jdk.appletviewer;
-    requires jdk.apt;
-    requires jdk.extcheck;
-    requires jdk.idlj;
-    requires jdk.jarsigner;
-    requires jdk.jconsole;
-    requires jdk.jdb;
-    requires jdk.jhat;
-    requires jdk.jinfo;
-    requires jdk.jmap;
-    requires jdk.jps;
-    requires jdk.jrunscript;
-    requires jdk.jsadebugd;
-    requires jdk.jstack;
-    requires jdk.jstat;
-    requires jdk.jstatd;
-    requires jdk.native2ascii;
-    requires jdk.rmic;
-    requires jdk.schemagen;
-    requires jdk.serialver;
-    requires jdk.xjc;
-    requires jdk.wsgen;
-    requires jdk.wsimport;
+    requires public jdk.tools.base;
+    requires public jdk.tools.jre;
+
+    requires public jdk.apt;  // EOL in jdk 8
+    requires public jdk.javadoc;
+
+    include attach;
+    include jdi;
+    include jdwp;
+    include jvmstat;
+    include sajdi;
+
+    include tools.appletviewer;
+    include tools.extcheck;
+    include tools.jarsigner;
+    include tools.keytool;   // ## see 6890876
+    include tools.jconsole;
+    include tools.jdb;
+    include tools.jdb.gui;
+    include tools.jhat;
+    include tools.jinfo;
+    include tools.jmap;
+    include tools.jps;
+    include tools.jrunscript;
+    include tools.jsadebugd;
+    include tools.jstack;
+    include tools.jstat;
+    include tools.jstatd;
+    include tools.native2ascii;
+    include tools.rmic;
+    include tools.serialver;
+
+    class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
 }

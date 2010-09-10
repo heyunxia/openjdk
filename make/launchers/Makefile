@@ -52,56 +52,56 @@ include $(BUILDDIR)/common/Defs.gmk
 # Run MAKE $@ for all generic launchers
 
 define make-all-launchers
-$(call make-launcher, appletviewer, sun.applet.Main, , )
-$(call make-launcher, apt, com.sun.tools.apt.Main, -J-Xmode:legacy, )
-$(call make-launcher, extcheck, com.sun.tools.extcheck.Main, , )
-$(call make-launcher, idlj, com.sun.tools.corba.se.idl.toJavaPortable.Compile, , )
-$(call make-launcher, jar, sun.tools.jar.Main, , )
-$(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
-$(call make-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, -J-Xmode:legacy, )
-$(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , )
-$(call make-launcher, jrepo, org.openjdk.jigsaw.cli.Repositor, , )
-$(call make-launcher, keytool, sun.security.tools.KeyTool, , )
-$(call make-launcher, policytool, sun.security.tools.policytool.PolicyTool, , )
-$(call make-launcher, jarsigner, sun.security.tools.JarSigner, , )
-$(call make-launcher, javac, com.sun.tools.javac.Main, -J-Xmode:legacy, )
-$(call make-launcher, javadoc, com.sun.tools.javadoc.Main, -J-Xmode:legacy, )
-$(call make-launcher, javah, com.sun.tools.javah.Main, -J-Xmode:legacy, )
-$(call make-launcher, javap, com.sun.tools.javap.Main, -J-Xmode:legacy, )
+$(call make-launcher, appletviewer, sun.applet.Main, , , $(TOOLS_MODULE))
+$(call make-launcher, apt, com.sun.tools.apt.Main, -J-Xmode:legacy, , jdk.apt)
+$(call make-launcher, extcheck, com.sun.tools.extcheck.Main, , , $(TOOLS_MODULE))
+$(call make-launcher, idlj, com.sun.tools.corba.se.idl.toJavaPortable.Compile, , , $(TOOLS_MODULE))
+$(call make-launcher, jar, sun.tools.jar.Main, , , $(BASE_TOOLS_MODULE))
+$(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack, $(BASE_TOOLS_MODULE))
+$(call make-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, -J-Xmode:legacy, , $(JDK_BASE_MODULE))
+$(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , , $(BASE_TOOLS_MODULE))
+$(call make-launcher, jrepo, org.openjdk.jigsaw.cli.Repositor, , , $(BASE_TOOLS_MODULE))
+$(call make-launcher, keytool, sun.security.tools.KeyTool, , , $(TOOLS_MODULE))
+$(call make-launcher, policytool, sun.security.tools.policytool.PolicyTool, , , $(JRE_TOOLS_MODULE))
+$(call make-launcher, jarsigner, sun.security.tools.JarSigner, , , $(TOOLS_MODULE))
+$(call make-launcher, javac, com.sun.tools.javac.Main, -J-Xmode:legacy, , jdk.javac)
+$(call make-launcher, javadoc, com.sun.tools.javadoc.Main, -J-Xmode:legacy, , jdk.javadoc)
+$(call make-launcher, javah, com.sun.tools.javah.Main, -J-Xmode:legacy, , jdk.javah)
+$(call make-launcher, javap, com.sun.tools.javap.Main, -J-Xmode:legacy, , jdk.javap)
 $(call make-launcher, jconsole, sun.tools.jconsole.JConsole, \
-  -J-Djconsole.showOutputViewer, )
-$(call make-launcher, jdb, com.sun.tools.example.debug.tty.TTY, , )
-$(call make-launcher, jhat, com.sun.tools.hat.Main, , )
+  -J-Djconsole.showOutputViewer, , $(TOOLS_MODULE))
+$(call make-launcher, jdb, com.sun.tools.example.debug.tty.TTY, , , $(TOOLS_MODULE))
+$(call make-launcher, jhat, com.sun.tools.hat.Main, , , $(TOOLS_MODULE))
 $(call make-launcher, jinfo, sun.tools.jinfo.JInfo, \
   -J-Dsun.jvm.hotspot.debugger.useProcDebugger \
-  -J-Dsun.jvm.hotspot.debugger.useWindbgDebugger, )
+  -J-Dsun.jvm.hotspot.debugger.useWindbgDebugger, , $(TOOLS_MODULE))
 $(call make-launcher, jmap, sun.tools.jmap.JMap, \
   -J-Dsun.jvm.hotspot.debugger.useProcDebugger \
-  -J-Dsun.jvm.hotspot.debugger.useWindbgDebugger, )
-$(call make-launcher, jps, sun.tools.jps.Jps, , )
-$(call make-launcher, jrunscript, com.sun.tools.script.shell.Main, , )
-$(call make-launcher, jsadebugd, sun.jvm.hotspot.jdi.SADebugServer, , )
+  -J-Dsun.jvm.hotspot.debugger.useWindbgDebugger, , $(TOOLS_MODULE))
+$(call make-launcher, jps, sun.tools.jps.Jps, , , $(TOOLS_MODULE))
+$(call make-launcher, jrunscript, com.sun.tools.script.shell.Main, , , $(TOOLS_MODULE))
+$(call make-launcher, jsadebugd, sun.jvm.hotspot.jdi.SADebugServer, , , $(TOOLS_MODULE))
 $(call make-launcher, jstack, sun.tools.jstack.JStack, \
   -J-Dsun.jvm.hotspot.debugger.useProcDebugger \
-  -J-Dsun.jvm.hotspot.debugger.useWindbgDebugger, )
-$(call make-launcher, jstat, sun.tools.jstat.Jstat, , )
-$(call make-launcher, jstatd, sun.tools.jstatd.Jstatd, , )
-$(call make-launcher, native2ascii, sun.tools.native2ascii.Main, , )
-$(call make-launcher, rmic, sun.rmi.rmic.Main, -J-Xmode:legacy, )
-$(call make-launcher, schemagen, com.sun.tools.internal.jxc.SchemaGenerator, , )
-$(call make-launcher, serialver, sun.tools.serialver.SerialVer, , )
-$(call make-launcher, xjc, com.sun.tools.internal.xjc.Driver, , )
-$(call make-launcher, wsgen, com.sun.tools.internal.ws.WsGen, , )
-$(call make-launcher, wsimport, com.sun.tools.internal.ws.WsImport, , )
+  -J-Dsun.jvm.hotspot.debugger.useWindbgDebugger, , $(TOOLS_MODULE))
+$(call make-launcher, jstat, sun.tools.jstat.Jstat, , , $(TOOLS_MODULE))
+$(call make-launcher, jstatd, sun.tools.jstatd.Jstatd, , , $(TOOLS_MODULE))
+$(call make-launcher, native2ascii, sun.tools.native2ascii.Main, , , $(TOOLS_MODULE))
+$(call make-launcher, rmic, sun.rmi.rmic.Main, -J-Xmode:legacy, , $(TOOLS_MODULE))
+$(call make-launcher, schemagen, com.sun.tools.internal.jxc.SchemaGenerator, , , $(JAXWS_TOOLS_MODULE))
+$(call make-launcher, serialver, sun.tools.serialver.SerialVer, , , $(TOOLS_MODULE))
+$(call make-launcher, xjc, com.sun.tools.internal.xjc.Driver, , , $(JAXWS_TOOLS_MODULE))
+$(call make-launcher, wsgen, com.sun.tools.internal.ws.WsGen, , , $(JAXWS_TOOLS_MODULE))
+$(call make-launcher, wsimport, com.sun.tools.internal.ws.WsImport, , , $(JAXWS_TOOLS_MODULE))
 $(call make-launcher, orbd, com.sun.corba.se.impl.activation.ORBD, \
   -J-Dcom.sun.CORBA.activation.DbDir=./orb.db \
   -J-Dcom.sun.CORBA.activation.Port=1049 \
-  -J-Dcom.sun.CORBA.POA.ORBServerId=1, )
-$(call make-launcher, servertool, com.sun.corba.se.impl.activation.ServerTool, , )
+  -J-Dcom.sun.CORBA.POA.ORBServerId=1, , $(CORBA_TOOLS_MODULE))
+$(call make-launcher, servertool, com.sun.corba.se.impl.activation.ServerTool, , , $(CORBA_TOOLS_MODULE))
 $(call make-launcher, tnameserv, com.sun.corba.se.impl.naming.cosnaming.TransientNameServer, \
   -J-Dcom.sun.CORBA.activation.DbDir=./orb.db \
   -J-Djava.util.logging.LoggingPermission=contol \
-  -J-Dcom.sun.CORBA.POA.ORBServerId=1, )
+  -J-Dcom.sun.CORBA.POA.ORBServerId=1, , $(CORBA_TOOLS_MODULE))
 endef
 
 build:

@@ -50,29 +50,42 @@ MODULES_LIST = $(MODULE_CLASSLIST_DIR)/modules.list
 MODULES_TEMPDIR     = $(OUTPUTDIR)/tmp/modules
 ABS_MODULES_TEMPDIR = $(ABS_OUTPUTDIR)/tmp/modules
 
-# FIXME: need to determine at build time
-MODULE_VERSION = 7-ea
 BASE_MODULE = jdk.base
 JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
+
+# RELEASE is JDK_VERSION and -MILESTONE if MILESTONE is set
+ifneq ($(MILESTONE),fcs)
+  MODULE_VERSION = ${JDK_MINOR_VERSION}-ea
+else
+  MODULE_VERSION = ${JDK_MINOR_VERSION}
+endif
+
+# Modules for imports 
+CORBA_MODULE             = sun.corba
+JTA_MODULE               = sun.jta
+XML_MODULE               = sun.jaxp
+XERCES_MODULE            = sun.jaxp
+XALAN_MODULE             = sun.jaxp
+JAXWS_MODULE             = jdk.jaxws
+JX_ANNOTATION_MODULE     = jdk.jx.annotations
+IDLJ_MODULE              = jdk.tools
+RMIC_MODULE              = jdk.tools
+
+JDK_BASE_MODULE          = jdk.base
+BASE_TOOLS_MODULE        = jdk.tools.base
+JRE_TOOLS_MODULE         = jdk.tools.jre
+TOOLS_MODULE             = jdk.tools
+JAXWS_TOOLS_MODULE       = jdk.tools.jaxws
+CORBA_TOOLS_MODULE       = sun.corba
+RMI_TOOLS_MODULE         = sun.rmi
+KERBEROS_TOOLS_MODULE    = sun.kerberos
+
 
 # Modules for JDK only
 JDK_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.modules.list
 JRE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.jre.modules.list
-JDK_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.tools.base.modules.list
-JRE_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.base.modules.list
-
-# Modules for imports 
-SUN_CORBA_MODULE         = sun.corba
-SUN_JTA_MODULE           = sun.jta
-SUN_XML_MODULE           = sun.xml
-SUN_XERCES_MODULE        = sun.xerces
-SUN_XALAN_MODULE         = sun.xalan
-SUN_JAXWS_MODULE         = sun.jaxws
-SUN_JX_ANNOTATION_MODULE = sun.jx.annotations
-JAXWS_TOOLS_MODULE       = sun.tools.jaxws
-IDLJ_MODULE              = jdk.idlj
-RMIC_MODULE              = jdk.rmic
-JDWP_MODULE              = jdk.jdwp
+JDK_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/$(BASE_TOOLS_MODULE).modules.list
+JRE_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/$(JDK_BASE_MODULE).modules.list
 
 #
 # Build units may or may not define MODULE.  Default to "other".

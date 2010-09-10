@@ -178,17 +178,19 @@ public class Platform {
         Module jdkBaseTools = findModule(JDK_BASE_TOOLS);
 
         for (Module m : getTopLevelModules()) {
+            String mn = m.name();
+
             // initialize module-info
             m.fixupModuleInfo();
 
             // set up the jdk, jdk.jre and jdk.legacy modules
-            if (m.name().startsWith("jdk.") || m.name().startsWith("sun.")) {
+            if (mn.startsWith("jdk.") || mn.startsWith("sun.")) {
                 Module req = m.toRequiredModule();
 
-                if (!(m.isAggregator() || isAggregator(m.name()))) {
+                if (!m.isAggregator() && !mn.equals(JDK_MODULE) && !mn.equals(JRE_MODULE)) {
                     // all platform modules are required jdk module
                     jdkModule.addRequiresModule(req);
-                    if (m.isBootConnected()) {
+                    if (m.isBootConnected() || mn.equals(JRE_TOOLS)) {
                         // add all modules that are strongly connected to jdk.boot to JRE
                         jreModule.addRequiresModule(req);
                     }

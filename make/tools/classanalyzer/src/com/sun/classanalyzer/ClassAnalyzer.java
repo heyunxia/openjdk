@@ -269,7 +269,7 @@ public class ClassAnalyzer {
 
     private static void printMembers(Module m, PrintWriter writer) {
         for (Module member : m.members()) {
-            if (!member.isEmpty() || m.allowEmpty()) {
+            if (!member.isEmpty() || member.allowEmpty() || m.allowEmpty()) {
                 writer.format("%s ", member);
                 printMembers(member, writer);
             }

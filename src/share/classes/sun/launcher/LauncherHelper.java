@@ -30,11 +30,13 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ResourceBundle;
 import java.text.MessageFormat;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.Arrays;
 
 
 /*
@@ -50,7 +52,7 @@ import java.util.jar.Manifest;
  * to perform checks etc. using JNI, see src/share/bin/java.c
  */
 
-class LauncherHelper {
+public class LauncherHelper {
 
     private static final String defaultBundleName =
             "sun.launcher.resources.launcher";
@@ -220,7 +222,7 @@ class LauncherHelper {
 
     }
 
-    static void checkMainSignature(PrintStream ostream, Class<?> c) {
+    static Method checkMainSignature(PrintStream ostream, Class<?> c) {
         String classname = c.getName();
         Method method = null;
         try {
@@ -249,7 +251,37 @@ class LauncherHelper {
                     " of type void in class " +
                     classname);
         }
-        return;
+        return method;
     }
 
+    /**
+     * ## Entry point for tool module that launches the JDK tools
+     * ## Temporary until multiple entry points is supported in modules
+     * 
+     * @params argv the main classname of the tool at the first element
+     *     (argv[0]) and the remaining elements are the input arguments
+     *     to the tools.
+     */
+    public static void main(String[] argv) throws Throwable {
+        int argc = argv.length;
+
+        String cn = argv[0];
+        try {
+            // use the system class loader to find the tool's main class
+            Class<?> c = Class.forName(cn, true, ClassLoader.getSystemClassLoader());
+            Method m = checkMainSignature(System.err, c);
+            String[] args = argc == 1 ? 
+                                new String[0] :
+                                Arrays.copyOfRange(argv, 1, argc);
+            m.invoke(null, (Object) args);
+        } catch (ClassNotFoundException cnfe) {
+            System.err.println(getLocalizedMessage("java.launcher.cls.error1",
+                                                   cn));
+            NoClassDefFoundError ncdfe = new NoClassDefFoundError(cn);
+            ncdfe.initCause(cnfe);
+            throw ncdfe;
+        } catch (InvocationTargetException ite) {
+            throw ite.getCause();
+        }
+    }
 }

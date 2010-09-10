@@ -495,3 +495,9 @@
 @ClassForName(optional)
   sun.tools.jstack.JStack -> sun.jvm.hotspot.tools.JStack
 
+@ClassForName(optional)
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.StubGenerator
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.IDLGenerator
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.PrintGenerator
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.BatchEnvironment
+

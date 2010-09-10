@@ -94,6 +94,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         const char* pname,                      /* program name */
         const char* lname,                      /* launcher name */
         const char* mname,                      /* module name */
+        const char* mversion,                   /* module version */
         jboolean javaargs,                      /* JAVA_ARGS */
         jboolean cpwildcard,                    /* classpath wildcard */
         jboolean javaw,                         /* windows-only javaw */

@@ -80,8 +80,10 @@ static char* const_launcher = NULL;
 
 #ifdef MODULE_NAME
 static const char* const_modulename = MODULE_NAME;
+static const char* const_moduleversion = MODULE_VERSION;
 #else  /* MODULE_NAME */
 static char* const_modulename = NULL;
+static const char* const_moduleversion = NULL;
 #endif /* MODULE_NAME */
 
 #ifdef EXPAND_CLASSPATH_WILDCARDS
