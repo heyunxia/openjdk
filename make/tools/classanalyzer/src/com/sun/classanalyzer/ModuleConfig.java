@@ -33,10 +33,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-
-import com.sun.classanalyzer.Module.RequiresModule;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.sun.classanalyzer.ModuleInfo.Dependence;
 
 /**
  *
@@ -45,9 +45,9 @@ import java.util.Map;
 public class ModuleConfig {
 
     private final Set<String> roots;
-    private final Set<String> includes;
-    private final Set<String> permits;
-    private final Map<String, RequiresModule> requires;
+    protected final Set<String> includes;
+    protected final Set<String> permits;
+    protected final Map<String, Dependence> requires;
     private final Filter filter;
     private List<String> members;
     private String mainClass;
@@ -62,7 +62,7 @@ public class ModuleConfig {
         this.roots = new TreeSet<String>();
         this.includes = new TreeSet<String>();
         this.permits = new TreeSet<String>();
-        this.requires = new LinkedHashMap<String, RequiresModule>();
+        this.requires = new LinkedHashMap<String, Dependence>();
         this.filter = new Filter(this);
         this.mainClass = mainClass;
     }
@@ -85,8 +85,22 @@ public class ModuleConfig {
         return permits;
     }
 
-    Collection<RequiresModule> requires() {
+    Collection<Dependence> requires() {
         return requires.values();
+    }
+
+    void export(Module m) {
+        Dependence d = requires.get(m.name());
+        if (d == null) {
+            d = new Dependence(m, EnumSet.of(Dependence.Modifier.PUBLIC));
+        } else if (!d.isPublic()){
+            throw new RuntimeException(module + " should require public " + m.name());
+        }
+        requires.put(m.name(), d);
+    }
+
+    void addPermit(Module m) {
+        permits.add(m.name());
     }
 
     String mainClass() {
@@ -564,8 +578,8 @@ public class ModuleConfig {
                                 throw new RuntimeException(file + ", line " +
                                     lineNumber + " requires: \"" + s + "\" must be local");
                             }
-                            RequiresModule rm = new RequiresModule(s, optional, reexport, local);
-                            config.requires.put(s, rm);
+                            Dependence d = new Dependence(s, optional, reexport, local);
+                            config.requires.put(s, d);
                         }
                     }
                 }
@@ -628,7 +642,7 @@ public class ModuleConfig {
         sb.append(format("allow", filter.allow));
         sb.append(format("exclude", filter.exclude));
         Set<String> reqs = new TreeSet<String>();
-        for (RequiresModule rm : requires.values()) {
+        for (Dependence rm : requires.values()) {
             reqs.add(rm.toString());
         }
         sb.append(format("requires", reqs));

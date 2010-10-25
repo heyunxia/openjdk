@@ -28,9 +28,9 @@
 #
 
 # jdk modules generated from make/modules/Makefile
-# - this combines one or more submodules 
-MODULES_DIR         = $(OUTPUTDIR)/modules
-ABS_MODULES_DIR     = $(ABS_OUTPUTDIR)/modules
+# - this combines one or more submodules
+MODULEPATH_DIR         = $(OUTPUTDIR)/modules
+ABS_MODULEPATH_DIR     = $(ABS_OUTPUTDIR)/modules
 
 # Submodules
 # Files are copied to its own MODULE during the jdk builds
@@ -50,6 +50,10 @@ MODULES_LIST = $(MODULE_CLASSLIST_DIR)/modules.list
 MODULES_TEMPDIR     = $(OUTPUTDIR)/tmp/modules
 ABS_MODULES_TEMPDIR = $(ABS_OUTPUTDIR)/tmp/modules
 
+# incremental build marker file
+MODULES_UPDATE_MARKER = $(SUBMODULES_DIR)/.modules.update
+
+# Information for building platform modules
 BASE_MODULE = jdk.base
 JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
 
@@ -60,7 +64,7 @@ else
   MODULE_VERSION = ${JDK_MINOR_VERSION}
 endif
 
-# Modules for imports 
+# Modules for imports
 CORBA_MODULE             = sun.corba
 JTA_MODULE               = sun.jta
 XML_MODULE               = sun.jaxp
@@ -119,4 +123,8 @@ endef
 define GetBaseModuleDest
 $(shell $(ECHO) $1 | $(SED) $(MODULE_PATH_PATTERN) | \
     $(NAWK) '{print "$(SUBMODULES_DIR)/base/"$$0}')
+endef
+
+define TouchModule
+$(ECHO) $(MODULE) >> $(MODULES_UPDATE_MARKER)
 endef

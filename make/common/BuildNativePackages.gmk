@@ -55,7 +55,7 @@ endif #BUILD_SIGNED_MODULES
 jmod-pkgs: $(JMOD_PKGS)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
-           $(CD)  $(ABS_MODULES_DIR)/$$m && \
+           $(CD)  $(ABS_MODULEPATH_DIR)/$$m && \
               (if [ -d resources ] ; then \
                    RES="-r resources" ; \
                fi ; \
@@ -84,13 +84,13 @@ deb-pkgs: $(DEB_PKGS)
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
 	   $(MKDIR) -p $(JIGSAW_IMAGE)/$$m/$(DEB_MROOT); \
 	   for d in bin lib include ; do \
-	       if [ -d $(MODULES_DIR)/$$m/$$d ] ; then \
-	           $(CP) -rf $(MODULES_DIR)/$$m/$$d $(JIGSAW_IMAGE)/$$m/$(DEB_MROOT) ; \
+	       if [ -d $(MODULEPATH_DIR)/$$m/$$d ] ; then \
+	           $(CP) -rf $(MODULEPATH_DIR)/$$m/$$d $(JIGSAW_IMAGE)/$$m/$(DEB_MROOT) ; \
 	       fi ; \
 	   done ; \
-           (ISZ=$$(expr $$(du -s $(MODULES_DIR)/$$m | cut -f1)); \
-            RES="$$(if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then $(ECHO) "-r $(MODULES_DIR)/$$m/resources" ; fi)"; \
-            $(HOST_JPKG_CMD) -v -m $(MODULES_DIR)/$$m/classes \
+           (ISZ=$$(expr $$(du -s $(MODULEPATH_DIR)/$$m | cut -f1)); \
+            RES="$$(if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then $(ECHO) "-r $(MODULEPATH_DIR)/$$m/resources" ; fi)"; \
+            $(HOST_JPKG_CMD) -v -m $(MODULEPATH_DIR)/$$m/classes \
 	         -i $(JIGSAW_IMAGE)/$$m $$RES \
                  --java-home /usr/local/jigsaw \
                  -L /usr/local/jigsaw/lib/modules \

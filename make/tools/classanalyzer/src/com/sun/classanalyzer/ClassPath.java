@@ -19,258 +19,470 @@
  * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
  * or visit www.oracle.com if you need additional information or have any
  * questions.
- *
  */
 package com.sun.classanalyzer;
 
+import com.sun.classanalyzer.ClassPath.*;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 /**
+ * Legacy class path.  Each entry can be a directory containing
+ * classes and resources, or a jar file.  It supports classpath
+ * wildcard "*" that lists all jar files in the given directory
+ * and also recursive wildcard "**" that lists all jar files
+ * recursively in the given directory and its subdirectories.
  *
- * @author mchung
+ * @author Mandy Chung
  */
 public class ClassPath {
 
-    public class FileInfo {
+    protected final List<ClassPathEntry> entries = new LinkedList<ClassPathEntry>();
+    private final Set<Klass> classes = new LinkedHashSet<Klass>();
+    private final Set<ResourceFile> resources = new LinkedHashSet<ResourceFile>();
 
-        File file;
-        JarFile jarfile;
-        int classCount;
-        long filesize;
+    private ClassPath() {
+    }
 
-        FileInfo(File f) throws IOException {
-            this.file = f;
-            this.classCount = 0;
-            if (file.getName().endsWith(".jar")) {
-                this.filesize = file.length();
-                jarfile = new JarFile(f);
+    public ClassPath(String... paths) throws IOException {
+        for (String p : paths) {
+            String cp = p;
+            int index = p.indexOf("*");
+            String wildcard = "";
+            if (index >= 0) {
+                cp = p.substring(0, index);
+                wildcard = p.substring(index, p.length());
             }
+
+            File f = new File(cp);
+            if (!f.exists()) {
+                throw new RuntimeException("\"" + f + "\" doesn't exist");
+            }
+            if (wildcard.isEmpty()) {
+                if (f.isDirectory()) {
+                    entries.add(new DirClassPathEntry(f));
+                } else if (cp.endsWith(".jar")) {
+                    entries.add(new JarFileClassPathEntry(f));
+                } else {
+                    entries.add(new ClassPathEntry(f));
+                }
+            } else {
+                if (wildcard.equals("*")) {
+                    // add jar files in the specified directory
+                    String[] ls = Files.list(f);
+                    for (String s : ls) {
+                        File sf = new File(f, s);
+                        if (s.endsWith(".jar")) {
+                            entries.add(new JarFileClassPathEntry(f));
+                        }
+                    }
+                } else if (wildcard.equals("**")) {
+                    // add all jar files in all directories under f
+                    addJarFileEntries(f);
+                }
+            }
+        }
+    }
+
+    public List<ClassPathEntry> entries() {
+        return Collections.unmodifiableList(entries);
+    }
+
+    /**
+     * Returns the modules containing the classes and resources being
+     * processed.
+     */
+    public Set<Module> getModules() {
+        Set<Module> modules = new LinkedHashSet<Module>();
+        for (Klass k : classes) {
+            modules.add(k.getModule().group());
+        }
+        for (ResourceFile r : resources) {
+            modules.add(r.getModule().group());
+        }
+        return modules;
+    }
+
+    public void parse() throws IOException {
+        parse(null, true, false);
+    }
+
+    public void parse(boolean deps, boolean apiOnly) throws IOException {
+        parse(null, deps, apiOnly);
+    }
+
+    public void parse(Filter filter, boolean deps, boolean apiOnly) throws IOException {
+        ClassResourceVisitor crv = new ClassResourceVisitor(classes, resources, deps, apiOnly);
+        ClassPathVisitor cpvisitor = new ClassPathVisitor(crv, filter);
+        visit(cpvisitor, filter, null);
+    }
+
+    public void printStats() {
+        System.out.format("%d classes %d resource files processed%n",
+                classes.size(), resources.size());
+    }
+
+    protected void addJarFileEntries(File f) throws IOException {
+        List<File> ls;
+        if (f.isDirectory()) {
+            ls = Files.walkTree(f, new Files.Filter<File>() {
+                @Override
+                public boolean accept(File f) throws IOException {
+                    return f.isDirectory() || f.getName().endsWith(".jar");
+                }
+            });
+        } else {
+            ls = Collections.singletonList(f);
+        }
+        for (File jf : ls) {
+            entries.add(new JarFileClassPathEntry(jf));
+        }
+    }
+    // FIXME - used by open() method
+    static ClassPath instance = null;
+
+    static ClassPath newInstance(String cpath) throws IOException {
+        String[] paths = cpath.split(File.pathSeparator);
+        instance = new ClassPath(paths);
+        return instance;
+    }
+
+    static ClassPath newJDKClassPath(String jdkhome) throws IOException {
+        instance = new JDKClassPath(jdkhome);
+        return instance;
+    }
+
+    static class JDKClassPath extends ClassPath {
+        JDKClassPath(String jdkhome) throws IOException {
+            super();
+            List<File> files = new ArrayList<File>();
+            File jre = new File(jdkhome, "jre");
+            File lib = new File(jdkhome, "lib");
+
+            if (jre.exists() && jre.isDirectory()) {
+                addJarFiles(new File(jre, "lib"));
+                addJarFiles(lib);
+            } else if (lib.exists() && lib.isDirectory()) {
+                // either a JRE or a jdk build image
+                File classes = new File(jdkhome, "classes");
+                if (classes.exists() && classes.isDirectory()) {
+                    // jdk build outputdir
+                    this.entries.add(new DirClassPathEntry(classes));
+                }
+                addJarFiles(lib);
+            } else {
+                throw new RuntimeException("\"" + jdkhome + "\" not a JDK home");
+            }
+        }
+
+        // Filter the jigsaw module library, if any
+        final void addJarFiles(File dir) throws IOException {
+            String[] ls = dir.list();
+            for (String fn : ls) {
+                File f = new File(dir, fn);
+                if (f.isDirectory() && !fn.equals("modules")) {
+                    addJarFileEntries(f);
+                } else if (f.isFile() && fn.endsWith(".jar")) {
+                    addJarFileEntries(f);
+                }
+            }
+        }
+    }
+
+    /**
+     * Visits all entries in the class path.
+     */
+    public <R, P> List<R> visit(final ClassPathEntry.Visitor<R, P> visitor,
+            final Filter filter, P p)
+            throws IOException {
+        List<R> result = new ArrayList<R>();
+        for (ClassPathEntry cp : entries) {
+            if (filter != null && !filter.accept(cp.file)) {
+                continue;
+            }
+            R r = cp.accept(visitor, p);
+            result.add(r);
+        }
+        return result;
+    }
+
+    public static interface FileVisitor {
+        public void visitClass(File f, String cn) throws IOException;
+        public void visitClass(JarFile jf, JarEntry e) throws IOException;
+        public void visitResource(File f, String rn) throws IOException;
+        public void visitResource(JarFile jf, JarEntry e) throws IOException;
+    }
+
+    public static interface Filter {
+        // any file, jar file, directory
+        public boolean accept(File f) throws IOException;
+        public boolean accept(JarFile jf, JarEntry e) throws IOException;
+    }
+
+    public static class ClassPathEntry {
+
+        private final File file;
+        private final String name;
+
+        ClassPathEntry(File f) throws IOException {
+            this.file = f;
+            this.name = file.getCanonicalPath();
         }
 
         File getFile() {
             return file;
         }
 
-        JarFile getJarFile() {
-            return jarfile;
+        String getName() {
+            return name;
         }
 
-        String getName() throws IOException {
-            return file.getCanonicalPath();
+        <R, P> R accept(Visitor<R, P> visitor, P p) throws IOException {
+            return visitor.visitFile(file, this, p);
+        }
+
+        public interface Visitor<R, P> {
+            public R visitFile(File f, ClassPathEntry cp, P p) throws IOException;
+            public R visitDir(File dir, ClassPathEntry cp, P p) throws IOException;
+            public R visitJarFile(JarFile jf, ClassPathEntry cp, P p) throws IOException;
         }
     }
-    private List<FileInfo> fileList = new ArrayList<FileInfo>();
-    private static ClassPath instance = new ClassPath();
 
-    static List<FileInfo> getFileInfos() {
-        return instance.fileList;
+    static class JarFileClassPathEntry extends ClassPathEntry {
+        JarFile jarfile;
+        JarFileClassPathEntry(File f) throws IOException {
+            super(f);
+            this.jarfile = new JarFile(f);
+        }
+
+        @Override
+        <R, P> R accept(Visitor<R, P> visitor, P p) throws IOException {
+            return visitor.visitJarFile(jarfile, this, p);
+        }
     }
 
-    static ClassPath setJDKHome(String jdkhome) throws IOException {
-        List<File> files = new ArrayList<File>();
-        File jre = new File(jdkhome, "jre");
-        File lib = new File(jdkhome, "lib");
-        if (jre.exists() && jre.isDirectory()) {
-            listFiles(new File(jre, "lib"), ".jar", files);
-            listFiles(lib, ".jar", files);
-        } else if (lib.exists() && lib.isDirectory()) {
-            // either a JRE or a jdk build image
-            listFiles(lib, ".jar", files);
+    class DirClassPathEntry extends ClassPathEntry {
 
-            File classes = new File(jdkhome, "classes");
-            if (classes.exists() && classes.isDirectory()) {
-                // jdk build outputdir
-                instance.add(classes);
+        DirClassPathEntry(File f) throws IOException {
+            super(f);
+        }
+
+        @Override
+        <R, P> R accept(final Visitor<R, P> visitor, P p) throws IOException {
+            return visitor.visitDir(getFile(), this, p);
+        }
+    }
+
+    static class ClassResourceVisitor implements FileVisitor {
+
+        private final Set<Klass> classes;
+        private final Set<ResourceFile> resources;
+        private final boolean parseDeps;
+        private final boolean apiOnly;
+
+        ClassResourceVisitor(Set<Klass> classes,
+                Set<ResourceFile> resources,
+                boolean parseDeps,
+                boolean apiOnly) {
+            this.classes = classes;
+            this.resources = resources;
+            this.apiOnly = apiOnly;
+            this.parseDeps = parseDeps;
+        }
+
+        @Override
+        public void visitClass(File f, String cn) throws IOException {
+            ClassFileParser cfparser = ClassFileParser.newParser(f, true);
+            classes.add(cfparser.this_klass);
+            if (parseDeps) {
+                cfparser.parseDependency(apiOnly);
             }
-        } else {
-            throw new RuntimeException("\"" + jdkhome + "\" not a JDK home");
         }
 
-        for (File f : files) {
-            instance.add(f);
+        @Override
+        public void visitClass(JarFile jf, JarEntry e) throws IOException {
+            ClassFileParser cfparser = ClassFileParser.newParser(jf.getInputStream(e), e.getSize(), true);
+            classes.add(cfparser.this_klass);
+            if (parseDeps) {
+                cfparser.parseDependency(apiOnly);
+            }
         }
-        return instance;
+
+        @Override
+        public void visitResource(File f, String rn) throws IOException {
+            BufferedInputStream in = new BufferedInputStream(new FileInputStream(f));
+            try {
+                ResourceFile res = ResourceFile.addResource(rn, in);
+                resources.add(res);
+            } finally {
+                in.close();
+            }
+        }
+
+        @Override
+        public void visitResource(JarFile jf, JarEntry e) throws IOException {
+            ResourceFile res = ResourceFile.addResource(e.getName(), jf.getInputStream(e));
+            resources.add(res);
+        }
     }
 
-    static ClassPath setClassPath(String path) throws IOException {
-        if (path.endsWith(".class")) {
-            // one class file
-            File f = new File(path);
-            if (!f.exists()) {
-                throw new RuntimeException("Classfile \"" + f + "\" doesn't exist");
+    static class ClassPathVisitor implements ClassPathEntry.Visitor<Void, Void> {
+
+        private final FileVisitor visitor;
+        private final Filter filter;
+
+        ClassPathVisitor(FileVisitor fv, Filter filter) {
+            this.visitor = fv;
+            this.filter = filter;
+        }
+
+        @Override
+        public Void visitFile(File f, ClassPathEntry cp, Void v) throws IOException {
+            if (filter != null && !filter.accept(f)) {
+                return null;
             }
 
-            instance.add(f);
-        } else {
-            List<File> jarFiles = new ArrayList<File>();
-            String[] locs = path.split(File.pathSeparator);
-            for (String p : locs) {
-                File f = new File(p);
-                if (!f.exists()) {
-                    throw new RuntimeException("\"" + f + "\" doesn't exist");
+            String name = f.getName();
+            String pathname = f.getCanonicalPath();
+            String root = cp.getName();
+            if (!name.equals(root) && !pathname.equals(root)) {
+                if (!pathname.startsWith(root)) {
+                    throw new RuntimeException("Incorrect pathname " + pathname);
                 }
 
-                if (f.isDirectory()) {
-                    instance.add(f);  // add the directory to look up .class files
-                    listFiles(f, ".jar", jarFiles);
-                } else if (p.endsWith(".jar")) {
-                    // jar files
-                    jarFiles.add(f);
-                } else {
-                    throw new RuntimeException("Invalid file \"" + f);
-                }
+                name = pathname.substring(root.length() + 1, pathname.length());
             }
-            // add jarFiles if any
-            for (File f : jarFiles) {
-                instance.add(f);
+
+            if (name.endsWith(".class")) {
+                visitor.visitClass(f, name);
+            } else if (!f.isDirectory() && ResourceFile.isResource(f.getCanonicalPath())) {
+                visitor.visitResource(f, name);
             }
+            return null;
         }
 
-        return instance;
-    }
+        @Override
+        public Void visitDir(final File dir, final ClassPathEntry cp, Void v) throws IOException {
+            List<File> ls = Files.walkTree(dir, null);
+            for (File f : ls) {
+                visitFile(f, (ClassPathEntry) cp, null);
+            }
+            return null;
+        }
 
-    private void add(File f) throws IOException {
-        fileList.add(new FileInfo(f));
-    }
+        @Override
+        public Void visitJarFile(JarFile jf, ClassPathEntry cp, Void v) throws IOException {
+            if (filter != null && !filter.accept(cp.getFile())) {
+                return null;
+            }
+
+            Enumeration<JarEntry> entries = jf.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry e = entries.nextElement();
+                String name = e.getName();
+                if (filter != null && !filter.accept(jf, e)) {
+                    continue;
+                }
+                if (name.endsWith(".class")) {
+                    visitor.visitClass(jf, e);
+                } else if (!e.isDirectory() && ResourceFile.isResource(name)) {
+                    visitor.visitResource(jf, e);
+                }
+            }
+            return null;
+        }
+    };
 
     public static InputStream open(String pathname) throws IOException {
-        for (FileInfo fi : instance.fileList) {
-            if (fi.getName().endsWith(".jar")) {
-                String path = pathname.replace(File.separatorChar, '/');
-                JarEntry e = fi.jarfile.getJarEntry(path);
-                if (e != null) {
-                    return fi.jarfile.getInputStream(e);
+        ClassPathEntry.Visitor<InputStream, String> fv = new ClassPathEntry.Visitor<InputStream, String>() {
+
+            @Override
+            public InputStream visitFile(File f, ClassPathEntry cp, String pathname) throws IOException {
+                if (cp.getName().endsWith(File.separator + pathname)) {
+                    return new FileInputStream(f);
+                } else {
+                    return null;
                 }
-            } else if (fi.getFile().isDirectory()) {
-                File f = new File(fi.getFile(), pathname);
+            }
+
+            @Override
+            public InputStream visitDir(File dir, ClassPathEntry cp, String pathname) throws IOException {
+                File f = new File(cp.getFile(), pathname);
                 if (f.exists()) {
                     return new FileInputStream(f);
+                } else {
+                    return null;
                 }
-            } else if (fi.file.isFile()) {
-                if (fi.getName().endsWith(File.separator + pathname)) {
-                    return new FileInputStream(fi.file);
+            }
+
+            @Override
+            public InputStream visitJarFile(JarFile jf, ClassPathEntry cp, String pathname) throws IOException {
+                String p = pathname.replace(File.separatorChar, '/');
+                JarEntry e = jf.getJarEntry(p);
+                if (e != null) {
+                    return jf.getInputStream(e);
+                } else {
+                    return null;
                 }
+            }
+        };
+
+        for (ClassPathEntry cp : instance.entries) {
+            InputStream in = cp.accept(fv, pathname);
+            if (in != null) {
+                return in;
             }
         }
         return null;
     }
 
-    static ClassFileParser parserForClass(String classname) throws IOException {
+    public ClassFileParser parserForClass(String classname) throws IOException {
         String pathname = classname.replace('.', File.separatorChar) + ".class";
+        ClassPathEntry.Visitor<ClassFileParser, String> fv = new ClassPathEntry.Visitor<ClassFileParser, String>() {
 
-        ClassFileParser cfparser = null;
-        for (FileInfo fi : instance.fileList) {
-            if (fi.getName().endsWith(".class")) {
-                if (fi.getName().endsWith(File.separator + pathname)) {
-                    cfparser = ClassFileParser.newParser(fi.getFile(), true);
-                    break;
+            @Override
+            public ClassFileParser visitFile(File f, ClassPathEntry cp, String pathname) throws IOException {
+                if (cp.getName().endsWith(File.separator + pathname)) {
+                    return ClassFileParser.newParser(f, true);
+                } else {
+                    return null;
                 }
-            } else if (fi.getName().endsWith(".jar")) {
-                JarEntry e = fi.jarfile.getJarEntry(classname.replace('.', '/') + ".class");
-                if (e != null) {
-                    cfparser = ClassFileParser.newParser(fi.jarfile.getInputStream(e), e.getSize(), true);
-                    break;
-                }
-            } else if (fi.getFile().isDirectory()) {
-                File f = new File(fi.getFile(), pathname);
+            }
+
+            @Override
+            public ClassFileParser visitDir(File dir, ClassPathEntry cp, String pathname) throws IOException {
+                File f = new File(cp.getFile(), pathname);
                 if (f.exists()) {
-                    cfparser = ClassFileParser.newParser(f, true);
-                    break;
+                    return ClassFileParser.newParser(f, true);
+                } else {
+                    return null;
                 }
             }
-        }
-        return cfparser;
-    }
 
-    public static void parseAllClassFiles() throws IOException {
-        instance.parseFiles();
-    }
-
-    private void parseFiles() throws IOException {
-        Set<Klass> classes = new HashSet<Klass>();
-
-        int count = 0;
-        for (FileInfo fi : fileList) {
-            // filter out public generated classes (i.e. not public API)
-            // javax.management.remote.rmi._RMIConnectionImpl_Tie
-            // javax.management.remote.rmi._RMIServerImpl_Tie
-            if (fi.getName().endsWith(".class")) {
-                parseClass(fi);
-            } else if (fi.getName().endsWith(".jar")) {
-                Enumeration<JarEntry> entries = fi.jarfile.entries();
-                while (entries.hasMoreElements()) {
-                    JarEntry e = entries.nextElement();
-                    if (e.getName().endsWith(".class")) {
-                        ClassFileParser cfparser = ClassFileParser.newParser(fi.jarfile.getInputStream(e), e.getSize(), true);
-                        cfparser.parseDependency(false);
-                        fi.classCount++;
-                    } else if (!e.isDirectory() && ResourceFile.isResource(e.getName())) {
-                        ResourceFile.addResource(e.getName(), fi.jarfile.getInputStream(e));
-                    }
+            @Override
+            public ClassFileParser visitJarFile(JarFile jf, ClassPathEntry cp, String pathname) throws IOException {
+                String p = pathname.replace(File.separatorChar, '/');
+                JarEntry e = jf.getJarEntry(p);
+                if (e != null) {
+                    return ClassFileParser.newParser(jf.getInputStream(e), e.getSize(), true);
+                } else {
+                    return null;
                 }
-            } else if (fi.getFile().isDirectory()) {
-                List<File> files = new ArrayList<File>();
-                listFiles(fi.getFile(), "", files);
-                for (File f : files) {
-                    if (f.getName().endsWith(".class")) {
-                        parseClass(fi, f);
-                    } else if (!f.isDirectory() && ResourceFile.isResource(f.getCanonicalPath())) {
-                        String pathname = f.getCanonicalPath();
-                        String dir = fi.getName();
-                        if (!pathname.startsWith(dir)) {
-                            throw new RuntimeException("Incorrect pathname " + pathname);
-                        }
-                        String name = pathname.substring(dir.length() + 1, pathname.length());
-                        BufferedInputStream in = new BufferedInputStream(new FileInputStream(f));
-                        try {
-                            ResourceFile.addResource(name, in);
-                        } finally {
-                            in.close();
-                        }
-                    }
-                }
-            } else {
-                // should not reach here
-                throw new RuntimeException("Unexpected class path: " + fi.getFile());
+            }
+        };
+
+        for (ClassPathEntry cp : entries) {
+            ClassFileParser cfparser = cp.accept(fv, pathname);
+            if (cfparser != null) {
+                return cfparser;
             }
         }
-    }
-
-    private void parseClass(FileInfo fi) throws IOException {
-        parseClass(fi, fi.getFile());
-    }
-
-    private void parseClass(FileInfo fi, File f) throws IOException {
-        ClassFileParser cfparser = ClassFileParser.newParser(f, true);
-        cfparser.parseDependency(false);
-        fi.classCount++;
-        // need to update the filesize for this directory
-        fi.filesize += fi.getFile().length();
-
-    }
-
-    public static void listFiles(File path, String suffix, List<File> result) {
-        if (path.isDirectory()) {
-            File[] children = path.listFiles();
-            for (File c : children) {
-                listFiles(c, suffix, result);
-            }
-
-        } else {
-            if (suffix.isEmpty() || path.getName().endsWith(suffix)) {
-                result.add(path);
-            }
-        }
+        return null;
     }
 }

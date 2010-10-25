@@ -227,11 +227,10 @@ public class AnnotationParser {
         CodeAttributeParser.setParseCodeAttribute(true);
         AnnotationParser.setParseAnnotation(true);
 
-        ClassPath.setJDKHome(jdkhome);
-        ClassPath.parseAllClassFiles();
+        ClassPath cpath = ClassPath.newJDKClassPath(jdkhome);
+        cpath.parse();
 
         PrintWriter writer = new PrintWriter(new File(output, "jdk7.depconfig"));
-
         try {
             for (Klass k : Klass.getAllClasses()) {
                 for (AnnotatedDependency dep : k.getAnnotatedDeps()) {

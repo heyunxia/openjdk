@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,15 +46,14 @@ public class ConstantPoolAnalyzer {
         if (jdkhome == null) {
             usage();
         }
-        ClassPath.setJDKHome(jdkhome);
-        ClassPath.parseAllClassFiles();
+        ClassPath cpath = ClassPath.newJDKClassPath(jdkhome);
+        cpath.parse();
     }
 
     private static void usage() {
         System.out.println("Usage: ConstantPoolAnalyzer <options>");
         System.out.println("Options: ");
         System.out.println("\t-jdkhome <JDK home> where all jars will be parsed");
-        System.out.println("\t-cpath <classpath> where classes and jars will be parsed");
         System.exit(-1);
     }
 }

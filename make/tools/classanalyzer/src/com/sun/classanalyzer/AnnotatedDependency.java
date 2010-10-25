@@ -36,6 +36,7 @@ import java.util.TreeSet;
 import java.util.Map;
 
 import com.sun.classanalyzer.Module.Reference;
+import com.sun.classanalyzer.ModuleInfo.Dependence;
 import java.util.LinkedList;
 import java.util.TreeMap;
 
@@ -571,17 +572,17 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         return result;
     }
 
-    static Set<Module.Dependency> getDependencies(Module m) {
+    static Set<Dependence> getDependencies(Module m) {
         // ensure it's initialized
         initDependencies();
 
-        Set<Module.Dependency> deps = new TreeSet<Module.Dependency>();
+        Set<Dependence> deps = new TreeSet<Dependence>();
         for (Reference ref : annotatedDepsMap.keySet()) {
             if (m.contains(ref.referrer())) {
                 Module other = m.getModuleDependence(ref.referree());
                 if (other != null) {
                     for (AnnotatedDependency ad : annotatedDepsMap.get(ref)) {
-                        Module.Dependency d = new Module.Dependency(other, ad.isOptional(), ad.isDynamic());
+                        Dependence d = new Dependence(other, ad.isOptional());
                         deps.add(d);
                     }
                 }

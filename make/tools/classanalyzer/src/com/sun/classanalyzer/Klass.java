@@ -21,6 +21,7 @@
  * questions.
  *
  */
+
 package com.sun.classanalyzer;
 
 import java.io.File;
@@ -34,23 +35,22 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import com.sun.tools.classfile.AccessFlags;
+import java.util.Collections;
 
 /**
  *
  * @author Mandy Chung
  */
 public class Klass implements Comparable<Klass> {
-
     private final String classname;
     private final String packagename;
     private Module module;
+    private boolean isJavaLangObject;
     private String[] paths;
     private Map<String, Set<Method>> methods;
     private AccessFlags accessFlags;
     private long filesize;
-    private boolean isJavaLangObject;
-    private boolean isPlatformAPI;
-    private boolean isNonCoreAPI;
+
     private SortedMap<Klass, Set<ResolutionInfo>> deps;
     private SortedMap<Klass, Set<ResolutionInfo>> referrers;
     private List<AnnotatedDependency> annotatedDeps;
@@ -60,13 +60,12 @@ public class Klass implements Comparable<Klass> {
         this.classname = classname;
         this.paths = classname.replace('.', '/').split("/");
         this.isJavaLangObject = classname.equals("java.lang.Object");
-        this.isPlatformAPI = Platform.isPlatformAPI(classname);
-        this.isNonCoreAPI = Platform.isNonCoreAPI(classname);
         this.deps = new TreeMap<Klass, Set<ResolutionInfo>>();
         this.referrers = new TreeMap<Klass, Set<ResolutionInfo>>();
         this.methods = new HashMap<String, Set<Method>>();
         this.annotatedDeps = new ArrayList<AnnotatedDependency>();
         this.classForNameRefs = new TreeSet<String>();
+
         int pos = classname.lastIndexOf('.');
         this.packagename = (pos > 0) ? classname.substring(0, pos) : "<unnamed>";
     }
@@ -94,14 +93,6 @@ public class Klass implements Comparable<Klass> {
 
     boolean isPublic() {
         return accessFlags == null || accessFlags.is(AccessFlags.ACC_PUBLIC);
-    }
-
-    boolean isPlatformAPI() {
-        return isPlatformAPI;
-    }
-
-    boolean isNonCoreAPI() {
-        return isNonCoreAPI;
     }
 
     Module getModule() {
@@ -152,12 +143,10 @@ public class Klass implements Comparable<Klass> {
         if (skip(ref)) {
             return;
         }
-        Set<ResolutionInfo> resInfos;
-        if (!deps.containsKey(ref)) {
+        Set<ResolutionInfo> resInfos = deps.get(ref);
+        if (resInfos == null) {
             resInfos = new TreeSet<ResolutionInfo>();
             deps.put(ref, resInfos);
-        } else {
-            resInfos = deps.get(ref);
         }
         resInfos.add(ri);
     }
@@ -170,12 +159,10 @@ public class Klass implements Comparable<Klass> {
         if (skip(k)) {
             return;
         }
-        Set<ResolutionInfo> resInfos;
-        if (!referrers.containsKey(k)) {
+        Set<ResolutionInfo> resInfos = referrers.get(k);
+        if (resInfos == null) {
             resInfos = new TreeSet<ResolutionInfo>();
             referrers.put(k, resInfos);
-        } else {
-            resInfos = referrers.get(k);
         }
         resInfos.add(ri);
     }
@@ -185,10 +172,8 @@ public class Klass implements Comparable<Klass> {
     }
 
     Method getMethod(String name, String signature) {
-        Set<Method> set;
-        if (methods.containsKey(name)) {
-            set = methods.get(name);
-        } else {
+        Set<Method> set = methods.get(name);
+        if (set == null) {
             set = new TreeSet<Method>();
             methods.put(name, set);
         }
@@ -224,10 +209,17 @@ public class Klass implements Comparable<Klass> {
     List<AnnotatedDependency> getAnnotatedDeps() {
         return annotatedDeps;
     }
+
     private static Map<String, Klass> classes = new TreeMap<String, Klass>();
 
-    static Set<Klass> getAllClasses() {
-        return new TreeSet<Klass>(classes.values());
+    // cache the sorted list of classes for performance
+    // No more class can be added after this point
+    private static List<Klass> sortedClassList = null;
+    static synchronized Iterable<Klass> getAllClasses() {
+        if (sortedClassList == null) {
+            sortedClassList = new ArrayList<Klass>(classes.values());
+        }
+        return Collections.unmodifiableCollection(sortedClassList);
     }
 
     static Klass findKlassFromPathname(String filename) {
@@ -251,14 +243,15 @@ public class Klass implements Comparable<Klass> {
     }
 
     static Klass getKlass(String name) {
-        Klass k;
         String classname = name.replace('/', '.');
         if (classname.charAt(classname.length() - 1) == ';') {
             classname = classname.substring(0, classname.length() - 1);
         }
-        if (classes.containsKey(classname)) {
-            k = classes.get(classname);
-        } else {
+        Klass k = classes.get(classname);
+        if (k == null) {
+            if (sortedClassList != null)
+                throw new RuntimeException("new class is not expected to be added at this point");
+
             k = new Klass(classname);
             classes.put(classname, k);
         }

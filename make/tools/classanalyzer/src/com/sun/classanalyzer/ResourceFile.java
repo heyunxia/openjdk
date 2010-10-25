@@ -39,12 +39,13 @@ import java.util.TreeSet;
  * @author Mandy Chung
  */
 public class ResourceFile implements Comparable<ResourceFile> {
-
     private final String pathname;
+    protected final String name;
     private Module module;
 
-    ResourceFile(String pathname) {
-        this.pathname = pathname.replace(File.separatorChar, '/');
+    ResourceFile(String fname) {
+        this.pathname = fname.replace('/', File.separatorChar);
+        this.name = fname.replace(File.separatorChar, '/');
     }
 
     Module getModule() {
@@ -59,7 +60,7 @@ public class ResourceFile implements Comparable<ResourceFile> {
     }
 
     String getName() {
-        return pathname;
+        return name;
     }
 
     String getPathname() {
@@ -68,18 +69,18 @@ public class ResourceFile implements Comparable<ResourceFile> {
 
     @Override
     public String toString() {
-        return pathname;
+        return name;
     }
 
     @Override
     public int compareTo(ResourceFile o) {
-        return pathname.compareTo(o.pathname);
+        return name.compareTo(o.name);
     }
+
     static Set<ResourceFile> resources = new TreeSet<ResourceFile>();
 
     static boolean isResource(String pathname) {
         String name = pathname.replace(File.separatorChar, '/');
-
         if (name.endsWith("META-INF/MANIFEST.MF")) {
             return false;
         }
@@ -90,15 +91,16 @@ public class ResourceFile implements Comparable<ResourceFile> {
         return true;
     }
 
-    static void addResource(String name, InputStream in) {
+    static ResourceFile addResource(String fname, InputStream in) {
         ResourceFile res;
-        name = name.replace(File.separatorChar, '/');
-        if (name.startsWith("META-INF/services")) {
-            res = new ServiceProviderConfigFile(name, in);
+        fname = fname.replace(File.separatorChar, '/');
+        if (fname.startsWith("META-INF/services")) {
+            res = new ServiceProviderConfigFile(fname, in);
         } else {
-            res = new ResourceFile(name);
+            res = new ResourceFile(fname);
         }
         resources.add(res);
+        return res;
     }
 
     static Set<ResourceFile> getAllResources() {
@@ -106,13 +108,12 @@ public class ResourceFile implements Comparable<ResourceFile> {
     }
 
     static class ServiceProviderConfigFile extends ResourceFile {
-
-        private final List<String> providers = new ArrayList<String>();
-        private final String service;
-        ServiceProviderConfigFile(String pathname, InputStream in) {
-            super(pathname);
+        final List<String> providers = new ArrayList<String>();
+        final String service;
+        ServiceProviderConfigFile(String fname, InputStream in) {
+            super(fname);
             readServiceConfiguration(in, providers);
-            this.service = pathname.substring("META-INF/services".length() + 1, pathname.length());
+            this.service = name.substring("META-INF/services".length() + 1, name.length());
         }
 
         @Override
@@ -122,6 +123,40 @@ public class ResourceFile implements Comparable<ResourceFile> {
             } else {
                 // just use the first one for matching
                 return providers.get(0);
+            }
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o instanceof ServiceProviderConfigFile) {
+                ServiceProviderConfigFile sp = (ServiceProviderConfigFile) o;
+                if (service.equals(sp.service) && providers.size() == sp.providers.size()) {
+                    List<String> tmp = new ArrayList<String>(providers);
+                    if (tmp.removeAll(sp.providers)) {
+                        return tmp.size() == 0;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public int hashCode() {
+            int hash = 7;
+            hash = 73 * hash + (this.providers != null ? this.providers.hashCode() : 0);
+            hash = 73 * hash + (this.service != null ? this.service.hashCode() : 0);
+            return hash;
+        }
+
+        @Override
+        public int compareTo(ResourceFile o) {
+            if (this.equals(o)) {
+                return 0;
+            } else {
+                if (getName().compareTo(o.getName()) < 0) {
+                    return -1;
+                } else {
+                    return 1;
+                }
             }
         }
 

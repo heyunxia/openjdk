@@ -504,14 +504,16 @@ include $(JDK_TOPDIR)/make/common/Defs-modules.gmk
 define install-module-file
 dest=$(call GetModuleDest, $(@D)/) ; \
 $(MKDIR) -p $$dest; \
-$(CP) -f $@ $$dest
+$(CP) -f $@ $$dest; \
+$(TouchModule)
 endef
 
 # Install all files from the directory to its module
 define install-module-dir
 dest=$(call GetModuleDest, $(@D)/) ; \
 $(MKDIR) -p $$dest; \
-$(CP) -rf $(@D)/* $$dest
+$(CP) -rf $(@D)/* $$dest; \
+$(TouchModule)
 endef
 
 # chmod the file in its module

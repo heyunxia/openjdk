@@ -23,6 +23,7 @@
  */
 package com.sun.classanalyzer;
 
+import java.util.Collections;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -43,6 +44,8 @@ import com.sun.tools.classfile.ConstantPool.*;
 import static com.sun.tools.classfile.ConstantPool.*;
 import com.sun.tools.classfile.Instruction.TypeKind;
 import com.sun.tools.classfile.Type.*;
+import com.sun.classanalyzer.ModuleInfo.PackageInfo;
+import static com.sun.classanalyzer.Trace.*;
 
 /**
  * Generate the module config for the boot module with
@@ -79,11 +82,12 @@ import com.sun.tools.classfile.Type.*;
  * @author Mandy Chung
  */
 public class BootAnalyzer {
-
+    private static ClassPath cpath;
     public static void main(String[] args) throws Exception {
         String jdkhome = null;
         String config = null;
         String output = ".";
+        String version = "7-ea";
         boolean printClassList = false;
 
         // process arguments
@@ -96,6 +100,8 @@ public class BootAnalyzer {
                 } else {
                     usage();
                 }
+            } else if (arg.equals("-version")) {
+                version = args[i++];
             } else if (arg.equals("-config")) {
                 config = args[i++];
             } else if (arg.equals("-output")) {
@@ -107,19 +113,17 @@ public class BootAnalyzer {
             }
         }
 
-
-
         if (jdkhome == null || config == null) {
             usage();
         }
 
         File jre = new File(jdkhome, "jre");
         if (jre.exists()) {
-            ClassPath.setJDKHome(jdkhome);
+            cpath = ClassPath.newJDKClassPath(jdkhome);
         } else {
             File classes = new File(jdkhome, "classes");
             if (classes.exists()) {
-                ClassPath.setClassPath(classes.getCanonicalPath());
+                cpath = ClassPath.newInstance(classes.getCanonicalPath());
             } else {
                 throw new RuntimeException("Invalid jdkhome: " + jdkhome);
             }
@@ -143,16 +147,47 @@ public class BootAnalyzer {
         String bootconfig = resolve(dir, bootmodule, "config");
         printBootConfig(bootconfig, bootmodule);
 
-        List<ModuleConfig> list = ModuleConfig.readConfigurationFile(bootconfig);
-        Module module = Module.addModule(list.get(0));
+        ModuleBuilder builder =
+                new ModuleBuilder(Collections.singletonList(bootconfig), version);
+
+        assert Module.getAllModules().size() == 1;
+        Module module = null;
+        for (Module m : Module.getAllModules()) {
+            module = m;
+            break;
+        }
         for (Klass k : Klass.getAllClasses()) {
             module.addKlass(k);
         }
-        module.fixupDependencies();
+        builder.run();
 
         if (printClassList) {
-            module.printClassListTo(resolve(dir, bootmodule, "classlist"));
-            module.printSummaryTo(resolve(dir, bootmodule, "summary"));
+            ClassListWriter writer = new ClassListWriter(dir, module);
+            writer.printClassList();
+            writer.printResourceList();
+            printModuleSummary(dir, module);
+        }
+    }
+
+    private static void printModuleSummary(File dir, Module m) throws IOException {
+        PrintWriter summary =
+                new PrintWriter(Files.resolve(dir, m.name(), "summary"));
+        try {
+            long total = 0L;
+            int count = 0;
+            summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
+            for (PackageInfo info : m.getModuleInfo().packages()) {
+                if (info.count > 0) {
+                    summary.format("%10d\t%10d\t%s%n",
+                                  info.filesize, info.count, info.pkgName);
+                    total += info.filesize;
+                    count += info.count;
+                }
+            }
+            summary.format("%nTotal: %d bytes (uncompressed) %d classes%n",
+                    total, count);
+        } finally {
+            summary.close();
         }
     }
 
@@ -338,7 +373,7 @@ public class BootAnalyzer {
 
         synchronized ClassFileParser getClassFileParser() throws IOException {
             if (parser == null) {
-                parser = ClassPath.parserForClass(classname);
+                parser = cpath.parserForClass(classname);
                 if (parser != null) {
                     parseClassFile();
                     List<String> descriptors = parse(new MethodDescriptor(classname + ".<clinit>", "()V", false));
@@ -803,13 +838,6 @@ public class BootAnalyzer {
                 return null;
             }
         };
-    }
-    static boolean traceOn = System.getProperty("classanalyzer.debug") != null;
-
-    private static void trace(String format, Object... args) {
-        if (traceOn) {
-            System.out.format(format, args);
-        }
     }
 
     private static void usage() {

@@ -207,7 +207,7 @@ image=$(strip $1); m=$(strip $2); \
 javahome=$(MODULE_IMAGES_DIR)/$$image; \
 for d in bin lib ; do \
    if [ -d $$m/$$d ] ; then \
-       $(CP) -rf $(ABS_MODULES_DIR)/$$m/$$d $$javahome; \
+       $(CP) -rf $(ABS_MODULEPATH_DIR)/$$m/$$d $$javahome; \
    fi ; \
 done 
 endef
@@ -228,8 +228,8 @@ define copy-jre-image
 from=$(strip $1); dest=$(strip $2); \
 ($(CD) $(MODULE_IMAGES_DIR)/$$from && $(FIND) . -depth -print \
               | $(CPIO) -pdum $(MODULE_IMAGES_DIR)/$$dest) ; \
-if [ -d "$(ABS_MODULES_DIR)/jdk.boot/include" ] ; then \
-   $(CP) -rf $(ABS_MODULES_DIR)/jdk.boot/include $(MODULE_IMAGES_DIR)/$$dest; \
+if [ -d "$(ABS_MODULEPATH_DIR)/jdk.boot/include" ] ; then \
+   $(CP) -rf $(ABS_MODULEPATH_DIR)/jdk.boot/include $(MODULE_IMAGES_DIR)/$$dest; \
 fi
 endef
 
@@ -243,7 +243,7 @@ mlib=$(MODULE_IMAGES_DIR)/$$image/lib/modules; \
 mid=`$(HOST_JMOD_CMD) ls -L $$mlib $$m | $(GREP) -v '#'` ; \
 if [ "x$$mid" = "x" ] ; then \
    $(ECHO) "Installing module $$m in $$image" ; \
-   $(CD) $(ABS_MODULES_DIR) && \
+   $(CD) $(ABS_MODULEPATH_DIR) && \
    if [ -d $$m/resources ] ; then \
       $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources -L $$mlib $$m || exit 1; \
    else \
@@ -257,7 +257,7 @@ endef
 
 
 # Rules for building packages
-include $(BUILDDIR)/common/BuildPackages.gmk
+include $(BUILDDIR)/common/BuildNativePackages.gmk
 
 PKG_TYPES = jmod-pkgs
 DEBIAN := $(shell \

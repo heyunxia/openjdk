@@ -22,8 +22,7 @@
  */
 package com.sun.classanalyzer;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 
 /**
@@ -32,61 +31,28 @@ import java.util.*;
  * ignore references to classes listed in the file (including .classlists
  * created by the ClassAnalyzer tool).
  */
-
 public class ShowDeps {
 
-    static void usage() {
-        System.out.println("java ShowDeps [-ignore <classlist>] file...");
-        System.out.println("   where <file> is a class or JAR file, or a directory");
-        System.out.println();
-        System.out.println("Example usages:");
-        System.out.println("  java ShowDeps Foo.jar");
-        System.out.println("  java ShowDeps -ignore base.classlist Foo.jar");
-        System.out.println("  java ShowDeps -ignore base.classlist -ignore " +
-            "jaxp-parsers.classlist <dir>");
-        System.exit(-1);
+    private final ClassPath cpath;
+    private final Set<String> classes = new TreeSet<String>();
+
+    public ShowDeps(ClassPath cpath) {
+        this.cpath = cpath;
     }
 
-    public static void main(String[] args) throws IOException {
-        // process -ignore options
-        int argi = 0;
-        Set<String> ignore = new HashSet<String>();
-        while (argi < args.length && args[argi].equals("-ignore")) {
-            argi++;
-            Scanner s = new Scanner(new File(args[argi++]));
-            try {
-                while (s.hasNextLine()) {
-                    String line = s.nextLine();
-                    if (!line.endsWith(".class"))
-                        continue;
-                    int len = line.length();
-                    // convert to class names
-                    String clazz = line.replace('\\', '.').replace('/', '.')
-                        .substring(0, len-6);
-                    ignore.add(clazz);
-                }
-            } finally {
-                s.close();
-            }
-        }
-
-        if (argi >= args.length)
-            usage();
-
-        // parse all classes
-        while (argi < args.length)
-            ClassPath.setClassPath(args[argi++]);
-        ClassPath.parseAllClassFiles();
+    public void run() throws IOException {
+        cpath.parse();
 
         // find the classes that don't exist
         Set<Klass> unresolved = new TreeSet<Klass>();
         for (Klass k : Klass.getAllClasses()) {
-            if (k.getFileSize() == 0)
+            if (k.getFileSize() == 0) {
                 unresolved.add(k);
+            }
         }
 
         // print references to classes that don't exist
-        for (Klass k: Klass.getAllClasses()) {
+        for (Klass k : Klass.getAllClasses()) {
             for (Klass other : k.getReferencedClasses()) {
                 if (unresolved.contains(other)) {
                     String name = other.toString();
@@ -96,5 +62,51 @@ public class ShowDeps {
                 }
             }
         }
+    }
+
+    static void usage() {
+        System.out.println("java ShowDeps [-ignore <classlist>] file...");
+        System.out.println("   where <file> is a class or JAR file, or a directory");
+        System.out.println();
+        System.out.println("Example usages:");
+        System.out.println("  java ShowDeps Foo.jar");
+        System.out.println("  java ShowDeps -ignore base.classlist Foo.jar");
+        System.out.println("  java ShowDeps -ignore base.classlist -ignore " +
+                "jaxp-parsers.classlist <dir>");
+        System.exit(-1);
+    }
+    private static Set<String> ignore = new HashSet<String>();
+
+    public static void main(String[] args) throws IOException {
+        // process -ignore options
+        int argi = 0;
+        while (argi < args.length && args[argi].equals("-ignore")) {
+            argi++;
+            Scanner s = new Scanner(new File(args[argi++]));
+            try {
+                while (s.hasNextLine()) {
+                    String line = s.nextLine();
+                    if (!line.endsWith(".class")) {
+                        continue;
+                    }
+                    int len = line.length();
+                    // convert to class names
+                    String clazz = line.replace('\\', '.').replace('/', '.')
+                        .substring(0, len - 6);
+                    ignore.add(clazz);
+                }
+            } finally {
+                s.close();
+            }
+        }
+
+        if (argi >= args.length) {
+            usage();
+        }
+
+        // parse all classes
+        ClassPath cpath = new ClassPath(Arrays.copyOfRange(args, argi, args.length));
+        ShowDeps instance = new ShowDeps(cpath);
+        instance.run();
     }
 }

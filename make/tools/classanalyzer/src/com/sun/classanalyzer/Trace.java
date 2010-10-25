@@ -28,7 +28,11 @@ package com.sun.classanalyzer;
  * @author Mandy Chung
  */
 public class Trace {
-    public static boolean traceOn = System.getProperty("classanalyzer.debug") != null;
+    // Turn on tracing by setting a system property "classanalyzer.debug"
+    // or an environment variable "CLASS_ANALYZER_DEBUG"
+    public static boolean traceOn =
+            System.getProperty("classanalyzer.debug") != null ||
+            System.getenv("CLASS_ANALYZER_DEBUG") != null;
 
     public static void trace(String format, Object... params) {
         if (traceOn) {
