@@ -40,29 +40,24 @@ public class FilePaths {
 
     private FilePaths() { }
 
-    public static void deleteTree(Path root) {
+    public static void deleteTree(Path root) throws IOException {
 
-        // ## Why doesn't this method throw IOException?
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
 
             public FileVisitResult visitFile(Path p,
                                              BasicFileAttributes ba)
+                throws IOException
             {
-                try {
-                    p.delete();
-                } catch (IOException x) {
-                }
+                p.delete();
                 return FileVisitResult.CONTINUE;
             }
 
             public FileVisitResult postVisitDirectory(Path p,
                                                       IOException x)
+                throws IOException
             {
                 if (x == null) {
-                    try {
-                        p.delete();
-                    } catch (IOException y) {
-                    }
+                    p.delete();
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -93,7 +88,10 @@ public class FilePaths {
         final Path ftd = td;
         Runtime.getRuntime().addShutdownHook(new Thread() {
                 public void run() {
-                    deleteTree(ftd);
+                    try {
+                        deleteTree(ftd);
+                    } catch (IOException e) {
+                    }
                 }
             });
 

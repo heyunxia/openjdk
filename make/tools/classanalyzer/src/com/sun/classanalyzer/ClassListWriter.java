@@ -138,7 +138,7 @@ public class ClassListWriter {
                                 dynamic = false;
                             }
                         }
-                        if (!showDynamic && optional && dynamic) {
+                        if (!showDynamic && dynamic) {
                             continue;
                         }
 

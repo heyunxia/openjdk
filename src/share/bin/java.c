@@ -757,19 +757,19 @@ SetModulesBootClassPath(const char *jrepath)
     struct stat statbuf;
 
     /* return if jre/lib/rt.jar exists */
-    snprintf(pathname, sizeof(pathname), "%s%slib%srt.jar", jrepath, separator, separator);
+    JLI_Snprintf(pathname, sizeof(pathname), "%s%slib%srt.jar", jrepath, separator, separator);
     if (stat(pathname, &statbuf) == 0) {
         return;
     }
 
     /* return if jre/classes exists */
-    snprintf(pathname, sizeof(pathname), "%s%sclasses", jrepath, separator);
+    JLI_Snprintf(pathname, sizeof(pathname), "%s%sclasses", jrepath, separator);
     if (stat(pathname, &statbuf) == 0) {
         return;
     }
 
     /* modularized jre */
-    snprintf(pathname, sizeof(pathname), "%s%slib%smodules%s*", jrepath, separator, separator, separator);
+    JLI_Snprintf(pathname, sizeof(pathname), "%s%slib%smodules%s*", jrepath, separator, separator, separator);
     s = (char *) JLI_WildcardExpandDirectory(pathname);
     slen = JLI_StrLen(s);
     def = JLI_MemAlloc(vmoption_len+slen+1);
@@ -1812,11 +1812,8 @@ ReadKnownVMs(const char *jrepath, const char * arch, jboolean speculative)
     if (JLI_IsTraceLauncher()) {
         start = CounterGet();
     }
-
-    JLI_StrCpy(jvmCfgName, jrepath);
-    JLI_StrCat(jvmCfgName, FILESEP "lib" FILESEP);
-    JLI_StrCat(jvmCfgName, arch);
-    JLI_StrCat(jvmCfgName, FILESEP "jvm.cfg");
+    JLI_Snprintf(jvmCfgName, sizeof(jvmCfgName), "%s%slib%s%s%sjvm.cfg",
+        jrepath, FILESEP, FILESEP, arch, FILESEP);
 
     jvmCfg = fopen(jvmCfgName, "r");
     if (jvmCfg == NULL) {

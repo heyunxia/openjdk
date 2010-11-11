@@ -306,6 +306,16 @@ public class ModuleInfo {
             hash = 19 * hash + this.id.hashCode();
             return hash;
         }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (Dependence.Modifier mod : mods) {
+                sb.append(mod).append(" ");
+            }
+            sb.append(getModule().name());
+            return sb.toString();
+        }
     }
 
     static class PackageInfo implements Comparable<PackageInfo> {

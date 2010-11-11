@@ -52,6 +52,9 @@ module jdk.boot {
     include base;
     include unpack200-tool;
     include tools.jmod;
+
+    // FIXME: sun.net.NetHooks -> sun.net.sdp.SdpProvider
+    include sdp;
     class org.openjdk.jigsaw.Hi;    // testing
 }
 
@@ -139,7 +142,7 @@ module sun.jdbc {
     include jdbc;
 }
 
-module sun.legacy {
+module sun.compat {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include private-legacy;
     include net-compat;
@@ -246,6 +249,7 @@ module sun.jaas {
 
     // combine SASL with JAAS
     include security-sasl;
+    include security-sasl-ntlm;
 }
 
 module sun.jsse {
@@ -307,11 +311,11 @@ module sun.resources {
     include resources;
 }
 
-// Sun's platform extension (supported APIs)
+// Oracle's platform extension (supported APIs)
 module jdk.ext {
     requires local jdk.boot;   // loaded by bootstrap class loader
     include httpserver;
-    include sctp;
+    include net-ext;
 }
 
 // ## langtools maintains the list of modules and names

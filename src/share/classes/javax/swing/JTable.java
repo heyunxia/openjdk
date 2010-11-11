@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -946,7 +946,6 @@ public class JTable extends JComponent implements TableModelListener, Scrollable
 
     /**
      * Returns the height of a table row, in pixels.
-     * The default row height is 16.0.
      *
      * @return  the height in pixels of a table row
      * @see     #setRowHeight
@@ -2492,7 +2491,7 @@ public class JTable extends JComponent implements TableModelListener, Scrollable
      * The default value of this property is defined by the look
      * and feel implementation.
      * <p>
-     * This is a <a href="http://java.sun.com/docs/books/tutorial/javabeans/whatis/beanDefinition.html">JavaBeans</a> bound property.
+     * This is a <a href="http://java.sun.com/docs/books/tutorial/javabeans/properties/bound.html">JavaBeans</a> bound property.
      *
      * @param selectionForeground  the <code>Color</code> to use in the foreground
      *                             for selected list items
@@ -2530,7 +2529,7 @@ public class JTable extends JComponent implements TableModelListener, Scrollable
      * The default value of this property is defined by the look
      * and feel implementation.
      * <p>
-     * This is a <a href="http://java.sun.com/docs/books/tutorial/javabeans/whatis/beanDefinition.html">JavaBeans</a> bound property.
+     * This is a <a href="http://java.sun.com/docs/books/tutorial/javabeans/properties/bound.html">JavaBeans</a> bound property.
      *
      * @param selectionBackground  the <code>Color</code> to use for the background
      *                             of selected cells
@@ -4575,9 +4574,8 @@ public class JTable extends JComponent implements TableModelListener, Scrollable
      * @see TableColumnModelListener
      */
     public void columnMoved(TableColumnModelEvent e) {
-        // If I'm currently editing, then I should stop editing
-        if (isEditing()) {
-            removeEditor();
+        if (isEditing() && !getCellEditor().stopCellEditing()) {
+            getCellEditor().cancelCellEditing();
         }
         repaint();
     }
@@ -4594,8 +4592,8 @@ public class JTable extends JComponent implements TableModelListener, Scrollable
      * @see TableColumnModelListener
      */
     public void columnMarginChanged(ChangeEvent e) {
-        if (isEditing()) {
-            removeEditor();
+        if (isEditing() && !getCellEditor().stopCellEditing()) {
+            getCellEditor().cancelCellEditing();
         }
         TableColumn resizingColumn = getResizingColumn();
         // Need to do this here, before the parent's

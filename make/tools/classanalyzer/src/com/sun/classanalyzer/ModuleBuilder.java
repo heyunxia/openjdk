@@ -324,6 +324,11 @@ public class ModuleBuilder {
 
         // add dependencies due to the AnnotatedDependency
         for (Dependence d : AnnotatedDependency.getDependencies(m)) {
+            if (d.isOptional()) {
+                Trace.trace("Warning: annotated dependency from %s to %s ignored%n",
+                            m.name(), d.toString());
+                continue;
+            }
             addDependence(requires, d);
         }
 
