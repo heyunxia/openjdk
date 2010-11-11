@@ -71,7 +71,7 @@ else
         cp=`unzip -c "$mylib/#PROGRAM#.jar" META-INF/MANIFEST.MF |
             grep "Class-Path:" |
             sed -e 's|Class-Path: *||' -e 's|\([a-z]*\.jar\) *|'"$mylib"'/\1:|g'`
-        bcp="$mylib/#PROGRAM#.jar":$cp 
+        bcp="$mylib/#PROGRAM#.jar"#PS#$cp 
     fi
     langtools="${bcp:+-Xbootclasspath/p:"$bcp"}"
     tool="-jar$nl\"${mydir}\"/../lib/#PROGRAM#.jar"

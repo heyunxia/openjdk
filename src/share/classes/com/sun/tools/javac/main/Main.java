@@ -32,6 +32,9 @@ import java.net.URL;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.MissingResourceException;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
+import javax.annotation.processing.Processor;
 
 import com.sun.tools.javac.code.Source;
 import com.sun.tools.javac.file.CacheFSInfo;
@@ -41,9 +44,6 @@ import com.sun.tools.javac.main.JavacOption.Option;
 import com.sun.tools.javac.main.RecognizedOptions.OptionHelper;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.processing.AnnotationProcessingError;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.annotation.processing.Processor;
 
 import static com.sun.tools.javac.main.OptionName.*;
 
@@ -241,17 +241,16 @@ public class Main {
             }
         }
 
-        if (!checkDirectory("-d"))
+        if (!checkDirectory(D))
             return null;
-        if (!checkDirectory("-s"))
+        if (!checkDirectory(S))
             return null;
 
-        String sourceString = options.get("-source");
-
+        String sourceString = options.get(SOURCE);
         Source source = (sourceString != null)
             ? Source.lookup(sourceString)
             : Source.DEFAULT;
-        String targetString = options.get("-target");
+        String targetString = options.get(TARGET);
         Target target = (targetString != null)
             ? Target.lookup(targetString)
             : Target.DEFAULT;
@@ -283,6 +282,13 @@ public class Main {
                     options.put("-target", target.name);
                 }
             }
+        }
+
+        // phase this out with JSR 292 PFD
+        if ("no".equals(options.get("allowTransitionalJSR292"))) {
+            options.put("allowTransitionalJSR292", null);
+        } else if (target.hasInvokedynamic() && options.isUnset("allowTransitionalJSR292")) {
+            options.put("allowTransitionalJSR292", "allowTransitionalJSR292");
         }
 
 
@@ -327,7 +333,7 @@ public class Main {
         return filenames.toList();
     }
     // where
-        private boolean checkDirectory(String optName) {
+        private boolean checkDirectory(OptionName optName) {
             String value = options.get(optName);
             if (value == null)
                 return true;
@@ -394,10 +400,10 @@ public class Main {
                     return EXIT_CMDERR;
                 } else if (files.isEmpty() && fileObjects.isEmpty() && classnames.isEmpty()) {
                     // it is allowed to compile nothing if just asking for help or version info
-                    if (options.get("-help") != null
-                        || options.get("-X") != null
-                        || options.get("-version") != null
-                        || options.get("-fullversion") != null)
+                    if (options.isSet(HELP)
+                        || options.isSet(X)
+                        || options.isSet(VERSION)
+                        || options.isSet(FULLVERSION))
                         return EXIT_OK;
                     error("err.no.source.files");
                     return EXIT_CMDERR;
@@ -409,7 +415,7 @@ public class Main {
                 return EXIT_SYSERR;
             }
 
-            boolean forceStdOut = options.get("stdout") != null;
+            boolean forceStdOut = options.isSet("stdout");
             if (forceStdOut) {
                 out.flush();
                 out = new PrintWriter(System.out, true);
@@ -418,7 +424,7 @@ public class Main {
             context.put(Log.outKey, out);
 
             // allow System property in following line as a Mustang legacy
-            boolean batchMode = (options.get("nonBatchMode") == null
+            boolean batchMode = (options.isUnset("nonBatchMode")
                         && System.getProperty("nonBatchMode") == null);
             if (batchMode)
                 CacheFSInfo.preRegister(context);
@@ -482,7 +488,7 @@ public class Main {
             // for buggy compiler error recovery by swallowing thrown
             // exceptions.
             if (comp == null || comp.errorCount() == 0 ||
-                options == null || options.get("dev") != null)
+                options == null || options.isSet("dev"))
                 bugMessage(ex);
             return EXIT_ABNORMAL;
         } finally {
@@ -501,10 +507,13 @@ public class Main {
         ex.printStackTrace(out);
     }
 
-    /** Print a message reporting an fatal error.
+    /** Print a message reporting a fatal error.
      */
     void feMessage(Throwable ex) {
         Log.printLines(out, ex.getMessage());
+        if (ex.getCause() != null && options.isSet("dev")) {
+            ex.getCause().printStackTrace(out);
+        }
     }
 
     /** Print a message reporting an input/output error.

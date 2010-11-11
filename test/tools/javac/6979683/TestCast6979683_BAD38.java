@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,20 +23,18 @@
 
 /*
  * @test
- * @bug     6266828
- * @summary JSR 269: Java Language Model API
- * @author  Peter von der Ah\u00e9
+ * @bug 6979683
+ * @summary Verify that casts can narrow and unbox at the same time
+ * @author jrose
+ *
+ * @compile/fail/ref=TestCast6979683_BAD38.java.errlog -XDrawDiagnostics TestCast6979683_BAD38.java
  */
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 
-public class Xprint {
-    public static void main(String[] args) {
-        JavaCompiler javac = ToolProvider.getSystemJavaCompiler();
-        javac.run(System.in, null, null,
-                  "-Xprint",
-                  "com.sun.tools.javac.code.Types",
-                  "com.sun.tools.javac.parser.Parser",
-                  "java.util.EnumSet");
-    }
+public class TestCast6979683_BAD38 {
+    //...
+    //...
+    //...
+    //...
+    static float cconvBAD1(Comparable<Character> o) { return o; } //BAD
+    //...
 }

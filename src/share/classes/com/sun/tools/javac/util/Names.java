@@ -104,7 +104,6 @@ public class Names {
     public final Name RuntimeInvisibleTypeAnnotations;
     public final Name RuntimeVisibleParameterAnnotations;
     public final Name RuntimeInvisibleParameterAnnotations;
-    public final Name PolymorphicSignature;
     public final Name Value;
     public final Name EnclosingMethod;
     public final Name desiredAssertionStatus;
@@ -117,6 +116,7 @@ public class Names {
     public final Name value;
     public final Name getMessage;
     public final Name getClass;
+    public final Name invoke;  //allowTransitionalJSR292 only
     public final Name TYPE;
     public final Name TYPE_USE;
     public final Name TYPE_PARAMETER;
@@ -227,7 +227,6 @@ public class Names {
         RuntimeInvisibleTypeAnnotations = fromString("RuntimeInvisibleTypeAnnotations");
         RuntimeVisibleParameterAnnotations = fromString("RuntimeVisibleParameterAnnotations");
         RuntimeInvisibleParameterAnnotations = fromString("RuntimeInvisibleParameterAnnotations");
-        PolymorphicSignature = fromString("PolymorphicSignature");
         Value = fromString("Value");
         EnclosingMethod = fromString("EnclosingMethod");
 
@@ -242,6 +241,7 @@ public class Names {
         value = fromString("value");
         getMessage = fromString("getMessage");
         getClass = fromString("getClass");
+        invoke = fromString("invoke");  //allowTransitionalJSR292 only
 
         TYPE = fromString("TYPE");
         TYPE_USE = fromString("TYPE_USE");
@@ -293,7 +293,7 @@ public class Names {
     }
 
     protected Name.Table createTable(Options options) {
-        boolean useUnsharedTable = options.get("useUnsharedTable") != null;
+        boolean useUnsharedTable = options.isSet("useUnsharedTable");
         if (useUnsharedTable)
             return new UnsharedNameTable(this);
         else

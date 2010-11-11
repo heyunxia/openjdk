@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -163,8 +163,8 @@ public class JavacFileManager
 
         useZipFileIndex = System.getProperty("useJavaUtilZip") == null;// TODO: options.get("useJavaUtilZip") == null;
 
-        mmappedIO = options.get("mmappedIO") != null;
-        ignoreSymbolFile = options.get("ignore.symbol.file") != null;
+        mmappedIO = options.isSet("mmappedIO");
+        ignoreSymbolFile = options.isSet("ignore.symbol.file");
     }
 
     public JavaFileObject getFileForInput(String name) {
@@ -662,7 +662,7 @@ public class JavacFileManager
                     zdir = new ZipFile(zipFileName);
                 }
                 else {
-                    usePreindexedCache = options.get("usezipindex") != null;
+                    usePreindexedCache = options.isSet("usezipindex");
                     preindexCacheLocation = options.get("java.io.tmpdir");
                     String optCacheLoc = options.get("cachezipindexdir");
 
@@ -696,7 +696,7 @@ public class JavacFileManager
                                     null,
                                     usePreindexedCache,
                                     preindexCacheLocation,
-                                    options.get("writezipindexfiles") != null));
+                                    options.isSet("writezipindexfiles")));
                     }
                 }
                 else {
@@ -709,7 +709,7 @@ public class JavacFileManager
                                     symbolFilePrefix,
                                     usePreindexedCache,
                                     preindexCacheLocation,
-                                    options.get("writezipindexfiles") != null));
+                                    options.isSet("writezipindexfiles")));
                     }
                 }
             } catch (FileNotFoundException ex) {
@@ -845,7 +845,7 @@ public class JavacFileManager
         nullCheck(className);
         nullCheck(kind);
         if (!sourceOrClass.contains(kind))
-            throw new IllegalArgumentException("Invalid kind " + kind);
+            throw new IllegalArgumentException("Invalid kind: " + kind);
         return getFileForInput(location, RelativeFile.forClass(className, kind), kind);
     }
 
@@ -910,7 +910,7 @@ public class JavacFileManager
         nullCheck(className);
         nullCheck(kind);
         if (!sourceOrClass.contains(kind))
-            throw new IllegalArgumentException("Invalid kind " + kind);
+            throw new IllegalArgumentException("Invalid kind: " + kind);
         return getFileForOutput(location, RelativeFile.forClass(className, kind), sibling);
     }
 
@@ -924,7 +924,7 @@ public class JavacFileManager
         // validatePackageName(packageName);
         nullCheck(packageName);
         if (!isRelativeUri(relativeName))
-            throw new IllegalArgumentException("relativeName is invalid");
+            throw new IllegalArgumentException("Invalid relative name: " + relativeName);
         RelativeFile name = packageName.length() == 0
             ? new RelativeFile(relativeName)
             : new RelativeFile(RelativeDirectory.forPackage(packageName), relativeName);
@@ -1116,6 +1116,8 @@ public class JavacFileManager
             return false;
         String path = uri.normalize().getPath();
         if (path.length() == 0 /* isEmpty() is mustang API */)
+            return false;
+        if (!path.equals(uri.getPath())) // implicitly checks for embedded . and ..
             return false;
         char first = path.charAt(0);
         return first != '.' && first != '/';

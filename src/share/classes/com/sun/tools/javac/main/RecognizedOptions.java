@@ -161,6 +161,7 @@ public class RecognizedOptions {
         XMAXERRS,
         XMAXWARNS,
         XSTDOUT,
+        XPKGINFO,
         XPRINT,
         XPRINTROUNDS,
         XPRINTPROCESSORINFO,
@@ -220,6 +221,7 @@ public class RecognizedOptions {
         XMAXERRS,
         XMAXWARNS,
         // XSTDOUT,
+        XPKGINFO,
         XPRINT,
         XPRINTROUNDS,
         XPRINTPROCESSORINFO,
@@ -545,6 +547,9 @@ public class RecognizedOptions {
         new XOption(XPREFER,                                    "opt.prefer",
                 Option.ChoiceKind.ONEOF, "source", "newer"),
 
+        new XOption(XPKGINFO,                                   "opt.pkginfo",
+                Option.ChoiceKind.ONEOF, "always", "legacy", "nonempty"),
+
         /* -O is a no-op, accepted for backward compatibility. */
         new HiddenOption(O),
 
@@ -613,6 +618,16 @@ public class RecognizedOptions {
             }
         },
     };
+    }
+
+    public enum PkgInfo {
+        ALWAYS, LEGACY, NONEMPTY;
+        public static PkgInfo get(Options options) {
+            String v = options.get(XPKGINFO);
+            return (v == null
+                    ? PkgInfo.LEGACY
+                    : PkgInfo.valueOf(v.toUpperCase()));
+        }
     }
 
     private static Map<String,Boolean> getXLintChoices() {
