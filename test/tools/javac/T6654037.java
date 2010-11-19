@@ -52,7 +52,7 @@ public class T6654037 {
 
         JavacTaskImpl ct = (JavacTaskImpl) tool.getTask(null, null, null, Arrays.asList("-bootclasspath", bootPath, "-Xjcov"), null, Arrays.asList(new MyFileObject(code)));
         CompilationUnitTree cut = ct.parse().iterator().next();
-        ClassTree clazz = (ClassTree) cut.getTypeDecls().get(0);
+        ClassTree clazz = (ClassTree) cut.getTypeDecls().get(1);
         MethodTree method = (MethodTree) clazz.getMembers().get(0);
         VariableTree condSt = (VariableTree) method.getBody().getStatements().get(1);
         BinaryTree cond = (BinaryTree) condSt.getInitializer();

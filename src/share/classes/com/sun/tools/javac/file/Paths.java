@@ -29,19 +29,22 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.LinkedHashSet;
 import java.util.StringTokenizer;
 import java.util.zip.ZipFile;
 import javax.tools.JavaFileManager.Location;
+import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.Lint;
+import com.sun.tools.javac.main.OptionName;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
@@ -49,10 +52,11 @@ import com.sun.tools.javac.util.Options;
 import static javax.tools.StandardLocation.*;
 import static com.sun.tools.javac.main.OptionName.*;
 
-/** This class converts command line arguments, environment variables
+/**
+ *  This class converts command line arguments, environment variables
  *  and system properties (in File.pathSeparator-separated String form)
  *  into a boot class path, user class path, and source path (in
- *  Collection<String> form).
+ *  Collection<PathEntry> form).
  *
  *  <p><b>This is NOT part of any supported API.
  *  If you write code that depends on this, you do so at your own risk.
@@ -134,6 +138,8 @@ public class Paths {
                 p = computeAnnotationProcessorPath();
             else if (location == SOURCE_PATH)
                 p = computeSourcePath();
+            else if (location == MODULE_PATH)
+                p = computeModulePath();
             else
                 // no defaults for other paths
                 p = null;
@@ -159,18 +165,18 @@ public class Paths {
 
     public Collection<File> bootClassPath() {
         lazy();
-        return Collections.unmodifiableCollection(getPathForLocation(PLATFORM_CLASS_PATH));
+        return getPathForLocation(PLATFORM_CLASS_PATH).toFiles();
     }
+
     public Collection<File> userClassPath() {
         lazy();
-        return Collections.unmodifiableCollection(getPathForLocation(CLASS_PATH));
+        return getPathForLocation(CLASS_PATH).toFiles();
     }
+
     public Collection<File> sourcePath() {
         lazy();
         Path p = getPathForLocation(SOURCE_PATH);
-        return p == null || p.size() == 0
-            ? null
-            : Collections.unmodifiableCollection(p);
+        return (p == null || p.size() == 0 ? null : p.toFiles());
     }
 
     boolean isBootClassPathRtJar(File file) {
@@ -211,11 +217,84 @@ public class Paths {
         return entries;
     }
 
-    private class Path extends LinkedHashSet<File> {
+    static class PathLocation implements Location {
+        final Path path;
+        final String name;
+        static int count;
+
+        PathLocation(Path p) {
+            path = p;
+            //name = "pathLocation#" + (count++) + p;
+            name = "pathLocation#" + (count++) + "(path=" + p + ")";
+        }
+
+        PathLocation(Path p, String name) {
+            path = p;
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public boolean isOutputLocation() {
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return getName();
+        }
+    }
+
+    class PathEntry {
+        PathEntry(File file) {
+            this(file, allKinds);
+        }
+
+        PathEntry(File file, Set<JavaFileObject.Kind> kinds) {
+            file.getClass(); // null check
+            kinds.getClass(); // null check
+            this.file = file;
+            this.canonFile = fsInfo.getCanonicalFile(file);
+            this.kinds = kinds;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other)
+                return true;
+            if (!(other instanceof PathEntry))
+                return false;
+            PathEntry o = (PathEntry) other;
+            return canonFile.equals(o.canonFile) && kinds.equals(o.kinds);
+        }
+
+        @Override
+        public int hashCode() {
+            return canonFile.hashCode() + kinds.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            if (kinds.equals(allKinds))
+                return file.getPath();
+            else
+                return "" + file + kinds;
+        }
+
+        final File file;
+        final File canonFile;
+        final Set<JavaFileObject.Kind> kinds;
+    }
+
+    private static final Set<JavaFileObject.Kind> allKinds =
+                    EnumSet.allOf(JavaFileObject.Kind.class);
+
+    class Path extends LinkedHashSet<PathEntry> {
         private static final long serialVersionUID = 0;
 
         private boolean expandJarClassPaths = false;
-        private Set<File> canonicalValues = new HashSet<File>();
 
         public Path expandJarClassPaths(boolean x) {
             expandJarClassPaths = x;
@@ -230,8 +309,18 @@ public class Paths {
             return this;
         }
 
-        public Path() { super(); }
+        /** Notional set of acceptable file kinds for this type of path. */
+        private Set<JavaFileObject.Kind> acceptedKinds = EnumSet.allOf(JavaFileObject.Kind.class);
 
+        public Path acceptKinds(Set<JavaFileObject.Kind> kinds) {
+            acceptedKinds = kinds;
+            return this;
+        }
+
+        /** Add all the jar files found in one or more directories.
+         *  @param dirs one or more directories separated by path separator char
+         *  @param whether to generate a warning if a given directory does not exist
+         */
         public Path addDirectories(String dirs, boolean warn) {
             if (dirs != null)
                 for (File dir : getPathEntries(dirs))
@@ -239,10 +328,18 @@ public class Paths {
             return this;
         }
 
+        /** Add all the jar files found in one or more directories.
+         *  Warnings about non-existent directories are given iff Paths.warn is set.
+         *  @param dirs one or more directories separated by path separator char
+         */
         public Path addDirectories(String dirs) {
             return addDirectories(dirs, warn);
         }
 
+        /** Add all the jar files found in a directory.
+         *  @param dirs one or more directories separated by path separator char
+         *  @param whether to generate a warning if a given directory does not exist
+         */
         private void addDirectory(File dir, boolean warn) {
             if (!dir.isDirectory()) {
                 if (warn)
@@ -261,6 +358,10 @@ public class Paths {
             }
         }
 
+        /** Add directories and archive files.
+         *  @param files one or more directories and archive files separated by path separator char
+         *  @param whether to generate a warning if a given entry does not exist
+         */
         public Path addFiles(String files, boolean warn) {
             if (files != null)
                 for (File file : getPathEntries(files, emptyPathDefault))
@@ -268,13 +369,21 @@ public class Paths {
             return this;
         }
 
+        /** Add directories and archive files.
+         *  Warnings about non-existent directories are given iff Paths.warn is set.
+         *  @param files one or more directories and archive files separated by path separator char
+         */
         public Path addFiles(String files) {
             return addFiles(files, warn);
         }
 
+        /** Add a directory or archive file.
+         *  @param directory or archive file to be added
+         *  @param whether to generate a warning if the file does not exist
+         */
         public void addFile(File file, boolean warn) {
-            File canonFile = fsInfo.getCanonicalFile(file);
-            if (contains(file) || canonicalValues.contains(canonFile)) {
+            PathEntry entry = new PathEntry(file, acceptedKinds);
+            if (contains(entry)) {
                 /* Discard duplicates and avoid infinite recursion */
                 return;
             }
@@ -310,8 +419,7 @@ public class Paths {
 
             /* Now what we have left is either a directory or a file name
                confirming to archive naming convention */
-            super.add(file);
-            canonicalValues.add(canonFile);
+            super.add(entry);
 
             if (expandJarClassPaths && fsInfo.exists(file) && fsInfo.isFile(file))
                 addJarClassPath(file, warn);
@@ -329,6 +437,32 @@ public class Paths {
             } catch (IOException e) {
                 log.error("error.reading.file", jarFile, JavacFileManager.getMessage(e));
             }
+        }
+
+        void addAll(Iterable<PathEntry> entries, Set<JavaFileObject.Kind> kinds) {
+            for (PathEntry e: entries) {
+                if (kinds.containsAll(e.kinds))
+                    add(e);
+                else {
+                    Set<JavaFileObject.Kind> k = EnumSet.copyOf(kinds);
+                    k.retainAll(e.kinds);
+                    if (!k.isEmpty())
+                        add(new PathEntry(e.file, k));
+                }
+            }
+        }
+
+        Collection<File> toFiles() {
+            List<File> files = List.nil();
+            for (PathEntry e: this)
+                files = files.prepend(e.file);
+            return files.reverse();
+        }
+
+        // DEBUG
+        @Override
+        public String toString() {
+            return "Path(" + super.toString() + ")";
         }
     }
 
@@ -398,6 +532,14 @@ public class Paths {
         return new Path().addFiles(sourcePathArg);
     }
 
+    private Path computeModulePath() {
+        String modulePathArg = options.get(MODULEPATH);
+        if (modulePathArg == null)
+            return null;
+
+        return new Path().addFiles(modulePathArg);
+    }
+
     private Path computeAnnotationProcessorPath() {
         String processorPathArg = options.get(PROCESSORPATH);
         if (processorPathArg == null)
@@ -409,7 +551,7 @@ public class Paths {
     /** The actual effective locations searched for sources */
     private Path sourceSearchPath;
 
-    public Collection<File> sourceSearchPath() {
+    Collection<PathEntry> sourceSearchPath() {
         if (sourceSearchPath == null) {
             lazy();
             Path sourcePath = getPathForLocation(SOURCE_PATH);
@@ -422,7 +564,7 @@ public class Paths {
     /** The actual effective locations searched for classes */
     private Path classSearchPath;
 
-    public Collection<File> classSearchPath() {
+    Collection<PathEntry> classSearchPath() {
         if (classSearchPath == null) {
             lazy();
             Path bootClassPath = getPathForLocation(PLATFORM_CLASS_PATH);
@@ -437,7 +579,7 @@ public class Paths {
     /** The actual effective locations for non-source, non-class files */
     private Path otherSearchPath;
 
-    Collection<File> otherSearchPath() {
+    Collection<PathEntry> otherSearchPath() {
         if (otherSearchPath == null) {
             lazy();
             Path userClassPath = getPathForLocation(CLASS_PATH);
@@ -451,6 +593,71 @@ public class Paths {
             }
         }
         return Collections.unmodifiableCollection(otherSearchPath);
+    }
+
+    /**
+     * Get any classes that should appear before the main platform classes.
+     * For compatibility, this is the classes defined by -Xbootclasspath/p:
+     * and the contents of the endorsed directories.
+     * See computeBootClassPath() for the full definition of the legacy
+     * platform class path.
+     */
+    Path getPlatformPathPrepend() {
+        //return getPathForOption(XBOOTCLASSPATH_PREPEND, EnumSet.of(JavaFileObject.Kind.CLASS));
+        Path path = new Path().acceptKinds(EnumSet.of(JavaFileObject.Kind.CLASS));
+
+        path.addFiles(options.get(XBOOTCLASSPATH_PREPEND));
+
+        String optionValue;
+        if ((optionValue = options.get(ENDORSEDDIRS)) != null)
+            path.addDirectories(optionValue);
+        else
+            path.addDirectories(System.getProperty("java.endorsed.dirs"), false);
+
+        return (path.size() == 0 ? null : path);
+    }
+
+    /**
+     * Get the main platform classes.
+     * For now, this is just the classes defined by -bootclasspath or -Xbootclasspath.
+     * See computeBootClassPath() for the full definition of the legacy
+     * platform class path.
+     */
+    Path getPlatformPathBase() {
+        return getPathForOption(BOOTCLASSPATH, EnumSet.of(JavaFileObject.Kind.CLASS));
+    }
+
+    /**
+     * Get any classes that should appear after the main platform classes.
+     * For compatibility, this is the classes defined by -Xbootclasspath/a:
+     * and the contents of the extension directories.
+     * See computeBootClassPath() for the full definition of the legacy
+     * platform class path.
+     */
+    Path getPlatformPathAppend() {
+        //return getPathForOption(XBOOTCLASSPATH_APPEND, EnumSet.of(JavaFileObject.Kind.CLASS));
+        Path path = new Path().acceptKinds(EnumSet.of(JavaFileObject.Kind.CLASS));
+
+        path.addFiles(options.get(XBOOTCLASSPATH_APPEND));
+
+        // Strictly speaking, standard extensions are not bootstrap
+        // classes, but we treat them identically, so we'll pretend
+        // that they are.
+        String optionValue;
+        if ((optionValue = options.get(EXTDIRS)) != null)
+            path.addDirectories(optionValue);
+        else
+            path.addDirectories(System.getProperty("java.ext.dirs"), false);
+
+        return (path.size() == 0 ? null : path);
+    }
+
+    private Path getPathForOption(OptionName o, Set<JavaFileObject.Kind> kinds) {
+        String v = options.get(o);
+        if (v == null)
+            return null;
+
+        return new Path().acceptKinds(kinds).addFiles(v);
     }
 
     /** Is this the name of an archive file? */

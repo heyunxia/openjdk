@@ -52,7 +52,12 @@ public class T6877206 {
     Set<String> foundJars = new TreeSet<String>();
 
     void run() throws Exception {
-        File rt_jar = findRtJar();
+        javaHome = new File(System.getProperty("java.home"));
+        if (javaHome.getName().equals("jre"))
+            javaHome = javaHome.getParentFile();
+        boolean modularJDK = file(javaHome, "lib", "modules", "%jigsaw-library").exists();
+
+        File rt_jar = modularJDK ? null : findRtJar();
 
         // names for entries to be created in directories and jar files
         String[] entries = { "p/A.class", "p/resources/A-1.jpg" };
@@ -67,18 +72,25 @@ public class T6877206 {
             test(createFileManager(useJavaUtilZip), createJar("jar", entries), "p", entries.length);
             test(createFileManager(useJavaUtilZip), createJar("jar jar", entries), "p", entries.length);
 
-            for (boolean useSymbolFile: new boolean[] { false, true }) {
-                test(createFileManager(useJavaUtilZip, useSymbolFile), rt_jar, "java.lang.ref", -1);
+            if (!modularJDK) {
+                for (boolean useSymbolFile: new boolean[] { false, true }) {
+                    test(createFileManager(useJavaUtilZip, useSymbolFile), rt_jar, "java.lang.ref", -1);
+                }
             }
         }
 
         // Verify that we hit all the impl classes we intended
-        checkCoverage("classes", foundClasses,
-                "RegularFileObject", "SymbolFileObject", "ZipFileIndexFileObject", "ZipFileObject");
+        Set<String> expectClasses = new HashSet<String>(Arrays.asList(
+                "RegularFileObject", "ZipFileIndexFileObject", "ZipFileObject"));
+        if (!modularJDK)
+            expectClasses.add("SymbolFileObject");
+        checkCoverage("classes", foundClasses, expectClasses);
 
         // Verify that we hit the jar files we intended, specifically ct.sym as well as rt.jar
-        checkCoverage("jar files", foundJars,
-                "ct.sym", "jar", "jar jar", "rt.jar");
+        Set<String> expectJars = new HashSet<String>(Arrays.asList("jar", "jar jar"));
+        if (!modularJDK)
+            expectJars.addAll(Arrays.asList("ct.sym", "rt.jar"));
+        checkCoverage("jar files", foundJars, expectJars);
     }
 
     // use a new file manager for each test
@@ -149,11 +161,10 @@ public class T6877206 {
         }
     }
 
-    void checkCoverage(String label, Set<String> found, String... expect) throws Exception {
-        Set<String> e = new TreeSet<String>(Arrays.asList(expect));
-        if (!found.equals(e)) {
-            e.removeAll(found);
-            throw new Exception("expected " + label + " not used: " + e);
+    void checkCoverage(String label, Set<String> found, Set<String> expect) throws Exception {
+        if (!found.equals(expect)) {
+            expect.removeAll(found);
+            throw new Exception("expected " + label + " not used: " + expect);
         }
     }
 
@@ -226,10 +237,7 @@ public class T6877206 {
     }
 
     File findRtJar() throws Exception {
-        File java_home = new File(System.getProperty("java.home"));
-        if (java_home.getName().equals("jre"))
-            java_home = java_home.getParentFile();
-        File rt_jar = new File(new File(new File(java_home, "jre"), "lib"), "rt.jar");
+        File rt_jar = file(javaHome, "jre", "lib", "rt.jar");
         if (!rt_jar.exists())
             throw new Exception("can't find rt.jar");
         return rt_jar;
@@ -259,5 +267,14 @@ public class T6877206 {
         } finally {
             out.close();
         }
+    }
+
+    File javaHome;
+
+    static File file(File dir, String... path) {
+        File f = dir;
+        for (String p: path)
+            f = new File(f, p);
+        return f;
     }
 }

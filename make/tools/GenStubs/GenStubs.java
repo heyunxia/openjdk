@@ -310,7 +310,7 @@ public class GenStubs {
                 }
                 defs.add(def);
             }
-            return m.TopLevel(tree.packageAnnotations, tree.pid, defs.toList());
+            return m.TopLevel(defs.toList());
         }
 
         @Override

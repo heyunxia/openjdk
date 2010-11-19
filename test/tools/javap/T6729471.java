@@ -31,14 +31,16 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.jar.*;
+import java.util.zip.*;
 
 public class T6729471
 {
-    public static void main(String... args) {
+    public static void main(String... args) throws Exception {
         new T6729471().run();
     }
 
-    void run() {
+    void run() throws Exception {
         // simple class
         verify("java.util.Map",
                 "public abstract boolean containsKey(java.lang.Object)");
@@ -55,16 +57,29 @@ public class T6729471
         verify("file:../classes/tools/javap/T6729471.class",
                 "public static void main(java.lang.String...)");
 
+        // jar url: local jar
+        File my_jar = createJar("my.jar", getClasses(Map.class));
+        try {
+            verify("jar:" + my_jar.toURL() + "!/java/util/Map.class",
+                "public abstract boolean containsKey(java.lang.Object)");
+        } catch (MalformedURLException e) {
+            error(e.toString());
+        }
+
         // jar url: rt.jar
         File java_home = new File(System.getProperty("java.home"));
         if (java_home.getName().equals("jre"))
             java_home = java_home.getParentFile();
         File rt_jar = new File(new File(new File(java_home, "jre"), "lib"), "rt.jar");
-        try {
-            verify("jar:" + rt_jar.toURL() + "!/java/util/Map.class",
-                "public abstract boolean containsKey(java.lang.Object)");
-        } catch (MalformedURLException e) {
-            error(e.toString());
+        if (rt_jar.exists()) {
+            try {
+                verify("jar:" + rt_jar.toURL() + "!/java/util/Map.class",
+                    "public abstract boolean containsKey(java.lang.Object)");
+            } catch (MalformedURLException e) {
+                error(e.toString());
+            }
+        } else {
+            System.err.println("warning: rt.jar not found; test skipped");
         }
 
         // jar url: ct.sym, if it exists
@@ -76,8 +91,9 @@ public class T6729471
             } catch (MalformedURLException e) {
                 error(e.toString());
             }
-        } else
-            System.err.println("warning: ct.sym not found");
+        } else {
+            System.err.println("warning: ct.sym not found; test skipped");
+        }
 
         if (errors > 0)
             throw new Error(errors + " found.");
@@ -113,6 +129,49 @@ public class T6729471
         if (output.indexOf("Error:") != -1)
             throw new Error("javap reported error.");
         return output;
+    }
+
+    Map<String,byte[]> getClasses(Class... classes) throws IOException {
+        ClassLoader cl = getClass().getClassLoader();
+        Map<String,byte[]> results = new HashMap<String, byte[]>();
+        for (Class c: classes) {
+            String name = c.getName().replace(".", "/") + ".class";
+            byte[] data = read(cl.getResourceAsStream(name));
+            results.put(name, data);
+        }
+        return results;
+    }
+
+    byte[] read(InputStream in) throws IOException {
+        try {
+            byte[] data = new byte[8192];
+            int offset = 0;
+            int n;
+            while ((n = in.read(data, offset, data.length - offset)) >= 0) {
+                offset += n;
+                if (offset == data.length)
+                    data = Arrays.copyOf(data, 2 * data.length);
+            }
+            return data;
+        } finally {
+            in.close();
+        }
+    }
+
+    File createJar(String name, Map<String, byte[]> entries) throws IOException {
+        File jar = new File(name);
+        OutputStream out = new FileOutputStream(jar);
+        try {
+            JarOutputStream jos = new JarOutputStream(out);
+            for (Map.Entry<String,byte[]> e: entries.entrySet()) {
+                jos.putNextEntry(new ZipEntry(e.getKey()));
+                jos.write(e.getValue());
+            }
+            jos.close();
+        } finally {
+            out.close();
+        }
+        return jar;
     }
 }
 

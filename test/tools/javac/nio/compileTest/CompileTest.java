@@ -41,16 +41,32 @@ import java.nio.file.spi.FileSystemProvider;
 
 
 public class CompileTest {
+    static File javaHome;
+
+    static File file(File dir, String... path) {
+        File f = dir;
+        for (String p: path)
+            f = new File(f, p);
+        return f;
+    }
+
     public static void main(String[] args) throws Exception {
+        javaHome = new File(System.getProperty("java.home"));
+        if (javaHome.getName().equals("jre"))
+            javaHome = javaHome.getParentFile();
+
+        if (file(javaHome, "lib", "modules", "%jigsaw-library").exists()
+                && !file(javaHome, "jre", "lib", "rt.jar").exists()) {
+            System.err.println("PASS BY DEFAULT: modular JDK found with no rt.jar");
+            return;
+        }
+
         new CompileTest().run();
     }
 
     public void run() throws Exception {
         File rtDir = new File("rt.dir");
-        File javaHome = new File(System.getProperty("java.home"));
-        if (javaHome.getName().equals("jre"))
-            javaHome = javaHome.getParentFile();
-        File rtJar = new File(new File(new File(javaHome, "jre"), "lib"), "rt.jar");
+        File rtJar = file(javaHome, "jre", "lib", "rt.jar");
         expand(rtJar, rtDir);
 
         String[] rtDir_opts = {

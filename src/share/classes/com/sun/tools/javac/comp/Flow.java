@@ -1381,6 +1381,10 @@ public class Flow extends TreeScanner {
         // Do nothing for TopLevel since each class is visited individually
     }
 
+    public void visitModuleDef(JCModuleDecl tree) {
+        // Do nothing for modules
+    }
+
 /**************************************************************************
  * utility methods for ignoring type-annotated casts lint checking
  *************************************************************************/
