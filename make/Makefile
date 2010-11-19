@@ -240,13 +240,21 @@ import_product:
 all build:: sanity-all post-sanity-all
 
 SUBDIRS       = tools java javax sun com
-SUBDIRS_tools = launchers
 SUBDIRS_misc  = org sunw jpda mkdemo mksample
+
+# tools/classanalyzer depends on the com.sun.tools.classfile library
+# added in jdk 7.  Build it after java is built.
+SUBDIRS_tools = tools/classanalyzer launchers
 
 include $(BUILDDIR)/common/Subdirs.gmk
 
 all build::
 	$(SUBDIRS-loop)
+	@#
+	@# Modularize the JDK; make separately from SUBDIRS-loop
+	@# and do it after it finishes making all SUBDIRS* as 
+	@# specified in BUILD_MODULES.
+	$(CD) modules; $(MAKE) all
 
 clean clobber::
 	$(RM) -r $(OUTPUTDIR)
@@ -361,10 +369,16 @@ $(OUTPUTDIR)/test_failures.txt: $(OUTPUTDIR)/test_log.txt
 	@$(RM) $@
 	@( $(EGREP) '^FAILED:' $< || $(ECHO) "" ) | $(NAWK) 'length>0' > $@
 
+# The resulting full jdk image (legacy or module image)
+JDK_IMAGE_NAME=j2sdk-image
+ifdef BUILD_MODULES
+  JDK_IMAGE_NAME=jdk-module-image
+endif
+
 # Get log file of all tests run
 JDK_TO_TEST := $(shell 							\
-  if [ -d "$(ABS_OUTPUTDIR)/j2sdk-image" ] ; then 			\
-    $(ECHO) "$(ABS_OUTPUTDIR)/j2sdk-image"; 				\
+  if [ -d "$(ABS_OUTPUTDIR)/$(JDK_IMAGE_NAME)" ] ; then 		\
+    $(ECHO) "$(ABS_OUTPUTDIR)/$(JDK_IMAGE_NAME)"; 			\
   elif [ -d "$(ABS_OUTPUTDIR)/bin" ] ; then 				\
     $(ECHO) "$(ABS_OUTPUTDIR)"; 					\
   elif [ "$(PRODUCT_HOME)" != "" -a -d "$(PRODUCT_HOME)/bin" ] ; then 	\

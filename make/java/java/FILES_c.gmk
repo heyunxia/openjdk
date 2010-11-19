@@ -79,4 +79,5 @@ FILES_c = \
 	AtomicLong.c \
 	Version.c \
 	VM.c \
-	VMSupport.c 
+	VMSupport.c \
+        BootLoader.c
