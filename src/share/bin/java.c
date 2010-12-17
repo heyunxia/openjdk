@@ -69,6 +69,8 @@ static char     *showSettings = NULL;      /* print but continue */
 
 static const char *_program_name;
 static const char *_launcher_name;
+static const char *_module_name;
+static const char *_module_version;
 static jboolean _is_java_args = JNI_FALSE;
 static const char *_fVersion;
 static const char *_dVersion;
@@ -96,13 +98,15 @@ static int numOptions, maxOptions;
 static void SetClassPath(const char *s);
 static void SetModulesBootClassPath(const char *s);
 static void SelectVersion(int argc, char **argv, char **main_class);
-static jboolean ParseArguments(int *pargc, char ***pargv, char **pjarfile,
-                               char **pclassname, int *pret, const char *jvmpath);
+static jboolean ParseArguments(int *pargc, char ***pargv,
+                               int *pmode, char **pwhat,
+                               int *pret, const char *jrepath);
 static jboolean InitializeJVM(JavaVM **pvm, JNIEnv **penv,
                               InvocationFunctions *ifn);
+static jboolean SetLauncherModule(int *pmode, char **pwhat, const char *jrepath);
 static jstring NewPlatformString(JNIEnv *env, char *s);
 static jobjectArray NewPlatformStringArray(JNIEnv *env, char **strv, int strc);
-static jclass LoadMainClass(JNIEnv *env, jboolean isJar, char *name);
+static jclass LoadMainClass(JNIEnv *env, int mode, char *name);
 
 static void TranslateApplicationArgs(int jargc, const char **jargv, int *pargc, char ***pargv);
 static jboolean AddApplicationOptions(int cpathc, const char **cpathv);
@@ -154,6 +158,20 @@ static jboolean IsWildCardEnabled();
     return JNI_TRUE; \
 }
 
+#define ARG_FAIL(m) { \
+    JLI_ReportErrorMessage(m); \
+    printUsage = JNI_TRUE; \
+    *pret = 1; \
+    return JNI_TRUE; \
+}
+
+#define ARG_FAIL1(f, a) { \
+    JLI_ReportErrorMessage(f, a); \
+    printUsage = JNI_TRUE; \
+    *pret = 1; \
+    return JNI_TRUE; \
+}
+
 /*
  * Running Java code in primordial thread caused many problems. We will
  * create a new thread to invoke JVM. See 6316197 for more information.
@@ -163,12 +181,22 @@ static jlong heapSize        = 0;  /* heap size */
 
 int JNICALL JavaMain(void * args); /* entry point                  */
 
+enum LaunchMode {               // cf. sun.launcher.LauncherHelper
+    LM_UNKNOWN = 0,
+    LM_CLASS,
+    LM_JAR,
+    LM_MODULE
+};
+
+static const char *launchModeNames[]
+    = { "Unknown", "Main class", "JAR file", "Module" };
+
 typedef struct {
-  int     argc;
-  char ** argv;
-  char *  jarfile;
-  char *  classname;
-  InvocationFunctions ifn;
+    int    argc;
+    char **argv;
+    int    mode;
+    char  *what;
+    InvocationFunctions ifn;
 } JavaMainArgs;
 
 /*
@@ -182,14 +210,16 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         const char* dotversion,                 /* dot version defined */
         const char* pname,                      /* program name */
         const char* lname,                      /* launcher name */
+        const char* mname,                      /* module name */
+        const char* mver,                       /* module version */
         jboolean javaargs,                      /* JAVA_ARGS */
         jboolean cpwildcard,                    /* classpath wildcard*/
         jboolean javaw,                         /* windows-only javaw */
         jint ergo                               /* ergonomics class policy */
 )
 {
-    char *jarfile = 0;
-    char *classname = 0;
+    int mode = LM_UNKNOWN;
+    char *what = NULL;
     char *cpath = 0;
     char *main_class = NULL;
     int ret;
@@ -202,6 +232,8 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     _dVersion = dotversion;
     _launcher_name = lname;
     _program_name = pname;
+    _module_name = mname;
+    _module_version = mver;
     _is_java_args = javaargs;
     _wc_enabled = cpwildcard;
     _ergo_policy = ergo;
@@ -270,30 +302,44 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     } else {
         /* Set default CLASSPATH */
         cpath = getenv("CLASSPATH");
-        if (cpath == NULL) {
-            cpath = ".";
+        if (cpath != NULL) {
+            SetClassPath(cpath);
+        } else {
+            SetClassPath(".");
         }
-        SetClassPath(cpath);
     }
 
-    /*
-     *  Parse command line options; if the return value of
-     *  ParseArguments is false, the program should exit.
+    /* Parse command line options; if the return value of
+     * ParseArguments is false, the program should exit.
      */
-    if (!ParseArguments(&argc, &argv, &jarfile, &classname, &ret, jvmpath)) {
+    if (!ParseArguments(&argc, &argv, &mode, &what, &ret, jrepath))
+    {
         return(ret);
     }
 
-    /* Set bootclasspath for modules */
-    SetModulesBootClassPath(jrepath);
+    if (cpath != NULL && mode == LM_MODULE) {
+        // CLASSPATH cannot be used with module mode
+        JLI_ReportErrorMessage(ARG_ERROR8);
+        printUsage = JNI_TRUE;
+        return(1);
+    }
 
-    /* Override class path if -jar flag was specified */
-    if (jarfile != 0) {
-        SetClassPath(jarfile);
+    /* Make adjustments based on what we parsed */
+    if (mode == LM_MODULE) {
+        SetClassPath("");       /* Hah! */
+        SetModuleProp(what);    /* sun.java.launcher.module */
+        // ## Store boot module in %jigsaw-library?
+        // ## hardcoded path is temporary
+        SetModuleBootProp("lib/modules/jdk.boot/7-ea/classes:lib/modules/jdk.boot/7-ea/resources"); /* s.j.l.m.boot */
+    } else {
+        if (mode == LM_JAR) {
+            SetClassPath(what);     /* Override class path */
+        }
+        SetModulesBootClassPath(jrepath);  /* set boot class path for legacy mode */
     }
 
     /* set the -Dsun.java.command pseudo property */
-    SetJavaCommandLineProp(classname, jarfile, argc, argv);
+    SetJavaCommandLineProp(what, argc, argv);
 
     /* Set the -Dsun.java.launcher pseudo property */
     SetJavaLauncherProp();
@@ -304,7 +350,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     /* Show the splash screen if needed */
     ShowSplashScreen();
 
-    return ContinueInNewThread(&ifn, argc, argv, jarfile, classname, ret);
+    return ContinueInNewThread(&ifn, argc, argv, mode, what, ret);
 
 }
 /*
@@ -352,13 +398,13 @@ JavaMain(void * _args)
     JavaMainArgs *args = (JavaMainArgs *)_args;
     int argc = args->argc;
     char **argv = args->argv;
-    char *jarfile = args->jarfile;
-    char *classname = args->classname;
+    int mode = args->mode;
+    char *what = args->what;
     InvocationFunctions ifn = args->ifn;
 
     JavaVM *vm = 0;
     JNIEnv *env = 0;
-    jclass mainClass;
+    jclass mainClass = NULL;
     jmethodID mainID;
     jobjectArray mainArgs;
     int ret = 0;
@@ -383,8 +429,8 @@ JavaMain(void * _args)
         ShowSettings(env, showSettings);
         CHECK_EXCEPTION_LEAVE(0);
     }
-    /* If the user specified neither a class name nor a JAR file */
-    if (printXUsage || printUsage || (jarfile == 0 && classname == 0)) {
+    /* If the user specified neither a class name nor a JAR file nor a module */
+    if (printXUsage || printUsage || what == 0 || mode == LM_UNKNOWN) {
         PrintUsage(env, printXUsage);
         CHECK_EXCEPTION_LEAVE(1);
         LEAVE();
@@ -398,11 +444,11 @@ JavaMain(void * _args)
                (long)(jint)Counter2Micros(end-start));
     }
 
-    /* At this stage, argc/argv have the applications' arguments */
+    /* At this stage, argc/argv have the application's arguments */
     if (JLI_IsTraceLauncher()){
         int i;
-        printf("Main-Class is '%s'\n", classname ? classname : "");
-        printf("Apps' argc is %d\n", argc);
+        printf("%s is '%s'\n", launchModeNames[mode], what);
+        printf("App's argc is %d\n", argc);
         for (i=0; i < argc; i++) {
             printf("    argv[%2d] = '%s'\n", i, argv[i]);
         }
@@ -430,11 +476,7 @@ JavaMain(void * _args)
      *     2)   Remove the vestages of maintaining main_class through
      *          the environment (and remove these comments).
      */
-    if (jarfile != 0) {
-        mainClass = LoadMainClass(env, JNI_TRUE, jarfile);
-    } else {
-        mainClass = LoadMainClass(env, JNI_FALSE, classname);
-    }
+    mainClass = LoadMainClass(env, mode, what);
     CHECK_EXCEPTION_NULL_LEAVE(mainClass);
 
     /*
@@ -711,17 +753,20 @@ SetClassPath(const char *s)
 }
 
 /*
- * Set the bootclasspath for modules.
- * A temporary workaround until jigsaw is integrated into JDK 7.
+ * Set the bootclasspath for installed modules.
+ * A temporary workaround until jigsaw legacy support is
+ * implemented.
  */
 static void
 SetModulesBootClassPath(const char *jrepath)
 {
-    char *def, *s;
-    char pathname[MAXPATHLEN];
     const char separator[] = { FILE_SEPARATOR, '\0' };
+    static const char vmoption[] = "-Xbootclasspath/p:";
+    const int vmoption_len = JLI_StrLen(vmoption);
     const char *orig = jrepath;
-    static const char format[] = "-Xbootclasspath/p:%s";
+    char pathname[MAXPATHLEN];
+    char *def, *s;
+    int slen = 0;
     struct stat statbuf;
 
     /* return if jre/lib/rt.jar exists */
@@ -737,13 +782,36 @@ SetModulesBootClassPath(const char *jrepath)
     }
 
     /* modularized jre */
-    JLI_Snprintf(pathname, sizeof(pathname), "%s%slib%s*", jrepath, separator, separator);
-    s = (char *) JLI_WildcardExpandClasspath(pathname);
-    def = JLI_MemAlloc(sizeof(format)
-                       - 2 /* strlen("%s") */
-                       + JLI_StrLen(s));
-    sprintf(def, format, s);
-    AddOption(def, NULL);
+    JLI_Snprintf(pathname, sizeof(pathname), "%s%slib%smodules%s*", jrepath, separator, separator, separator);
+    s = (char *) JLI_WildcardExpandDirectory(pathname);
+    slen = JLI_StrLen(s);
+    def = JLI_MemAlloc(vmoption_len+slen+1);
+    memcpy(def, vmoption, vmoption_len);
+    memcpy(def+vmoption_len, s, slen);
+    def[vmoption_len+slen] = '\0';
+
+    // Must be added before the user-specified -Xbootclasspath/p: arguments.   
+    // Hotspot VM prepends the given -Xbootclasspath/p: argument
+    // to the bootclasspath in the order of the input VM arguments.
+    // The second -Xbootclasspath/p: argument will be prepended
+    // to the first -Xbootclasspath/p: if multiple ones are given.
+
+    if (numOptions == 0) {
+        AddOption(def, NULL);
+    } else {
+        int newMaxOptions = maxOptions + 1;
+        JavaVMOption *new = JLI_MemAlloc(newMaxOptions * sizeof(JavaVMOption));
+        JavaVMOption *orig = new+1;
+        // Set the -Xbootclasspath/p option to be the first VM argument
+        new[0].optionString = def;
+        new[0].extraInfo = NULL;
+        memcpy(orig, options, numOptions * sizeof(JavaVMOption));
+        JLI_MemFree(options);
+        options = new;
+        maxOptions = newMaxOptions;
+        numOptions++;
+    }
+
     if (s != orig)
         JLI_MemFree((char *) s);
 }
@@ -992,29 +1060,48 @@ SelectVersion(int argc, char **argv, char **main_class)
 /*
  * Parses command line arguments.  Returns JNI_FALSE if launcher
  * should exit without starting vm, returns JNI_TRUE if vm needs
- * to be started to process  given options. *pret (the launcher
+ * to be started to process given options.  *pret (the launcher
  * process return value) is set to 0 for a normal exit.
  */
 static jboolean
-ParseArguments(int *pargc, char ***pargv, char **pjarfile,
-                       char **pclassname, int *pret, const char *jvmpath)
+ParseArguments(int *pargc, char ***pargv,
+               int *pmode, char **pwhat,
+               int *pret, const char *jrepath)
 {
     int argc = *pargc;
     char **argv = *pargv;
-    jboolean jarflag = JNI_FALSE;
+    int mode = LM_UNKNOWN;
+    jboolean legacy = _module_name != NULL ? JNI_FALSE : JNI_TRUE;
     char *arg;
+    char buf[MAXPATHLEN];
 
     *pret = 0;
 
     while ((arg = *argv) != 0 && *arg == '-') {
         argv++; --argc;
         if (JLI_StrCmp(arg, "-classpath") == 0 || JLI_StrCmp(arg, "-cp") == 0) {
-            ARG_CHECK (argc, ARG_ERROR1, arg);
+            ARG_CHECK(argc, ARG_ERROR1, arg);
             SetClassPath(*argv);
+            /* -classpath can only be set when running legacy mode */
+            mode = LM_CLASS;
             argv++; --argc;
         } else if (JLI_StrCmp(arg, "-jar") == 0) {
-            ARG_CHECK (argc, ARG_ERROR2, arg);
-            jarflag = JNI_TRUE;
+            ARG_CHECK(argc, ARG_ERROR2, arg);
+            if (mode == LM_MODULE)
+                ARG_FAIL(ARG_ERROR5);
+            mode = LM_JAR;
+        } else if (JLI_StrCmp(arg, "-m") == 0) {
+            ARG_CHECK(argc, ARG_ERROR4, arg);
+            if (mode == LM_JAR)
+                ARG_FAIL(ARG_ERROR5);
+            if (mode == LM_CLASS)
+                ARG_FAIL(ARG_ERROR7);
+            mode = LM_MODULE;
+            legacy = JNI_FALSE;
+        } else if (JLI_StrCmp(arg, "-L") == 0) {
+            ARG_CHECK(argc, ARG_ERROR6, arg);
+            SetModuleLibraryProp(*argv);
+            argv++; --argc;
         } else if (JLI_StrCmp(arg, "-help") == 0 ||
                    JLI_StrCmp(arg, "-h") == 0 ||
                    JLI_StrCmp(arg, "-?") == 0) {
@@ -1086,6 +1173,21 @@ ParseArguments(int *pargc, char ***pargv, char **pjarfile,
                    JLI_StrCmp(arg, "-jre-restrict-search") == 0 ||
                    JLI_StrCCmp(arg, "-splash:") == 0) {
             ; /* Ignore machine independent options already handled */
+        } else if (JLI_StrCCmp(arg, "-Xmode:") == 0) { 
+            /* Temporary internal option and it's only valid for jdk tools.
+             * Tools like javac and javah can use this option to diagnose
+             * if a problem is caused by module mode or not.
+             */
+            if (_module_name == NULL)
+                ARG_FAIL1(ARG_ERROR9, arg);
+
+            if (JLI_StrCmp(arg, "-Xmode:legacy") == 0) {
+                legacy = JNI_TRUE;
+            } else if (JLI_StrCmp(arg, "-Xmode:module") == 0) {
+                legacy = JNI_FALSE;
+            } else {
+                ARG_FAIL1(ARG_ERROR9, arg);
+            }
         } else if (RemovableOption(arg) ) {
             ; /* Do not pass option to vm. */
         } else {
@@ -1093,21 +1195,84 @@ ParseArguments(int *pargc, char ***pargv, char **pjarfile,
         }
     }
 
-    if (--argc >= 0) {
-        if (jarflag) {
-            *pjarfile = *argv++;
-            *pclassname = NULL;
-        } else {
-            *pjarfile = NULL;
-            *pclassname = *argv++;
+    if (_module_name != NULL && !legacy) {
+        /* determine if jdk tool can run in module mode */
+        if (SetLauncherModule(pmode, pwhat, jrepath)) {
+            /* module whose name is "jdk." + _program_name indicates
+             * that the tool's main class is the module's main entry point. 
+             * Other module requires to pass the tool's main class as 
+             * the first argument */
+            JLI_StrCpy(buf, "jdk.");
+            JLI_StrCat(buf, _program_name);
+            if (JLI_StrCmp(buf, _module_name) == 0) {
+                // skip the main class name
+                argc--;
+                argv++;
+            } 
+
+            if (argc >= 0) {
+                *pargc = argc;
+                *pargv = argv;
+            }
+            JLI_TraceLauncher("%s runs in module mode (%s) argv[0]=%s\n",
+                              _program_name, *pwhat, argc > 0 ? *argv : "none");
+            JLI_TraceLauncher("buf=%s(%s) %c %c\n",
+                              buf, _module_name, buf[9],_module_name[9]);
+            return JNI_TRUE;
         }
+    }
+
+    // applications or tools runs in legacy mode
+    if (--argc >= 0) {
+        *pwhat = *argv++;
+    }
+
+    if (*pwhat == NULL)
+        *pret = 1;
+
+    if (argc >= 0) {
         *pargc = argc;
         *pargv = argv;
     }
-    if (*pjarfile == NULL && *pclassname == NULL) {
-        *pret = 1;
-    }
+
+    if (!mode)
+        mode = LM_CLASS;
+    *pmode = mode;
+
     return JNI_TRUE;
+}
+
+/* Set the launcher mode for jdk tools (i.e. _module_name != NULL).
+ * Detect if java.home is a legacy image or module image;
+ * launch the tool in module mode if running in a module image.
+ *
+ * Returns true if set to run in module mode
+ */
+static jboolean 
+SetLauncherModule(int *pmode, char **pwhat, const char *jrepath)
+{
+    struct stat statbuf;
+    char buf[MAXPATHLEN];
+    const char separator[] = { FILE_SEPARATOR, '\0' };
+
+    /*
+     * Run the program in module module if running on
+     * a JRE module image (i.e. rt.jar doesn't exist) and
+     * "classes" dir doesn't exists; otherwise, run in legacy mode
+     */
+    snprintf(buf, sizeof(buf), "%s%slib%srt.jar", jrepath, separator, separator);
+    if (stat(buf, &statbuf) != 0) {
+       snprintf(buf, sizeof(buf), "%s%sclasses", jrepath, separator);
+       if (stat(buf, &statbuf) != 0) {
+           JLI_StrCpy(buf, _module_name);
+           JLI_StrCat(buf, "@");
+           JLI_StrCat(buf, _module_version);
+           *pwhat = JLI_StringDup(buf); 
+           *pmode = LM_MODULE;
+           return JNI_TRUE;
+       }
+    }
+    return JNI_FALSE;
 }
 
 /*
@@ -1255,7 +1420,7 @@ NewPlatformStringArray(JNIEnv *env, char **strv, int strc)
  * call it for more details refer to the java implementation.
  */
 static jclass
-LoadMainClass(JNIEnv *env, jboolean isJar, char *name)
+LoadMainClass(JNIEnv *env, int mode, char *name)
 {
     jclass cls;
     jmethodID mid;
@@ -1268,9 +1433,9 @@ LoadMainClass(JNIEnv *env, jboolean isJar, char *name)
     }
     NULL_CHECK0(cls = FindBootStrapClass(env, "sun/launcher/LauncherHelper"));
     NULL_CHECK0(mid = (*env)->GetStaticMethodID(env, cls, "checkAndLoadMain",
-                                          "(ZZLjava/lang/String;)Ljava/lang/Object;"));
+                                          "(ILjava/lang/String;)Ljava/lang/Class;"));
     str = (*env)->NewStringUTF(env, name);
-    result = (*env)->CallStaticObjectMethod(env, cls, mid, JNI_TRUE, isJar, str);
+    result = (*env)->CallStaticObjectMethod(env, cls, mid, mode, str);
 
     if (JLI_IsTraceLauncher()) {
         end   = CounterGet();
@@ -1416,8 +1581,7 @@ AddApplicationOptions(int cpathc, const char **cpathv)
  * property is not exported by HotSpot to the Java layer.
  */
 void
-SetJavaCommandLineProp(char *classname, char *jarfile,
-                       int argc, char **argv)
+SetJavaCommandLineProp(char *what, int argc, char **argv)
 {
 
     int i = 0;
@@ -1425,22 +1589,17 @@ SetJavaCommandLineProp(char *classname, char *jarfile,
     char* javaCommand = NULL;
     char* dashDstr = "-Dsun.java.command=";
 
-    if (classname == NULL && jarfile == NULL) {
+    if (what == NULL) {
         /* unexpected, one of these should be set. just return without
          * setting the property
          */
         return;
     }
 
-    /* if the class name is not set, then use the jarfile name */
-    if (classname == NULL) {
-        classname = jarfile;
-    }
-
     /* determine the amount of memory to allocate assuming
      * the individual components will be space separated
      */
-    len = JLI_StrLen(classname);
+    len = JLI_StrLen(what);
     for (i = 0; i < argc; i++) {
         len += JLI_StrLen(argv[i]) + 1;
     }
@@ -1451,7 +1610,7 @@ SetJavaCommandLineProp(char *classname, char *jarfile,
     /* build the -D string */
     *javaCommand = '\0';
     JLI_StrCat(javaCommand, dashDstr);
-    JLI_StrCat(javaCommand, classname);
+    JLI_StrCat(javaCommand, what);
 
     for (i = 0; i < argc; i++) {
         /* the components of the string are space separated. In
@@ -1471,8 +1630,37 @@ SetJavaCommandLineProp(char *classname, char *jarfile,
  * JVM would like to know if it's created by a standard Sun launcher, or by
  * user native application, the following property indicates the former.
  */
-void SetJavaLauncherProp() {
+void
+SetJavaLauncherProp() {
   AddOption("-Dsun.java.launcher=SUN_STANDARD", NULL);
+}
+
+/* Set the property that tells java.lang.ClassLoader to create a Jigsaw
+ * root-module loader rather than the usual delegating application loader
+ */
+void
+SetModuleProp(char *module) {
+    char *prop = (char *)JLI_MemAlloc(JLI_StrLen(module) + 40);
+    sprintf(prop, "-Dsun.java.launcher.module=%s", module);
+    AddOption(prop, NULL);
+}
+
+/* Tell the Jigsaw launcher which module library to use, if not the default
+ */
+void
+SetModuleLibraryProp(char *mlpath) {
+    char *prop = (char *)JLI_MemAlloc(JLI_StrLen(mlpath) + 40);
+    sprintf(prop, "-Dsun.java.launcher.module.library=%s", mlpath);
+    AddOption(prop, NULL);
+}
+
+/* Tell the VM where to find the classes in the boot module
+ */
+void
+SetModuleBootProp(char *bpath) {
+    char *prop = (char *)JLI_MemAlloc(JLI_StrLen(bpath) + 40);
+    sprintf(prop, "-Dsun.java.launcher.module.boot=%s", bpath);
+    AddOption(prop, NULL);
 }
 
 /*
@@ -1885,6 +2073,18 @@ GetLauncherName()
     return _launcher_name;
 }
 
+const char*
+GetModuleName()
+{
+    return _module_name;
+}
+
+const char*
+GetModuleVersion()
+{
+    return _module_version;
+}
+
 jint
 GetErgoPolicy()
 {
@@ -1904,8 +2104,8 @@ IsWildCardEnabled()
 }
 
 static int
-ContinueInNewThread(InvocationFunctions* ifn, int argc,
-                     char **argv, char *jarfile, char *classname, int ret)
+ContinueInNewThread(InvocationFunctions* ifn, int argc, char **argv,
+                    int mode, char *what, int ret)
 {
 
     /*
@@ -1929,8 +2129,8 @@ ContinueInNewThread(InvocationFunctions* ifn, int argc,
 
       args.argc = argc;
       args.argv = argv;
-      args.jarfile = jarfile;
-      args.classname = classname;
+      args.mode = mode;
+      args.what = what;
       args.ifn = *ifn;
 
       rslt = ContinueInNewThread0(JavaMain, threadStackSize, (void*)&args);
@@ -1951,6 +2151,7 @@ DumpState()
     printf("\tjavargs:%s\n", (_is_java_args == JNI_TRUE) ? "on" : "off");
     printf("\tprogram name:%s\n", GetProgramName());
     printf("\tlauncher name:%s\n", GetLauncherName());
+    printf("\tmodule name:%s @ %s\n", GetModuleName(), GetModuleVersion() == NULL ? "null" : GetModuleVersion());
     printf("\tjavaw:%s\n", (IsJavaw() == JNI_TRUE) ? "on" : "off");
     printf("\tfullversion:%s\n", GetFullVersion());
     printf("\tdotversion:%s\n", GetDotVersion());

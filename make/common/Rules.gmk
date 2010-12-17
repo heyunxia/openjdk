@@ -239,6 +239,7 @@ classes : $(CLASSES_INIT) .delete.classlist .compile.classlist
 	  $(ECHO) "# Running javac:"; \
 	  $(ECHO) $(JAVAC_CMD) -sourcepath "$(SOURCEPATH)" -d $(CLASSDESTDIR) @$<.filtered; \
 	  $(JAVAC_CMD) -sourcepath "$(SOURCEPATH)" -d $(CLASSDESTDIR) @$<.filtered; \
+          $(TouchModule); \
 	fi
 	@$(java-vm-cleanup)
 
