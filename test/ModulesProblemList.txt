@@ -1,0 +1,150 @@
+###########################################################################
+#
+# Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Oracle designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Oracle in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+#
+
+############################################################################
+# This file is intended to temporarily exclude test failures due 
+# to jdk modularization.  We will remove this file when the major
+# known issues of the jdk modularization are fixed.
+#
+############################################################################
+
+# jdk_awt
+
+
+############################################################################
+
+# jdk_beans
+
+############################################################################
+
+# jdk_io
+
+
+############################################################################
+
+# jdk_lang
+
+############################################################################
+
+# jdk_management
+
+# Agent JAR not found or no Agent-Class attribute
+sun/management/jmxremote/bootstrap/JvmstatCountersTest.java generic-all
+
+############################################################################
+
+# jdk_math
+
+
+############################################################################
+
+# jdk_misc
+
+# Need investigation
+demo/jvmti/compiledMethodLoad/CompiledMethodLoadTest.java 	generic-all
+demo/jvmti/gctest/Gctest.java 					generic-all
+demo/jvmti/heapTracker/HeapTrackerTest.java 			generic-all
+demo/jvmti/heapViewer/HeapViewerTest.java 			generic-all
+demo/jvmti/minst/MinstTest.java 				generic-all
+demo/jvmti/mtrace/TraceJFrame.java 				generic-all
+demo/jvmti/versionCheck/FailsWhenJvmtiVersionDiffers.java 	generic-all
+demo/jvmti/waiters/WaitersTest.java 				generic-all
+
+############################################################################
+
+# jdk_nio3
+
+# This test sets to Turkish language without resetting it when exit
+# that causes other tests to fail.  Exclude for now.
+sun/nio/cs/Test4206507.java                             generic-all
+closed/sun/nio/cs/sunio/Test4206507.java                generic-all
+
+############################################################################
+
+# jdk_rmi
+
+
+############################################################################
+
+# jdk_security
+
+# java.security.KeyStoreException: JKS not found
+sun/security/tools/jarsigner/ec.sh               	generic-all
+sun/security/tools/jarsigner/emptymanifest.sh    	generic-all
+sun/security/tools/jarsigner/nameclash.sh        	generic-all
+sun/security/tools/jarsigner/newsize7.sh    		generic-all
+sun/security/tools/jarsigner/passtype.sh    		generic-all
+sun/security/tools/jarsigner/samename.sh    		generic-all
+sun/security/tools/jarsigner/ts.sh    			generic-all
+sun/security/tools/keytool/AltProviderPath.sh    	generic-all
+sun/security/tools/keytool/CloneKeyAskPassword.sh    	generic-all
+sun/security/tools/keytool/NoExtNPE.sh    		generic-all
+sun/security/tools/keytool/SecretKeyKS.sh    		generic-all
+sun/security/tools/keytool/printssl.sh    		generic-all
+
+# Can't find bundle for base name sun.text.resources.FormatData, locale en
+sun/security/tools/keytool/file-in-help.sh    		generic-all
+sun/security/tools/keytool/newhelp.sh    		generic-all
+sun/security/tools/keytool/resource.sh    		generic-all
+
+############################################################################
+
+# jdk_swing
+
+############################################################################
+
+# jdk_text
+
+
+############################################################################
+
+# jdk_tools
+
+
+# libattach.so has to be in the module
+sun/tools/jinfo/Basic.sh   		generic-all
+sun/tools/jmap/Basic.sh   		generic-all
+sun/tools/jps/jps-vm_1.sh   		generic-all
+sun/tools/jstack/Basic.sh   		generic-all
+
+# Need investigation
+com/sun/tools/extcheck/TestExtcheckArgs.java   	generic-all
+tools/launcher/ExecutionEnvironment.java   	generic-all
+
+# Test expects tools.jar and rt.jar.  Needs to be update.
+tools/pack200/Pack200Simple.sh   		generic-all
+
+
+############################################################################
+
+# jdk_util
+
+# Fail to find sun.localedata
+java/util/Locale/InternationalBAT.java			generic-all
+java/util/PluggableLocale/CurrencyNameProviderTest.java generic-all
+
+############################################################################
+
