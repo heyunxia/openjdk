@@ -464,15 +464,20 @@ public class ModuleFormatTest01 {
 
     static void compare (File f1, InputStream i2) throws IOException {
         InputStream i1 = new BufferedInputStream (new FileInputStream(f1));
+        // For class files, only compare the ClassFile header as 
+        // the class file is modified after being compressed by pack200. 
+        long numBytes = f1.getName().endsWith(".class") ? 10 : f1.length();
+        int count = 0;
         int c1,c2;
         try {
-            while ((c1=i1.read()) != -1) {
+            while ((c1=i1.read()) != -1 && count < numBytes) {
+                count++;
                 c2 = i2.read();
                 if (c1 != c2) {
                     throw new RuntimeException ("file compare failed 1");
                 }
             }
-            if (i2.read() != -1) {
+            if (c1 == -1 && i2.read() != -1) {
                 throw new RuntimeException ("file compare failed 2");
             }
         } finally {

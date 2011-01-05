@@ -64,7 +64,7 @@ public class Main {
 }
 EOF
 
-rm -rf z.modules && mkdir z.modules
+rm -rf z.modules && mkdir -p z.modules
 $BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 rm -rf z.lib
@@ -86,4 +86,12 @@ $BIN/jmod install --noverify z.modules/com.foo.signed@1.0.jmod
 
 $BIN/jmod list -v
 $BIN/jmod dump-class com.foo.signed@1.0 com.foo.signed.Main z
-cmp z z.modules/com.foo.signed/com/foo/signed/Main.class
+
+# Check the class file packaged in the jmod file
+# As pack200 modifies the class file during compression, 
+# we need to compare with a 'pack200-unpack200' version 
+$BIN/jar cfM z.modules/com.foo.signed.jar -C z.modules/com.foo.signed com/foo/signed/Main.class
+$BIN/pack200 z.modules/com.foo.signed.pack.gz z.modules/com.foo.signed.jar
+$BIN/unpack200 z.modules/com.foo.signed.pack.gz z.jar
+$BIN/jar xf z.jar com/foo/signed/Main.class
+cmp z com/foo/signed/Main.class
