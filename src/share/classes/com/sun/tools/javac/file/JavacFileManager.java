@@ -25,6 +25,7 @@
 
 package com.sun.tools.javac.file;
 
+import java.util.Comparator;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -123,6 +124,20 @@ public class JavacFileManager
     protected boolean mmappedIO;
     protected boolean ignoreSymbolFile;
 
+    protected enum SortFiles implements Comparator<File> {
+        FORWARD {
+            public int compare(File f1, File f2) {
+                return f1.getName().compareTo(f2.getName());
+            }
+        },
+        REVERSE {
+            public int compare(File f1, File f2) {
+                return -f1.getName().compareTo(f2.getName());
+            }
+        };
+    };
+    protected SortFiles sortFiles;
+
     /**
      * Register a Context.Factory to create a JavacFileManager.
      */
@@ -165,6 +180,16 @@ public class JavacFileManager
 
         mmappedIO = options.isSet("mmappedIO");
         ignoreSymbolFile = options.isSet("ignore.symbol.file");
+
+        String sf = options.get("sortFiles");
+        if (sf != null) {
+            sortFiles = (sf.equals("reverse") ? SortFiles.REVERSE : SortFiles.FORWARD);
+        }
+    }
+
+    @Override
+    public boolean isDefaultBootClassPath() {
+        return paths.isDefaultBootClassPath();
     }
 
     public JavaFileObject getFileForInput(String name) {
@@ -305,6 +330,9 @@ public class JavacFileManager
             File[] files = d.listFiles();
             if (files == null)
                 return;
+
+            if (sortFiles != null)
+                Arrays.sort(files, sortFiles);
 
             for (File f: files) {
                 String fname = f.getName();

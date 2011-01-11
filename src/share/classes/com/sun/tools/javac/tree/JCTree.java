@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -38,7 +38,7 @@ import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.code.*;
-import com.sun.tools.javac.code.Scope;
+import com.sun.tools.javac.code.Scope.*;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.source.tree.*;
 
@@ -443,8 +443,8 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         public ModuleSymbol modle;
         public Location locn;
         public PackageSymbol packge;
-        public Scope namedImportScope;
-        public Scope starImportScope;
+        public ImportScope namedImportScope;
+        public StarImportScope starImportScope;
         public long flags;
         public Position.LineMap lineMap = null;
         public Map<JCTree, String> docComments = null;
@@ -452,8 +452,8 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         protected JCCompilationUnit(List<JCTree> defs,
                         JavaFileObject sourcefile,
                         PackageSymbol packge,
-                        Scope namedImportScope,
-                        Scope starImportScope) {
+                        ImportScope namedImportScope,
+                        StarImportScope starImportScope) {
             this.defs = defs;
             this.sourcefile = sourcefile;
             this.packge = packge;

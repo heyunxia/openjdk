@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -38,6 +38,7 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.util.List;
 
 import com.sun.tools.javac.jvm.Target;
+import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.code.Type.*;
@@ -252,10 +253,12 @@ public class Attr extends JCTree.Visitor {
                (base.getTag() == JCTree.IDENT && TreeInfo.name(base) == names._this)) &&
                isAssignableAsBlankFinal(v, env)))) {
             if (v.isResourceVariable()) { //TWR resource
-                log.error(pos, "twr.resource.may.not.be.assigned", v);
+                log.error(pos, "try.resource.may.not.be.assigned", v);
             } else {
                 log.error(pos, "cant.assign.val.to.final.var", v);
             }
+        } else if ((v.flags() & EFFECTIVELY_FINAL) != 0) {
+            v.flags_field &= ~EFFECTIVELY_FINAL;
         }
     }
 
@@ -667,6 +670,7 @@ public class Attr extends JCTree.Visitor {
 
         Lint lint = env.info.lint.augment(m.attributes_field, m.flags());
         Lint prevLint = chk.setLint(lint);
+        MethodSymbol prevMethod = chk.setMethod(m);
         try {
             chk.checkDeprecatedAnnotation(tree.pos(), m);
 
@@ -674,6 +678,7 @@ public class Attr extends JCTree.Visitor {
 
             // If we override any other methods, check that we do so properly.
             // JLS ???
+            chk.checkClashes(tree.pos(), env.enclClass.type, m);
             chk.checkOverride(tree, m);
 
             // Module modifier may not be used in unnamed module
@@ -700,7 +705,7 @@ public class Attr extends JCTree.Visitor {
                 attribStat(l.head, localEnv);
             }
 
-            chk.checkVarargMethodDecl(tree);
+            chk.checkVarargsMethodDecl(localEnv, tree);
 
             // Check that type parameters are well-formed.
             chk.validate(tree.typarams, localEnv);
@@ -789,6 +794,7 @@ public class Attr extends JCTree.Visitor {
         }
         finally {
             chk.setLint(prevLint);
+            chk.setMethod(prevMethod);
         }
     }
 
@@ -802,6 +808,7 @@ public class Attr extends JCTree.Visitor {
                 memberEnter.memberEnter(tree, env);
                 annotate.flush();
             }
+            tree.sym.flags_field |= EFFECTIVELY_FINAL;
         }
 
         VarSymbol v = tree.sym;
@@ -1047,11 +1054,11 @@ public class Attr extends JCTree.Visitor {
         for (JCTree resource : tree.resources) {
             if (resource.getTag() == JCTree.VARDEF) {
                 attribStat(resource, tryEnv);
-                chk.checkType(resource, resource.type, syms.autoCloseableType, "twr.not.applicable.to.type");
+                chk.checkType(resource, resource.type, syms.autoCloseableType, "try.not.applicable.to.type");
                 VarSymbol var = (VarSymbol)TreeInfo.symbolFor(resource);
                 var.setData(ElementKind.RESOURCE_VARIABLE);
             } else {
-                attribExpr(resource, tryEnv, syms.autoCloseableType, "twr.not.applicable.to.type");
+                attribExpr(resource, tryEnv, syms.autoCloseableType, "try.not.applicable.to.type");
             }
         }
         // Attribute body
@@ -1066,11 +1073,8 @@ public class Attr extends JCTree.Visitor {
                 localEnv.dup(c, localEnv.info.dup(localEnv.info.scope.dup()));
             Type ctype = attribStat(c.param, catchEnv);
             if (TreeInfo.isMultiCatch(c)) {
-                //check that multi-catch parameter is marked as final
-                if ((c.param.sym.flags() & FINAL) == 0) {
-                    log.error(c.param.pos(), "multicatch.param.must.be.final", c.param.sym);
-                }
-                c.param.sym.flags_field = c.param.sym.flags() | DISJUNCTION;
+                //multi-catch parameter is implicitly marked as final
+                c.param.sym.flags_field |= FINAL | DISJUNCTION;
             }
             if (c.param.sym.kind == Kinds.VAR) {
                 c.param.sym.setData(ElementKind.EXCEPTION_PARAMETER);
@@ -1557,7 +1561,7 @@ public class Attr extends JCTree.Visitor {
         // Attribute clazz expression and store
         // symbol + type back into the attributed tree.
         Type clazztype = attribType(clazz, env);
-        Pair<Scope,Scope> mapping = getSyntheticScopeMapping(clazztype);
+        Pair<Scope,Scope> mapping = getSyntheticScopeMapping(clazztype, cdef != null);
         if (!TreeInfo.isDiamond(tree)) {
             clazztype = chk.checkClassType(
                 tree.clazz.pos(), clazztype, true);
@@ -1592,13 +1596,26 @@ public class Attr extends JCTree.Visitor {
         } else if (allowDiamondFinder &&
                 clazztype.getTypeArguments().nonEmpty() &&
                 findDiamonds) {
-            Type inferred = attribDiamond(localEnv,
-                    tree,
-                    clazztype,
-                    mapping,
-                    argtypes,
-                    typeargtypes);
-            if (!inferred.isErroneous() &&
+            boolean prevDeferDiags = log.deferDiagnostics;
+            Queue<JCDiagnostic> prevDeferredDiags = log.deferredDiagnostics;
+            Type inferred = null;
+            try {
+                //disable diamond-related diagnostics
+                log.deferDiagnostics = true;
+                log.deferredDiagnostics = ListBuffer.lb();
+                inferred = attribDiamond(localEnv,
+                        tree,
+                        clazztype,
+                        mapping,
+                        argtypes,
+                        typeargtypes);
+            }
+            finally {
+                log.deferDiagnostics = prevDeferDiags;
+                log.deferredDiagnostics = prevDeferredDiags;
+            }
+            if (inferred != null &&
+                    !inferred.isErroneous() &&
                     inferred.tag == CLASS &&
                     types.isAssignable(inferred, pt.tag == NONE ? clazztype : pt, Warner.noWarnings) &&
                     chk.checkDiamond((ClassType)inferred).isEmpty()) {
@@ -1854,7 +1871,7 @@ public class Attr extends JCTree.Visitor {
      *  inference. The inferred return type of the synthetic constructor IS
      *  the inferred type for the diamond operator.
      */
-    private Pair<Scope, Scope> getSyntheticScopeMapping(Type ctype) {
+    private Pair<Scope, Scope> getSyntheticScopeMapping(Type ctype, boolean overrideProtectedAccess) {
         if (ctype.tag != CLASS) {
             return erroneousMapping;
         }
@@ -1865,6 +1882,12 @@ public class Attr extends JCTree.Visitor {
                 e.scope != null;
                 e = e.next()) {
             MethodSymbol newConstr = (MethodSymbol) e.sym.clone(ctype.tsym);
+            if (overrideProtectedAccess && (newConstr.flags() & PROTECTED) != 0) {
+                //make protected constructor public (this is required for
+                //anonymous inner class creation expressions using diamond)
+                newConstr.flags_field |= PUBLIC;
+                newConstr.flags_field &= ~PROTECTED;
+            }
             newConstr.name = names.init;
             List<Type> oldTypeargs = List.nil();
             if (newConstr.type.tag == FORALL) {
@@ -2257,8 +2280,8 @@ public class Attr extends JCTree.Visitor {
                 ((VarSymbol)sitesym).isResourceVariable() &&
                 sym.kind == MTH &&
                 sym.overrides(syms.autoCloseableClose, sitesym.type.tsym, types, true) &&
-                env.info.lint.isEnabled(Lint.LintCategory.ARM)) {
-            log.warning(tree, "twr.explicit.close.call");
+                env.info.lint.isEnabled(LintCategory.TRY)) {
+            log.warning(LintCategory.TRY, tree, "try.explicit.close.call");
         }
 
         // Disallow selecting a type from an expression
@@ -2685,7 +2708,7 @@ public class Attr extends JCTree.Visitor {
         // For methods, we need to compute the instance type by
         // Resolve.instantiate from the symbol's type as well as
         // any type arguments and value arguments.
-        noteWarner.warned = false;
+        noteWarner.clear();
         Type owntype = rs.instantiate(env,
                                       site,
                                       sym,
@@ -2694,7 +2717,7 @@ public class Attr extends JCTree.Visitor {
                                       true,
                                       useVarargs,
                                       noteWarner);
-        boolean warned = noteWarner.warned;
+        boolean warned = noteWarner.hasNonSilentLint(LintCategory.UNCHECKED);
 
         // If this fails, something went wrong; we should not have
         // found the identifier in the first place.
@@ -2719,7 +2742,7 @@ public class Attr extends JCTree.Visitor {
                 JCTree arg = args.head;
                 Warner warn = chk.convertWarner(arg.pos(), arg.type, formals.head);
                 assertConvertible(arg, arg.type, formals.head, warn);
-                warned |= warn.warned;
+                warned |= warn.hasNonSilentLint(LintCategory.UNCHECKED);
                 args = args.tail;
                 formals = formals.tail;
             }
@@ -2729,7 +2752,7 @@ public class Attr extends JCTree.Visitor {
                     JCTree arg = args.head;
                     Warner warn = chk.convertWarner(arg.pos(), arg.type, varArg);
                     assertConvertible(arg, arg.type, varArg, warn);
-                    warned |= warn.warned;
+                    warned |= warn.hasNonSilentLint(LintCategory.UNCHECKED);
                     args = args.tail;
                 }
             } else if ((sym.flags() & VARARGS) != 0 && allowVarargs) {
@@ -2761,7 +2784,7 @@ public class Attr extends JCTree.Visitor {
                 JCTree tree = env.tree;
                 Type argtype = owntype.getParameterTypes().last();
                 if (owntype.getReturnType().tag != FORALL || warned) {
-                    chk.checkVararg(env.tree.pos(), owntype.getParameterTypes(), sym, env);
+                    chk.checkVararg(env.tree.pos(), owntype.getParameterTypes(), sym);
                 }
                 Type elemtype = types.elemtype(argtype);
                 switch (tree.getTag()) {
@@ -2875,8 +2898,15 @@ public class Attr extends JCTree.Visitor {
     }
 
     public void visitTypeDisjunction(JCTypeDisjunction tree) {
-        List<Type> alternatives = attribTypes(tree.alternatives, env);
-        tree.type = result = check(tree, types.lub(alternatives), TYP, pkind, pt);
+        ListBuffer<Type> multicatchTypes = ListBuffer.lb();
+        for (JCExpression typeTree : tree.alternatives) {
+            Type ctype = attribType(typeTree, env);
+            ctype = chk.checkType(typeTree.pos(),
+                          chk.checkClassType(typeTree.pos(), ctype),
+                          syms.throwableType);
+            multicatchTypes.append(ctype);
+        }
+        tree.type = result = check(tree, types.lub(multicatchTypes.toList()), TYP, pkind, pt);
     }
 
     public void visitTypeParameter(JCTypeParameter tree) {
@@ -3203,7 +3233,7 @@ public class Attr extends JCTree.Visitor {
         chk.checkNonCyclicElements(tree);
 
         // Check for proper use of serialVersionUID
-        if (env.info.lint.isEnabled(Lint.LintCategory.SERIAL) &&
+        if (env.info.lint.isEnabled(LintCategory.SERIAL) &&
             isSerializable(c) &&
             (c.flags() & Flags.ENUM) == 0 &&
             (c.flags() & ABSTRACT) == 0) {
@@ -3232,7 +3262,7 @@ public class Attr extends JCTree.Visitor {
             Scope.Entry e = c.members().lookup(names.serialVersionUID);
             while (e.scope != null && e.sym.kind != VAR) e = e.next();
             if (e.scope == null) {
-                log.warning(Lint.LintCategory.SERIAL,
+                log.warning(LintCategory.SERIAL,
                         tree.pos(), "missing.SVUID", c);
                 return;
             }
@@ -3241,17 +3271,17 @@ public class Attr extends JCTree.Visitor {
             VarSymbol svuid = (VarSymbol)e.sym;
             if ((svuid.flags() & (STATIC | FINAL)) !=
                 (STATIC | FINAL))
-                log.warning(Lint.LintCategory.SERIAL,
+                log.warning(LintCategory.SERIAL,
                         TreeInfo.diagnosticPositionFor(svuid, tree), "improper.SVUID", c);
 
             // check that it is long
             else if (svuid.type.tag != TypeTags.LONG)
-                log.warning(Lint.LintCategory.SERIAL,
+                log.warning(LintCategory.SERIAL,
                         TreeInfo.diagnosticPositionFor(svuid, tree), "long.SVUID", c);
 
             // check constant
             else if (svuid.getConstValue() == null)
-                log.warning(Lint.LintCategory.SERIAL,
+                log.warning(LintCategory.SERIAL,
                         TreeInfo.diagnosticPositionFor(svuid, tree), "constant.SVUID", c);
         }
 

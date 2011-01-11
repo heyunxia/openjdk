@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -249,6 +249,11 @@ public class Flags {
      * come from restricted supertype bounds)
      */
     public static final long OVERRIDE_BRIDGE = 1L<<41;
+
+    /**
+     * Flag that marks an 'effectively final' local variable
+     */
+    public static final long EFFECTIVELY_FINAL = 1L<<42;
 
     /** Modifier masks.
      */

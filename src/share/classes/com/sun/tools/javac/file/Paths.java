@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -118,6 +118,11 @@ public class Paths {
      */
     private File bootClassPathRtJar = null;
 
+    /**
+     *  Is bootclasspath the default?
+     */
+    private boolean isDefaultBootClassPath;
+
     Path getPathForLocation(Location location) {
         Path path = pathsForLocation.get(location);
         if (path == null)
@@ -133,7 +138,7 @@ public class Paths {
             if (location == CLASS_PATH)
                 p = computeUserClassPath();
             else if (location == PLATFORM_CLASS_PATH)
-                p = computeBootClassPath();
+                p = computeBootClassPath(); // sets isDefaultBootClassPath
             else if (location == ANNOTATION_PROCESSOR_PATH)
                 p = computeAnnotationProcessorPath();
             else if (location == SOURCE_PATH)
@@ -144,11 +149,18 @@ public class Paths {
                 // no defaults for other paths
                 p = null;
         } else {
+            if (location == PLATFORM_CLASS_PATH)
+                isDefaultBootClassPath = false;
             p = new Path();
             for (File f: path)
                 p.addFile(f, warn); // TODO: is use of warn appropriate?
         }
         pathsForLocation.put(location, p);
+    }
+
+    public boolean isDefaultBootClassPath() {
+        lazy();
+        return isDefaultBootClassPath;
     }
 
     protected void lazy() {
@@ -363,9 +375,10 @@ public class Paths {
          *  @param whether to generate a warning if a given entry does not exist
          */
         public Path addFiles(String files, boolean warn) {
-            if (files != null)
+            if (files != null) {
                 for (File file : getPathEntries(files, emptyPathDefault))
                     addFile(file, warn);
+            }
             return this;
         }
 
@@ -468,18 +481,23 @@ public class Paths {
 
     private Path computeBootClassPath() {
         bootClassPathRtJar = null;
-        String optionValue;
         Path path = new Path();
 
-        path.addFiles(options.get(XBOOTCLASSPATH_PREPEND));
+        String bootclasspathOpt = options.get(BOOTCLASSPATH);
+        String endorseddirsOpt = options.get(ENDORSEDDIRS);
+        String extdirsOpt = options.get(EXTDIRS);
+        String xbootclasspathPrependOpt = options.get(XBOOTCLASSPATH_PREPEND);
+        String xbootclasspathAppendOpt = options.get(XBOOTCLASSPATH_APPEND);
 
-        if ((optionValue = options.get(ENDORSEDDIRS)) != null)
-            path.addDirectories(optionValue);
+        path.addFiles(xbootclasspathPrependOpt);
+
+        if (endorseddirsOpt != null)
+            path.addDirectories(endorseddirsOpt);
         else
             path.addDirectories(System.getProperty("java.endorsed.dirs"), false);
 
-        if ((optionValue = options.get(BOOTCLASSPATH)) != null) {
-            path.addFiles(optionValue);
+        if (bootclasspathOpt != null) {
+            path.addFiles(bootclasspathOpt);
         } else {
             // Standard system classes for this compiler's release.
             String files = System.getProperty("sun.boot.class.path");
@@ -491,15 +509,20 @@ public class Paths {
             }
         }
 
-        path.addFiles(options.get(XBOOTCLASSPATH_APPEND));
+        path.addFiles(xbootclasspathAppendOpt);
 
         // Strictly speaking, standard extensions are not bootstrap
         // classes, but we treat them identically, so we'll pretend
         // that they are.
-        if ((optionValue = options.get(EXTDIRS)) != null)
-            path.addDirectories(optionValue);
+        if (extdirsOpt != null)
+            path.addDirectories(extdirsOpt);
         else
             path.addDirectories(System.getProperty("java.ext.dirs"), false);
+
+        isDefaultBootClassPath =
+                (xbootclasspathPrependOpt == null) &&
+                (bootclasspathOpt == null) &&
+                (xbootclasspathAppendOpt == null);
 
         return path;
     }
