@@ -33,6 +33,7 @@ int     Arguments::_num_jvm_flags               = 0;
 char**  Arguments::_jvm_args_array              = NULL;
 int     Arguments::_num_jvm_args                = 0;
 char*  Arguments::_java_command                 = NULL;
+char*  Arguments::_java_main                    = NULL;
 SystemProperty* Arguments::_system_properties   = NULL;
 const char*  Arguments::_gc_log_filename        = NULL;
 bool   Arguments::_has_profile                  = false;
@@ -880,6 +881,12 @@ bool Arguments::add_property(const char* prop) {
     return true;
   } else if (strcmp(key, "sun.java.command") == 0) {
     _java_command = value;
+
+    // don't add this property to the properties exposed to the java application
+    FreeHeap(key);
+    return true;
+  } else if (strcmp(key, "sun.java.main") == 0) {
+    _java_main = value;
 
     // don't add this property to the properties exposed to the java application
     FreeHeap(key);
@@ -2086,6 +2093,7 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
 
     if (!match_option(option, "-Djava.class.path", &tail) &&
         !match_option(option, "-Dsun.java.command", &tail) &&
+        !match_option(option, "-Dsun.java.main", &tail) &&
         !match_option(option, "-Dsun.java.launcher", &tail)) {
 
         // add all jvm options to the jvm_args string. This string

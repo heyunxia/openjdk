@@ -223,6 +223,8 @@ class Arguments : AllStatic {
   static int    _num_jvm_args;
   // string containing all java command (class/jarfile name and app args)
   static char* _java_command;
+  // string containing the module name or the main class name
+  static char* _java_main;
 
   // Property list
   static SystemProperty* _system_properties;
@@ -424,6 +426,7 @@ class Arguments : AllStatic {
   static int num_jvm_args()                { return _num_jvm_args; }
   // return the arguments passed to the Java application
   static const char* java_command()        { return _java_command; }
+  static const char* java_main()           { return _java_main; }
 
   // print jvm_flags, jvm_args and java_command
   static void print_on(outputStream* st);
@@ -450,6 +453,10 @@ class Arguments : AllStatic {
   // -Dsun.java.launcher.module.boot
   static const char* sun_java_launcher_module_boot() {
     return _sun_java_launcher_module_boot;
+  }
+  // -Dsun.java.launcher.module
+  static const char* sun_java_launcher_module() {
+    return _sun_java_launcher_module;
   }
 
   static bool is_module_mode() {
