@@ -211,10 +211,10 @@ ifndef PRODUCT_HOME
   ABS_JDK_MODULE_IMAGE = $(ABS_PLATFORM_BUILD_ROOT)/jdk-module-image
   PRODUCT_HOME :=                       		\
     $(shell                             		\
-      if [ -d $(ABS_JDK_LEGACY_IMAGE) ] ; then 		\
-         $(ECHO) "$(ABS_JDK_LEGACY_IMAGE)";    		\
-       elif [ -d $(ABS_JDK_MODULE_IMAGE) ] ; then 	\
+       if [ -d $(ABS_JDK_MODULE_IMAGE) ] ; then 	\
          $(ECHO) "$(ABS_JDK_MODULE_IMAGE)";    		\
+       elif [ -d $(ABS_JDK_LEGACY_IMAGE) ] ; then 	\
+         $(ECHO) "$(ABS_JDK_LEGACY_IMAGE)";    		\
        else                             		\
          $(ECHO) "$(ABS_PLATFORM_BUILD_ROOT)";		\
        fi)
@@ -598,10 +598,10 @@ jdk_util: java/util sun/util
 # with the "modules" keyword so that they are excluded when testing
 # legacy image.
 ifeq ($(MODULE_BUILD),true)
-  JDK_ALL_TARGETS += jdk_jigsaw
   JIGSAW_TESTS = org/openjdk/jigsaw
 endif
 
+JDK_ALL_TARGETS += jdk_jigsaw
 jdk_jigsaw: java/lang/module java/lang/reflect/Module $(JIGSAW_TESTS)
 	$(call RunOthervmBatch)
 

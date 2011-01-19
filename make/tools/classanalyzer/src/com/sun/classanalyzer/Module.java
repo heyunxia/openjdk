@@ -23,7 +23,6 @@
  */
 package com.sun.classanalyzer;
 
-import com.sun.classanalyzer.ModuleInfo.Dependence;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -111,6 +110,7 @@ public class Module implements Comparable<Module> {
     private Module group;
     private ModuleInfo minfo;
     private boolean isBaseModule;
+    protected String mainClassName;
 
     protected Module(ModuleConfig config) {
         this.name = config.module;
@@ -118,6 +118,7 @@ public class Module implements Comparable<Module> {
         this.classes = new TreeSet<Klass>();
         this.resources = new TreeSet<ResourceFile>();
         this.config = config;
+        this.mainClassName = config.mainClass();
         this.unresolved = new HashSet<Reference>();
         this.members = new TreeSet<Module>();
         this.group = this; // initialize to itself
@@ -177,12 +178,8 @@ public class Module implements Comparable<Module> {
     }
 
     Klass mainClass() {
-        String cls = config.mainClass();
-        if (cls == null) {
-            return null;
-        }
-
-        Klass k = Klass.findKlass(cls);
+        Klass k = mainClassName != null ?
+                      Klass.findKlass(mainClassName) : null;
         return k;
     }
 
@@ -319,6 +316,17 @@ public class Module implements Comparable<Module> {
         // merge resource list
         for (ResourceFile res : m.resources) {
             resources.add(res);
+        }
+
+        // propagate the main entry point
+        if (m.mainClassName != null) {
+            if (mainClassName == null) {
+                mainClassName = m.mainClassName;
+            } else {
+                Trace.trace("Module %s already has an entry point: " +
+                    "%s member: %s class %s%n",
+                    name, mainClassName, m.name, m, m.name);
+            }
         }
     }
 

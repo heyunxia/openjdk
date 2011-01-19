@@ -99,7 +99,7 @@ static void SetClassPath(const char *s);
 static void SetModulesBootClassPath(const char *s);
 static void SelectVersion(int argc, char **argv, char **main_class);
 static jboolean ParseArguments(int *pargc, char ***pargv,
-                               int *pmode, char **pwhat,
+                               int *pmode, char **pwhat, char **pmain,
                                int *pret, const char *jrepath);
 static jboolean InitializeJVM(JavaVM **pvm, JNIEnv **penv,
                               InvocationFunctions *ifn);
@@ -220,6 +220,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
 {
     int mode = LM_UNKNOWN;
     char *what = NULL;
+    char *javamain = NULL;
     char *cpath = 0;
     char *main_class = NULL;
     int ret;
@@ -312,7 +313,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     /* Parse command line options; if the return value of
      * ParseArguments is false, the program should exit.
      */
-    if (!ParseArguments(&argc, &argv, &mode, &what, &ret, jrepath))
+    if (!ParseArguments(&argc, &argv, &mode, &what, &javamain, &ret, jrepath))
     {
         return(ret);
     }
@@ -340,6 +341,9 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
 
     /* set the -Dsun.java.command pseudo property */
     SetJavaCommandLineProp(what, argc, argv);
+
+    /* set the -Dsun.java.main pseudo property */
+    SetJavaMainProp(javamain);
 
     /* Set the -Dsun.java.launcher pseudo property */
     SetJavaLauncherProp();
@@ -740,13 +744,13 @@ static void
 SetClassPath(const char *s)
 {
     char *def;
+    size_t len;
     const char *orig = s;
     static const char format[] = "-Djava.class.path=%s";
     s = JLI_WildcardExpandClasspath(s);
-    def = JLI_MemAlloc(sizeof(format)
-                       - 2 /* strlen("%s") */
-                       + JLI_StrLen(s));
-    sprintf(def, format, s);
+    len = sizeof(format) - 2 + JLI_StrLen(s); /* -2 == strlen("%s") */
+    def = JLI_MemAlloc(len);
+    JLI_Snprintf(def, len, format, s);
     AddOption(def, NULL);
     if (s != orig)
         JLI_MemFree((char *) s);
@@ -1065,7 +1069,7 @@ SelectVersion(int argc, char **argv, char **main_class)
  */
 static jboolean
 ParseArguments(int *pargc, char ***pargv,
-               int *pmode, char **pwhat,
+               int *pmode, char **pwhat, char **pmain,
                int *pret, const char *jrepath)
 {
     int argc = *pargc;
@@ -1185,9 +1189,8 @@ ParseArguments(int *pargc, char ***pargv,
                 legacy = JNI_TRUE;
             } else if (JLI_StrCmp(arg, "-Xmode:module") == 0) {
                 legacy = JNI_FALSE;
-            } else {
+            } else
                 ARG_FAIL1(ARG_ERROR9, arg);
-            }
         } else if (RemovableOption(arg) ) {
             ; /* Do not pass option to vm. */
         } else {
@@ -1204,11 +1207,13 @@ ParseArguments(int *pargc, char ***pargv,
              * the first argument */
             JLI_StrCpy(buf, "jdk.");
             JLI_StrCat(buf, _program_name);
+            *pmain = *argv;     // the main class name is in the first argument
             if (JLI_StrCmp(buf, _module_name) == 0) {
-                // skip the main class name
+                // module's entry point == main class name
+                // skip the main class name argument 
                 argc--;
                 argv++;
-            } 
+            }
 
             if (argc >= 0) {
                 *pargc = argc;
@@ -1216,8 +1221,6 @@ ParseArguments(int *pargc, char ***pargv,
             }
             JLI_TraceLauncher("%s runs in module mode (%s) argv[0]=%s\n",
                               _program_name, *pwhat, argc > 0 ? *argv : "none");
-            JLI_TraceLauncher("buf=%s(%s) %c %c\n",
-                              buf, _module_name, buf[9],_module_name[9]);
             return JNI_TRUE;
         }
     }
@@ -1225,6 +1228,7 @@ ParseArguments(int *pargc, char ***pargv,
     // applications or tools runs in legacy mode
     if (--argc >= 0) {
         *pwhat = *argv++;
+        *pmain = *pwhat;     // module's name or main class name
     }
 
     if (*pwhat == NULL)
@@ -1627,12 +1631,32 @@ SetJavaCommandLineProp(char *what, int argc, char **argv)
 }
 
 /*
+ * Set the "sun.java.main" property for tools like jps to show
+ * the main class name or the module name.
+ * 
+ * ## The JDK tools are launched in a module mode
+ */
+void
+SetJavaMainProp(char *javamain) {
+    char *prop;
+    int buflen;
+    if (javamain == NULL) {
+        return;
+    }
+    
+    buflen = JLI_StrLen(javamain) + 40;
+    prop = (char *)JLI_MemAlloc(buflen);
+    JLI_Snprintf(prop, buflen, "-Dsun.java.main=%s", javamain);
+    AddOption(prop, NULL);
+}
+
+/*
  * JVM would like to know if it's created by a standard Sun launcher, or by
  * user native application, the following property indicates the former.
  */
 void
 SetJavaLauncherProp() {
-  AddOption("-Dsun.java.launcher=SUN_STANDARD", NULL);
+    AddOption("-Dsun.java.launcher=SUN_STANDARD", NULL);
 }
 
 /* Set the property that tells java.lang.ClassLoader to create a Jigsaw
@@ -1640,8 +1664,9 @@ SetJavaLauncherProp() {
  */
 void
 SetModuleProp(char *module) {
-    char *prop = (char *)JLI_MemAlloc(JLI_StrLen(module) + 40);
-    sprintf(prop, "-Dsun.java.launcher.module=%s", module);
+    size_t buflen = JLI_StrLen(module) + 40;
+    char *prop = (char *)JLI_MemAlloc(buflen);
+    JLI_Snprintf(prop, buflen, "-Dsun.java.launcher.module=%s", module);
     AddOption(prop, NULL);
 }
 
@@ -1649,8 +1674,9 @@ SetModuleProp(char *module) {
  */
 void
 SetModuleLibraryProp(char *mlpath) {
+    size_t buflen = JLI_StrLen(mlpath) + 40;
     char *prop = (char *)JLI_MemAlloc(JLI_StrLen(mlpath) + 40);
-    sprintf(prop, "-Dsun.java.launcher.module.library=%s", mlpath);
+    JLI_Snprintf(prop, buflen, "-Dsun.java.launcher.module.library=%s", mlpath);
     AddOption(prop, NULL);
 }
 
@@ -1658,8 +1684,9 @@ SetModuleLibraryProp(char *mlpath) {
  */
 void
 SetModuleBootProp(char *bpath) {
-    char *prop = (char *)JLI_MemAlloc(JLI_StrLen(bpath) + 40);
-    sprintf(prop, "-Dsun.java.launcher.module.boot=%s", bpath);
+    size_t buflen = JLI_StrLen(bpath) + 40;
+    char *prop = (char *)JLI_MemAlloc(buflen);
+    JLI_Snprintf(prop, buflen, "-Dsun.java.launcher.module.boot=%s", bpath);
     AddOption(prop, NULL);
 }
 
@@ -2151,7 +2178,9 @@ DumpState()
     printf("\tjavargs:%s\n", (_is_java_args == JNI_TRUE) ? "on" : "off");
     printf("\tprogram name:%s\n", GetProgramName());
     printf("\tlauncher name:%s\n", GetLauncherName());
-    printf("\tmodule name:%s @ %s\n", GetModuleName(), GetModuleVersion() == NULL ? "null" : GetModuleVersion());
+    printf("\tmodule name:%s @ %s\n",
+           GetModuleName() == NULL ? "null" : GetModuleName(),
+           GetModuleVersion() == NULL ? "null" : GetModuleVersion());
     printf("\tjavaw:%s\n", (IsJavaw() == JNI_TRUE) ? "on" : "off");
     printf("\tfullversion:%s\n", GetFullVersion());
     printf("\tdotversion:%s\n", GetDotVersion());

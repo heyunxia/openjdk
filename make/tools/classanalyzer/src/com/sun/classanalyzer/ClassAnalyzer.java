@@ -244,9 +244,7 @@ public class ClassAnalyzer {
 
         // parse class and resource files
         cpath.parse(filter, parseDeps, apiOnly);
-        if (Trace.traceOn) {
-            cpath.printStats();
-        }
+        cpath.printStats();
     }
 
     public void printModuleInfos(String minfoDir) throws IOException {

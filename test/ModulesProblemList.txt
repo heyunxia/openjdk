@@ -54,6 +54,10 @@
 # Agent JAR not found or no Agent-Class attribute
 sun/management/jmxremote/bootstrap/JvmstatCountersTest.java generic-all
 
+# Could not determine codeBase for java.home
+javax/management/MBeanInfo/NotificationInfoTest.java        generic-all
+
+
 ############################################################################
 
 # jdk_math
@@ -75,7 +79,14 @@ demo/jvmti/waiters/WaitersTest.java 				generic-all
 
 ############################################################################
 
-# jdk_nio3
+# jdk_nio*
+
+# existing JDK 7 failure?
+java/nio/channels/FileChannel/ClosedByInterrupt.java    generic-all
+java/nio/channels/SocketChannel/AdaptSocket.java        linux-x64
+java/nio/channels/SocketChannel/Connect.java            linux-x64
+java/nio/MappedByteBuffer/Force.java                    windows-i586
+
 
 # This test sets to Turkish language without resetting it when exit
 # that causes other tests to fail.  Exclude for now.
@@ -86,6 +97,12 @@ closed/sun/nio/cs/sunio/Test4206507.java                generic-all
 
 # jdk_rmi
 
+# Need further investigation
+# TestFailedException: TEST FAILED: could not create registry
+sun/rmi/runtime/Log/checkLogging/CheckLogStreams.java   solaris-all
+sun/rmi/runtime/Log/checkLogging/CheckLogging.java      solaris-all
+
+java/rmi/transport/dgcDeadLock/DGCDeadLock.java         solaris-all
 
 ############################################################################
 
@@ -110,6 +127,15 @@ sun/security/tools/keytool/file-in-help.sh    		generic-all
 sun/security/tools/keytool/newhelp.sh    		generic-all
 sun/security/tools/keytool/resource.sh    		generic-all
 
+# jre/lib/ext: No such file or directory
+java/security/Security/ClassLoaderDeadlock/Deadlock2.sh generic-all
+
+# Need investigation
+sun/security/krb5/auto/W83.java                         windows-all
+sun/security/krb5/tools/ktarg.sh                        windows-all
+sun/security/krb5/tools/ktcheck.sh                      windows-all
+
+
 ############################################################################
 
 # jdk_swing
@@ -123,6 +149,42 @@ sun/security/tools/keytool/resource.sh    		generic-all
 
 # jdk_tools
 
+# jdk_tools1 32 failures on windows
+# Provider com.sun.tools.jdi.SharedMemoryAttachingConnector could not be instantiated:
+# java.lang.UnsatisfiedLinkError: No library dt_shmem.dll in module context +jdk.tools
+com/sun/jdi/ArrayLengthDumpTest.sh                   windows-all
+com/sun/jdi/BreakpointWithFullGC.sh                  windows-all
+com/sun/jdi/CatchAllTest.sh                          windows-all
+com/sun/jdi/CatchCaughtTest.sh                       windows-all
+com/sun/jdi/CatchPatternTest.sh                      windows-all
+com/sun/jdi/CommandCommentDelimiter.sh               windows-all
+com/sun/jdi/DeoptimizeWalk.sh                        windows-all
+com/sun/jdi/EvalArgs.sh                              windows-all
+com/sun/jdi/GetLocalVariables3Test.sh                windows-all
+com/sun/jdi/GetLocalVariables4Test.sh                windows-all
+com/sun/jdi/JdbLockTest.sh                           windows-all
+com/sun/jdi/JdbMethodExitTest.sh                     windows-all
+com/sun/jdi/JdbMissStep.sh                           windows-all
+com/sun/jdi/JdbVarargsTest.sh                        windows-all
+com/sun/jdi/MixedSuspendTest.sh                      windows-all
+com/sun/jdi/NotAField.sh                             windows-all
+com/sun/jdi/NullLocalVariable.sh                     windows-all
+com/sun/jdi/Redefine-g.sh                            windows-all
+com/sun/jdi/RedefineAnnotation.sh                    windows-all
+com/sun/jdi/RedefineChangeClassOrder.sh              windows-all
+com/sun/jdi/RedefineClasses.sh                       windows-all
+com/sun/jdi/RedefineClearBreakpoint.sh               windows-all
+com/sun/jdi/RedefineCrossEvent.java                  windows-all
+com/sun/jdi/RedefineException.sh                     windows-all
+com/sun/jdi/RedefineFinal.sh                         windows-all
+com/sun/jdi/RedefineImplementor.sh                   windows-all
+com/sun/jdi/RedefineIntConstantToLong.sh             windows-all
+com/sun/jdi/RedefineMulti.sh                         windows-all
+com/sun/jdi/RedefinePop.sh                           windows-all
+com/sun/jdi/RedefineStep.sh                          windows-all
+com/sun/jdi/RedefineTTYLineNumber.sh                 windows-all
+com/sun/jdi/StringConvertTest.sh                     windows-all
+com/sun/jdi/WatchFramePop.sh                         windows-all
 
 # libattach.so has to be in the module
 sun/tools/jinfo/Basic.sh   		generic-all
@@ -130,12 +192,32 @@ sun/tools/jmap/Basic.sh   		generic-all
 sun/tools/jps/jps-vm_1.sh   		generic-all
 sun/tools/jstack/Basic.sh   		generic-all
 
+
+# legacy mode adds -Xbootclasspath that causes this test to fail
+# this test should pass when we support legacy mode
+sun/tools/jps/jps-Vvml_2.sh             generic-all
+
 # Need investigation
+sun/tools/jstatd/jstatdExternalRegistry.sh      generic-all
 com/sun/tools/extcheck/TestExtcheckArgs.java   	generic-all
 tools/launcher/ExecutionEnvironment.java   	generic-all
 
+# Test bugs - should file a CR 
+tools/launcher/VersionCheck.java   	        generic-all
+# /var/tmp  not writeable
+tools/jar/ChangeDir.java                        generic-all
+
 # Test expects tools.jar and rt.jar.  Needs to be update.
 tools/pack200/Pack200Simple.sh   		generic-all
+tools/pack200/AttributeTests.java               generic-all
+tools/pack200/CommandLineTests.java             generic-all
+tools/pack200/Pack200Props.java                 generic-all
+tools/pack200/Pack200Test.java                  generic-all
+tools/pack200/PackageVersionTest.java           generic-all
+tools/pack200/TestExceptions.java               generic-all
+tools/pack200/TimeStamp.java                    generic-all
+tools/pack200/UnpackerMemoryTest.java           generic-all
+
 
 
 ############################################################################
@@ -144,7 +226,18 @@ tools/pack200/Pack200Simple.sh   		generic-all
 
 # Fail to find sun.localedata
 java/util/Locale/InternationalBAT.java			generic-all
-java/util/PluggableLocale/CurrencyNameProviderTest.java generic-all
+java/util/PluggableLocale/CurrencyNameProviderTest.sh   generic-all
+
+# jmap fails - No library libattach.so in module context +jdk.tools
+java/util/logging/AnonLoggerWeakRefLeak.sh              generic-all
+java/util/logging/LoggerWeakRefLeak.sh                  generic-all
+
+# Can't find rt.jar or classes directory
+java/util/zip/InterruptibleZip.java                     generic-all
+
+# java.util.ConcurrentModificationException - need investigation
+java/util/Locale/Bug6989440.java                        generic-all
+
 
 ############################################################################
 

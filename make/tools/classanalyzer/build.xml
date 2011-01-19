@@ -27,5 +27,4 @@
 
 <project name="classanalyzer" default="build" basedir=".">
     <import file="nbproject/build-impl.xml"/>
-
-    <import file="nbproject/profiler-build-impl.xml"/></project>
+</project>

@@ -67,6 +67,37 @@ public class MonitoredVmUtil {
     }
 
     /**
+     * Returns true if the application is a java launcher tool running
+     * in module name.
+     *
+     * The workaround for multi-entry point support launches 
+     * jdk tools by sun.launcher.LauncherHelper in module mode
+     * and the module name is added in the java command before the main
+     * class name of the tool.
+     */
+    private static boolean isJavaToolModule(MonitoredVm vm)
+            throws MonitorException
+    {
+
+        // It's a java launcher tool if the sun.rt.javaMain value is 
+        // different than the first argument in the java command.
+        StringMonitor javaMain = (StringMonitor)vm.findByName("sun.rt.javaMain");
+        if (javaMain == null)
+            return false;
+        
+        StringMonitor javaModule = (StringMonitor)vm.findByName("sun.rt.javaModule");
+        if (javaModule == null || javaModule.stringValue().isEmpty())
+            return false;
+ 
+        String name = javaMain.stringValue();
+        String moduleId = javaModule.stringValue();
+        int i = moduleId.indexOf('@');   // moduleId may contain @version
+        String modulename = (i >= 0) ? moduleId.substring(0, i)
+                                     : moduleId;
+        return !name.equals(modulename) && !name.equals(moduleId);
+    }
+
+    /**
      * Return the arguments to the main class for the target Java application.
      * Returns the arguments to the main class. If the arguments can't be
      * found, the string "Unknown" is returned.
@@ -79,9 +110,14 @@ public class MonitoredVmUtil {
     public static String mainArgs(MonitoredVm vm) throws MonitorException {
         String commandLine = commandLine(vm);
 
-        int firstSpace = commandLine.indexOf(' ');
-        if (firstSpace > 0) {
-            return commandLine.substring(firstSpace + 1);
+        int index = commandLine.indexOf(' ');
+        if (index > 0 && isJavaToolModule(vm)) {
+            // skip the module name and the class name if it's a Java launcher tool
+            index = commandLine.indexOf(' ', index+1);
+        }
+
+        if (index > 0) {
+            return commandLine.substring(index + 1);
         } else if (commandLine.compareTo("Unknown") == 0) {
             return commandLine;
         } else {
@@ -102,13 +138,27 @@ public class MonitoredVmUtil {
      */
     public static String mainClass(MonitoredVm vm, boolean fullPath)
                          throws MonitorException {
-        String commandLine = commandLine(vm);
-        String arg0 = commandLine;
-
-        int firstSpace = commandLine.indexOf(' ');
-        if (firstSpace > 0) {
-            arg0 = commandLine.substring(0, firstSpace);
+        String arg0;
+        StringMonitor javaMain = (StringMonitor)vm.findByName("sun.rt.javaMain");
+        if (javaMain != null) {
+            arg0 = javaMain.stringValue();
+        } else {
+            String commandLine = commandLine(vm);
+            int firstSpace = commandLine.indexOf(' ');
+            arg0 = firstSpace > 0
+                       ? commandLine.substring(0, firstSpace)
+                       : commandLine;
         }
+
+        StringMonitor javaModule = (StringMonitor)vm.findByName("sun.rt.javaModule");
+        if (javaModule != null &&
+                !javaModule.stringValue().isEmpty() &&
+                !isJavaToolModule(vm)) {
+            // return the full module name if it's a module
+            // except java tools
+            return arg0;
+        }
+
         if (!fullPath) {
             /*
              * can't use File.separator() here because the separator

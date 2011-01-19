@@ -122,7 +122,6 @@ $(MODULES_LIST):: $(MODULES_CONFIG) $(MODULES_GROUP) \
 $(MODULES_LIST):: $(MODULES_UPDATE_MARKER)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(HOST_JAVA_CMD) \
-                -Dclassanalyzer.debug \
                 -jar $(CLASSANALYZER_JAR_FILE) \
                 -jdkhome $(OUTPUTDIR) \
                 -config $(MODULES_CONFIG) \
@@ -183,7 +182,6 @@ $(MODULEPATH_DIR)/%/classes/module-info.class: $(MODULEPATH_DIR)/%/module-info.c
 modularize: $(MODULES_LIST)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(HOST_JAVA_CMD) \
-                -Dclassanalyzer.debug \
                 -cp $(CLASSANALYZER_JAR_FILE) \
                 com.sun.classanalyzer.Modularizer \
                 -jdkhome $(OUTPUTDIR) \

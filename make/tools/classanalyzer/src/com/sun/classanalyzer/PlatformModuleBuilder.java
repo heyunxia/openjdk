@@ -243,11 +243,9 @@ public class PlatformModuleBuilder extends ModuleBuilder {
 
     public class PlatformModule extends Module {
         private Module exporter;  // module that reexports this platform module
-        private String mainClass;
         public PlatformModule(ModuleConfig config) {
             super(config);
             this.exporter = this;
-            this.mainClass = config.mainClass();
         }
 
         // support for incremental build
@@ -264,15 +262,7 @@ public class PlatformModuleBuilder extends ModuleBuilder {
             if (classname == null)
                 throw new RuntimeException("Null main class for module " + name());
 
-            mainClass = classname;
-        }
-
-        @Override
-        Klass mainClass() {
-            if (mainClass != null)
-                return Klass.findKlass(mainClass);
-            else
-                return null;
+            mainClassName = classname;
         }
 
         @Override

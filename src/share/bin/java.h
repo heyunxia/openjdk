@@ -156,6 +156,7 @@ int ContinueInNewThread0(int (JNICALL *continuation)(void *),
 /* sun.java.launcher.* platform properties. */
 void SetJavaLauncherPlatformProps(void);
 void SetJavaCommandLineProp(char* what, int argc, char** argv);
+void SetJavaMainProp(char *javamain);
 void SetJavaLauncherProp(void);
 void SetModuleProp(char *module);
 void SetModuleLibraryProp(char *mlpath);
