@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,6 +28,7 @@ package org.openjdk.jigsaw;
 import java.io.IOException;
 import java.security.*;
 import java.security.cert.*;
+import java.util.Collection;
 import java.util.Set;
 
 import static org.openjdk.jigsaw.FileConstants.*;
@@ -82,6 +83,6 @@ public interface ModuleFileVerifier {
         /**
          * Returns a collection of the most-trusted public key certificates.
          */
-        public Set<TrustAnchor> getTrustAnchors();
+        public Collection<X509Certificate> getTrustedCerts();
     }
 }

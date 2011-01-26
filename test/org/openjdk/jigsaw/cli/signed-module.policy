@@ -1,6 +1,0 @@
-keystore "keystore.jks";
-keystorePasswordURL "keystore.pw";
-
-grant signedBy "myKey" {
-    permission java.util.PropertyPermission "user.home", "read";
-};

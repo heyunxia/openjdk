@@ -1,6 +1,6 @@
 #! /bin/sh
 
-# Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -81,8 +81,19 @@ $BIN/jpkg \
     -d z.modules \
     -k keystore.jks \
     jmod com.foo.signed < ${TESTSRC}/keystore.pw
-# Skip verification (due to empty 'cacerts' file)
+# Test installation without verifying module
 $BIN/jmod install --noverify z.modules/com.foo.signed@1.0.jmod
+$BIN/jmod list -v
+$BIN/jmod dump-class com.foo.signed@1.0 com.foo.signed.Main z
+cmp z z.modules/com.foo.signed/com/foo/signed/Main.class
+
+rm -rf z.lib
+$BIN/jmod create
+$BIN/jmod id
+# Test installation and verification and supply an alternative 'cacerts' file
+$BIN/jmod install -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
+                  z.modules/com.foo.signed@1.0.jmod
+
 
 $BIN/jmod list -v
 $BIN/jmod dump-class com.foo.signed@1.0 com.foo.signed.Main z

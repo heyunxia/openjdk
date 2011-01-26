@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,7 +28,6 @@
 
 import java.io.*;
 import java.security.CodeSigner;
-import java.security.KeyStore;
 import java.security.cert.*;
 import java.util.*;
 import java.util.zip.*;
@@ -325,18 +324,9 @@ public class ModuleFormatTest01 {
         ModuleFileFormat.Reader reader = new ModuleFileFormat.Reader(dis);
         if (reader.hasSignature()) {
             if (reader.getSignatureType() == SignatureType.PKCS7.value()) {
-                //File path = new File(System.getProperty("java.home")
-                                     //+ "/lib/security/cacerts");
-                File path = keystoreJKSFile;
-                if (!path.canRead()) {
-                    throw new Exception("Error loading 'cacerts' from " + path);
-                }
-                KeyStore cacerts = KeyStore.getInstance("JKS");
-                cacerts.load(new FileInputStream(path), null); // no password
                 reader.setVerificationMechanism(
                     new ModuleFileFormat.PKCS7Verifier(),
-                    new ModuleFileFormat.PKCS7VerifierParameters(
-                        new PKIXParameters(cacerts)));
+                    new ModuleFileFormat.PKCS7VerifierParameters());
                 int i = 1;
                 System.out.println("Module '" + name + "' is signed by:");
                 for (CodeSigner signer : reader.verifySignature()) {

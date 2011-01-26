@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -129,10 +129,9 @@ public class Loader
     }
 
     private ClassNotFoundException cnf(Module m, String cn, IOException x) {
-        ClassNotFoundException cnfx
-            = new ClassNotFoundException(m.getName() + ":" + cn);
-        cnfx.initCause(x);
-        return cnfx;
+        return m != null
+            ? new ClassNotFoundException(m.getName() + ":" + cn, x)
+            : new ClassNotFoundException(cn, x);
     }
 
     Class<?> findClass(ModuleId mid, String cn)
