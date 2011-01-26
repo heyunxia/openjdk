@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -55,7 +55,7 @@ import static org.openjdk.jigsaw.Trace.*;
 //                          resources/com/foo/bar/...
 //                          lib/libbar.so
 //                          bin/bar
-//                          signer
+//                          signer (signer's certchain & timestamp)
 
 public final class SimpleLibrary
     extends Library
@@ -429,6 +429,73 @@ public final class SimpleLibrary
 
     }
 
+    private static final class Signer
+        extends MetaData {
+
+        private static String FILE = "signer";
+        private static int MAJOR_VERSION = 0;
+        private static int MINOR_VERSION = 1;
+
+        private CertificateFactory cf = null;
+        private CodeSigner signer;
+        private CodeSigner signer() { return signer; }
+
+        private Signer(File root, CodeSigner signer) {
+            super(MAJOR_VERSION, MINOR_VERSION,
+                  FileConstants.Type.LIBRARY_MODULE_SIGNER,
+                  new File(root, FILE));
+            this.signer = signer;
+        }
+
+        protected void storeRest(DataOutputStream out)
+            throws IOException
+        {
+            try {
+                CertPath signerCertPath = signer.getSignerCertPath();
+                out.write(signerCertPath.getEncoded("PkiPath"));
+                Timestamp ts = signer.getTimestamp();
+                out.writeByte((ts != null) ? 1 : 0);
+                if (ts != null) {
+                    out.writeLong(ts.getTimestamp().getTime());
+                    out.write(ts.getSignerCertPath().getEncoded("PkiPath"));
+                }
+            } catch (CertificateEncodingException cee) {
+                throw new IOException(cee);
+            }
+                
+        }
+
+        protected void loadRest(DataInputStream in)
+            throws IOException
+        {
+            try {
+                if (cf == null)
+                    cf = CertificateFactory.getInstance("X.509");
+                CertPath signerCertPath = cf.generateCertPath(in, "PkiPath");
+                signer = new CodeSigner(signerCertPath, null);
+                int b = in.readByte();
+                if (b != 0) {
+                    Date timestamp = new Date(in.readLong());
+                    CertPath tsaCertPath = cf.generateCertPath(in, "PkiPath");
+                    Timestamp ts = new Timestamp(timestamp, tsaCertPath);
+                    signer = new CodeSigner(signerCertPath, ts);
+                } else {
+                    signer = new CodeSigner(signerCertPath, null);
+                }
+            } catch (CertificateException ce) {
+                throw new IOException(ce);
+            }
+        }
+
+        private static Signer load(File f)
+            throws IOException
+        {
+            Signer signer = new Signer(f, null);
+            signer.load();
+            return signer;
+        }
+    }
+
     private void gatherLocalModuleIds(File mnd, Set<ModuleId> mids)
         throws IOException
     {
@@ -528,28 +595,14 @@ public final class SimpleLibrary
         File md = findModuleDir(mid);
         if (md == null)
             return null;
-
         // ## add support for multiple signers
         File f = new File(md, "signer");
         // ## concurrency issues : what is the expected behavior if file is
         // ## removed by another thread/process here?
         if (!f.exists())
             return null;
-        InputStream is = new FileInputStream(f);
-        ObjectInputStream ois = null;
-        CodeSigner signer = null;
-        try {
-            ois = new ObjectInputStream(is);
-            signer = (CodeSigner)ois.readObject();
-        } catch (ClassNotFoundException cnfe) {
-            throw new InternalError(cnfe.getMessage());
-        } finally {
-            if (ois != null)
-                ois.close();
-            else
-                is.close();
-        }
-        return new CodeSigner[] {signer};
+        Signer signer = Signer.load(md);
+        return new CodeSigner[] {signer.signer()};
     }
 
     // ## Close all zip files when we close this library
@@ -847,16 +900,18 @@ public final class SimpleLibrary
                 throw new ConfigurationException(mid + ": Already installed");
             if (!md.mkdirs())
                 throw new IOException(md + ": Cannot create");
-            // Perform cert path validation for each of the module signers
+            // Verify module signature and perform cert path validation for 
+            // each of the module signers
             if (doVerify) {
                 ModuleFileVerifier verifier =
                     new ModuleFileFormat.PKCS7Verifier();
-                mr.setVerificationMechanism(verifier, null);
+                mr.setVerificationMechanism(verifier,
+                    new ModuleFileFormat.PKCS7VerifierParameters());
                 Set<CodeSigner> signers = mr.verifySignature();
                 // ## add support for storing multiple signers
                 if (!signers.isEmpty()) {
                     CodeSigner signer = signers.iterator().next();
-                    Files.store(signer, new File(md, "signer"));
+                    new Signer(md, signer).store();
                 }
             }
             mr.readRest(md);
@@ -877,15 +932,15 @@ public final class SimpleLibrary
             }
             throw x;
         } catch (SignatureException x) {
-            if (md != null && md.exists()) {
-                try {
-                    Files.deleteTree(md);
-                } catch (IOException y) {
-                    y.initCause(x);
-                    throw y;
-                }
-            }
-            throw x;
+             if (md != null && md.exists()) {
+                 try {
+                     Files.deleteTree(md);
+                 } catch (IOException y) {
+                     y.initCause(x);
+                     throw y;
+                 }
+             }
+             throw x;
         } finally {
             mr.close();
         }

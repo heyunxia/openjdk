@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -38,6 +38,7 @@ import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
 import javax.security.auth.x500.X500Principal;
+import sun.security.action.OpenFileInputStreamAction;
 import sun.security.pkcs.*;
 import sun.security.timestamp.*;
 import sun.security.validator.*;
@@ -1627,12 +1628,12 @@ public final class ModuleFileFormat {
                 throws SignatureException
             {
                 // Compute the signature
-
+    
                 Signature signatureAlgorithm =
                     parameters.getSignatureAlgorithm();
                 signatureAlgorithm.update(toBeSigned);
                 byte[] signature = signatureAlgorithm.sign();
-
+    
                 // Create the PKCS #7 signed data message
 
                 AlgorithmId keyAlgorithmId = null;
@@ -1664,7 +1665,7 @@ public final class ModuleFileFormat {
                 signerX509CertificateChain =
                     certs.toArray(new X509Certificate[0]);
                 issuerName =
-                        signerX509CertificateChain[0].getIssuerX500Principal();
+                    signerX509CertificateChain[0].getIssuerX500Principal();
                 serialNumber = signerX509CertificateChain[0].getSerialNumber();
 
                 SignerInfo signerInfo = new SignerInfo(
@@ -1674,7 +1675,8 @@ public final class ModuleFileFormat {
 
                 ByteArrayOutputStream outStream = new ByteArrayOutputStream();
                 PKCS7 pkcs7 = new PKCS7(algorithms, contentInfo,
-                    signerX509CertificateChain, signerInfos);
+                                        signerX509CertificateChain,
+                                        signerInfos);
 
                 try {
                     pkcs7.encodeSignedData(outStream);
@@ -1713,10 +1715,6 @@ public final class ModuleFileFormat {
 
         public final static class PKCS7Verifier implements ModuleFileVerifier {
 
-            private PKCS7 pkcs7 = null;
-            private SignerInfo[] signerInfos = null;
-            private Validator validator = null;
-            private KeyStore trustedCertStore = null;
             private static CertificateFactory certificateFactory = null;
 
             public ModuleFile.SignatureType getSignatureType() {
@@ -1728,49 +1726,33 @@ public final class ModuleFileFormat {
                                                        parameters)
                 throws SignatureException
             {
-                PKIXBuilderParameters pkixBuilderParameters = null;
-
                 try {
-                    pkcs7 = new PKCS7(signature);
-                    signerInfos = pkcs7.verify();
+                    PKCS7VerifierParameters params =
+                        (PKCS7VerifierParameters)parameters;
+                    PKCS7 pkcs7 = new PKCS7(signature);
+                    Validator validator = params.getValidator();
 
-                    if (parameters == null) {
-                        if (trustedCertStore == null) {
-                            try {
-                            trustedCertStore =
-                                AccessController.doPrivileged(
-                                    new PrivilegedExceptionAction<KeyStore>() {
-                                        public KeyStore run()
-                                            throws IOException,
-                                                   GeneralSecurityException
-                                        {
-                                            return loadCACertsStore();
-                                        }
-                                    });
-                            } catch (PrivilegedActionException pe) {
-                                throw new SignatureException(pe.getException());
-                            }
-                        }
-                        pkixBuilderParameters =
-                            new PKIXBuilderParameters(trustedCertStore, null);
-                    } else {
-                        Set<TrustAnchor> trustedCertificates =
-                            parameters.getTrustAnchors();
-                        pkixBuilderParameters =
-                            new PKIXBuilderParameters(trustedCertificates,
-                                                      null);
+                    Set<CodeSigner> signers = new HashSet<>();
+                    X509Certificate[] arrayType = new X509Certificate[0];
+
+                    // Performs certificate path validation for each signer.
+                    // A validation failure results in an exception.
+                    SignerInfo[] signerInfos = pkcs7.verify();
+                    for (SignerInfo signerInfo : signerInfos) {
+                        List<X509Certificate> certChain =
+                            signerInfo.getCertificateChain(pkcs7);
+                        // ## should we synch certificateFactory creation?
+                        if (certificateFactory == null)
+                            certificateFactory =
+                                CertificateFactory.getInstance("X509");
+
+                        validator.validate(certChain.toArray(arrayType));
+                        CertPath certPath =
+                            certificateFactory.generateCertPath(certChain);
+                        signers.add(new CodeSigner(certPath,
+                                                   getTimestamp(signerInfo)));
                     }
-                    // Disable revocation checking
-                    pkixBuilderParameters.setRevocationEnabled(false);
-                    validator =
-                        Validator.getInstance(Validator.TYPE_PKIX,
-                                              Validator.VAR_CODE_SIGNING,
-                                              pkixBuilderParameters);
-
-                    return getTrustedSigners();
-
-                } catch (ParsingException pe) {
-                    throw new SignatureException(pe);
+                    return signers;
 
                 } catch (IOException ioe) {
                     throw new SignatureException(ioe);
@@ -1779,62 +1761,13 @@ public final class ModuleFileFormat {
                     throw new SignatureException(gse);
                 }
             }
-
+    
             public void verifyHashes(byte[] signature,
                                      ModuleFileVerifier.Parameters parameters)
                 throws SignatureException
             {
 
                 // TODO - check signature hashes
-            }
-
-            /*
-             * Loads the ${java.home}/lib/security/cacerts file.
-             */
-            private static KeyStore loadCACertsStore()
-                throws IOException, GeneralSecurityException
-            {
-                KeyStore trustedCertStore = null;
-                FileInputStream inStream = null;
-                String cacerts = System.getProperty("java.home")
-                                 + "/lib/security/cacerts";
-                try {
-                    trustedCertStore = KeyStore.getInstance("JKS");
-                    inStream = new FileInputStream(cacerts);
-                    trustedCertStore.load(inStream, null);
-
-                } finally {
-                    if (inStream != null)
-                        inStream.close();
-                }
-                return trustedCertStore;
-            }
-
-            /*
-             * Performs certificate path validation for each signer.
-             * A validation failure results in an exception.
-             */
-            private Set<CodeSigner> getTrustedSigners()
-                throws IOException, GeneralSecurityException
-            {
-                Set<CodeSigner> signers = new HashSet<>();
-                X509Certificate[] arrayType = new X509Certificate[0];
-
-                for (SignerInfo signerInfo : signerInfos) {
-                    List<X509Certificate> certChain =
-                        signerInfo.getCertificateChain(pkcs7);
-                    if (certificateFactory == null) {
-                        certificateFactory =
-                            CertificateFactory.getInstance("X509");
-                    }
-
-                    validator.validate(certChain.toArray(arrayType));
-                    CertPath certPath =
-                        certificateFactory.generateCertPath(certChain);
-                    signers.add(new CodeSigner(certPath,
-                                               getTimestamp(signerInfo)));
-                }
-                return signers;
             }
 
             private Timestamp getTimestamp(SignerInfo signerInfo)
@@ -1878,18 +1811,53 @@ public final class ModuleFileFormat {
         public final static class PKCS7VerifierParameters
             implements ModuleFileVerifier.Parameters
         {
-            private PKIXParameters pkixParameters = null;
+            private final Validator validator;
 
-            public PKCS7VerifierParameters(PKIXParameters pkixParameters)
+            public PKCS7VerifierParameters() throws IOException
             {
-                this.pkixParameters = pkixParameters;
+                validator = Validator.getInstance(Validator.TYPE_PKIX,
+                                                  Validator.VAR_CODE_SIGNING,
+                                                  loadCACertsStore());
             }
 
-            public Set<TrustAnchor> getTrustAnchors()
+            public Collection<X509Certificate> getTrustedCerts()
             {
-                return pkixParameters != null ?
-                    pkixParameters.getTrustAnchors() :
-                    new HashSet<TrustAnchor>();
+                return validator.getTrustedCertificates();
+            }
+
+            public Validator getValidator() 
+            {
+                return validator;
+            }
+
+            /*
+             * Loads the default system-level trusted CA certs store at
+             * '${java.home}/lib/security/cacerts' unless overridden by the
+             * 'org.openjdk.system.security.cacerts' system property.
+             * The cert store must be in JKS format.
+             */
+            private static KeyStore loadCACertsStore() throws IOException
+            {
+                KeyStore trustedCertStore = null;
+                FileInputStream inStream = null;
+                String cacerts =
+                    System.getProperty("org.openjdk.system.security.cacerts",
+                                       System.getProperty("java.home")
+                                       + "/lib/security/cacerts");
+                try {
+                    trustedCertStore = KeyStore.getInstance("JKS");
+                    inStream = AccessController.doPrivileged
+                                  (new OpenFileInputStreamAction(cacerts));
+                    trustedCertStore.load(inStream, null);
+                } catch (PrivilegedActionException pae) {
+                    throw (IOException)pae.getCause();
+                } catch (GeneralSecurityException gse) {
+                    throw new IOException(gse);
+                } finally {
+                    if (inStream != null)
+                        inStream.close();
+                }
+                return trustedCertStore;
             }
         }
 }

@@ -1,6 +1,6 @@
 #! /bin/sh
 
-# Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -43,5 +43,5 @@ $BIN/javac -source 7 -d . ${TESTSRC}/ImportPrivateKey.java
 $BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey
 
 ${BIN}/javac -source 7 -d . ${TESTSRC}/ModuleFormatTest01.java
-${BIN}/java -Dtest.src=${TESTSRC} ModuleFormatTest01 < ${TESTSRC}/keystore.pw
-
+${BIN}/java -Dorg.openjdk.system.security.cacerts=keystore.jks \
+            -Dtest.src=${TESTSRC} ModuleFormatTest01 < ${TESTSRC}/keystore.pw

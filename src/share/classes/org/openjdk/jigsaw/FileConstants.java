@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -44,7 +44,8 @@ public final class FileConstants {
         MODULE_FILE(3),
         STREAM_CATALOG(4),
         REMOTE_REPO_META(5),
-        REMOTE_REPO_LIST(6);
+        REMOTE_REPO_LIST(6),
+        LIBRARY_MODULE_SIGNER(7);
 
         private final int value;
         public int value() { return value; }

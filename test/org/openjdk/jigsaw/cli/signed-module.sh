@@ -1,6 +1,6 @@
 #! /bin/sh
 
-# Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -33,8 +33,8 @@ SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../../build}/bin
 
 mk() {
-  d=$(dirname $1)
-  if ! [ -d $(dirname $1) ]; then mkdir -p $d; fi
+  d=`dirname $1`
+  if ! [ -d `dirname $1` ]; then mkdir -p $d; fi
   cat - >$1
 }
 
@@ -70,8 +70,17 @@ public class GetProperty {
 }
 EOF
 
+mk signed-module.policy <<EOF
+keystore "keystore.jks";
+keystorePasswordURL "${SRC}/keystore.pw";
+ 
+grant signedBy "myKey" {
+    permission java.util.PropertyPermission "user.home", "read";
+};
+EOF
+
 rm -rf z.modules && mkdir z.modules
-$BIN/javac -source 7 -d z.modules -modulepath z.modules $(find z.src -name '*.java')
+$BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 rm -f test.security@0.1.jmod
 $BIN/jpkg -v --sign --signer mykey --storetype JKS \
@@ -80,5 +89,6 @@ $BIN/jpkg -v --sign --signer mykey --storetype JKS \
 
 rm -rf z.lib
 $BIN/jmod -L z.lib create
-$BIN/jmod -L z.lib install test.security@0.1.jmod
-$BIN/java -L z.lib -m test.security ${SRC}/signed-module.policy
+$BIN/jmod -J-Dorg.openjdk.system.security.cacerts=keystore.jks -L z.lib \
+          install test.security@0.1.jmod
+$BIN/java -L z.lib -m test.security signed-module.policy
