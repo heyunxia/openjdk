@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1995, 2007, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1995, 2010, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -241,6 +241,11 @@ all build:: sanity-all post-sanity-all
 
 SUBDIRS       = tools java javax sun com
 SUBDIRS_misc  = org sunw jpda mkdemo mksample
+
+# Alternate classes implementation
+ifndef OPENJDK
+  SUBDIRS_misc += altclasses
+endif
 
 # tools/classanalyzer depends on the com.sun.tools.classfile library
 # added in jdk 7.  Build it after java is built.
