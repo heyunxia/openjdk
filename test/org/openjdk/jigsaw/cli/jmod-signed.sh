@@ -37,6 +37,26 @@ mk() {
   cat - >$1
 }
 
+create() {
+  rm -rf z.lib
+  $BIN/jmod create
+  $BIN/jmod id
+}
+
+compare() {
+  $BIN/jmod list -v
+  $BIN/jmod dump-class com.foo.signed@1.0 com.foo.signed.Main z
+  # Check the class file packaged in the jmod file
+  # As pack200 modifies the class file during compression, 
+  # we need to compare with a 'pack200-unpack200' version 
+  $BIN/jar cfM z.modules/com.foo.signed.jar \
+               -C z.modules/com.foo.signed com/foo/signed/Main.class
+  $BIN/pack200 z.modules/com.foo.signed.pack.gz z.modules/com.foo.signed.jar
+  $BIN/unpack200 z.modules/com.foo.signed.pack.gz z.jar
+  $BIN/jar xf z.jar com/foo/signed/Main.class
+  cmp z com/foo/signed/Main.class
+}
+
 rm -rf z.src keystore.jks
 
 # Create the keystore file and import the root CA cert
@@ -67,11 +87,9 @@ EOF
 rm -rf z.modules && mkdir -p z.modules
 $BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
-rm -rf z.lib
 JAVA_MODULES=z.lib
 export JAVA_MODULES
-$BIN/jmod create
-$BIN/jmod id
+create
 
 # Test the installation of a signed module
 #
@@ -83,26 +101,10 @@ $BIN/jpkg \
     jmod com.foo.signed < ${TESTSRC}/keystore.pw
 # Test installation without verifying module
 $BIN/jmod install --noverify z.modules/com.foo.signed@1.0.jmod
-$BIN/jmod list -v
-$BIN/jmod dump-class com.foo.signed@1.0 com.foo.signed.Main z
-cmp z z.modules/com.foo.signed/com/foo/signed/Main.class
+compare
 
-rm -rf z.lib
-$BIN/jmod create
-$BIN/jmod id
+create
 # Test installation and verification and supply an alternative 'cacerts' file
 $BIN/jmod install -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
                   z.modules/com.foo.signed@1.0.jmod
-
-
-$BIN/jmod list -v
-$BIN/jmod dump-class com.foo.signed@1.0 com.foo.signed.Main z
-
-# Check the class file packaged in the jmod file
-# As pack200 modifies the class file during compression, 
-# we need to compare with a 'pack200-unpack200' version 
-$BIN/jar cfM z.modules/com.foo.signed.jar -C z.modules/com.foo.signed com/foo/signed/Main.class
-$BIN/pack200 z.modules/com.foo.signed.pack.gz z.modules/com.foo.signed.jar
-$BIN/unpack200 z.modules/com.foo.signed.pack.gz z.jar
-$BIN/jar xf z.jar com/foo/signed/Main.class
-cmp z com/foo/signed/Main.class
+compare
