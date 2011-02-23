@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -51,7 +51,7 @@ import javax.swing.text.*;
  * <p>
  * The primary entry point for HTML View implementations
  * to get their attributes is the
- * <a href="#getViewAttributes">getViewAttributes</a>
+ * {@link #getViewAttributes getViewAttributes}
  * method.  This should be implemented to establish the
  * desired policy used to associate attributes with the view.
  * Each HTMLEditorKit (i.e. and therefore each associated

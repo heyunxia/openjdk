@@ -125,6 +125,8 @@ public class _RemoteRepositoryList {
         RemoteRepository rr = rl.add(u1, 0);
         assert rr != null;
         u1 = URI.create(u1.toString() + "/");
+        System.out.printf("url: %s%n", u1);
+        System.out.printf("repository: %s%n", rr.location());
         assert rr.location().equals(u1);
         assertEquals(rl.repositories(), rr);
 

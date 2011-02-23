@@ -1308,7 +1308,7 @@ public final class Class<T>
         return java.security.AccessController.doPrivileged(
             new java.security.PrivilegedAction<Class<?>[]>() {
                 public Class[] run() {
-                    List<Class<?>> list = new ArrayList<Class<?>>();
+                    List<Class<?>> list = new ArrayList<>();
                     Class<?> currentClass = Class.this;
                     while (currentClass != null) {
                         Class<?>[] members = currentClass.getDeclaredClasses();
@@ -2308,9 +2308,9 @@ public final class Class<T>
         res = Reflection.filterFields(this, getDeclaredFields0(publicOnly));
         if (useCaches) {
             if (publicOnly) {
-                declaredPublicFields = new SoftReference<Field[]>(res);
+                declaredPublicFields = new SoftReference<>(res);
             } else {
-                declaredFields = new SoftReference<Field[]>(res);
+                declaredFields = new SoftReference<>(res);
             }
         }
         return res;
@@ -2332,9 +2332,9 @@ public final class Class<T>
 
         // No cached value available; compute value recursively.
         // Traverse in correct order for getField().
-        List<Field> fields = new ArrayList<Field>();
+        List<Field> fields = new ArrayList<>();
         if (traversedInterfaces == null) {
-            traversedInterfaces = new HashSet<Class<?>>();
+            traversedInterfaces = new HashSet<>();
         }
 
         // Local fields
@@ -2360,7 +2360,7 @@ public final class Class<T>
         res = new Field[fields.size()];
         fields.toArray(res);
         if (useCaches) {
-            publicFields = new SoftReference<Field[]>(res);
+            publicFields = new SoftReference<>(res);
         }
         return res;
     }
@@ -2405,9 +2405,9 @@ public final class Class<T>
         }
         if (useCaches) {
             if (publicOnly) {
-                publicConstructors = new SoftReference<Constructor<T>[]>(res);
+                publicConstructors = new SoftReference<>(res);
             } else {
-                declaredConstructors = new SoftReference<Constructor<T>[]>(res);
+                declaredConstructors = new SoftReference<>(res);
             }
         }
         return res;
@@ -2442,9 +2442,9 @@ public final class Class<T>
         res = Reflection.filterMethods(this, getDeclaredMethods0(publicOnly));
         if (useCaches) {
             if (publicOnly) {
-                declaredPublicMethods = new SoftReference<Method[]>(res);
+                declaredPublicMethods = new SoftReference<>(res);
             } else {
-                declaredMethods = new SoftReference<Method[]>(res);
+                declaredMethods = new SoftReference<>(res);
             }
         }
         return res;
@@ -2600,7 +2600,7 @@ public final class Class<T>
         methods.compactAndTrim();
         res = methods.getArray();
         if (useCaches) {
-            publicMethods = new SoftReference<Method[]>(res);
+            publicMethods = new SoftReference<>(res);
         }
         return res;
     }
@@ -2979,7 +2979,7 @@ public final class Class<T>
             if (universe == null)
                 throw new IllegalArgumentException(
                     getName() + " is not an enum type");
-            Map<String, T> m = new HashMap<String, T>(2 * universe.length);
+            Map<String, T> m = new HashMap<>(2 * universe.length);
             for (T constant : universe)
                 m.put(((Enum<?>)constant).name(), constant);
             enumConstantDirectory = m;
@@ -3092,7 +3092,7 @@ public final class Class<T>
         if (superClass == null) {
             annotations = declaredAnnotations;
         } else {
-            annotations = new HashMap<Class<? extends Annotation>, Annotation>();
+            annotations = new HashMap<>();
             superClass.initAnnotationsIfNecessary();
             for (Map.Entry<Class<? extends Annotation>, Annotation> e : superClass.annotations.entrySet()) {
                 Class<? extends Annotation> annotationClass = e.getKey();

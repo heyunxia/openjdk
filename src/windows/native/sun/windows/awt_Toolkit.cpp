@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -2491,7 +2491,7 @@ Java_sun_awt_windows_WToolkit_loadSystemColors(JNIEnv *env, jobject self,
     jint* colorsPtr = NULL;
     try {
         colorsPtr = (jint *)env->GetPrimitiveArrayCritical(colors, 0);
-        for (int i = 0; i < sizeof indexMap && i < colorLen; i++) {
+        for (int i = 0; i < (sizeof indexMap)/(sizeof *indexMap) && i < colorLen; i++) {
             colorsPtr[i] = DesktopColor2RGB(indexMap[i]);
         }
     } catch (...) {

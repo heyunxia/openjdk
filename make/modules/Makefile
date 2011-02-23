@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -104,6 +104,7 @@ define clean-build
 $(RM) -rf $(JIGSAW_MODULE_LIB)
 $(RM) -rf $(MODULEINFO_DIR)
 $(RM) -rf $(MODULEPATH_DIR)
+$(RM) -rf $(MODULES_TEMPDIR)
 $(ECHO) "" > $(MODULES_UPDATE_MARKER)
 endef
 
@@ -236,11 +237,17 @@ define install-module
 endef
 
 #
+
+#
 # Install the module if module-info.class is updated
 # or <module>.summary is updated
 #
 $(JIGSAW_MODULE_LIB)/%/$(MODULE_VERSION)/info: $(MODULEPATH_DIR)/%/classes/module-info.class \
 					       $(MODULE_CLASSLIST_DIR)/%.summary
+	@if [ $* = "other" ] ; then \
+	    $(ECHO) "ERROR: classes/resources in other module and modules.config requires update." ; \
+	    exit 1; \
+	fi
 	@$(call copy-module-content,$*)
 	@$(call install-module,$*)
 	@$(java-vm-cleanup)

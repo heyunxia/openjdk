@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1335,7 +1335,6 @@ public abstract class AbstractButton extends JComponent implements ItemSelectabl
      *
      * @param a the button's action
      * @since 1.3
-     * @see <a href="#actions">Actions</a>
      * @see Action
      * @see #setAction
      */

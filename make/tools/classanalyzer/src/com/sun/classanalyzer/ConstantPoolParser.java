@@ -106,6 +106,16 @@ public class ConstantPoolParser {
                 return 2;
             }
 
+            public Integer visitInvokeDynamic(CONSTANT_InvokeDynamic_info info, Void p) {
+                // skip
+                return 1;
+            }
+
+            public Integer visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+                // skip
+                return 1;
+            }
+
             public Integer visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
                 // skip
                 return 1;
@@ -116,8 +126,11 @@ public class ConstantPoolParser {
                 return 1;
             }
 
-            public Integer visitModuleId(CONSTANT_ModuleId_info info, Void p) {
-                // skip
+            public Integer visitMethodHandle(CONSTANT_MethodHandle_info info, Void p) {
+                return 1;
+            }
+
+            public Integer visitMethodType(CONSTANT_MethodType_info info, Void p) {
                 return 1;
             }
 
@@ -241,8 +254,40 @@ public class ConstantPoolParser {
             return visitRef(info, p);
         }
 
+        public String visitInvokeDynamic(CONSTANT_InvokeDynamic_info info, Void p) {
+            try {
+                String callee = stringValue(info.getNameAndTypeInfo());
+                return "#" + info.bootstrap_method_attr_index + ":" + callee;
+            } catch (ConstantPoolException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         public String visitLong(CONSTANT_Long_info info, Void p) {
             return info.value + "l";
+        }
+
+        public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+            if (info.version_index == 0)
+                return getCheckedName(info);
+            else
+                return getCheckedName(info) + "@" + getCheckedVersion(info);
+        }
+
+        String getCheckedName(CONSTANT_ModuleId_info info) {
+            try {
+                return checkName(info.getName());
+            } catch (ConstantPoolException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        String getCheckedVersion(CONSTANT_ModuleId_info info) {
+            try {
+                return info.getVersion();
+            } catch (ConstantPoolException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         public String visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
@@ -269,25 +314,17 @@ public class ConstantPoolParser {
             return visitRef(info, p);
         }
 
-
-        public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
-            if (info.version_index == 0)
-                return getCheckedName(info);
-            else
-                return getCheckedName(info) + "@" + getCheckedVersion(info);
-        }
-
-        String getCheckedName(CONSTANT_ModuleId_info info) {
+        public String visitMethodHandle(CONSTANT_MethodHandle_info info, Void p) {
             try {
-                return checkName(info.getName());
+                return info.reference_kind.name + " " + stringValue(info.getCPRefInfo());
             } catch (ConstantPoolException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        String getCheckedVersion(CONSTANT_ModuleId_info info) {
+        public String visitMethodType(CONSTANT_MethodType_info info, Void p) {
             try {
-                return info.getVersion();
+                return info.getType();
             } catch (ConstantPoolException e) {
                 throw new RuntimeException(e);
             }

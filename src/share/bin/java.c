@@ -177,7 +177,8 @@ static jboolean IsWildCardEnabled();
  * create a new thread to invoke JVM. See 6316197 for more information.
  */
 static jlong threadStackSize = 0;  /* stack size of the new thread */
-static jlong heapSize        = 0;  /* heap size */
+static jlong maxHeapSize        = 0;  /* max heap size */
+static jlong initialHeapSize    = 0;  /* inital heap size */
 
 int JNICALL JavaMain(void * args); /* entry point                  */
 
@@ -431,7 +432,7 @@ JavaMain(void * _args)
 
     if (showSettings != NULL) {
         ShowSettings(env, showSettings);
-        CHECK_EXCEPTION_LEAVE(0);
+        CHECK_EXCEPTION_LEAVE(1);
     }
     /* If the user specified neither a class name nor a JAR file nor a module */
     if (printXUsage || printUsage || what == 0 || mode == LM_UNKNOWN) {
@@ -735,7 +736,14 @@ AddOption(char *str, void *info)
     if (JLI_StrCCmp(str, "-Xmx") == 0) {
         jlong tmp;
         if (parse_size(str + 4, &tmp)) {
-            heapSize = tmp;
+            maxHeapSize = tmp;
+        }
+    }
+
+    if (JLI_StrCCmp(str, "-Xms") == 0) {
+        jlong tmp;
+        if (parse_size(str + 4, &tmp)) {
+           initialHeapSize = tmp;
         }
     }
 }
@@ -794,7 +802,7 @@ SetModulesBootClassPath(const char *jrepath)
     memcpy(def+vmoption_len, s, slen);
     def[vmoption_len+slen] = '\0';
 
-    // Must be added before the user-specified -Xbootclasspath/p: arguments.   
+    // Must be added before the user-specified -Xbootclasspath/p: arguments.
     // Hotspot VM prepends the given -Xbootclasspath/p: argument
     // to the bootclasspath in the order of the input VM arguments.
     // The second -Xbootclasspath/p: argument will be prepended
@@ -1084,18 +1092,18 @@ ParseArguments(int *pargc, char ***pargv,
     while ((arg = *argv) != 0 && *arg == '-') {
         argv++; --argc;
         if (JLI_StrCmp(arg, "-classpath") == 0 || JLI_StrCmp(arg, "-cp") == 0) {
-            ARG_CHECK(argc, ARG_ERROR1, arg);
+            ARG_CHECK (argc, ARG_ERROR1, arg);
             SetClassPath(*argv);
             /* -classpath can only be set when running legacy mode */
             mode = LM_CLASS;
             argv++; --argc;
         } else if (JLI_StrCmp(arg, "-jar") == 0) {
-            ARG_CHECK(argc, ARG_ERROR2, arg);
+            ARG_CHECK (argc, ARG_ERROR2, arg);
             if (mode == LM_MODULE)
                 ARG_FAIL(ARG_ERROR5);
             mode = LM_JAR;
         } else if (JLI_StrCmp(arg, "-m") == 0) {
-            ARG_CHECK(argc, ARG_ERROR4, arg);
+            ARG_CHECK (argc, ARG_ERROR4, arg);
             if (mode == LM_JAR)
                 ARG_FAIL(ARG_ERROR5);
             if (mode == LM_CLASS)
@@ -1103,7 +1111,7 @@ ParseArguments(int *pargc, char ***pargv,
             mode = LM_MODULE;
             legacy = JNI_FALSE;
         } else if (JLI_StrCmp(arg, "-L") == 0) {
-            ARG_CHECK(argc, ARG_ERROR6, arg);
+            ARG_CHECK (argc, ARG_ERROR6, arg);
             SetModuleLibraryProp(*argv);
             argv++; --argc;
         } else if (JLI_StrCmp(arg, "-help") == 0 ||
@@ -1177,7 +1185,7 @@ ParseArguments(int *pargc, char ***pargv,
                    JLI_StrCmp(arg, "-jre-restrict-search") == 0 ||
                    JLI_StrCCmp(arg, "-splash:") == 0) {
             ; /* Ignore machine independent options already handled */
-        } else if (JLI_StrCCmp(arg, "-Xmode:") == 0) { 
+        } else if (JLI_StrCCmp(arg, "-Xmode:") == 0) {
             /* Temporary internal option and it's only valid for jdk tools.
              * Tools like javac and javah can use this option to diagnose
              * if a problem is caused by module mode or not.
@@ -1202,15 +1210,15 @@ ParseArguments(int *pargc, char ***pargv,
         /* determine if jdk tool can run in module mode */
         if (SetLauncherModule(pmode, pwhat, jrepath)) {
             /* module whose name is "jdk." + _program_name indicates
-             * that the tool's main class is the module's main entry point. 
-             * Other module requires to pass the tool's main class as 
+             * that the tool's main class is the module's main entry point.
+             * Other module requires to pass the tool's main class as
              * the first argument */
             JLI_StrCpy(buf, "jdk.");
             JLI_StrCat(buf, _program_name);
             *pmain = *argv;     // the main class name is in the first argument
             if (JLI_StrCmp(buf, _module_name) == 0) {
                 // module's entry point == main class name
-                // skip the main class name argument 
+                // skip the main class name argument
                 argc--;
                 argv++;
             }
@@ -1231,16 +1239,19 @@ ParseArguments(int *pargc, char ***pargv,
         *pmain = *pwhat;     // module's name or main class name
     }
 
-    if (*pwhat == NULL)
+    if (*pwhat == NULL) {
         *pret = 1;
+    } else if (mode == LM_UNKNOWN) {
+        /* default to LM_CLASS if -jar and -cp option are
+         * not specified */
+        mode = LM_CLASS;
+    }
 
     if (argc >= 0) {
         *pargc = argc;
         *pargv = argv;
     }
 
-    if (!mode)
-        mode = LM_CLASS;
     *pmode = mode;
 
     return JNI_TRUE;
@@ -1252,7 +1263,7 @@ ParseArguments(int *pargc, char ***pargv,
  *
  * Returns true if set to run in module mode
  */
-static jboolean 
+static jboolean
 SetLauncherModule(int *pmode, char **pwhat, const char *jrepath)
 {
     struct stat statbuf;
@@ -1271,7 +1282,7 @@ SetLauncherModule(int *pmode, char **pwhat, const char *jrepath)
            JLI_StrCpy(buf, _module_name);
            JLI_StrCat(buf, "@");
            JLI_StrCat(buf, _module_version);
-           *pwhat = JLI_StringDup(buf); 
+           *pwhat = JLI_StringDup(buf);
            *pmode = LM_MODULE;
            return JNI_TRUE;
        }
@@ -1437,9 +1448,9 @@ LoadMainClass(JNIEnv *env, int mode, char *name)
     }
     NULL_CHECK0(cls = FindBootStrapClass(env, "sun/launcher/LauncherHelper"));
     NULL_CHECK0(mid = (*env)->GetStaticMethodID(env, cls, "checkAndLoadMain",
-                                          "(ILjava/lang/String;)Ljava/lang/Class;"));
+                                          "(ZILjava/lang/String;)Ljava/lang/Class;"));
     str = (*env)->NewStringUTF(env, name);
-    result = (*env)->CallStaticObjectMethod(env, cls, mid, mode, str);
+    result = (*env)->CallStaticObjectMethod(env, cls, mid, JNI_TRUE, mode, str);
 
     if (JLI_IsTraceLauncher()) {
         end   = CounterGet();
@@ -1633,7 +1644,7 @@ SetJavaCommandLineProp(char *what, int argc, char **argv)
 /*
  * Set the "sun.java.main" property for tools like jps to show
  * the main class name or the module name.
- * 
+ *
  * ## The JDK tools are launched in a module mode
  */
 void
@@ -1643,7 +1654,7 @@ SetJavaMainProp(char *javamain) {
     if (javamain == NULL) {
         return;
     }
-    
+
     buflen = JLI_StrLen(javamain) + 40;
     prop = (char *)JLI_MemAlloc(buflen);
     JLI_Snprintf(prop, buflen, "-Dsun.java.main=%s", javamain);
@@ -1721,12 +1732,13 @@ ShowSettings(JNIEnv *env, char *optString)
     jstring joptString;
     NULL_CHECK(cls = FindBootStrapClass(env, "sun/launcher/LauncherHelper"));
     NULL_CHECK(showSettingsID = (*env)->GetStaticMethodID(env, cls,
-            "showSettings", "(ZLjava/lang/String;JJZ)V"));
+            "showSettings", "(ZLjava/lang/String;JJJZ)V"));
     joptString = (*env)->NewStringUTF(env, optString);
     (*env)->CallStaticVoidMethod(env, cls, showSettingsID,
                                  JNI_TRUE,
                                  joptString,
-                                 (jlong)heapSize,
+                                 (jlong)initialHeapSize,
+                                 (jlong)maxHeapSize,
                                  (jlong)threadStackSize,
                                  ServerClassMachine());
 }

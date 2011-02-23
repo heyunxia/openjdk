@@ -24,7 +24,6 @@ package com.sun.classanalyzer;
 
 import com.sun.tools.classfile.*;
 import com.sun.tools.classfile.Annotation;
-import com.sun.tools.classfile.ExtendedAnnotation;
 import com.sun.tools.classfile.Annotation.Annotation_element_value;
 import com.sun.tools.classfile.Annotation.Array_element_value;
 import com.sun.tools.classfile.Annotation.Class_element_value;
@@ -69,10 +68,6 @@ public class AnnotationParser {
             dep.setMethod(method);
         }
         return dep;
-    }
-
-    private AnnotatedDependency addAnnotation(ExtendedAnnotation annot, Klass.Method method) {
-        return addAnnotation(annot.annotation, method);
     }
 
     class Element {
@@ -156,23 +151,11 @@ public class AnnotationParser {
 
         visitRuntimeAnnotations((RuntimeVisibleAnnotations_attribute) attributes.get(Attribute.RuntimeVisibleAnnotations), method);
         visitRuntimeAnnotations((RuntimeInvisibleAnnotations_attribute) attributes.get(Attribute.RuntimeInvisibleAnnotations), method);
-        visitRuntimeTypeAnnotations((RuntimeVisibleTypeAnnotations_attribute) attributes.get(Attribute.RuntimeVisibleTypeAnnotations), method);
-        visitRuntimeTypeAnnotations((RuntimeInvisibleTypeAnnotations_attribute) attributes.get(Attribute.RuntimeInvisibleTypeAnnotations), method);
         visitRuntimeParameterAnnotations((RuntimeVisibleParameterAnnotations_attribute) attributes.get(Attribute.RuntimeVisibleParameterAnnotations), method);
         visitRuntimeParameterAnnotations((RuntimeInvisibleParameterAnnotations_attribute) attributes.get(Attribute.RuntimeInvisibleParameterAnnotations), method);
     }
 
     public void visitRuntimeAnnotations(RuntimeAnnotations_attribute attr, Klass.Method method) {
-        if (attr == null) {
-            return;
-        }
-
-        for (int i = 0; i < attr.annotations.length; i++) {
-            addAnnotation(attr.annotations[i], method);
-        }
-    }
-
-    public void visitRuntimeTypeAnnotations(RuntimeTypeAnnotations_attribute attr, Klass.Method method) {
         if (attr == null) {
             return;
         }

@@ -49,7 +49,7 @@ import javax.security.auth.x500.X500Principal;
 /**
  * PolicyTool may be used by users and administrators to configure the
  * overall java security policy (currently stored in the policy file).
- * Using PolicyTool administators may add and remove policies from
+ * Using PolicyTool administrators may add and remove policies from
  * the policy file. <p>
  *
  * @see java.security.Policy
@@ -643,7 +643,7 @@ public class PolicyTool {
         Class<?> pc = Class.forName(type, true,
                 Thread.currentThread().getContextClassLoader());
         Constructor<?> c = null;
-        Vector<String> objects = new Vector<String>(2);
+        Vector<String> objects = new Vector<>(2);
         if (name != null) objects.add(name);
         if (actions != null) objects.add(actions);
         switch (objects.size()) {
@@ -1343,11 +1343,6 @@ class ToolDialog extends Dialog {
       PolicyTool.rb.getString
       ("Actions.");
 
-    /* gridbag index for display OverWriteFile (OW) components */
-    public static final int OW_LABEL                    = 0;
-    public static final int OW_OK_BUTTON                = 1;
-    public static final int OW_CANCEL_BUTTON            = 2;
-
     /* gridbag index for display PolicyEntry (PE) components */
     public static final int PE_CODEBASE_LABEL           = 0;
     public static final int PE_CODEBASE_TEXTFIELD       = 1;
@@ -1520,44 +1515,6 @@ class ToolDialog extends Dialog {
             }
         }
         return null;
-    }
-
-    /**
-     * ask user if they want to overwrite an existing file
-     */
-    void displayOverWriteFileDialog(String filename, int nextEvent) {
-
-        // find where the PolicyTool gui is
-        Point location = tw.getLocationOnScreen();
-        setBounds(location.x + 75, location.y + 100, 400, 150);
-        setLayout(new GridBagLayout());
-
-        // ask the user if they want to over write the existing file
-        MessageFormat form = new MessageFormat(PolicyTool.rb.getString
-                ("OK.to.overwrite.existing.file.filename."));
-        Object[] source = {filename};
-        Label label = new Label(form.format(source));
-        tw.addNewComponent(this, label, OW_LABEL,
-                           0, 0, 2, 1, 0.0, 0.0, GridBagConstraints.BOTH,
-                           tw.TOP_PADDING);
-
-        // OK button
-        Button button = new Button(PolicyTool.rb.getString("OK"));
-        button.addActionListener(new OverWriteFileOKButtonListener
-                (tool, tw, this, filename, nextEvent));
-        tw.addNewComponent(this, button, OW_OK_BUTTON,
-                           0, 1, 1, 1, 0.0, 0.0, GridBagConstraints.VERTICAL,
-                           tw.TOP_PADDING);
-
-        // Cancel button
-        // -- if the user hits cancel, do NOT go on to the next event
-        button = new Button(PolicyTool.rb.getString("Cancel"));
-        button.addActionListener(new CancelButtonListener(this));
-        tw.addNewComponent(this, button, OW_CANCEL_BUTTON,
-                           1, 1, 1, 1, 0.0, 0.0, GridBagConstraints.VERTICAL,
-                           tw.TOP_PADDING);
-
-        setVisible(true);
     }
 
     /**
@@ -1765,8 +1722,7 @@ class ToolDialog extends Dialog {
                         new PolicyParser.GrantEntry(signedby, codebase);
 
         // get the new Principals
-        LinkedList<PolicyParser.PrincipalEntry> prins =
-                                new LinkedList<PolicyParser.PrincipalEntry>();
+        LinkedList<PolicyParser.PrincipalEntry> prins = new LinkedList<>();
         TaggedList prinList = (TaggedList)getComponent(PE_PRIN_LIST);
         for (int i = 0; i < prinList.getItemCount(); i++) {
             prins.add((PolicyParser.PrincipalEntry)prinList.getObject(i));
@@ -1774,8 +1730,7 @@ class ToolDialog extends Dialog {
         ge.principals = prins;
 
         // get the new Permissions
-        Vector<PolicyParser.PermissionEntry> perms =
-                        new Vector<PolicyParser.PermissionEntry>();
+        Vector<PolicyParser.PermissionEntry> perms = new Vector<>();
         TaggedList permList = (TaggedList)getComponent(PE_PERM_LIST);
         for (int i = 0; i < permList.getItemCount(); i++) {
             perms.addElement((PolicyParser.PermissionEntry)permList.getObject(i));
@@ -2339,47 +2294,39 @@ class ToolDialog extends Dialog {
             return;
 
         // get the entered filename
-        String filename = new String(fd.getDirectory() + fd.getFile());
+        File saveAsFile = new File(fd.getDirectory(), fd.getFile());
+        String filename = saveAsFile.getPath();
         fd.dispose();
 
-        // see if the file already exists
-        File saveAsFile = new File(filename);
-        if (saveAsFile.exists()) {
-            // display a dialog box for the user to enter policy info
-            ToolDialog td = new ToolDialog
-                (PolicyTool.rb.getString("Overwrite.File"), tool, tw, true);
-            td.displayOverWriteFileDialog(filename, nextEvent);
-        } else {
-            try {
-                // save the policy entries to a file
-                tool.savePolicy(filename);
+        try {
+            // save the policy entries to a file
+            tool.savePolicy(filename);
 
-                // display status
-                MessageFormat form = new MessageFormat(PolicyTool.rb.getString
-                        ("Policy.successfully.written.to.filename"));
-                Object[] source = {filename};
-                tw.displayStatusDialog(null, form.format(source));
+            // display status
+            MessageFormat form = new MessageFormat(PolicyTool.rb.getString
+                    ("Policy.successfully.written.to.filename"));
+            Object[] source = {filename};
+            tw.displayStatusDialog(null, form.format(source));
 
-                // display the new policy filename
-                TextField newFilename = (TextField)tw.getComponent
-                                (tw.MW_FILENAME_TEXTFIELD);
-                newFilename.setText(filename);
-                tw.setVisible(true);
+            // display the new policy filename
+            TextField newFilename = (TextField)tw.getComponent
+                            (tw.MW_FILENAME_TEXTFIELD);
+            newFilename.setText(filename);
+            tw.setVisible(true);
 
-                // now continue with the originally requested command
-                // (QUIT, NEW, or OPEN)
-                userSaveContinue(tool, tw, this, nextEvent);
+            // now continue with the originally requested command
+            // (QUIT, NEW, or OPEN)
+            userSaveContinue(tool, tw, this, nextEvent);
 
-            } catch (FileNotFoundException fnfe) {
-                if (filename == null || filename.equals("")) {
-                    tw.displayErrorDialog(null, new FileNotFoundException
-                                (PolicyTool.rb.getString("null.filename")));
-                } else {
-                    tw.displayErrorDialog(null, fnfe);
-                }
-            } catch (Exception ee) {
-                tw.displayErrorDialog(null, ee);
+        } catch (FileNotFoundException fnfe) {
+            if (filename == null || filename.equals("")) {
+                tw.displayErrorDialog(null, new FileNotFoundException
+                            (PolicyTool.rb.getString("null.filename")));
+            } else {
+                tw.displayErrorDialog(null, fnfe);
             }
+        } catch (Exception ee) {
+            tw.displayErrorDialog(null, ee);
         }
     }
 
@@ -2494,7 +2441,7 @@ class ToolDialog extends Dialog {
                 return;
 
             // get the entered filename
-            String policyFile = new String(fd.getDirectory() + fd.getFile());
+            String policyFile = new File(fd.getDirectory(), fd.getFile()).getPath();
 
             try {
                 // open the policy file
@@ -2857,67 +2804,6 @@ class MainWindowListener implements ActionListener {
             ToolDialog td = new ToolDialog
                 (PolicyTool.rb.getString("KeyStore"), tool, tw, true);
             td.keyStoreDialog(td.EDIT_KEYSTORE);
-        }
-    }
-}
-
-/**
- * Event handler for OverWriteFileOKButton button
- */
-class OverWriteFileOKButtonListener implements ActionListener {
-
-    private PolicyTool tool;
-    private ToolWindow tw;
-    private ToolDialog td;
-    private String filename;
-    private int nextEvent;
-
-    OverWriteFileOKButtonListener(PolicyTool tool, ToolWindow tw,
-                                ToolDialog td, String filename, int nextEvent) {
-        this.tool = tool;
-        this.tw = tw;
-        this.td = td;
-        this.filename = filename;
-        this.nextEvent = nextEvent;
-    }
-
-    public void actionPerformed(ActionEvent e) {
-        try {
-            // save the policy entries to a file
-            tool.savePolicy(filename);
-
-            // display status
-            MessageFormat form = new MessageFormat
-                (PolicyTool.rb.getString
-                ("Policy.successfully.written.to.filename"));
-            Object[] source = {filename};
-            tw.displayStatusDialog(null, form.format(source));
-
-            // display the new policy filename
-            TextField newFilename = (TextField)tw.getComponent
-                                (tw.MW_FILENAME_TEXTFIELD);
-            newFilename.setText(filename);
-            tw.setVisible(true);
-
-            // now continue with the originally requested command
-            // (QUIT, NEW, or OPEN)
-            td.setVisible(false);
-            td.dispose();
-            td.userSaveContinue(tool, tw, td, nextEvent);
-
-        } catch (FileNotFoundException fnfe) {
-            if (filename == null || filename.equals("")) {
-                tw.displayErrorDialog(null, new FileNotFoundException
-                                (PolicyTool.rb.getString("null.filename")));
-            } else {
-                tw.displayErrorDialog(null, fnfe);
-            }
-            td.setVisible(false);
-            td.dispose();
-        } catch (Exception ee) {
-            tw.displayErrorDialog(null, ee);
-            td.setVisible(false);
-            td.dispose();
         }
     }
 }
@@ -3761,7 +3647,7 @@ class NoDisplayException extends RuntimeException {
  * This is a java.awt.List that bind an Object to each String it holds.
  */
 class TaggedList extends List {
-    private java.util.List<Object> data = new LinkedList<Object>();
+    private java.util.List<Object> data = new LinkedList<>();
     public TaggedList(int i, boolean b) {
         super(i, b);
     }

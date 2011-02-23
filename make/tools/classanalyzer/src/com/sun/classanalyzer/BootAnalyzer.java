@@ -810,7 +810,18 @@ public class BootAnalyzer {
                 return addMethodDescriptor(info, p);
             }
 
+
+            public String visitInvokeDynamic(CONSTANT_InvokeDynamic_info info, Void p) {
+                // skip
+                return null;
+            }
+
             public String visitLong(CONSTANT_Long_info info, Void p) {
+                // skip
+                return null;
+            }
+
+            public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
                 // skip
                 return null;
             }
@@ -824,7 +835,12 @@ public class BootAnalyzer {
                 return addMethodDescriptor(info, p);
             }
 
-            public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+            public String visitMethodHandle(CONSTANT_MethodHandle_info info, Void p) {
+                // skip
+                return null;
+            }
+
+            public String visitMethodType(CONSTANT_MethodType_info info, Void p) {
                 // skip
                 return null;
             }

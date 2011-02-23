@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -145,8 +145,8 @@ import javax.accessibility.*;
  * <li>
  * One way is to specify the character set as a parameter of the MIME
  * type.  This will be established by a call to the
- * <a href="#setContentType">setContentType</a> method.  If the content
- * is loaded by the <a href="#setPage">setPage</a> method the content
+ * {@link #setContentType setContentType} method.  If the content
+ * is loaded by the {@link #setPage setPage} method the content
  * type will have been set according to the specification of the URL.
  * It the file is loaded directly, the content type would be expected to
  * have been set prior to loading.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -396,7 +396,7 @@ Java_sun_java2d_d3d_D3DGraphicsDevice_enumDisplayModesNative
     UINT adapter;
     // EnumAdapterModes treats 555 and 565 formats as equivalents
     static D3DFORMAT formats[] =
-        { D3DFMT_X8R8G8B8, D3DFMT_R5G6B5 };
+      { D3DFMT_X8R8G8B8, D3DFMT_R5G6B5 };
 
     J2dTraceLn(J2D_TRACE_INFO, "D3DGD_enumDisplayModesNative");
 
@@ -404,7 +404,7 @@ Java_sun_java2d_d3d_D3DGraphicsDevice_enumDisplayModesNative
     RETURN_IF_NULL(pd3d9 = pMgr->GetD3DObject());
     adapter = pMgr->GetAdapterOrdinalForScreen(gdiScreen);
 
-    for (formatNum = 0; formatNum < 3; formatNum++) {
+    for (formatNum = 0; formatNum < (sizeof formats)/(sizeof *formats); formatNum++) {
         modesCount = pd3d9->GetAdapterModeCount(adapter, formats[formatNum]);
         for (modeNum = 0; modeNum < modesCount; modeNum++) {
             if (SUCCEEDED(pd3d9->EnumAdapterModes(adapter, formats[formatNum],

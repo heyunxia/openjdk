@@ -123,19 +123,19 @@ public class JarSigner {
                                     // or the default keystore, never null
 
     String keystore; // key store file
-    List<String> crlfiles = new ArrayList<String>();  // CRL files to add
+    List<String> crlfiles = new ArrayList<>();  // CRL files to add
     boolean nullStream = false; // null keystore input stream (NONE)
     boolean token = false; // token-based keystore
     String jarfile;  // jar files to sign or verify
     String alias;    // alias to sign jar with
-    List<String> ckaliases = new ArrayList<String>(); // aliases in -verify
+    List<String> ckaliases = new ArrayList<>(); // aliases in -verify
     char[] storepass; // keystore password
     boolean protectedPath; // protected authentication path
     String storetype; // keystore type
     String providerName; // provider name
     Vector<String> providers = null; // list of providers
     // arguments for provider constructors
-    HashMap<String,String> providerArgs = new HashMap<String, String>();
+    HashMap<String,String> providerArgs = new HashMap<>();
     char[] keypass; // private key password
     String sigfile; // name of .SF file
     String sigalg; // name of signature algorithm
@@ -236,7 +236,7 @@ public class JarSigner {
                 if (crlfiles.size() > 0 || autoCRL) {
                     CertificateFactory fac =
                             CertificateFactory.getInstance("X509");
-                    List<CRL> list = new ArrayList<CRL>();
+                    List<CRL> list = new ArrayList<>();
                     for (String file: crlfiles) {
                         Collection<? extends CRL> tmp = KeyTool.loadCRLs(file);
                         for (CRL crl: tmp) {
@@ -606,7 +606,7 @@ public class JarSigner {
 
         try {
             jf = new JarFile(jarName, true);
-            Vector<JarEntry> entriesVec = new Vector<JarEntry>();
+            Vector<JarEntry> entriesVec = new Vector<>();
             byte[] buffer = new byte[8192];
 
             Enumeration<JarEntry> entries = jf.entries();
@@ -633,8 +633,7 @@ public class JarSigner {
             // The map to record display info, only used when -verbose provided
             //      key: signer info string
             //      value: the list of files with common key
-            Map<String,List<String>> output =
-                    new LinkedHashMap<String,List<String>>();
+            Map<String,List<String>> output = new LinkedHashMap<>();
 
             if (man != null) {
                 if (verbose != null) System.out.println();
@@ -658,7 +657,9 @@ public class JarSigner {
                     boolean inScope = (inStoreOrScope & IN_SCOPE) != 0;
 
                     notSignedByAlias |= (inStoreOrScope & NOT_ALIAS) != 0;
-                    aliasNotInStore |= isSigned && (!inStore && !inScope);
+                    if (keystore != null) {
+                        aliasNotInStore |= isSigned && (!inStore && !inScope);
+                    }
 
                     // Only used when -verbose provided
                     StringBuffer sb = null;
@@ -723,7 +724,7 @@ public class JarSigner {
                         if (signatureRelated(name)) {
                             // Entries inside META-INF and other unsigned
                             // entries are grouped separately.
-                            label = "-" + label.substring(1);
+                            label = "-" + label;
                         }
 
                         // The label finally contains 2 parts separated by '|':
@@ -752,7 +753,7 @@ public class JarSigner {
                     List<String> files = s.getValue();
                     String key = s.getKey();
                     if (key.charAt(0) == '-') { // the signature-related group
-                        key = ' ' + key.substring(1);
+                        key = key.substring(1);
                     }
                     int pipe = key.indexOf('|');
                     if (verbose.equals("all")) {
@@ -889,7 +890,7 @@ public class JarSigner {
      * Note: no newline character at the end
      */
     String printCert(String tab, Certificate c, boolean checkValidityPeriod,
-        long now) {
+        long now, boolean checkUsage) {
 
         StringBuilder certStr = new StringBuilder();
         String space = rb.getString("SPACE");
@@ -959,24 +960,26 @@ public class JarSigner {
             }
             certStr.append("]");
 
-            boolean[] bad = new boolean[3];
-            checkCertUsage(x509Cert, bad);
-            if (bad[0] || bad[1] || bad[2]) {
-                String x = "";
-                if (bad[0]) {
-                    x ="KeyUsage";
-                }
-                if (bad[1]) {
-                    if (x.length() > 0) x = x + ", ";
-                    x = x + "ExtendedKeyUsage";
-                }
-                if (bad[2]) {
-                    if (x.length() > 0) x = x + ", ";
-                    x = x + "NetscapeCertType";
-                }
-                certStr.append("\n").append(tab)
+            if (checkUsage) {
+                boolean[] bad = new boolean[3];
+                checkCertUsage(x509Cert, bad);
+                if (bad[0] || bad[1] || bad[2]) {
+                    String x = "";
+                    if (bad[0]) {
+                        x ="KeyUsage";
+                    }
+                    if (bad[1]) {
+                        if (x.length() > 0) x = x + ", ";
+                        x = x + "ExtendedKeyUsage";
+                    }
+                    if (bad[2]) {
+                        if (x.length() > 0) x = x + ", ";
+                        x = x + "NetscapeCertType";
+                    }
+                    certStr.append("\n").append(tab)
                         .append(MessageFormat.format(rb.getString(
                         ".{0}.extension.does.not.support.code.signing."), x));
+                }
             }
         }
         return certStr.toString();
@@ -996,8 +999,7 @@ public class JarSigner {
             .append(signTimeForm.format(source)).append("]").toString();
     }
 
-    private Map<CodeSigner,Integer> cacheForInKS =
-            new IdentityHashMap<CodeSigner,Integer>();
+    private Map<CodeSigner,Integer> cacheForInKS = new IdentityHashMap<>();
 
     private int inKeyStoreForOneSigner(CodeSigner signer) {
         if (cacheForInKS.containsKey(signer)) {
@@ -1040,8 +1042,7 @@ public class JarSigner {
         return result;
     }
 
-    Hashtable<Certificate, String> storeHash =
-                                new Hashtable<Certificate, String>();
+    Hashtable<Certificate, String> storeHash = new Hashtable<>();
 
     int inKeyStore(CodeSigner[] signers) {
 
@@ -1171,7 +1172,7 @@ public class JarSigner {
              *   generated one. (This may invalidate existing signatures!)
              */
             BASE64Encoder encoder = new JarBASE64Encoder();
-            Vector<ZipEntry> mfFiles = new Vector<ZipEntry>();
+            Vector<ZipEntry> mfFiles = new Vector<>();
 
             boolean wasSigned = false;
 
@@ -1335,7 +1336,7 @@ public class JarSigner {
                             certUrl);
                     }
                     System.out.println(rb.getString("TSA.certificate.") +
-                        printCert("", tsaCert, false, 0));
+                        printCert("", tsaCert, false, 0, false));
                 }
                 if (signingMechanism != null) {
                     System.out.println(
@@ -1527,7 +1528,7 @@ public class JarSigner {
         return false;
     }
 
-    Map<CodeSigner,String> cacheForSignerInfo = new IdentityHashMap<CodeSigner,String>();
+    Map<CodeSigner,String> cacheForSignerInfo = new IdentityHashMap<>();
 
     /**
      * Returns a string of singer info, with a newline at the end
@@ -1544,10 +1545,13 @@ public class JarSigner {
             s.append(printTimestamp(tab, timestamp));
             s.append('\n');
         }
-        // display the certificate(s)
+        // display the certificate(s). The first one is end-enity cert and
+        // its KeyUsage should be checked.
+        boolean first = true;
         for (Certificate c : certs) {
-            s.append(printCert(tab, c, true, now));
+            s.append(printCert(tab, c, true, now, first));
             s.append('\n');
+            first = false;
         }
         try {
             CertPath cp = certificateFactory.generateCertPath(certs);
@@ -1648,7 +1652,7 @@ public class JarSigner {
                     }
                 }
             }
-            Set<TrustAnchor> tas = new HashSet<TrustAnchor>();
+            Set<TrustAnchor> tas = new HashSet<>();
             try {
                 KeyStore caks = KeyTool.getCacertsKeyStore();
                 if (caks != null) {
@@ -1847,7 +1851,7 @@ public class JarSigner {
 
             // We don't meant to print anything, the next call
             // checks validity and keyUsage etc
-            printCert("", certChain[0], true, 0);
+            printCert("", certChain[0], true, 0, true);
 
             try {
                 CertPath cp = certificateFactory.generateCertPath(Arrays.asList(certChain));

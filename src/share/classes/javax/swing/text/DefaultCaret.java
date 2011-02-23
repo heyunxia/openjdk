@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -70,7 +70,7 @@ import sun.swing.SwingUtilities2;
  * will render a solid color as specified in the associated text component
  * in the <code>SelectionColor</code> property.  This can easily be changed
  * by reimplementing the
- * <a href="#getSelectionHighlighter">getSelectionHighlighter</a>
+ * {@link #getSelectionPainter getSelectionPainter}
  * method.
  * <p>
  * A customized caret appearance can be achieved by reimplementing

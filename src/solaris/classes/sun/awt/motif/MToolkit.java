@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -119,13 +119,6 @@ public class MToolkit extends UNIXToolkit implements Runnable {
                              getDefaultScreenDevice().
                              getDefaultConfiguration());
         }
-
-        /* Add font properties font directories to the X11 font path.
-         * Its called here *after* the X connection has been initialised
-         * and when we know that MToolkit is the one that will be used,
-         * since XToolkit doesn't need the X11 font path set
-         */
-        X11FontManager.getInstance().setNativeFontPath();
 
         motifdnd = ((Boolean)java.security.AccessController.doPrivileged(
             new GetBooleanAction("awt.dnd.motifdnd"))).booleanValue();
