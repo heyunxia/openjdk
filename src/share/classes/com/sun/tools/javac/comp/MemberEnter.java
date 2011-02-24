@@ -33,6 +33,7 @@ import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.jvm.*;
 import com.sun.tools.javac.tree.*;
 import com.sun.tools.javac.util.*;
+import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.util.List;
 
 import com.sun.tools.javac.code.Type.*;
@@ -42,7 +43,7 @@ import com.sun.tools.javac.tree.JCTree.*;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.TypeTags.*;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import static com.sun.tools.javac.code.Flags.MODULE; // resolve ambiguity
 
 /** This is the second phase of Enter, in which classes are completed
  *  by entering their members into the class scope using
@@ -160,6 +161,7 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
                                  Env<AttrContext> env) {
         final JavaFileObject sourcefile = env.toplevel.sourcefile;
         final Scope toScope = env.toplevel.starImportScope;
+        final ModuleSymbol modle = env.toplevel.modle;
         final PackageSymbol packge = env.toplevel.packge;
         final TypeSymbol origin = tsym;
 
@@ -180,7 +182,7 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
                     Symbol sym = e.sym;
                     if (sym.kind == TYP &&
                         (sym.flags() & STATIC) != 0 &&
-                        staticImportAccessible(sym, packge) &&
+                        staticImportAccessible(sym, modle, packge) &&
                         sym.isMemberOf(origin, types) &&
                         !toScope.includes(sym))
                         toScope.enter(sym, fromScope, origin.members());
@@ -208,7 +210,7 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
                 for (Scope.Entry e = fromScope.elems; e != null; e = e.sibling) {
                     Symbol sym = e.sym;
                     if (sym.isStatic() && sym.kind != TYP &&
-                        staticImportAccessible(sym, packge) &&
+                        staticImportAccessible(sym, modle, packge) &&
                         !toScope.includes(sym) &&
                         sym.isMemberOf(origin, types)) {
                         toScope.enter(sym, fromScope, origin.members());
@@ -222,7 +224,7 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
     }
 
     // is the sym accessible everywhere in packge?
-    boolean staticImportAccessible(Symbol sym, PackageSymbol packge) {
+    boolean staticImportAccessible(Symbol sym, ModuleSymbol modle, PackageSymbol packge) {
         int flags = (int)(sym.flags() & AccessFlags);
         switch (flags) {
         default:
@@ -233,6 +235,8 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
         case 0:
         case PROTECTED:
             return sym.packge() == packge;
+        case MODULE:
+            return  sym.modle() == modle;
         }
     }
 
@@ -253,6 +257,7 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
         }
 
         final Scope toScope = env.toplevel.namedImportScope;
+        final ModuleSymbol modle = env.toplevel.modle;
         final PackageSymbol packge = env.toplevel.packge;
         final TypeSymbol origin = tsym;
 
@@ -274,7 +279,7 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
                     Symbol sym = e.sym;
                     if (sym.isStatic() &&
                         sym.kind == TYP &&
-                        staticImportAccessible(sym, packge) &&
+                        staticImportAccessible(sym, modle, packge) &&
                         sym.isMemberOf(origin, types) &&
                         chk.checkUniqueStaticImport(pos, sym, toScope))
                         toScope.enter(sym, sym.owner.members(), origin.members());
@@ -304,7 +309,7 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
                      e = e.next()) {
                     Symbol sym = e.sym;
                     if (sym.isStatic() &&
-                        staticImportAccessible(sym, packge) &&
+                        staticImportAccessible(sym, modle, packge) &&
                         sym.isMemberOf(origin, types)) {
                         found = true;
                         if (sym.kind == MTH ||
@@ -502,23 +507,36 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
             return;
         }
 
+        JCModuleDecl md = TreeInfo.getModule(tree);
+        JCPackageDecl pd = TreeInfo.getPackage(tree);
+
         // check that no class exists with same fully qualified name as
         // toplevel package
-        if (checkClash && tree.pid != null) {
+        if (checkClash && pd != null) {
             Symbol p = tree.packge;
             while (p.owner != syms.rootPackage) {
                 p.owner.complete(); // enter all class members of p
                 if (syms.classes.get(p.getQualifiedName()) != null) {
                     log.error(tree.pos,
-                              "pkg.clashes.with.class.of.same.name",
-                              p);
+                            "pkg.clashes.with.class.of.same.name",
+                            p);
                 }
                 p = p.owner;
             }
         }
 
+        // set up module and its dependencies
+        /*temp*/if (tree.modle != null)/*temp*/ // JIGSAW TEMP: tree.modle SHOULD ALWAYS BE SET
+            tree.modle.complete();
+
+        // process module annotations
+        if (md != null) {
+            annotateLater(md.annots, env, md.sym);
+        }
+
         // process package annotations
-        annotateLater(tree.packageAnnotations, env, tree.packge);
+        if (pd != null)
+            annotateLater(pd.annots, env, pd.sym);
 
         // Import-on-demand java.lang.
         importAll(tree.pos, reader.enterPackage(names.java_lang), env);

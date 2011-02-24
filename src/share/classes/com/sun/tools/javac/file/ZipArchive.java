@@ -252,6 +252,12 @@ public class ZipArchive implements Archive {
         }
 
         @Override
+        protected String inferModuleTag(String binaryName) {
+            File zf = new File(zarch.zfile.getName());
+            return removeExtension(zf.getName());
+        }
+
+        @Override
         public boolean isNameCompatible(String cn, JavaFileObject.Kind k) {
             cn.getClass();
             // null check

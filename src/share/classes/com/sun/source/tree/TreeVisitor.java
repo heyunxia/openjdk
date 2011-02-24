@@ -83,8 +83,14 @@ public interface TreeVisitor<R,P> {
     R visitLiteral(LiteralTree node, P p);
     R visitMethod(MethodTree node, P p);
     R visitModifiers(ModifiersTree node, P p);
+    R visitModule(ModuleTree node, P p);
+    R visitModuleClass(ModuleClassTree node, P p);
+    R visitModuleId(ModuleIdTree node, P p);
+    R visitModulePermits(ModulePermitsTree node, P p);
+    R visitModuleRequires(ModuleRequiresTree node, P p);
     R visitNewArray(NewArrayTree node, P p);
     R visitNewClass(NewClassTree node, P p);
+    R visitPackage(PackageTree node, P p);
     R visitParenthesized(ParenthesizedTree node, P p);
     R visitReturn(ReturnTree node, P p);
     R visitMemberSelect(MemberSelectTree node, P p);

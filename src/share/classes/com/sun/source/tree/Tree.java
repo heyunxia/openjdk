@@ -555,6 +555,18 @@ public interface Tree {
          */
         ERRONEOUS(ErroneousTree.class),
 
+        MODULE(ModuleTree.class),
+
+        MODULE_CLASS(ModuleClassTree.class),
+
+        MODULE_ID(ModuleIdTree.class),
+
+        MODULE_PERMITS(ModulePermitsTree.class),
+
+        MODULE_REQUIRES(ModuleRequiresTree.class),
+
+        PACKAGE(PackageTree.class),
+
         /**
          * Used for instances of {@link ClassTree} representing interfaces.
          */
