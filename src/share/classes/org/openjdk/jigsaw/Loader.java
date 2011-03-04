@@ -141,7 +141,7 @@ public class Loader
         if (mid == null) {
             mid = context.findModuleForLocalClass(cn);
             if (mid == null)
-                throw new ClassNotFoundException(mid.name() + ":" + cn);
+                throw new ClassNotFoundException(context + ":" + cn);
         }
 
         Class<?> c = findLoadedClass(cn);
