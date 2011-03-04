@@ -56,20 +56,6 @@ public class TrivialWebServer {
         }
     }
 
-    private void copy(Path p, OutputStream out)
-        throws IOException
-    {
-        byte[] buf = new byte[8192];
-        InputStream in = Files.newInputStream(p);
-        try {
-            int n;
-            while ((n = in.read(buf)) > 0)
-                out.write(buf, 0, n);
-        } finally {
-            in.close();
-        }
-    }
-
     private static final SimpleDateFormat HTTP_DATE;
 
     static {
@@ -179,7 +165,7 @@ public class TrivialWebServer {
                 if (debug)
                     dump("ans", hx.getResponseHeaders());
                 hx.sendResponseHeaders(HTTP_OK, ba.size());
-                copy(p, hx.getResponseBody());
+                Files.copy(p, hx.getResponseBody());
 
             } catch (Exception x) {
                 x.printStackTrace(out);

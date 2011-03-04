@@ -73,7 +73,7 @@ public class _PublishedRepository {
     }
 
     static ModuleId toModuleId(Path p) {
-        String fn = p.getName(p.getNameCount()-1).toString();
+        String fn = p.getFileName().toString();
         return ms.parseModuleId(fn.replace(".jmod", ""));
     }
 
@@ -111,8 +111,11 @@ public class _PublishedRepository {
             return mids;
         for (Path p : mpaths) {
             ModuleId mid = toModuleId(p);
-            assert equals(Files.newInputStream(p), pr.fetch(mid))
-                : String.format("%s %s", mid, p);
+            try (InputStream ia = Files.newInputStream(p);
+                 InputStream ib = pr.fetch(mid)) {
+                assert equals(ia, ib) 
+                    : String.format("%s %s", mid, p);
+            }
         }
         return mids;
     }

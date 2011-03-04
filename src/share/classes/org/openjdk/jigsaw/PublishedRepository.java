@@ -91,14 +91,11 @@ public class PublishedRepository
         throws IOException
     {
         Path newp = path.resolve(CATALOG_FILE + ".new");
-        OutputStream os = Files.newOutputStream(newp, WRITE, CREATE_NEW);
-        try {
+        try (OutputStream os = Files.newOutputStream(newp, WRITE, CREATE_NEW)) {
             cat.store(os);
-        } finally {
-            os.close();
         }
         try {
-            Files.move(newp, catp, ATOMIC_MOVE, REPLACE_EXISTING);
+            Files.move(newp, catp, ATOMIC_MOVE);
         } catch (IOException x) {
             Files.deleteIfExists(newp);
             throw x;
@@ -257,7 +254,7 @@ public class PublishedRepository
             Path newp = modulePath(mid, ".jmod.new");
             try {
                 Files.copy(modp, newp, REPLACE_EXISTING);
-                Files.move(newp, dstp, REPLACE_EXISTING, ATOMIC_MOVE);
+                Files.move(newp, dstp, ATOMIC_MOVE);
             } catch (IOException x) {
                 Files.deleteIfExists(newp);
                 throw x;
@@ -324,7 +321,7 @@ public class PublishedRepository
     {
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(path, "*.jmod")) { 
             for (Path modp : ds) {
-                String fn = modp.getName(modp.getNameCount()-1).toString();
+                String fn = modp.getFileName().toString();
                 ModuleId mid
                     = jms.parseModuleId(fn.substring(0, fn.length() - 5));
                 mids.add(mid);
