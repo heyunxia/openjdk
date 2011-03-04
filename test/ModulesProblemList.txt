@@ -122,7 +122,7 @@ sun/rmi/runtime/Log/checkLogging/CheckLogging.java      solaris-all
 java/rmi/transport/dgcDeadLock/DGCDeadLock.java         solaris-all
 
 # Caused by: java.security.NoSuchAlgorithmException: SunTlsRsaPremasterSecret KeyGenerator not available
-javax/rmi/ssl/SSLSocketParametersTest.java              generic-all
+javax/rmi/ssl/SSLSocketParametersTest.sh                generic-all
 
 
 ############################################################################
@@ -238,8 +238,7 @@ tools/pack200/PackageVersionTest.java           generic-all
 tools/pack200/TestExceptions.java               generic-all
 tools/pack200/TimeStamp.java                    generic-all
 tools/pack200/UnpackerMemoryTest.java           generic-all
-
-
+tools/pack200/T7007157.java                     generic-all
 
 ############################################################################
 
