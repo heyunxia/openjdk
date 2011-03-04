@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,20 +22,11 @@
  *
  */
 
-package sun.jvm.hotspot.runtime;
+#include "precompiled.hpp"
+#include "utilities/errorReporter.hpp"
 
-import java.io.*;
+ErrorReporter::ErrorReporter() {}
 
-import sun.jvm.hotspot.debugger.*;
-import sun.jvm.hotspot.types.*;
-
-public class LowMemoryDetectorThread extends JavaThread {
-  public LowMemoryDetectorThread(Address addr) {
-    super(addr);
-  }
-
-  public boolean isJavaThread() { return false; }
-  public boolean isHiddenFromExternalView() { return true; }
-  public boolean isLowMemoryDetectorThread() { return true; }
-
+void ErrorReporter::call(FILE* fd, char* buffer, int length) {
 }
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2011 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,39 +22,20 @@
  *
  */
 
-package sun.jvm.hotspot.oops;
+package sun.jvm.hotspot.runtime;
 
 import java.io.*;
-import java.util.*;
+
 import sun.jvm.hotspot.debugger.*;
-import sun.jvm.hotspot.runtime.*;
 import sun.jvm.hotspot.types.*;
 
-// A SymbolKlass is the klass for all Symbols
-
-public class SymbolKlass extends Klass {
-  static {
-    VM.registerVMInitializedObserver(new Observer() {
-        public void update(Observable o, Object data) {
-          initialize(VM.getVM().getTypeDataBase());
-        }
-      });
+public class ServiceThread extends JavaThread {
+  public ServiceThread(Address addr) {
+    super(addr);
   }
 
-  private static synchronized void initialize(TypeDataBase db) throws WrongTypeException {
-    Type type  = db.lookupType("symbolKlass");
-    headerSize = type.getSize() + Oop.getHeaderSize();
-  }
+  public boolean isJavaThread() { return false; }
+  public boolean isHiddenFromExternalView() { return true; }
+  public boolean isServiceThread() { return true; }
 
-  SymbolKlass(OopHandle handle, ObjectHeap heap) {
-    super(handle, heap);
-  }
-
-  private static long headerSize;
-
-  public long getObjectSize() { return alignObjectSize(headerSize); }
-
-  public void printValueOn(PrintStream tty) {
-    tty.print("SymbolKlass");
-  }
 }
