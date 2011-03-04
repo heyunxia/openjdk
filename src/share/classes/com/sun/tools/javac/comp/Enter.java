@@ -95,8 +95,7 @@ public class Enter extends JCTree.Visitor {
 
     Log log;
     Symtab syms;
-    Scope.ScopeCounter scopeCounter;
-    Check chk;
+     Check chk;
     TreeMaker make;
     ClassReader reader;
     Annotate annotate;
@@ -125,7 +124,6 @@ public class Enter extends JCTree.Visitor {
         reader = ClassReader.instance(context);
         make = TreeMaker.instance(context);
         syms = Symtab.instance(context);
-        scopeCounter = Scope.ScopeCounter.instance(context);
         chk = Check.instance(context);
         memberEnter = MemberEnter.instance(context);
         types = Types.instance(context);
@@ -196,7 +194,7 @@ public class Enter extends JCTree.Visitor {
      */
     public Env<AttrContext> classEnv(JCClassDecl tree, Env<AttrContext> env) {
         Env<AttrContext> localEnv =
-            env.dup(tree, env.info.dup(new Scope.ClassScope(tree.sym, scopeCounter)));
+            env.dup(tree, env.info.dup(new Scope(tree.sym)));
         localEnv.enclClass = tree;
         localEnv.outer = env;
         localEnv.info.isSelfCall = false;
@@ -247,7 +245,7 @@ public class Enter extends JCTree.Visitor {
     public Env<AttrContext> moduleEnv(JCModuleDecl tree, Env<AttrContext> env) {
         assert tree.sym != null;
         Env<AttrContext> localEnv =
-            env.dup(tree, env.info.dup(new Scope.ClassScope(tree.sym, scopeCounter)));
+            env.dup(tree, env.info.dup(new Scope(tree.sym)));
         localEnv.enclClass = predefClassDef;
         localEnv.outer = env;
         localEnv.info.isSelfCall = false;
@@ -350,7 +348,7 @@ public class Enter extends JCTree.Visitor {
             c.flatname = names.fromString(tree.packge + "." + name);
             c.sourcefile = tree.sourcefile;
             c.completer = null;
-            c.members_field = new Scope.ClassScope(c, scopeCounter);
+            c.members_field = new Scope(c);
             tree.packge.package_info = c;
         } else if (isModuleInfo) {
             JCModuleDecl md = TreeInfo.getModule(tree);
@@ -426,7 +424,7 @@ public class Enter extends JCTree.Visitor {
         c.completer = memberEnter;
         c.flags_field = chk.checkFlags(tree.pos(), tree.mods.flags, c, tree);
         c.sourcefile = env.toplevel.sourcefile;
-        c.members_field = new Scope.ClassScope(c, scopeCounter);
+        c.members_field = new Scope(c);
         c.modle = env.toplevel.modle;
 
         ClassType ct = (ClassType)c.type;

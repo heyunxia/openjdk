@@ -74,7 +74,6 @@ public class Symtab {
     public final JCNoType voidType = new JCNoType(TypeTags.VOID);
 
     private final Names names;
-    private final Scope.ScopeCounter scopeCounter;
     private final ClassReader reader;
     private final Target target;
 
@@ -132,7 +131,9 @@ public class Symtab {
     public final Type stringBuilderType;
     public final Type cloneableType;
     public final Type serializableType;
+    public final Type transientMethodHandleType; // transient - 292
     public final Type methodHandleType;
+    public final Type transientPolymorphicSignatureType; // transient - 292
     public final Type polymorphicSignatureType;
     public final Type throwableType;
     public final Type errorType;
@@ -349,7 +350,6 @@ public class Symtab {
         context.put(symtabKey, this);
 
         names = Names.instance(context);
-        scopeCounter = Scope.ScopeCounter.instance(context);
         target = Target.instance(context);
 
         // Create the unknown type
@@ -404,7 +404,7 @@ public class Symtab {
 
         // Create class to hold all predefined constants and operations.
         predefClass = new ClassSymbol(PUBLIC|ACYCLIC, names.empty, rootPackage);
-        Scope scope = new Scope.ClassScope(predefClass, scopeCounter);
+        Scope scope = new Scope(predefClass);
         predefClass.members_field = scope;
 
         // Enter symbols for basic types.
@@ -435,8 +435,10 @@ public class Symtab {
         cloneableType = enterClass("java.lang.Cloneable");
         throwableType = enterClass("java.lang.Throwable");
         serializableType = enterClass("java.io.Serializable");
-        methodHandleType = enterClass("java.dyn.MethodHandle");
-        polymorphicSignatureType = enterClass("java.dyn.MethodHandle$PolymorphicSignature");
+        transientMethodHandleType = enterClass("java.dyn.MethodHandle"); // transient - 292
+        methodHandleType = enterClass("java.lang.invoke.MethodHandle");
+        transientPolymorphicSignatureType = enterClass("java.dyn.MethodHandle$PolymorphicSignature"); // transient - 292
+        polymorphicSignatureType = enterClass("java.lang.invoke.MethodHandle$PolymorphicSignature");
         errorType = enterClass("java.lang.Error");
         illegalArgumentExceptionType = enterClass("java.lang.IllegalArgumentException");
         exceptionType = enterClass("java.lang.Exception");
@@ -480,6 +482,7 @@ public class Symtab {
 
         synthesizeEmptyInterfaceIfMissing(cloneableType);
         synthesizeEmptyInterfaceIfMissing(serializableType);
+        synthesizeEmptyInterfaceIfMissing(transientPolymorphicSignatureType); // transient - 292
         synthesizeEmptyInterfaceIfMissing(polymorphicSignatureType);
         synthesizeBoxTypeIfMissing(doubleType);
         synthesizeBoxTypeIfMissing(floatType);
@@ -494,7 +497,7 @@ public class Symtab {
         proprietarySymbol.completer = null;
         proprietarySymbol.flags_field = PUBLIC|ACYCLIC|ANNOTATION|INTERFACE;
         proprietarySymbol.erasure_field = proprietaryType;
-        proprietarySymbol.members_field = new Scope.ClassScope(proprietarySymbol, scopeCounter);
+        proprietarySymbol.members_field = new Scope(proprietarySymbol);
         proprietaryType.typarams_field = List.nil();
         proprietaryType.allparams_field = List.nil();
         proprietaryType.supertype_field = annotationType;
@@ -506,7 +509,7 @@ public class Symtab {
         ClassType arrayClassType = (ClassType)arrayClass.type;
         arrayClassType.supertype_field = objectType;
         arrayClassType.interfaces_field = List.of(cloneableType, serializableType);
-        arrayClass.members_field = new Scope.ClassScope(arrayClass, scopeCounter);
+        arrayClass.members_field = new Scope(arrayClass);
         lengthVar = new VarSymbol(
             PUBLIC | FINAL,
             names.length,
