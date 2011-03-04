@@ -53,6 +53,7 @@ endif
 ACTUAL_LIBRARY = $(ACTUAL_LIBRARY_DIR)/$(ACTUAL_LIBRARY_NAME)
 
 library:: $(ACTUAL_LIBRARY)
+	$(TouchModule)
 
 FILES_o   = $(patsubst %.c,   %.$(OBJECT_SUFFIX), $(addprefix $(OBJDIR)/, $(notdir $(FILES_c))))
 FILES_o  += $(patsubst %.s,   %.$(OBJECT_SUFFIX), $(addprefix $(OBJDIR)/, $(notdir $(FILES_s))))

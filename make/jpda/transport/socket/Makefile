@@ -28,7 +28,7 @@
 #
 
 BUILDDIR = ../../..
-MODULE  = debugging
+MODULE  = jdwp
 LIBRARY = dt_socket
 PRODUCT = jbug
 

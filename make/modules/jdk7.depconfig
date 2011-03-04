@@ -51,9 +51,12 @@
 @ClassForName
   java.beans.MetaData -> java.beans.*_PersistenceDelegate
 
+# ## desktop -> jdbc (does this need to be optional dependency so that
+# desktop module can find java.sql.Timestamp class when jdbc module exist)??
+#
 # private static java.lang.reflect.Method getNanosMethod()
-@ClassForName(optional)
-  java.beans.java_sql_Timestamp_PersistenceDelegate -> java.sql.Timestamp
+# @ClassForName(optional)
+#  java.beans.java_sql_Timestamp_PersistenceDelegate -> java.sql.Timestamp
 
 # java.beans.java_util_Collections$CheckedCollection_PersistenceDelegate
 @ClassForName
@@ -320,6 +323,7 @@
 @ClassForName(optional)
   sun.nio.cs.ext.ExtendedCharsets -> sun.nio.cs.ext.*
 
+
 # public static java.nio.file.spi.FileSystemProvider create()
 @ClassForName
   sun.nio.fs.DefaultFileSystemProvider -> sun.nio.fs.SolarisFileSystemProvider
@@ -415,9 +419,12 @@
 @ClassForName
   sun.security.ssl.HandshakeMessage -> java.security.MessageDigest$Delegate
 
+# ## This is a test to implement JsseJce.isKerberosAvailable() method.
+# but causes a circular dependence jsse -> kerberos -> jsse
+#
 # sun.security.ssl.JsseJce
-@ClassForName(optional)
-  sun.security.ssl.JsseJce -> sun.security.krb5.PrincipalName
+# @ClassForName(optional)
+#   sun.security.ssl.JsseJce -> sun.security.krb5.PrincipalName
 
 # sun.security.x509.OIDMap$OIDInfo
 @ClassForName
@@ -471,3 +478,26 @@
 # sun.util.logging.LoggingSupport
 @ClassForName(optional)
   sun.util.logging.LoggingSupport -> java.util.logging.LoggingProxyImpl
+
+@ClassForName(optional)
+  sun.tools.jinfo.JInfo ->  sun.jvm.hotspot.tools.JInfo
+
+@ClassForName(optional)
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.PMap
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.HeapSummary
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.HeapDumper
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.ObjectHistogram
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.PermStat
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.FinalizerInfo
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.HeapDumper
+  sun.tools.jmap.JMap -> sun.jvm.hotspot.tools.HeapSummary
+
+@ClassForName(optional)
+  sun.tools.jstack.JStack -> sun.jvm.hotspot.tools.JStack
+
+@ClassForName(optional)
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.StubGenerator
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.IDLGenerator
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.PrintGenerator
+  sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.BatchEnvironment
+

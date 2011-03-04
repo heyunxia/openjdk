@@ -111,6 +111,10 @@ ifndef OPENJDK
   endif
 endif
 
+# Set OTHER_* flags before including Defs.gmk
+CLASSDESTDIR = $(TEMPDIR)/classes
+OTHER_JAVAHFLAGS += -classpath $(CLASSDESTDIR)
+
 include $(BUILDDIR)/common/Defs.gmk
 
 #
@@ -147,9 +151,6 @@ OTHER_INCLUDES += \
 #
 # Rules
 #
-CLASSDESTDIR = $(TEMPDIR)/classes
-JAVAHFLAGS += -classpath $(CLASSDESTDIR)
-
 include $(BUILDDIR)/common/Mapfile-vers.gmk
 
 include $(BUILDDIR)/common/Library.gmk
