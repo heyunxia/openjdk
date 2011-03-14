@@ -595,7 +595,7 @@ public final class SimpleLibrary
         File md = findModuleDir(mid);
         if (md == null)
             return null;
-        // ## add support for multiple signers
+        // Only one signer is currently supported
         File f = new File(md, "signer");
         // ## concurrency issues : what is the expected behavior if file is
         // ## removed by another thread/process here?
@@ -883,6 +883,8 @@ public final class SimpleLibrary
         configure(null);
     }
 
+    private ModuleFileVerifier.Parameters mfvParams;
+
     private ModuleId install(InputStream is, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
@@ -892,7 +894,6 @@ public final class SimpleLibrary
         File md = null;
         try {
             byte[] mib = mr.readStart();
-            boolean doVerify = verifySignature && mr.hasSignature();
             ModuleInfo mi = jms.parseModuleInfo(mib);
             md = moduleDir(mi.id());
             ModuleId mid = mi.id();
@@ -900,23 +901,31 @@ public final class SimpleLibrary
                 throw new ConfigurationException(mid + ": Already installed");
             if (!md.mkdirs())
                 throw new IOException(md + ": Cannot create");
-            // Verify module signature and perform cert path validation for 
-            // each of the module signers
-            if (doVerify) {
-                ModuleFileVerifier verifier =
-                    new ModuleFileFormat.PKCS7Verifier();
-                mr.setVerificationMechanism(verifier,
-                    new ModuleFileFormat.PKCS7VerifierParameters());
-                Set<CodeSigner> signers = mr.verifySignature();
-                // ## add support for storing multiple signers
-                if (!signers.isEmpty()) {
-                    CodeSigner signer = signers.iterator().next();
-                    new Signer(md, signer).store();
+
+            if (verifySignature && mr.hasSignature()) {
+                ModuleFileVerifier mfv = new ModuleFileFormat.PKCS7Verifier(mr);
+                if (mfvParams == null) {
+                    mfvParams = new ModuleFileFormat.PKCS7VerifierParameters();
                 }
-            }
-            mr.readRest(md);
-            if (doVerify) {
-                mr.verifyHashes();
+                // Verify the module signature and validate the signer's
+                // certificate chain
+                Set<CodeSigner> signers = mfv.verifySignature(mfvParams);
+
+                // Verify the module header hash and the module info hash
+                mfv.verifyHashesStart(mfvParams);
+                
+                // ## Check policy - is signer trusted and what permissions
+                // ## should be granted?
+
+                // Store signer info (only one signer is currently supported)
+                CodeSigner signer = signers.iterator().next();
+                new Signer(md, signer).store();
+
+                // Read and verify the rest of the hashes
+                mr.readRest(md);
+                mfv.verifyHashesRest(mfvParams);
+            } else {
+                mr.readRest(md);
             }
             reIndex(mid);         // ## Could do this while reading module file
             return mid;

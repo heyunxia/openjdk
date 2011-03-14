@@ -324,12 +324,15 @@ public class ModuleFormatTest01 {
         ModuleFileFormat.Reader reader = new ModuleFileFormat.Reader(dis);
         if (reader.hasSignature()) {
             if (reader.getSignatureType() == SignatureType.PKCS7.value()) {
-                reader.setVerificationMechanism(
-                    new ModuleFileFormat.PKCS7Verifier(),
-                    new ModuleFileFormat.PKCS7VerifierParameters());
+                    
+                ModuleFileVerifier verifier
+                    = new ModuleFileFormat.PKCS7Verifier(reader);
+                ModuleFileVerifier.Parameters verifierParams
+                    = new ModuleFileFormat.PKCS7VerifierParameters();
                 int i = 1;
                 System.out.println("Module '" + name + "' is signed by:");
-                for (CodeSigner signer : reader.verifySignature()) {
+                for (CodeSigner signer :
+                         verifier.verifySignature(verifierParams)) {
                     X509Certificate signerCert =
                         (X509Certificate)
                             signer.getSignerCertPath().getCertificates().get(0);

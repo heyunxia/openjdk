@@ -181,7 +181,7 @@ public abstract class Library
         throws IOException
     {
         for (Library l = this; l != null; l = l.parent()) {
-            byte [] bs = l.readLocalClass(mid, className);
+            byte[] bs = l.readLocalClass(mid, className);
             if (bs != null)
                 return bs;
         }
