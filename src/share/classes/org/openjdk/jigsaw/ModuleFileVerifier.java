@@ -50,29 +50,57 @@ public interface ModuleFileVerifier {
      * Verifies the module file signature and performs certificate path
      * validation for each of the signers.
      *
-     * @param signature The raw signature bytes
      * @param parameters The parameters used to control verification
      *
-     * @return The signers which have been successfully verified
+     * @return The signers which have been successfully verified (never null
+     *    or empty)
      *
-     * @throws SignatureException If an error occurs during verification
+     * @throws SignatureException If the signature or certificate chain cannot 
+     *    be verified or an error occurs during verification
      */
-    public Set<CodeSigner> verifySignature(byte[] signature,
-                                           ModuleFileVerifier.Parameters
-                                               parameters)
+    public Set<CodeSigner> verifySignature(ModuleFileVerifier.Parameters
+                                           parameters)
         throws SignatureException;
 
     /**
      * Checks that the module file hashes carried in signature match the
      * hashes generated from the actual contents of the module file.
      *
-     * @param signature The raw signature bytes
      * @param parameters The parameters used to control verification
      *
-     * @throws SignatureException If a file hash fails to match
+     * @throws SignatureException If a file hash fails to match or an error
+     *    occurs during verification
      */
-    public void verifyHashes(byte[] signature,
-                             ModuleFileVerifier.Parameters parameters)
+    public void verifyHashes(ModuleFileVerifier.Parameters parameters)
+        throws SignatureException;
+
+    /**
+     * Checks that the module file hashes carried in the signature match the
+     * hashes generated from the actual contents of the module file. This
+     * method verifies the module header hash and the module info hash 
+     * calculated by the ModuleFileReader.readStart method.
+     *
+     * @param parameters The parameters used to control verification
+     *
+     * @throws SignatureException If a file hash fails to match or an error
+     *   occurs during verification
+     */
+    public void verifyHashesStart(ModuleFileVerifier.Parameters parameters)
+        throws SignatureException;
+
+    /**
+     * Checks that the module file hashes carried in the signature match the
+     * hashes generated from the actual contents of the module file. This
+     * method verifies each of the section hashes (except the module info hash)
+     * and the whole file hash calculated by the ModuleFileReader.readRest
+     * method.
+     *
+     * @param parameters The parameters used to control verification
+     *
+     * @throws SignatureException If a file hash fails to match or an error
+     *   occurs during verification
+     */
+    public void verifyHashesRest(ModuleFileVerifier.Parameters parameters)
         throws SignatureException;
 
     /**
