@@ -29,6 +29,8 @@ import java.io.*;
 import java.lang.module.*;
 import java.util.*;
 import java.net.*;
+import java.nio.file.Files;
+import static java.nio.file.StandardCopyOption.*;
 
 import static org.openjdk.jigsaw.Trace.*;
 
@@ -154,8 +156,7 @@ public class RemoteRepository
             newfn.delete();
             throw x;
         }
-        if (!newfn.renameTo(metaFile))  // ## Not guaranteed atomic
-            throw new IOException(newfn + ": Cannot rename to " + metaFile);
+        Files.move(newfn.toPath(), metaFile.toPath(), ATOMIC_MOVE);
     }
 
     public static RemoteRepository create(File dir, URI u, long id)
@@ -259,8 +260,7 @@ public class RemoteRepository
             newfn.delete();
             throw x;
         }
-        if (!newfn.renameTo(catFile))   // ## Not guaranteed atomic
-            throw new IOException(newfn + ": Cannot rename to " + metaFile);
+        Files.move(newfn.toPath(), catFile.toPath(), ATOMIC_MOVE);
         cat = null;
 
         mtime = co.getHeaderFieldDate("Last-Modified", 0);

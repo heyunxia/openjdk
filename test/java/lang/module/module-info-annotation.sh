@@ -32,8 +32,8 @@ SRC=${TESTSRC:-.}
 
 rm -rf z.*
 mk() {
-  d=$(dirname $1)
-  if ! [ -d $(dirname $1) ]; then mkdir -p $d; fi
+  d=`dirname $1`
+  if [ ! -d $d ]; then mkdir -p $d; fi
   cat - >$1
 }
 
@@ -214,20 +214,20 @@ EOF
 mkdir z.modules z.classes
 
 $BIN/javac -d z.classes $SRC/ModuleAnnotationTest.java \
-     $(find z.src/foo/com/foo -name '*.java') \
-     $(find z.src/bar/org/bar -name '*.java') || exit 1
+     `find z.src/foo/com/foo -name '*.java'` \
+     `find z.src/bar/org/bar -name '*.java'`
 $BIN/javac -d z.modules -modulepath z.modules  \
-    $(find z.src -name '*.java') || exit 2
+     `find z.src -name '*.java'`
 
-$BIN/jmod -L z.lib create  || exit 3
-$BIN/jmod -L z.lib install z.modules foo bar || exit 4
-$BIN/java -L z.lib -m foo || exit 5
+$BIN/jmod -L z.lib create
+$BIN/jmod -L z.lib install z.modules foo bar
+$BIN/java -L z.lib -m foo
 
 run() {
     ver=$1
     $BIN/javac -d z.modules -modulepath z.modules \
-        z.src.$ver/test.foo.bar/module-info.java || exit 5
-    $BIN/java -cp z.classes ModuleAnnotationTest z.modules/test.foo.bar/module-info.class || exit 6
+        z.src.$ver/test.foo.bar/module-info.java
+    $BIN/java -cp z.classes ModuleAnnotationTest z.modules/test.foo.bar/module-info.class
 }
 
 # Test ScalarTypes and ArrayTypes with default values

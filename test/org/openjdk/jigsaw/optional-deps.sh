@@ -33,8 +33,8 @@ BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
 
 mk() {
-  d=$(dirname $1)
-  if ! [ -d $(dirname $1) ]; then mkdir -p $d; fi
+  d=`dirname $1`
+  if [ ! -d $d ]; then mkdir -p $d; fi
   cat - >$1
 }
 
@@ -162,20 +162,20 @@ EOF
 mkdir z.modules z.classes
 
 $BIN/javac -source 7 -d z.modules -modulepath z.modules \
-  $(find z.src -name '*.java')         || exit 1
+   `find z.src -name '*.java'`
 
 # optional module is not installed
-$BIN/jmod -L z.lib create              || exit 2
-$BIN/jmod -L z.lib install z.modules org.foo || exit 3
-$BIN/java -ea -L z.lib -m org.foo      || exit 4
+$BIN/jmod -L z.lib create
+$BIN/jmod -L z.lib install z.modules org.foo
+$BIN/java -ea -L z.lib -m org.foo
 
 
 # install the optional module 
-$BIN/jmod -L z.lib install z.modules net.bar || exit 5
-$BIN/java -L z.lib -m net.bar          || exit 6
-$BIN/java -L z.lib -m org.foo net.bar.Provider || exit 7
+$BIN/jmod -L z.lib install z.modules net.bar
+$BIN/java -L z.lib -m net.bar
+$BIN/java -L z.lib -m org.foo net.bar.Provider
 
 # find class from the system class loader
-$BIN/jmod -L z.lib install z.modules com.foo.bar || exit 5
-$BIN/java -L z.lib -m com.foo.bar || exit 7
+$BIN/jmod -L z.lib install z.modules com.foo.bar
+$BIN/java -L z.lib -m com.foo.bar
 

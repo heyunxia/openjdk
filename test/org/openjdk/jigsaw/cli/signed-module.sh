@@ -34,7 +34,7 @@ BIN=${TESTJAVA:-../../../../../build}/bin
 
 mk() {
   d=`dirname $1`
-  if ! [ -d `dirname $1` ]; then mkdir -p $d; fi
+  if [ ! -d $d ]; then mkdir -p $d; fi
   cat - >$1
 }
 

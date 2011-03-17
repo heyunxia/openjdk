@@ -33,12 +33,12 @@ SRC=${TESTSRC:-.}
 
 cat $SRC/maze.sh \
 | sed -e 's/^: zork pass/: zork pass compile/' \
-| /bin/sh $SRC/tester.sh -
+| sh $SRC/tester.sh -
 
 mkdir -p z.classes
 $BIN/javac -d z.classes $SRC/_RepositoryCatalog.java
 
-mis=$(find z.test/modules -name module-info.class)
+mis=`find z.test/modules -name module-info.class`
 echo $mis
 
 $BIN/java -ea -cp z.classes _RepositoryCatalog $mis

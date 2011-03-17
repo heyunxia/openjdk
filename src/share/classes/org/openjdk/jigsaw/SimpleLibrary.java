@@ -35,7 +35,7 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 import static org.openjdk.jigsaw.Trace.*;
-
+import static java.nio.file.StandardCopyOption.*;
 
 /**
  * A simple module library which stores data directly in the filesystem
@@ -1242,8 +1242,7 @@ public final class SimpleLibrary
                 newfn.delete();
                 throw x;
             }
-            if (!newfn.renameTo(listFile))  // ## Not guaranteed atomic
-                throw new IOException(newfn + ": Cannot rename to " + listFile);
+            java.nio.file.Files.move(newfn.toPath(), listFile.toPath(), ATOMIC_MOVE);
         }
 
         public RemoteRepository add(URI u, int position)

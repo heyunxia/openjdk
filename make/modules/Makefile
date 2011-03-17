@@ -210,7 +210,8 @@ define copy-module-content
      if [ -d $(ABS_SUBMODULES_DIR)/$$s ] ; then \
          for d in bin lib etc include ; do \
             if [ -d $(ABS_SUBMODULES_DIR)/$$s/$$d ] ; then \
-                $(CP) -rf $(ABS_SUBMODULES_DIR)/$$s/$$d  $$mlib; \
+                $(MKDIR) -p $$mlib/$$d ; \
+                $(CP) -rf $(ABS_SUBMODULES_DIR)/$$s/$$d/*  $$mlib/$$d; \
             fi ; \
          done \
      fi ; \

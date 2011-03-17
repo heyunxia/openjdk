@@ -35,7 +35,7 @@ SRC=${TESTSRC:-.}
 
 cat $SRC/maze.sh \
 | sed -e 's/^: zork pass/: zork pass compile/' \
-| /bin/sh $SRC/tester.sh -
+| sh $SRC/tester.sh -
 
 mkdir -p z.classes
 $BIN/javac -d z.classes \
@@ -43,7 +43,7 @@ $BIN/javac -d z.classes \
   $SRC/_RemoteRepository.java \
   $SRC/TrivialWebServer.java
 
-mns=$(cd z.test/modules; echo *)
+mns=`cd z.test/modules; echo *`
 echo $mns
 
 mkdir -p z.test/module-files
