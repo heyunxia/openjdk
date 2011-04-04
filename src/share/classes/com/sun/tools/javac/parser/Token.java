@@ -140,6 +140,7 @@ public enum Token implements Formattable {
     PLUSEQ("+="),
     SUBEQ("-="),
     STAREQ("*="),
+    STARSTAR("**"),
     SLASHEQ("/="),
     AMPEQ("&="),
     BAREQ("|="),

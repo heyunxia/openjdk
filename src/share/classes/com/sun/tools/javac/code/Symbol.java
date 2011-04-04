@@ -644,6 +644,20 @@ public abstract class Symbol implements Element {
         }
     }
 
+    public static class ModuleExport {
+        public ClassSymbol sym;
+        public List<Name> flags;
+        public ModuleExport(ClassSymbol sym, List<Name> flags) {
+            this.sym = sym;
+            this.flags = flags;
+        }
+
+        @Override
+        public String toString() {
+            return "ModuleExport[" + flags + "," + sym + "]";
+        }
+    }
+
     public static class ModuleRequires implements ModuleElement.ModuleRequires {
         public ModuleId moduleId;
         public List<Name> flags;
@@ -678,6 +692,7 @@ public abstract class Symbol implements Element {
         public ClassSymbol className;
         public List<Name> classFlags;
         public ListBuffer<Name> permits;
+        public ListBuffer<Symbol.ModuleExport> exports;
         public ListBuffer<ClassFile.ModuleId> provides;
         public Map<ClassFile.ModuleId,Symbol.ModuleRequires> requires;
         public JavaFileManager.Location location;

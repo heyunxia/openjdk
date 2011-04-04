@@ -1185,6 +1185,24 @@ public class ClassReader implements Completer {
                 }
             },
 
+            new AttributeReader(names.ModuleExport, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+                @Override
+                boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int num = nextChar();
+                        for (int i = 0; i < num; i++) {
+                            ClassSymbol esym = readClassSymbol(nextChar());
+                            int flags = nextByte(); // ignored, for now
+                            msym.exports.append(new Symbol.ModuleExport(esym, List.<Name>nil()));
+                        }
+                    }
+                }
+            },
+
             new AttributeReader(names.ModulePermits, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
                 @Override
                 boolean accepts(AttributeKind kind) {

@@ -71,6 +71,7 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCModuleClass;
 import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
+import com.sun.tools.javac.tree.JCTree.JCModuleExport;
 import com.sun.tools.javac.tree.JCTree.JCModuleId;
 import com.sun.tools.javac.tree.JCTree.JCModulePermits;
 import com.sun.tools.javac.tree.JCTree.JCModuleRequires;
@@ -218,6 +219,7 @@ public class Modules extends JCTree.Visitor {
         tree.sym = sym;
 
         sym.version = tree.getId().version;
+        sym.exports = new ListBuffer<Symbol.ModuleExport>();
         sym.permits = new ListBuffer<Name>();
         sym.provides = new ListBuffer<ModuleId>();
         sym.requires = new LinkedHashMap<ModuleId,ModuleRequires>();
@@ -284,6 +286,10 @@ public class Modules extends JCTree.Visitor {
 //        // JIGSAW TODO check conflicts (at most one class)
 //        sym.className = reader.enterClass(className);
 //        sym.classFlags = tree.flags;
+    }
+
+    @Override
+    public void visitModuleExport(JCModuleExport tree) {
     }
 
     @Override
@@ -634,6 +640,10 @@ public class Modules extends JCTree.Visitor {
             search(tree.id);
             search(tree.provides);
             search(tree.metadata);
+        }
+
+        @Override
+        public void visitModuleExport(JCModuleExport tree) {
         }
 
         @Override

@@ -499,6 +499,15 @@ public class ClassWriter {
             return null;
         }
 
+        public Void visitModuleExport(ModuleExport_attribute attr, ClassOutputStream out) {
+            out.writeShort(attr.export_table.length);
+            for (ModuleExport_attribute.Entry e: attr.export_table) {
+                out.writeShort(e.export_index);
+                out.writeByte(e.flags);
+            }
+            return null;
+        }
+
         public Void visitModulePermits(ModulePermits_attribute attr, ClassOutputStream out) {
             out.writeShort(attr.permits_table.length);
             for (int i: attr.permits_table)

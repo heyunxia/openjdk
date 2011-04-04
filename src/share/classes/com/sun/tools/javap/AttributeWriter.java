@@ -48,6 +48,7 @@ import com.sun.tools.classfile.LineNumberTable_attribute;
 import com.sun.tools.classfile.LocalVariableTable_attribute;
 import com.sun.tools.classfile.LocalVariableTypeTable_attribute;
 import com.sun.tools.classfile.ModuleClass_attribute;
+import com.sun.tools.classfile.ModuleExport_attribute;
 import com.sun.tools.classfile.ModulePermits_attribute;
 import com.sun.tools.classfile.ModuleProvides_attribute;
 import com.sun.tools.classfile.ModuleRequires_attribute;
@@ -410,6 +411,15 @@ public class AttributeWriter extends BasicWriter
         println("  #" + attr.class_index + "," + Arrays.toString(attr.attributes)
                 + "\t// " + constantWriter.stringValues(attr.attributes, " ")
                 + " " + constantWriter.stringValue(attr.class_index));
+        return null;
+    }
+
+    public Void visitModuleExport(ModuleExport_attribute attr, Void ignore) {
+        println("  ModuleExport: ");
+        for (ModuleExport_attribute.Entry e: attr.export_table) {
+            println("  #" + e.export_index + "," + Integer.toHexString(e.flags)
+                    + "\t// " + constantWriter.stringValue(e.export_index));
+        }
         return null;
     }
 

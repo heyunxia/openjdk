@@ -489,6 +489,12 @@ public class TreeMaker implements JCTree.Factory {
         return tree;
     }
 
+    public JCModuleExport ModuleExport(List<Name> flags, JCExpression qualId) {
+        JCModuleExport tree = new JCModuleExport(flags, qualId);
+        tree.pos = pos;
+        return tree;
+    }
+
     public JCModuleId ModuleId(JCTree qualId, Name version) {
         JCModuleId tree = new JCModuleId(qualId, version);
         tree.pos = pos;

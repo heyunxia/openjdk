@@ -436,6 +436,20 @@ public class Pretty extends JCTree.Visitor {
         }
     }
 
+    public void visitModuleExport(JCModuleExport tree) {
+        try {
+            print("export ");
+            for (List<Name> l = tree.flags; l.nonEmpty(); l = l.tail ) {
+                print(l.head);
+                print(" ");
+            }
+            printExpr(tree.qualid);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     public void visitModulePermits(JCModulePermits tree) {
         try {
             print("permits ");

@@ -390,6 +390,10 @@ public class TreeScanner<R,P> implements TreeVisitor<R,P> {
         return scan(node.getClassName(), p);
     }
 
+    public R visitModuleExport(ModuleExportTree node, P p) {
+        return scan(node.getExportName(), p);
+    }
+
     public R visitModuleId(ModuleIdTree node, P p) {
         return scan(node.getModuleName(), p);
     }

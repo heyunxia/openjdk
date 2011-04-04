@@ -260,6 +260,10 @@ public class SimpleTreeVisitor<R,P> implements TreeVisitor<R,P> {
         return defaultAction(node, p);
     }
 
+    public R visitModuleExport(ModuleExportTree node, P p) {
+        return defaultAction(node, p);
+    }
+
     public R visitModuleId(ModuleIdTree node, P p) {
         return defaultAction(node, p);
     }

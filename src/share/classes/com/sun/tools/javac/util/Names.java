@@ -62,6 +62,7 @@ public class Names {
     public final Name comma;
     public final Name semicolon;
     public final Name asterisk;
+    public final Name double_asterisk;
     public final Name _this;
     public final Name _super;
     public final Name _default;
@@ -153,11 +154,13 @@ public class Names {
     public final Name addSuppressed;
     public final Name module;
     public final Name Module;
+    public final Name export;
     public final Name requires;
     public final Name provides;
     public final Name permits;
     public final Name synthetic;
     public final Name ModuleClass;
+    public final Name ModuleExport;
     public final Name ModulePermits;
     public final Name ModuleProvides;
     public final Name ModuleRequires;
@@ -184,6 +187,7 @@ public class Names {
         comma = fromString(",");
         semicolon = fromString(";");
         asterisk = fromString("*");
+        double_asterisk = fromString("**");
         _this = fromString("this");
         _super = fromString("super");
         _default = fromString("default");
@@ -282,11 +286,13 @@ public class Names {
         addSuppressed = fromString("addSuppressed");
         module = fromString("module");
         Module = fromString("Module");
+        export = fromString("export");
         requires = fromString("requires");
         provides = fromString("provides");
         permits = fromString("permits");
         synthetic = fromString("synthetic");
         ModuleClass = fromString("ModuleClass");
+        ModuleExport = fromString("ModuleExport");
         ModulePermits = fromString("ModulePermits");
         ModuleProvides = fromString("ModuleProvides");
         ModuleRequires = fromString("ModuleRequires");

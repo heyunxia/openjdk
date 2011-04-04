@@ -417,6 +417,12 @@ public class TreeCopier<P> implements TreeVisitor<JCTree,P> {
         return M.at(t.pos).ModuleClass(t.flags, qualId);
     }
 
+    public JCModuleExport visitModuleExport(ModuleExportTree node, P p) {
+        JCModuleExport t = (JCModuleExport) node;
+        JCExpression qualId = (JCExpression) copy(t.qualid, p);
+        return M.at(t.pos).ModuleExport(t.flags, qualId);
+    }
+
     public JCTree visitModuleId(ModuleIdTree node, P p) {
         JCModuleId t = (JCModuleId) node;
         JCTree qualId = copy(t.qualId, p);

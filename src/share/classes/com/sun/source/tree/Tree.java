@@ -559,6 +559,8 @@ public interface Tree {
 
         MODULE_CLASS(ModuleClassTree.class),
 
+        MODULE_EXPORT(ModuleExportTree.class),
+
         MODULE_ID(ModuleIdTree.class),
 
         MODULE_PERMITS(ModulePermitsTree.class),

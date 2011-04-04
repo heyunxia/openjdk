@@ -3027,6 +3027,42 @@ public class Attr extends JCTree.Visitor {
         attribStats(tree.getMetadataList(), env);
     }
 
+    public void visitModuleExport(JCModuleExport tree) {
+        JCTree exp = tree.qualid;
+        if (exp.getTag() != JCTree.SELECT) {
+            log.error(exp.pos(), "invalid.export");
+            return;
+        }
+        ClassSymbol csym;
+        JCFieldAccess s = (JCFieldAccess) exp;
+        Name name = TreeInfo.name(exp);
+        if (name == names.double_asterisk) {
+            TypeSymbol p = attribTree(s.selected, env, PCK, Type.noType).tsym;
+            Scope.Entry e = p.members().lookup(name);
+            if (e.sym != null) {
+                csym = (ClassSymbol) e.sym;
+            } else {
+                csym = new ClassSymbol(0, name, p);
+                p.members().enter(csym);
+            }
+        } else if (name == names.asterisk) {
+            TypeSymbol t = attribTree(s.selected, env, PCK | TYP, Type.noType).tsym;
+            Scope.Entry e = t.members().lookup(name);
+            if (e.sym != null) {
+                csym = (ClassSymbol) e.sym;
+            } else {
+                csym = new ClassSymbol(0, name, t);
+                t.members().enter(csym);
+            }
+        } else {
+            csym = (ClassSymbol) attribTree(s, env, TYP, Type.noType).tsym;
+        }
+
+        ModuleSymbol msym = env.toplevel.modle;
+        msym.exports.add(new Symbol.ModuleExport(csym, List.<Name>nil()));
+
+    }
+
     public void visitModuleRequires(JCModuleRequires tree) {
     }
 

@@ -914,6 +914,17 @@ public class ClassWriter extends ClassFile {
             n++;
         }
 
+        if (sym.exports.size() > 0) {
+            int alenIdx = writeAttr(names.ModuleExport);
+            databuf.appendChar(sym.exports.size());
+            for (ModuleExport e: sym.exports) {
+                databuf.appendChar(pool.put(e.sym));
+                databuf.appendByte(0); // no flags for now
+            }
+            endAttr(alenIdx);
+            n++;
+        }
+
         if (sym.className != null) {
             int alenIdx = writeAttr(names.ModuleClass);
             databuf.appendChar(pool.put(sym.className));

@@ -51,7 +51,6 @@ public class ConstantWriter extends BasicWriter {
         super(context);
         context.put(ConstantWriter.class, this);
         classWriter = ClassWriter.instance(context);
-        options = Options.instance(context);
     }
 
     protected void writeConstantPool() {
@@ -492,5 +491,4 @@ public class ConstantWriter extends BasicWriter {
     }
 
     private ClassWriter classWriter;
-    private Options options;
 }

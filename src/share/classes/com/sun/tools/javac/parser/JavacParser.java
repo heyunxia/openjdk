@@ -2426,6 +2426,24 @@ public class JavacParser implements Parser {
                     accept(SEMI);
                     defs.append(toP(F.at(pos).ModuleClass(flags.toList(), qualId)));
                 }
+            } else if (S.name() == names.export) {
+                S.nextToken();
+                JCExpression exportId = toP(F.at(S.pos()).Ident(ident()));
+                do {
+                    int pos1 = S.pos();
+                    accept(DOT);
+                    Token t  = S.token();
+                    if (t == STAR || t == STARSTAR) {
+                        Name tname = (t == STAR ? names.asterisk : names.double_asterisk);
+                        exportId = to(F.at(pos1).Select(exportId, tname));
+                        S.nextToken();
+                        break;
+                    } else {
+                        exportId = toP(F.at(pos1).Select(exportId, ident()));
+                    }
+                } while (S.token() == DOT);
+                accept(SEMI);
+                defs.append(toP(F.at(pos).ModuleExport(null, exportId)));
             } else if (S.name() == names.requires) {
                 ListBuffer<Name> flags = new ListBuffer<Name>();
                 List<JCModuleId> moduleIds;

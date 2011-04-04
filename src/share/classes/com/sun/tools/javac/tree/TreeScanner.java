@@ -82,6 +82,10 @@ public class TreeScanner extends Visitor {
         scan(tree.qualId);
     }
 
+    public void visitModuleExport(JCModuleExport tree) {
+        scan(tree.qualid);
+    }
+
     public void visitModulePermits(JCModulePermits tree) {
         scan(tree.moduleNames);
     }

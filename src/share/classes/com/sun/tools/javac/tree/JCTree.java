@@ -321,7 +321,8 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
 
     public static final int MODULE = MOD_ASG + 1;
     public static final int MODULE_CLASS = MODULE + 1;
-    public static final int MODULE_ID = MODULE_CLASS + 1;
+    public static final int MODULE_EXPORT = MODULE_CLASS + 1;
+    public static final int MODULE_ID = MODULE_EXPORT + 1;
     public static final int MODULE_PERMITS = MODULE_ID + 1;
     public static final int MODULE_REQUIRES = MODULE_PERMITS + 1;
 
@@ -2169,7 +2170,41 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
 
         @Override
         public int getTag() {
-            return MODULE_ID;
+            return MODULE_CLASS;
+        }
+    }
+
+    public static class JCModuleExport extends JCModuleMetadata implements com.sun.source.tree.ModuleExportTree {
+        public JCTree qualid;
+        public List<Name> flags;
+        protected JCModuleExport(List<Name> flags, JCTree qualId) {
+            this.qualid = qualId;
+            this.flags = flags;
+        }
+
+        @Override
+        public void accept(Visitor v) { v.visitModuleExport(this); }
+
+        public Kind getKind() {
+            return Kind.MODULE_EXPORT;
+        }
+
+        public JCTree getExportName() {
+            return qualid;
+        }
+
+        public List<Name> getFlags() {
+            return flags;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitModuleExport(this, d);
+        }
+
+        @Override
+        public int getTag() {
+            return MODULE_EXPORT;
         }
     }
 
@@ -2466,6 +2501,7 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         public void visitErroneous(JCErroneous that)         { visitTree(that); }
         public void visitModuleDef(JCModuleDecl that)        { visitTree(that); }
         public void visitModuleClass(JCModuleClass that)     { visitTree(that); }
+        public void visitModuleExport(JCModuleExport that)   { visitTree(that); }
         public void visitModuleId(JCModuleId that)           { visitTree(that); }
         public void visitModulePermits(JCModulePermits that) { visitTree(that); }
         public void visitModuleRequires(JCModuleRequires that) { visitTree(that); }
