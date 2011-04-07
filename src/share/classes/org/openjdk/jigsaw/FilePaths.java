@@ -29,8 +29,6 @@ import java.io.*;
 import java.nio.file.*;
 import java.nio.file.Files;
 import java.nio.file.attribute.*;
-import java.util.*;
-
 
 /**
  * <p> Utility methods that probably belong somewhere in java.nio.file ... </p>

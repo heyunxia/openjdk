@@ -150,6 +150,7 @@ public class _PublishedRepository {
         bb.flip();
         cat.position(0);
         assert cat.write(bb) == (int)cat.size();
+        cat.close();
 
         // Remove a module file
         ModuleId dmid = null;

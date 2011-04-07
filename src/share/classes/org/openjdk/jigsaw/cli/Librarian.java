@@ -119,21 +119,16 @@ public class Librarian {
             while (hasArg()) {
                 File module = new File(takeArg());
                 File classes = null;
-                try {
-                    FileInputStream fis = new FileInputStream(module);
-                    DataInputStream dis = new DataInputStream(fis);
-                    ModuleFileFormat.Reader reader =
-                        new ModuleFileFormat.Reader(dis);
-                    try {
-                        ModuleInfo mi = jms.parseModuleInfo(reader.readStart());
-                        classes = new File(mi.id().name());
-                        Path path = classes.toPath();
-                        Files.deleteIfExists(path);
-                        Files.createDirectory(path);
-                        reader.readRest(classes);
-                    } finally {
-                        reader.close();
-                    }
+                try (FileInputStream fis = new FileInputStream(module);
+                     DataInputStream dis = new DataInputStream(fis);
+                     ModuleFileFormat.Reader reader = new ModuleFileFormat.Reader(dis)) {
+
+                    ModuleInfo mi = jms.parseModuleInfo(reader.readStart());
+                    classes = new File(mi.id().name());
+                    Path path = classes.toPath();
+                    Files.deleteIfExists(path);
+                    Files.createDirectory(path);
+                    reader.readRest(classes);
                 }
                 catch (IOException x) {
                     // Try to cleanup if an exception is thrown
@@ -164,7 +159,7 @@ public class Librarian {
             //
             if (kf.exists() && kf.isDirectory()) {
                 noDry();
-                List<Manifest> mfs = new ArrayList<Manifest>();
+                List<Manifest> mfs = new ArrayList<>();
                 while (hasArg())
                     mfs.add(Manifest.create(takeArg(), kf));
                 finishArgs();

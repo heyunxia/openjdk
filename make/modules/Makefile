@@ -167,7 +167,7 @@ module-info-classes:
 	if [ ! -d $(JIGSAW_MODULE_LIB) ] ; then \
 	   $(HOST_JMOD_CMD) create -N -L $(JIGSAW_MODULE_LIB) ; \
 	fi
-	$(MAKE) classes
+	$(MAKE) classes || exit 1
 
 $(MODULEPATH_DIR)/%/module-info.class: $(MODULEINFO_SRC)/%/module-info.java
 	@$(add-java-file)
@@ -190,7 +190,7 @@ modularize: $(MODULES_LIST)
                 -classlistdir $(MODULE_CLASSLIST_DIR) \
                 -modulepath $(ABS_MODULEPATH_DIR)
 	@$(java-vm-cleanup)
-	$(MAKE) `$(NAWK) '{print "$(JIGSAW_MODULE_LIB)/" $$1 "/$(MODULE_VERSION)/info" }' $<`
+	$(MAKE) `$(NAWK) '{print "$(JIGSAW_MODULE_LIB)/" $$1 "/$(MODULE_VERSION)/info" }' $<` || exit 1
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 # copy-module-content
@@ -265,6 +265,34 @@ $(MODULEPATH_DIR)/$(IDLJ_MODULE)/lib/%.idl : $(LIBDIR)/%.idl
 
 clean clobber::
 	$(clean-build)
+
+
+# '<module-name>' development target to update the module content
+# of a specific module in the jigsaw module library in the outputdir
+# and also in jdk-module-library if exists.
+#    $ make jdk.boot
+#
+# TODO: modify Modularizer to take a parameter to only copy 
+# classes and resources for one module
+%:
+	@if [ `$(GREP) -c "^$@ " $(MODULES_LIST)` != "1" ] ; then \
+	    $(ECHO) 'Invalid target: "$@" expected a valid module name' ; \
+	    exit 1; \
+	fi
+	$(HOST_JAVA_CMD) \
+                -cp $(CLASSANALYZER_JAR_FILE) \
+                com.sun.classanalyzer.Modularizer \
+                -jdkhome $(OUTPUTDIR) \
+                -update \
+                -classlistdir $(MODULE_CLASSLIST_DIR) \
+                -modulepath $(ABS_MODULEPATH_DIR)
+	@$(call copy-module-content,$@)
+	$(call install-module,$@)
+	@$(java-vm-cleanup)
+	@if [ -d $(OUTPUTDIR)/jdk-module-image/lib/modules ] ; then \
+	    $(RM) -r $(OUTPUTDIR)/jdk-module-image/lib/modules/$@ ; \
+	    $(CP) -r $(JIGSAW_MODULE_LIB)/$@ $(OUTPUTDIR)/jdk-module-image/lib/modules/$@ ; \
+	fi
 
 .PHONY: modularize module-info-classes
 
