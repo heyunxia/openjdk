@@ -33,16 +33,16 @@ sh ${TESTSRC:-.}/tester.sh $0
 mkdir -p z.res/foo
 echo '<hello/>' >z.res/foo/x.xml
 
-export JAVA_MODULES=z.lib
-jmod create
-jmod preinstall z.test/modules -r z.res z.pre x y
+$BIN/jmod create -L z.lib
+$BIN/jmod preinstall -L z.lib z.test/modules -r z.res z.pre x y
 cp -r z.pre/* z.lib
-ms="$(echo $(jmod list | grep -v jdk@ | sort))"
-if [ "$ms" != "x@1 y@1" ]; then
+# Need to truncate \r and \n on windows
+ms=`$BIN/jmod list -L z.lib | grep -v jdk@ | sort | tr -s '\r' '\n' | tr -s '\n' ' '`
+if [ "$ms" != "x@1 y@1 " ]; then
   echo Wrong modules: "$ms"
   exit 1
 fi
-jmod config
+$BIN/jmod config -L z.lib
 $BIN/java -ea -L z.lib -m x
 exit 0
 

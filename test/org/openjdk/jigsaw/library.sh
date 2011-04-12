@@ -33,8 +33,8 @@ BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
 
 mk() {
-  d=$(dirname $1)
-  if ! [ -d $(dirname $1) ]; then mkdir -p $d; fi
+  d=`dirname $1`
+  if [ ! -d $d ]; then mkdir -p $d; fi
   cat - >$1
 }
 
@@ -70,7 +70,7 @@ mkdir z.modules z.classes
 $BIN/javac -source 7 -d z.classes $SRC/_Library.java
 
 $BIN/javac -source 7 -d z.modules -modulepath z.modules \
-  $(find z.src -name '*.java')
+  `find z.src -name '*.java'`
 
 for v in 1 1.2 2 3; do
   m=org.multi@$v
@@ -83,7 +83,7 @@ public class Tudinous { }
 EOF
   md=z.modules.$m
   mkdir -p $md
-  $BIN/javac -source 7 -d $md -modulepath $md $(find z.src.$m -name '*.java')
+  $BIN/javac -source 7 -d $md -modulepath $md `find z.src.$m -name '*.java'`
 done
 
 mk z.src/net.baz.aar/module-info.java <<EOF
@@ -124,6 +124,6 @@ case "$OS" in
 esac
 
 $BIN/javac -source 7 -d z.modules -modulepath z.modules${PS}z.modules.org.multi@1 \
-  $(find z.src/net.baz.aar -name '*.java')
+   `find z.src/net.baz.aar -name '*.java'`
 
 $BIN/java -ea -cp z.classes _Library

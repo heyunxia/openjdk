@@ -33,8 +33,8 @@ BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
 
 mk() {
-  d=$(dirname $1)
-  if ! [ -d $(dirname $1) ]; then mkdir -p $d; fi
+  d=`dirname $1`
+  if [ ! -d $d ]; then mkdir -p $d; fi
   cat - >$1
 }
 
@@ -91,9 +91,8 @@ EOF
 mkdir z.modules z.classes
 
 $BIN/javac -source 7 -d z.modules -modulepath z.modules \
-  $(find z.src -name '*.java')       || exit 1
-
-$BIN/jmod -J-ea -L z.lib create      || exit 2 
-$BIN/jmod -J-ea -L z.lib install z.modules $(ls z.src) || exit 3
-$BIN/java -ea -L z.lib -m net.baz.aar || eixt 4
+  `find z.src -name '*.java'`
+$BIN/jmod -J-ea -L z.lib create
+$BIN/jmod -J-ea -L z.lib install z.modules `ls z.src`
+$BIN/java -ea -L z.lib -m net.baz.aar
 

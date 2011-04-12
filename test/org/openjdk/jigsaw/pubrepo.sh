@@ -38,7 +38,7 @@ cat $SRC/maze.sh \
 mkdir -p z.classes
 $BIN/javac -d z.classes $SRC/_PublishedRepository.java
 
-mns=$(cd z.test/modules; echo *)
+mns=`cd z.test/modules; echo *`
 echo $mns
 
 mkdir -p z.test/module-files

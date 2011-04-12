@@ -32,8 +32,8 @@ SRC=${TESTSRC:-.}
 
 rm -rf z.*
 mk() {
-  d=$(dirname $1)
-  if ! [ -d $(dirname $1) ]; then mkdir -p $d; fi
+  d=`dirname $1`
+  if [ ! -d $d ]; then mkdir -p $d; fi
   cat - >$1
 }
 
@@ -272,23 +272,23 @@ run() {
    mkdir z.modules.$ver
 
    $BIN/javac -d z.modules.$ver -modulepath z.modules.$ver -L z.lib \
-        $(find z.src.$ver -name '*.java') \
-        $(find z.src/test -name '*.java') || exit 10
+        `find z.src.$ver -name '*.java'` \
+        `find z.src/test -name '*.java'`
 
-   $BIN/jmod -P z.lib -L $lib create  || exit 11
-   $BIN/jmod -L $lib install z.modules.$ver test.foo.bar test || exit 12
-   $BIN/java -L $lib -m test $lib || exit 13
+   $BIN/jmod -L $lib -P z.lib create
+   $BIN/jmod -L $lib install z.modules.$ver test.foo.bar test
+   $BIN/java -L $lib -m test $lib
 }
 
 #
 # Create z.lib with foo and bar modules
 $BIN/javac -d z.modules -modulepath z.modules \
-    $(find z.src/bar -name '*.java') \
-    $(find z.src/foo -name '*.java') || exit 1
+    `find z.src/bar -name '*.java'` \
+    `find z.src/foo -name '*.java'`
 
-$BIN/jmod -L z.lib create  || exit 2
-$BIN/jmod -L z.lib install z.modules foo bar || exit 3
-$BIN/java -L z.lib -m foo || exit 4
+$BIN/jmod -L z.lib create
+$BIN/jmod -L z.lib install z.modules foo bar
+$BIN/java -L z.lib -m foo
 
 # Test ScalarTypes and ArrayTypes with default values
 run v1

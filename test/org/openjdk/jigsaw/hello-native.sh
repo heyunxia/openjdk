@@ -52,8 +52,34 @@ Java_org_astro_World_getName(JNIEnv *env, jclass cl)
 
 ___
 
-(cd z.test/native/src;
- cc -o ../lib/libworld.so -shared org_astro_World.c -static -lc)
+
+# Build native library in a regression test.
+# Temporary leave with the dependency on the C compiler
+# until other test harness covers the functionality for
+# native libraries support.
+OS=`uname -s`
+case "$OS" in
+  SunOS )
+    (cd z.test/native/src;
+     cc -G -o ../lib/libworld.so -I$TESTJAVA/include -I$TESTJAVA/include/solaris org_astro_World.c -lc)
+    ;;
+  Linux )
+    (cd z.test/native/src;
+     gcc -o ../lib/libworld.so -I$TESTJAVA/include -I$TESTJAVA/include/linux -shared org_astro_World.c -static -lc)
+    ;;
+  Windows* )
+    (cd z.test/native/src;
+     cl /LD /Fe../lib/world.dll /I$TESTJAVA/include /I$TESTJAVA/include/win32 org_astro_World.c)
+    ;;
+  CYGWIN* )
+    (cd z.test/native/src;
+     cl /LD /Fe../lib/world.dll /I$TESTJAVA/include /I$TESTJAVA/include/win32 org_astro_World.c)
+    ;;
+  * )
+    echo "Unrecognized system!"
+    exit 1
+esac
+
 
 mkdir -p z.test/module-files
 $BIN/jpkg -d z.test/module-files -m z.test/modules/com.greetings \

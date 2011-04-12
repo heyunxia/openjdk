@@ -43,7 +43,7 @@ $BIN/javac -d z.classes \
   $SRC/_RemoteRepositoryList.java \
   $SRC/TrivialWebServer.java
 
-mns=$(cd z.test/modules; echo *)
+mns=`cd z.test/modules; echo *`
 echo $mns
 
 mkdir -p z.test/module-files

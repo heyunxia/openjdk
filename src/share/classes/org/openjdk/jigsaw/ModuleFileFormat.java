@@ -696,7 +696,7 @@ public final class ModuleFileFormat {
         }
     }
 
-    public final static class Reader {
+    public final static class Reader implements Closeable {
 
         private DataInputStream stream;
         private File destination;

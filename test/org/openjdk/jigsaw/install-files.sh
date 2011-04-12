@@ -33,7 +33,7 @@ cat $SRC/maze.sh \
 | sed -e 's/^: zork pass/: zork pass compile/' \
 | sh $SRC/tester.sh -
 
-mns=$(cd z.test/modules; echo *)
+mns=`cd z.test/modules; echo *`
 
 mkdir -p z.test/module-files
 for mn in $mns; do

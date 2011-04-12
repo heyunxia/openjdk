@@ -21,47 +21,106 @@
 # or visit www.oracle.com if you need additional information or have any
 # questions.
 
-set -e
-
-tsrc=$1
-case $tsrc in
-  -)  tsrc="";;
-  /*) ;;
-  *)  tsrc="../$tsrc";;
+OS=`uname -s`
+DASH_P="-p"
+# gawk is not available on Solaris and Windows
+# set to the proper nawk/awk/gawk 
+case "$OS" in
+  SunOS )
+    PS=":"
+    FS="/"
+    AWK=nawk
+    ;;
+  Linux )
+    AWK=gawk
+    PS=":"
+    FS="/"
+    ;;
+  Windows* )
+    AWK=awk
+    DASH_P=""
+    PS=";"
+    FS="\\"
+    ;;
+  CYGWIN* )
+    AWK=awk
+    PS=";"
+    FS="/"
+    isCygwin=true
+    ;;
+  * )
+    echo "Unrecognized system!"
+    exit 1;
+    ;;
 esac
 
 BIN=${TESTJAVA:-../../../../../build}/bin
 SRC=${TESTSRC:-.}
 
+tsrc=$1
+dir=`dirname $1`
+if [ $tsrc = "-" ] ; then
+  tsrc=""
+elif [ $dir = "." ] ; then
+  tsrc="../$tsrc"
+fi
+
+# clean up the working directory
 rm -rf z.*
 mkdir z.test
 cd z.test
 
-gawk '
+# parse the input $tsrc file and write source files in
+# an appropriate directory (modulepath or package name hierarchy) 
+#
+# MKS awk system("mkdir") command looks like invoking the 
+# DOS mkdir command rather than the MKS mkdir when running from
+# jtreg harness (although system("which mkdir") shows it's MKS
+# mkdir.exe.  It doesn't accept "-p" option nor forward slashes.
+# It will create a directory named "-p" instead but it does create
+# all non-existing subdirectories.  So the file separator and
+# mkdir -p option are passed as variables to the awk script
+# to handle MKS specially.
+#
+# MKS awk does not accept plan `{` and so the escape sequence
+# `\{' is used that causes the warning on other platforms.
+#
+$AWK -v sep="$FS" -v dash_p="$DASH_P" '
+  function toPath(dir, name) {
+    return sprintf("%s%s%s", dir, sep, name)
+  }
+  function mkdir(dir) {
+    system("mkdir " dash_p " " dir);
+  }
 
   /^:/ {
     test = $2; status = $3; how = $4;
     tdir = sprintf("%03d%s", tcount++, $2);
-    system("mkdir -p " tdir);
+    mkdir(tdir);
     if (NF == 3) e = $3; else e = $3 " " $4;
-    print e >(tdir "/expected");
-    msdir = tdir "/src";
+    efile = toPath(tdir, "expected");
+    print e >efile;
+    msdir = toPath(tdir, "src");
+    mkdir(msdir);
   }
 
   /^module / {
     module = $2;
     mname = module;
-    mdir = msdir "/" mname;
-    system("mkdir -p " mdir);
-    mfile = mdir "/module-info.java";
+    mdir = toPath(msdir, mname);
+    mkdir(mdir);
+    mfile = toPath(mdir, "module-info.java");
     print $0 >mfile;
     next;
   }
 
   /^package / {
     pkgpre = $0;
-    pdir = mdir "/" gensub("\\.", "/", "g", gensub("(package|;| )", "", "g"));
-    system("mkdir -p " pdir);
+    pname = $2;
+    gsub("\\.", sep, pname);
+    gsub("(;| )", "", pname);
+    pdir = toPath(mdir, pname);
+    mkdir(pdir);
     module = 0;
     next;
   }
@@ -71,9 +130,11 @@ gawk '
     next;
   }
 
-  /.* (class|interface) .* *{ *}? *$/ {
-    class = gensub(".*class +([A-Za-z]+) +{ *}? *", "\\1", 1);
-    cfile = pdir  "/" class ".java";
+  /.* (class|interface) .* *\{ *\}? *$/ {
+    class = $0;
+    sub(" +\{ *\}? *", "", class);
+    sub(".*class +", "", class);
+    cfile = toPath(pdir, class ".java");
     print pkgpre >>cfile;
     print $0 >>cfile;
     pkgpre = "";
@@ -83,8 +144,7 @@ gawk '
   /^./ {
     if (module) {
       print $0 >>mfile;
-      if (match($0, "^ +class +([a-zA-Z.]+) *;", g))
-        print module >(tdir "/main");
+      if (match($0, /^ +class +([a-zA-Z.]+) *;/)) print module >toPath(tdir, "main");
     }
     if (class) print $0 >>cfile;
     next;
@@ -96,9 +156,9 @@ gawk '
 
 ' $tsrc
 
-tests=$(echo * | wc -w)
+tests=`echo * | wc -w`
 if [ $tests = 1 ]; then
-  d=$(eval 'echo *')
+  d=`echo *`
   mv $d/* .
   rmdir $d
 fi
@@ -106,18 +166,19 @@ fi
 failures=0
 fail() {
   echo "FAIL: $*"
-  failures=$(expr $failures + 1)
+  failures=`expr $failures + 1`
 }
 
 compile() {
   $BIN/javac -source 7 -d modules -modulepath modules \
-    $(find src -name '*.java')
+     `find src -name '*.java'`
 }
 
 install() {
-  $BIN/jmod create \
-  && $BIN/jmod $VM_FLAGS_INSTALL install modules $(cd modules; echo *)
-#  && $BIN/jmod list
+  mlist=`cd modules; echo *`
+  $BIN/jmod create -L z.mlib \
+  && $BIN/jmod $VM_FLAGS_INSTALL install modules $mlist -L z.mlib
+#  && $BIN/jmod list -L z.mlib
 }
 
 catfile() {
@@ -125,10 +186,11 @@ catfile() {
 }
 
 invoke() {
-  if [ -e main ]; then
-    $BIN/java $VM_FLAGS -ea -L module-lib -m $(catfile main)
+  if [ -f main ] ; then
+    modulename=`catfile main`
+    $BIN/java $VM_FLAGS -ea -L z.mlib -m $modulename
   else
-    true
+    true 
   fi
 }
 
@@ -148,10 +210,9 @@ step() {
 
 run() {
   test=$1
-  e=$(catfile expected)
+  e=`catfile expected`
   [ $tests = 1 ] || echo "-- $test $e"
   mkdir modules
-  export JAVA_MODULES=module-lib
   case "$e" in
     'fail compile')
       step compile fail;;
@@ -173,20 +234,20 @@ run() {
 if [ $tests = 1 ]; then
   run singleton || /bin/true
 else
-  if [ -z "$TESTSRC" -a "$(echo $BIN | cut -c1-3)" = ../ ]; then
+  pdir=`echo $BIN | cut -c1-3`
+  if [ -z "$TESTSRC" -a "$pdir" = "../" ]; then
     BIN=../$BIN;
   fi
   for t in *; do
     cd $t
-    run $(echo $t | cut -c4-) || /bin/true
+    run `echo $t | cut -c4-` || /bin/true
     cd ..
   done
 fi
 
 if [ $tests -gt 1 ]; then
   echo
-  echo -n "== $tests test$([ $tests != 1 ] && echo s), "
-  echo "$failures failure$([ $failures != 1 ] && echo s)"
+  echo "== $tests tests, $failures failure(s)"
 fi
 
 exit $failures

@@ -34,8 +34,7 @@ import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
 
-import static org.openjdk.jigsaw.Trace.*;
-
+import static java.nio.file.StandardCopyOption.*;
 
 /**
  * A simple module library which stores data directly in the filesystem
@@ -56,6 +55,10 @@ import static org.openjdk.jigsaw.Trace.*;
 //                          lib/libbar.so
 //                          bin/bar
 //                          signer (signer's certchain & timestamp)
+//
+// ## Issue: Concurrent access to the module library
+// ## e.g. a module is being removed while a running application
+// ## is depending on it
 
 public final class SimpleLibrary
     extends Library
@@ -462,7 +465,6 @@ public final class SimpleLibrary
             } catch (CertificateEncodingException cee) {
                 throw new IOException(cee);
             }
-                
         }
 
         protected void loadRest(DataInputStream in)
@@ -890,9 +892,8 @@ public final class SimpleLibrary
     {
         BufferedInputStream bin = new BufferedInputStream(is);
         DataInputStream in = new DataInputStream(bin);
-        ModuleFileFormat.Reader mr = new ModuleFileFormat.Reader(in);
         File md = null;
-        try {
+        try (ModuleFileFormat.Reader mr = new ModuleFileFormat.Reader(in)) {
             byte[] mib = mr.readStart();
             ModuleInfo mi = jms.parseModuleInfo(mib);
             md = moduleDir(mi.id());
@@ -913,7 +914,7 @@ public final class SimpleLibrary
 
                 // Verify the module header hash and the module info hash
                 mfv.verifyHashesStart(mfvParams);
-                
+
                 // ## Check policy - is signer trusted and what permissions
                 // ## should be granted?
 
@@ -930,6 +931,75 @@ public final class SimpleLibrary
             reIndex(mid);         // ## Could do this while reading module file
             return mid;
 
+        } catch (IOException|SignatureException x) {
+            if (md != null && md.exists()) {
+                try {
+                    Files.deleteTree(md);
+                } catch (IOException y) {
+                    y.initCause(x);
+                    throw y;
+                }
+            }
+            throw x;
+        }
+    }
+
+    private byte[] readModuleInfoBytes(JarFile jf)
+        throws IOException
+    {
+        JarEntry je = jf.getJarEntry("META-INF/module-info.class");
+        if (je == null)
+            return null;
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (InputStream is = jf.getInputStream(je)) {
+            byte[] bs = new byte[1024];
+            int cc = 0;
+            while ((cc = is.read(bs)) > 0) {
+                baos.write(bs, 0, cc);
+            }
+        }
+        return baos.toByteArray();
+    }
+
+    private ModuleId installFromJarFile(File mf,  boolean verifySignature)
+        throws ConfigurationException, IOException, SignatureException
+    {
+        File md = null;
+        try (JarFile jf = new JarFile(mf, verifySignature)) {
+            byte[] mib = readModuleInfoBytes(jf);
+            if (mib == null)
+                throw new ConfigurationException(mf + ": not a modular JAR file");
+
+            ModuleInfo mi = jms.parseModuleInfo(mib);
+            md = moduleDir(mi.id());
+            ModuleId mid = mi.id();
+            if (md.exists())
+                throw new ConfigurationException(mid + ": Already installed");
+            if (!md.mkdirs())
+                throw new IOException(md + ": Cannot create");
+
+            Files.store(mib, new File(md, "info"));
+
+            // copy the jar file to the module library in STORED compression
+            try (FileOutputStream fos = new FileOutputStream(new File(md, "classes"));
+                 JarOutputStream jos = new JarOutputStream(new BufferedOutputStream(fos))) {
+                jos.setLevel(0);
+
+                Enumeration<JarEntry> entries = jf.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry je = entries.nextElement();
+                    String name = je.getName();
+                    try (InputStream is = jf.getInputStream(je)) {
+                        writeJarEntry(is, je, jos);
+                    }
+                }
+            }
+
+            // ## TODO: store signer info if it's a signed jar
+
+            reIndex(mid);
+            return mid;
         } catch (IOException x) {
             if (md != null && md.exists()) {
                 try {
@@ -940,25 +1010,41 @@ public final class SimpleLibrary
                 }
             }
             throw x;
-        } catch (SignatureException x) {
-             if (md != null && md.exists()) {
-                 try {
-                     Files.deleteTree(md);
-                 } catch (IOException y) {
-                     y.initCause(x);
-                     throw y;
-                 }
-             }
-             throw x;
-        } finally {
-            mr.close();
+        }
+    }
+
+    private void writeJarEntry(InputStream is, JarEntry je, JarOutputStream jos)
+        throws IOException
+    {
+        JarEntry entry = new JarEntry(je.getName());
+        entry.setMethod(ZipOutputStream.STORED);
+        entry.setTime(je.getTime());
+        entry.setCrc(je.getCrc());
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            int size = 0;
+            byte[] bs = new byte[1024];
+            int cc = 0;
+            while ((cc = is.read(bs)) > 0) {
+                baos.write(bs, 0, cc);
+                size += cc;
+            }
+            entry.setSize(size);
+            entry.setCompressedSize(size);
+            jos.putNextEntry(entry);
+            if (baos.size() > 0)
+                baos.writeTo(jos);
+            jos.closeEntry();
         }
     }
 
     private ModuleId install(File mf, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
-        return install(new FileInputStream(mf), verifySignature);
+        if (mf.getName().endsWith(".jar"))
+            return installFromJarFile(mf, verifySignature);
+        else
+            return install(new FileInputStream(mf), verifySignature);
+
     }
 
     public void install(Collection<File> mfs, boolean verifySignature)
@@ -972,10 +1058,7 @@ public final class SimpleLibrary
                 mids.add(install(mf, verifySignature));
             configure(mids);
             complete = true;
-        } catch (IOException x) {
-            ox = x;
-            throw x;
-        } catch (ConfigurationException x) {
+        } catch (IOException|ConfigurationException x) {
             ox = x;
             throw x;
         } finally {
@@ -1242,8 +1325,7 @@ public final class SimpleLibrary
                 newfn.delete();
                 throw x;
             }
-            if (!newfn.renameTo(listFile))  // ## Not guaranteed atomic
-                throw new IOException(newfn + ": Cannot rename to " + listFile);
+            java.nio.file.Files.move(newfn.toPath(), listFile.toPath(), ATOMIC_MOVE);
         }
 
         public RemoteRepository add(URI u, int position)
