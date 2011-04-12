@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
 
 package org.openjdk.jigsaw;
 
+import java.net.URI;
 import java.security.*;
 import java.security.cert.Certificate;
 
@@ -68,8 +69,18 @@ public interface ModuleFileSigner {
         public Signature getSignatureAlgorithm();
 
         /**
-         * Returns the signer's chain of public key certificates.
+         * Returns the signer's chain of public key certificates. The
+         * chain is ordered starting with the signer's certificate first.
          */
         public Certificate[] getSignerCertificateChain();
+
+        /**
+         * Returns the URI of the timestamping authority to use for timestamping
+         * the signature.
+         *
+         * @return The URI of the timestamp authority, or null if no 
+         *         timestamp is requested.
+         */
+        public URI getTimestampingAuthority();
     }
 }

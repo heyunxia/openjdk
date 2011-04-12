@@ -65,7 +65,8 @@ $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
 
 # Import the signer's private key and cert
 $BIN/javac -source 7 -d  . ${TESTSRC}/ImportPrivateKey.java
-$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey
+$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer signer-prikey.pem \
+          RSA signer-cert.pem
 
 mk z.src/com.foo.signed/module-info.java <<EOF
 module com.foo.signed @ 1.0
@@ -95,9 +96,10 @@ create
 #
 $BIN/jpkg \
     -v \
+    --sign \
     -m z.modules/com.foo.signed \
     -d z.modules \
-    -k keystore.jks \
+    --keystore keystore.jks \
     jmod com.foo.signed < ${TESTSRC}/keystore.pw
 # Test installation without verifying module
 $BIN/jmod install --noverify z.modules/com.foo.signed@1.0.jmod

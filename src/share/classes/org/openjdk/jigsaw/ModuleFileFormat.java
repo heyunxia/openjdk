@@ -32,17 +32,9 @@ import java.nio.channels.*;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.*;
 import java.security.*;
-import java.security.cert.Certificate;
-import java.security.cert.*;
 import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
-import javax.security.auth.x500.X500Principal;
-import sun.security.action.OpenFileInputStreamAction;
-import sun.security.pkcs.*;
-import sun.security.timestamp.*;
-import sun.security.validator.*;
-import sun.security.x509.*;
 
 import static org.openjdk.jigsaw.FileConstants.*;
 
@@ -796,7 +788,6 @@ public final class ModuleFileFormat {
         public byte[] readStart() throws IOException {
 
             try {
-                // System.out.println(fileHeader.toString());
                 fileDigest = getHashInstance(hashtype);
                 sectionDigest = getHashInstance(hashtype);
                 DigestInputStream dis =
@@ -856,7 +847,7 @@ public final class ModuleFileFormat {
             return fileHeader.getHash();
         }
 
-        private List<byte[]> getCalculatedHashes() {
+        List<byte[]> getCalculatedHashes() {
             return calculatedHashes;
         }
 
@@ -880,7 +871,7 @@ public final class ModuleFileFormat {
                 : null;
         }
 
-        private byte[] getSignatureNoClone() {
+        byte[] getSignatureNoClone() {
             return moduleSignatureBytes;
         }
 
@@ -1606,320 +1597,6 @@ public final class ModuleFileFormat {
                 final String path = in.readUTF();
 
                 return new SubSectionFileHeader(csize, path);
-            }
-        }
-
-        public final static class PKCS7Signer implements ModuleFileSigner {
-
-            public ModuleFile.SignatureType getSignatureType()
-            {
-                return ModuleFile.SignatureType.PKCS7;
-            }
-
-            public byte[] generateSignature(byte[] toBeSigned,
-                                            ModuleFileSigner.Parameters
-                                                parameters)
-                throws SignatureException
-            {
-                // Compute the signature
-    
-                Signature signatureAlgorithm =
-                    parameters.getSignatureAlgorithm();
-                signatureAlgorithm.update(toBeSigned);
-                byte[] signature = signatureAlgorithm.sign();
-    
-                // Create the PKCS #7 signed data message
-
-                AlgorithmId keyAlgorithmId = null;
-                AlgorithmId digestAlgorithmId = null;
-                String signatureAlgorithmName =
-                    signatureAlgorithm.getAlgorithm();
-
-                try {
-                    keyAlgorithmId =
-                        AlgorithmId.get(AlgorithmId.getEncAlgFromSigAlg(
-                            signatureAlgorithmName));
-                    digestAlgorithmId =
-                        AlgorithmId.get(AlgorithmId.getDigAlgFromSigAlg(
-                            signatureAlgorithmName));
-
-                } catch (NoSuchAlgorithmException nsae) {
-                    throw new SignatureException(nsae);
-                }
-
-                AlgorithmId[] algorithms = {digestAlgorithmId};
-                ContentInfo contentInfo = new ContentInfo(toBeSigned);
-                Certificate[] signerCertificateChain =
-                    parameters.getSignerCertificateChain();
-                X509Certificate[] signerX509CertificateChain = null;
-                X500Principal issuerName = null;
-                BigInteger serialNumber = null;
-
-                List<Certificate> certs = Arrays.asList(signerCertificateChain);
-                signerX509CertificateChain =
-                    certs.toArray(new X509Certificate[0]);
-                issuerName =
-                    signerX509CertificateChain[0].getIssuerX500Principal();
-                serialNumber = signerX509CertificateChain[0].getSerialNumber();
-
-                SignerInfo signerInfo = new SignerInfo(
-                    X500Name.asX500Name(issuerName), serialNumber,
-                    digestAlgorithmId, keyAlgorithmId, signature);
-                SignerInfo[] signerInfos = {signerInfo};
-
-                ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-                PKCS7 pkcs7 = new PKCS7(algorithms, contentInfo,
-                                        signerX509CertificateChain,
-                                        signerInfos);
-
-                try {
-                    pkcs7.encodeSignedData(outStream);
-
-                } catch (IOException ioe) {
-                    throw new SignatureException(ioe);
-                }
-
-                return outStream.toByteArray();
-            }
-        }
-
-        public final static class PKCS7SignerParameters
-            implements ModuleFileSigner.Parameters {
-
-            private Signature signatureAlgorithm;
-            private Certificate[] signerCertificateChain;
-
-            public PKCS7SignerParameters(Signature signature,
-                                         Certificate[] certificateChain)
-            {
-                signatureAlgorithm = signature;
-                signerCertificateChain = certificateChain;
-            }
-
-            public Signature getSignatureAlgorithm()
-            {
-                return signatureAlgorithm;
-            }
-
-            public Certificate[] getSignerCertificateChain()
-            {
-                return signerCertificateChain;
-            }
-        }
-
-        public final static class PKCS7Verifier implements ModuleFileVerifier {
-
-            private final PKCS7 pkcs7;
-            private final CertificateFactory cf;
-            private final List<byte[]> calculatedHashes;
-            private final List<byte[]> expectedHashes;
-
-            public PKCS7Verifier(Reader reader) throws SignatureException
-            {
-                try {
-                    pkcs7 = new PKCS7(reader.getSignatureNoClone());
-                    expectedHashes =
-                        parseSignedData(pkcs7.getContentInfo().getData());
-                    cf = CertificateFactory.getInstance("X.509");
-                } catch (final IOException|CertificateException e) {
-                    throw new SignatureException(e);
-                }
-                this.calculatedHashes = reader.getCalculatedHashes();
-            }
-
-            public ModuleFile.SignatureType getSignatureType() {
-                return ModuleFile.SignatureType.PKCS7;
-            }
-
-            public Set<CodeSigner> verifySignature(ModuleFileVerifier.Parameters
-                                                   parameters)
-                throws SignatureException
-            {
-                try {
-                    PKCS7VerifierParameters params =
-                        (PKCS7VerifierParameters)parameters;
-                    Validator validator = params.getValidator();
-
-                    Set<CodeSigner> signers = new HashSet<>();
-                    X509Certificate[] arrayType = new X509Certificate[0];
-
-                    // Verify signature. This will return null if the signature
-                    // cannot be verified successfully.
-                    SignerInfo[] signerInfos = pkcs7.verify();
-                    if (signerInfos == null)
-                        throw new SignatureException("Cannot verify module "
-                                                     + "signature");
-
-                    // Performs certificate path validation for each signer.
-                    // A validation failure results in an exception.
-                    for (SignerInfo signerInfo : signerInfos) {
-                        List<X509Certificate> certChain =
-                            signerInfo.getCertificateChain(pkcs7);
-
-                        validator.validate(certChain.toArray(arrayType));
-                        CertPath certPath = cf.generateCertPath(certChain);
-                        signers.add(new CodeSigner(certPath,
-                                                   getTimestamp(signerInfo)));
-                    }
-                    return signers;
-
-                } catch (IOException ioe) {
-                    throw new SignatureException(ioe);
-
-                } catch (GeneralSecurityException gse) {
-                    throw new SignatureException(gse);
-                }
-            }
-
-            private List<byte[]> parseSignedData(byte[] signedData)
-                throws IOException
-            {
-                List<byte[]> hashes = new ArrayList<>();
-                DataInputStream dis = new DataInputStream(
-                    new ByteArrayInputStream(signedData));
-                do {
-                    short hashLength = dis.readShort();
-                    byte[] hash = new byte[hashLength];
-                    if (dis.read(hash) != hashLength)
-                        throw new IOException("invalid hash length in "
-                                              + "signed data");
-                    hashes.add(hash);
-                } while (dis.available() > 0);
-
-                if (dis.available() != 0)
-                    throw new IOException("extra data at end of signed data");
-
-                // must be at least 3 hashes (header, module info, & whole file)
-                if (hashes.size() < 3)
-                    throw new IOException("too few hashes in signed data");
-                return hashes;
-            }
-    
-            public void verifyHashes(ModuleFileVerifier.Parameters parameters)
-                throws SignatureException
-            {
-                verifyHashesStart(parameters);
-                verifyHashesRest(parameters);
-            }
-
-            public void verifyHashesStart(ModuleFileVerifier.Parameters params)
-                throws SignatureException {
-                if (calculatedHashes.size() < 2)
-                    throw new SignatureException("Unexpected number of hashes");
-                // check module header hash
-                checkHashMatch(expectedHashes.get(0), calculatedHashes.get(0));
-                // check module info hash
-                checkHashMatch(expectedHashes.get(1), calculatedHashes.get(1));
-            }
-
-            public void verifyHashesRest(ModuleFileVerifier.Parameters params)
-                throws SignatureException {
-                if (calculatedHashes.size() != expectedHashes.size())
-                    throw new SignatureException("Unexpected number of hashes");
-
-                for (int i = 2; i < expectedHashes.size(); i++) {
-                    checkHashMatch(expectedHashes.get(i),
-                                   calculatedHashes.get(i));
-                }
-            }
-
-            private void checkHashMatch(byte[] expected, byte[] computed)
-                throws SignatureException {
-                if (!MessageDigest.isEqual(expected, computed))
-                    throw new SignatureException("Expected hash "
-                                  + hashHexString(expected)
-                                  + " instead of "
-                                  + hashHexString(computed));
-            }
-
-            private Timestamp getTimestamp(SignerInfo signerInfo)
-                throws IOException, GeneralSecurityException
-            {
-                Timestamp timestamp = null;
-
-                // Extract the signer's unsigned attributes
-                PKCS9Attributes unsignedAttrs =
-                    signerInfo.getUnauthenticatedAttributes();
-                if (unsignedAttrs != null) {
-                    PKCS9Attribute timestampTokenAttr =
-                        unsignedAttrs.getAttribute("signatureTimestampToken");
-                    if (timestampTokenAttr != null) {
-                        PKCS7 timestampToken =
-                            new PKCS7((byte[])timestampTokenAttr.getValue());
-                        // Extract the content (an encoded timestamp token info)
-                        byte[] encodedTimestampTokenInfo =
-                            timestampToken.getContentInfo().getData();
-                        // Extract the signer (the Timestamping Authority)
-                        // while verifying the content
-                        SignerInfo[] tsaSigner =
-                            timestampToken.verify(encodedTimestampTokenInfo);
-                        // Expect only one signer
-                        List<X509Certificate> tsaCertChain =
-                            tsaSigner[0].getCertificateChain(timestampToken);
-                        CertPath tsaCertPath =
-                            cf.generateCertPath(tsaCertChain);
-                        // Create a timestamp token info object
-                        TimestampToken timestampTokenInfo =
-                            new TimestampToken(encodedTimestampTokenInfo);
-                        // Create a timestamp object
-                        timestamp = new Timestamp(timestampTokenInfo.getDate(),
-                                                  tsaCertPath);
-                    }
-                }
-                return timestamp;
-            }
-        }
-
-        public final static class PKCS7VerifierParameters
-            implements ModuleFileVerifier.Parameters
-        {
-            private final Validator validator;
-
-            public PKCS7VerifierParameters() throws IOException
-            {
-                validator = Validator.getInstance(Validator.TYPE_PKIX,
-                                                  Validator.VAR_CODE_SIGNING,
-                                                  loadCACertsStore());
-            }
-
-            public Collection<X509Certificate> getTrustedCerts()
-            {
-                return validator.getTrustedCertificates();
-            }
-
-            public Validator getValidator() 
-            {
-                return validator;
-            }
-
-            /*
-             * Loads the default system-level trusted CA certs store at
-             * '${java.home}/lib/security/cacerts' unless overridden by the
-             * 'org.openjdk.system.security.cacerts' system property.
-             * The cert store must be in JKS format.
-             */
-            private static KeyStore loadCACertsStore() throws IOException
-            {
-                KeyStore trustedCertStore = null;
-                FileInputStream inStream = null;
-                String cacerts =
-                    System.getProperty("org.openjdk.system.security.cacerts",
-                                       System.getProperty("java.home")
-                                       + "/lib/security/cacerts");
-                try {
-                    trustedCertStore = KeyStore.getInstance("JKS");
-                    inStream = AccessController.doPrivileged
-                                  (new OpenFileInputStreamAction(cacerts));
-                    trustedCertStore.load(inStream, null);
-                } catch (PrivilegedActionException pae) {
-                    throw (IOException)pae.getCause();
-                } catch (GeneralSecurityException gse) {
-                    throw new IOException(gse);
-                } finally {
-                    if (inStream != null)
-                        inStream.close();
-                }
-                return trustedCertStore;
             }
         }
 }

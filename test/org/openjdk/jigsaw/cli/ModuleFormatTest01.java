@@ -326,9 +326,9 @@ public class ModuleFormatTest01 {
             if (reader.getSignatureType() == SignatureType.PKCS7.value()) {
                     
                 ModuleFileVerifier verifier
-                    = new ModuleFileFormat.PKCS7Verifier(reader);
+                    = new SignedModule.PKCS7Verifier(reader);
                 ModuleFileVerifier.Parameters verifierParams
-                    = new ModuleFileFormat.PKCS7VerifierParameters();
+                    = new SignedModule.VerifierParameters();
                 int i = 1;
                 System.out.println("Module '" + name + "' is signed by:");
                 for (CodeSigner signer :
@@ -651,27 +651,27 @@ public class ModuleFormatTest01 {
     String baseDir = System.getProperty("test.src", ".");
     File keystoreJKSFile = new File("keystore.jks");
     File keystoreP12File = new File(baseDir, "keystore.p12");
-    File keystorePwFile = new File(baseDir, "keystore.pw");
 
     String[][] signingArgs = {
         { "--sign",
-          "--signer", "mykey",
+          "--alias", "signer",
           "--storetype", "JKS",
           "--keystore", keystoreJKSFile.toString() },
 
-        { "-S", "mykey",
-          "-t", "JKS",
-          "-k", keystoreJKSFile.toString() },
+        { "-S",
+          "--alias", "signer",
+          "--storetype", "JKS",
+          "--keystore", keystoreJKSFile.toString() },
 
-        { "-k", keystoreJKSFile.toString() },
+        { "--sign", "--keystore", keystoreJKSFile.toString() },
 
 /* PKCS12 keystores are not yet supported
-        { "-S", "mykey",
-          "-t", "PKCS12",
-          "-k", keystoreP12File.toString() },
+        { "--sign", "--alias", "signer",
+          "--storetype", "PKCS12",
+          "--keystore", keystoreP12File.toString() },
 
-        { "-t", "PKCS12",
-          "-k", keystoreP12File.toString() },
+        { "--sign", "--storetype", "PKCS12",
+          "--keystore", keystoreP12File.toString() },
 */
     };
 }

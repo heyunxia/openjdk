@@ -40,8 +40,9 @@ $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
 
 # Import the signer's private key and cert
 $BIN/javac -source 7 -d . ${TESTSRC}/ImportPrivateKey.java
-$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey
+$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer \
+          signer-prikey.pem RSA signer-cert.pem
 
-${BIN}/javac -source 7 -d . ${TESTSRC}/ModuleFormatTest01.java
-${BIN}/java -Dorg.openjdk.system.security.cacerts=keystore.jks \
-            -Dtest.src=${TESTSRC} ModuleFormatTest01 < ${TESTSRC}/keystore.pw
+$BIN/javac -source 7 -d . ${TESTSRC}/ModuleFormatTest01.java
+$BIN/java -Dorg.openjdk.system.security.cacerts=keystore.jks \
+          -Dtest.src=${TESTSRC} ModuleFormatTest01 < ${TESTSRC}/keystore.pw

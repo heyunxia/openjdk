@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,9 +27,11 @@ package org.openjdk.jigsaw.cli;
 
 import java.lang.module.*;
 import java.io.*;
+import java.net.URI;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.*;
 
 import static java.lang.System.out;
@@ -42,7 +44,12 @@ import sun.security.util.Password;
 
 /* Interface:
 
-jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] [-d <output_dir>] [-c <command>] [-n <name>] [-e <e-mail@address>] [-s <short description>] [-l <long description>] [-x <extra metadata>] [-S <signer_ID>] [-k <keystore_location>] [-t <keystore_type>] [--sign] [--nopassword] deb <module_name>*
+jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] \
+     [-m <module_dir>] [-d <output_dir>] [-c <command>] [-n <name>] \
+     [-e <e-mail@address>] [-s <short description>] [-l <long description>] \
+     [-x <extra metadata>] [-S] [--alias <signer_alias>] \
+     [--keystore <keystore_location>] [--storetype <keystore_type>] \
+     [--nopassword] [--tsa <url>] [deb|jmod] <module_name>*
 
   -v           : verbose output
   -L           : library the modules are installed to
@@ -55,13 +62,15 @@ jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] [-m <module_dir>] 
   -e           : maintainer e-mail address
   -s           : short description
   -l           : long description
-  -x           : additional metadata - for Debian packages, a file whose contents gets appended to DEBIAN/control
+  -x           : additional metadata - for Debian packages, a file whose
+                 contents gets appended to DEBIAN/control
   --fast       : use fastest, rather then best compression
-  --sign           : sign the module
-  --nopassword     : do not prompt for a keystore password
-  -S, --signer     : module signer's identifier
-  -k, --keystore   : module signer's keystore location
-  -t, --storetype  : module signer's keystore type
+  -S, --sign   : sign the module
+  --nopassword : do not prompt for a keystore password
+  --alias      : module signer's keystore alias
+  --keystore   : module signer's keystore location
+  --storetype  : module signer's keystore type
+  --tsa        : time stamping authority URL
 */
 
 public class Packager {
@@ -148,6 +157,9 @@ public class Packager {
     // Module signer's keystore type
     private String storetype = null;
 
+    // Time Stamping Authority URI
+    private URI tsaURI;
+
     // Installed size
     private Integer installedSize = null;
 
@@ -196,8 +208,7 @@ public class Packager {
                     writer.useFastestCompression(fast || jigsawDevMode);
 
                     // Prepare to sign the module
-                    if (signer != null || keystore != null || storetype != null
-                        || sign) {
+                    if (sign) {
 
                         // Get signer's private key and public key certificates
                         KeyStore.PrivateKeyEntry signerEntry = getSignerEntry();
@@ -219,13 +230,16 @@ public class Packager {
                                 getSignatureAlgorithm(privateKey));
                         signature.initSign(privateKey);
 
+                        Certificate[] signerChain
+                            = signerEntry.getCertificateChain();
                         ModuleFileSigner.Parameters parameters =
-                            new ModuleFileFormat.PKCS7SignerParameters(
-                                signature, signerEntry.getCertificateChain());
+                            new SignedModule.SignerParameters(
+                                signature,
+                                (X509Certificate[]) signerChain, tsaURI);
 
                         // Supply the signing details
                         writer.setSignatureMechanism(
-                            new ModuleFileFormat.PKCS7Signer(), parameters);
+                            new SignedModule.PKCS7Signer(), parameters);
                     }
                     writer.writeModule(classes, resources,
                                        natlibs, natcmds, config_dir);
@@ -852,7 +866,7 @@ public class Packager {
 
     private void usage() {
         out.format("%n");
-        out.format("usage: jpkg [-v] [-L <library>] [-r <resource-dir>] [-i <include-dir>] [-m <module-dir>] [-d <output-dir>]  [-c <command>] [-n <name>] [-e <e-mail@address>] [-s <short description>] [-l <long description>] [-x <extra metadata>] [-S <signer_ID>] [-k <keystore_location>] [-t <keystore_type>] [--sign] [--nopassword] [deb|jmod] <module-name>%n");
+        out.format("usage: jpkg [-v] [-L <library>] [-r <resource-dir>] [-i <include-dir>] [-m <module-dir>] [-d <output-dir>]  [-c <command>] [-n <name>] [-e <e-mail@address>] [-s <short description>] [-l <long description>] [-x <extra metadata>] [--sign] [--alias <signer-alias>] [--keystore <keystore-location>] [--storetype <keystore-type>] [--nopassword] [--tsa <url>] [deb|jmod] <module-name>%n");
         out.format("%n");
         try {
             parser.printHelpOn(out);
@@ -974,52 +988,52 @@ public class Packager {
                .ofType(File.class));
 
         OptionSpec<File> nativeLibs
-            = (parser.acceptsAll(Arrays.asList("natlib"),
-                                 "Directory with native libs")
+            = (parser.accepts("natlib", "Directory with native libs")
                .withRequiredArg()
                .describedAs("dir")
                .ofType(File.class));
 
         OptionSpec<File> nativeCmds
-            = (parser.acceptsAll(Arrays.asList("natcmd"),
-                                 "Directory with native launchers")
+            = (parser.accepts("natcmd", "Directory with native launchers")
                .withRequiredArg()
                .describedAs("dir")
                .ofType(File.class));
 
         OptionSpec<File> config
-            = (parser.acceptsAll(Arrays.asList("config"),
-                                 "Directory with configuration")
+            = (parser.accepts("config", "Directory with configuration")
                .withRequiredArg()
                .describedAs("dir")
                .ofType(File.class));
 
-        parser.acceptsAll(Arrays.asList("sign"),
+        parser.acceptsAll(Arrays.asList("S", "sign"),
                           "Sign the module");
 
-        parser.acceptsAll(Arrays.asList("nopassword"),
-                          "Do not prompt for a keystore password");
+        parser.accepts("nopassword", "Do not prompt for a keystore password");
 
-        OptionSpec<String> signerId
-            = (parser.acceptsAll(Arrays.asList("S", "signer"),
-                                "Module signer's identifier")
+        OptionSpec<String> signerAlias
+            = (parser.accepts("alias", "Module signer's keystore alias")
                .withRequiredArg()
-               .describedAs("ID")
+               .describedAs("alias")
                .ofType(String.class));
 
         OptionSpec<String> keystoreUrl
-            = (parser.acceptsAll(Arrays.asList("k", "keystore"),
-                                "Module signer's keystore location")
+            = (parser.accepts("keystore", "URL or file name of module signer's"
+                              + " keystore location")
                .withRequiredArg()
                .describedAs("location")
                .ofType(String.class));
 
         OptionSpec<String> keystoreType
-            = (parser.acceptsAll(Arrays.asList("t", "storetype"),
-                                "Module signer's keystore type")
+            = (parser.accepts("storetype", "Module signer's keystore type")
                .withRequiredArg()
                .describedAs("type")
                .ofType(String.class));
+
+        OptionSpec<URI> tsa
+            = (parser.accepts("tsa", "URL of Time Stamping Authority")
+               .withRequiredArg()
+               .describedAs("location")
+               .ofType(URI.class));
 
         if (args.length == 0) {
             usage();
@@ -1098,30 +1112,41 @@ public class Packager {
         if (opts.has(isize))
             installedSize = opts.valueOf(isize);
 
-        if (opts.has("signer")) {
-            signer = opts.valueOf(signerId);
-        }
-        if (opts.has("keystore")) {
+        if (opts.has("sign"))
+            sign = true;
+
+        if (checkSubOption(opts, "sign", "alias"))
+            signer = opts.valueOf(signerAlias);
+        if (checkSubOption(opts, "sign", "keystore")) {
             keystore = opts.valueOf(keystoreUrl);
             // Compatibility with keytool and jarsigner options
-            if (keystore.equals("NONE")) {
+            if (keystore.equals("NONE"))
                 keystore = null;
-            }
         }
-        if (opts.has("storetype")) {
+        if (checkSubOption(opts, "sign", "storetype"))
             storetype = opts.valueOf(keystoreType);
-        }
-        if (opts.has("sign")) {
-            sign = true;
-        }
-        if (opts.has("nopassword")) {
+        if (checkSubOption(opts, "sign", "nopassword"))
             nopassword = true;
+        if (checkSubOption(opts, "sign", "tsa")) {
+            tsaURI = opts.valueOf(tsa);
         }
        
         if (cmd == Deb.class)
             (new Deb()).run(null, opts);
         else if (cmd == Jmod.class)
             (new Jmod()).run(null, opts);
+    }
+   
+    private static boolean checkSubOption(OptionSet options,
+                                          String option, String subOption)
+        throws Command.Exception
+    {
+        if (!options.has(subOption))
+            return false;
+        if (!options.has(option))
+            throw new Command.Exception("the %s option is only valid with the "
+                                        + "%s option", subOption, option);
+        return true;
     }
 
     /**

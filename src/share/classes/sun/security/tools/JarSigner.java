@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1329,11 +1329,10 @@ public class JarSigner {
                     System.out.println(rb.getString("TSA.location.") + tsaUrl);
                 }
                 if (tsaCert != null) {
-                    String certUrl =
-                        TimestampedSigner.getTimestampingUrl(tsaCert);
-                    if (certUrl != null) {
+                    URI tsaURI = TimestampedSigner.getTimestampingURI(tsaCert);
+                    if (tsaURI != null) {
                         System.out.println(rb.getString("TSA.location.") +
-                            certUrl);
+                            tsaURI);
                     }
                     System.out.println(rb.getString("TSA.certificate.") +
                         printCert("", tsaCert, false, 0, false));

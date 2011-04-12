@@ -903,9 +903,9 @@ public final class SimpleLibrary
                 throw new IOException(md + ": Cannot create");
 
             if (verifySignature && mr.hasSignature()) {
-                ModuleFileVerifier mfv = new ModuleFileFormat.PKCS7Verifier(mr);
+                ModuleFileVerifier mfv = new SignedModule.PKCS7Verifier(mr);
                 if (mfvParams == null) {
-                    mfvParams = new ModuleFileFormat.PKCS7VerifierParameters();
+                    mfvParams = new SignedModule.VerifierParameters();
                 }
                 // Verify the module signature and validate the signer's
                 // certificate chain

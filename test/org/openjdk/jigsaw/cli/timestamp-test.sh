@@ -1,6 +1,6 @@
 #! /bin/sh
 
-# Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -24,8 +24,7 @@
 # questions.
 
 # @test
-# @summary run a signed module with a SecurityManager and check that permission
-#    is granted by the policy file
+# @summary package and install signed and timestamped modules
 
 set -e
 
@@ -38,16 +37,29 @@ mk() {
   cat - >$1
 }
 
+importCert() {
+  $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/$1-cert.pem \
+               -noprompt -storepass test123 -alias $1
+}
+
+importPrivateKey() {
+  $BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey $1 $1-prikey.pem \
+            $2 $1-cert.pem
+}
+
 rm -rf z.src keystore.jks
 
-# Create the keystore file and import the root CA cert
-$BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
-             -noprompt -storepass test123 -alias ca 
+# Create the keystore file and import the root CA and the TSA root CA cert
+importCert ca
+importCert tsca
 
 # Import the signer's private key and cert
 $BIN/javac -source 7 -d  . ${TESTSRC}/ImportPrivateKey.java
-$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer signer-prikey.pem \
-          RSA signer-cert.pem
+importPrivateKey signer RSA
+# Import the TSA's private key and cert
+importPrivateKey tsa DSA
+# Import the expired signer's private key and cert
+importPrivateKey expired-signer RSA
 
 mk z.src/test.security/module-info.java <<EOF
 module test.security @ 0.1 {
@@ -71,28 +83,9 @@ public class GetProperty {
 }
 EOF
 
-mk signed-module.policy <<EOF
-keystore "keystore.jks";
-keystorePasswordURL "${SRC}/keystore.pw";
-grant signedBy "signer" {
-    permission java.util.PropertyPermission "user.home", "read";
-};
-grant signedBy "expired-signer" {
-    permission java.util.PropertyPermission "user.home", "read";
-};
-EOF
-
 rm -rf z.modules && mkdir z.modules
 $BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
-rm -f test.security@0.1.jmod
-# Create signed module with "signer" alias
-$BIN/jpkg -v --sign --alias signer --storetype JKS \
-          --keystore keystore.jks -L z.lib \
-          -m z.modules/test.security jmod test.security < ${SRC}/keystore.pw
-# Install and run the signed module
-rm -rf z.lib
-$BIN/jmod -L z.lib create
-$BIN/jmod -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
-          -L z.lib install test.security@0.1.jmod
-$BIN/java -L z.lib -m test.security signed-module.policy
+# Check timestamping support
+$BIN/javac -d . ${TESTSRC}/TimestampTest.java
+$BIN/java -Dtest.src=${TESTSRC} TimestampTest < ${TESTSRC}/keystore.pw
