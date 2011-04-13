@@ -89,6 +89,11 @@ public class PKCS7 {
      */
     private static final String KP_TIMESTAMPING_OID = "1.3.6.1.5.5.7.3.8";
 
+    /*
+     * Object identifier for extendedKeyUsage extension
+     */
+    private static final String EXTENDED_KEY_USAGE_OID = "2.5.29.37";
+
     /**
      * Unmarshals a PKCS7 block from its encoded form, parsing the
      * encoded bytes from the InputStream.
@@ -902,6 +907,11 @@ public class PKCS7 {
                 throw new CertificateException(
                 "Certificate not included in timestamp token");
             } else {
+                if (!cert.getCriticalExtensionOIDs().contains(
+                        EXTENDED_KEY_USAGE_OID)) {
+                    throw new CertificateException(
+                    "Certificate is not valid for timestamping");
+                }
                 List<String> keyPurposes = cert.getExtendedKeyUsage();
                 if (keyPurposes == null ||
                         !keyPurposes.contains(KP_TIMESTAMPING_OID)) {
