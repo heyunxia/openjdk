@@ -30,6 +30,7 @@
 BUILDDIR = ../../../../..
 
 # dns should probably be its own module
+MODULE  = net-dns
 PACKAGE = sun.net.spi.nameservice.dns
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk

@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE  = font
 PACKAGE = sun.font
 LIBRARY = t2k
 PRODUCT = sun

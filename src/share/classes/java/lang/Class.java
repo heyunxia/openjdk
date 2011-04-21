@@ -33,6 +33,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.GenericDeclaration;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Module;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.InvocationTargetException;
@@ -112,11 +113,12 @@ import sun.reflect.annotation.*;
  * @see     java.lang.ClassLoader#defineClass(byte[], int, int)
  * @since   JDK1.0
  */
-public final
-    class Class<T> implements java.io.Serializable,
-                              java.lang.reflect.GenericDeclaration,
-                              java.lang.reflect.Type,
-                              java.lang.reflect.AnnotatedElement {
+public final class Class<T>
+    implements java.io.Serializable,
+               java.lang.reflect.GenericDeclaration,
+               java.lang.reflect.Type,
+               java.lang.reflect.AnnotatedElement
+{
     private static final int ANNOTATION= 0x00002000;
     private static final int ENUM      = 0x00004000;
     private static final int SYNTHETIC = 0x00001000;
@@ -3112,4 +3114,27 @@ public final
     AnnotationType getAnnotationType() {
         return annotationType;
     }
+
+    // -- Modules --
+
+    private Module module;
+
+    // Invoked by java.lang.module.ModuleClassLoader
+    // via sun.misc.JavaLangAccess
+    void setModule(Module m) {
+        module = m;
+    }
+
+    /**
+     * Return the {@linkplain java.lang.reflect.Module module} that defined
+     * this class.
+     *
+     * @return  The {@linkplain java.lang.reflect.Module module} that defined
+     *          this class, or {@code null} if this class is a member of the
+     *          unnamed module
+     */
+    public Module getModule() {
+        return module;
+    }
+
 }

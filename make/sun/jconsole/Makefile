@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = jconsole
 PACKAGE = sun.tools.jconsole
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk
