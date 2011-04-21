@@ -244,8 +244,7 @@ public class Packager {
                     writer.writeModule(classes, resources,
                                        natlibs, natcmds, config_dir);
                 }
-                catch (IOException x) {
-                    x.printStackTrace();
+                catch (IOException | GeneralSecurityException x) {
                     if (outputfile != null && !outputfile.delete()) {
                         Throwable t
                             = new IOException(outputfile +
@@ -253,15 +252,6 @@ public class Packager {
                         throw new Command.Exception((IOException)t);
                     }
                     throw new Command.Exception(x);
-                }
-                catch (GeneralSecurityException gse) {
-                    if (outputfile != null && !outputfile.delete()) {
-                        Throwable t
-                            = new IOException(outputfile +
-                                              ": Cannot delete").initCause(gse);
-                        throw new Command.Exception((IOException)t);
-                    }
-                    throw new Command.Exception(gse);
                 }
             }
             finishArgs();
@@ -273,7 +263,6 @@ public class Packager {
         private KeyStore.PrivateKeyEntry getSignerEntry()
             throws IOException, GeneralSecurityException {
 
-            FileInputStream inStream = null;
             char[] storePassword = null;
             char[] keyPassword = null;
 
@@ -283,17 +272,13 @@ public class Packager {
             KeyStore ks = KeyStore.getInstance(storetype);
             storetype = ks.getType();
 
-            try {
-                if (keystore == null) {
-                    if ("JKS".equalsIgnoreCase(storetype)) {
-                        keystore = System.getProperty("user.home")
-                                   + File.separator
-                                   + ".keystore";
-                        inStream = new FileInputStream(keystore);
-                    }
-                } else {
-                    inStream = new FileInputStream(keystore);
+            if (keystore == null) {
+                if ("JKS".equalsIgnoreCase(storetype)) {
+                    keystore = System.getProperty("user.home")
+                               + File.separator + ".keystore";
                 }
+            }
+            try (FileInputStream inStream = new FileInputStream(keystore)) {
 
                 // Prompt user for the keystore password (except when
                 // prohibited or when using Windows MY native keystore)
@@ -351,13 +336,6 @@ public class Packager {
                 if (keyPassword != null) {
                     Arrays.fill(keyPassword, ' ');
                     keyPassword = null;
-                }
-                if (inStream != null) {
-                    try {
-                        inStream.close();
-                    } catch (IOException ioe) {
-                        // ignore
-                    }
                 }
             }
         }
@@ -498,9 +476,7 @@ public class Packager {
                     SimpleLibrary.open(scratchlib_dst, true, null).preInstall(manifest, tmp_module_dst);
                     Files.deleteTree(scratchlib_dst);
                 }
-            } catch (IOException x) {
-                throw new Command.Exception(x);
-            } catch (ConfigurationException x) {
+            } catch (IOException | ConfigurationException x) {
                 throw new Command.Exception(x);
             }
         }
@@ -558,19 +534,18 @@ public class Packager {
             throws Command.Exception
         {
             boolean bootmodule = BOOT_MODULE.equals(manifest.module());
-            PrintStream control = null, launcher = null, pis = null;
-            try {
-                createMetaDataDir();
+            createMetaDataDir();
+            ModuleInfo info = getModuleInfo(manifest);
 
-                ModuleInfo info = getModuleInfo(manifest);
-
-                // Create the control file, and fill in dependency and provides info
-                control = new PrintStream(new File(tmp_metadata_dst, "control"));
+            // Create the control file, and fill in dependency and provides info
+            try (PrintStream control
+                     = new PrintStream(new File(tmp_metadata_dst, "control"))) {
                 control.format("Package: %s%n"
                                + "Version: %s%n"
                                + "Section: misc%n"
                                + "Priority: optional%n"
-                               + "Architecture: " + System.getProperty("os.arch") + "%n",
+                               + "Architecture: "
+                               + System.getProperty("os.arch") + "%n",
                                info.id().name(),
                                translateVersion(info.id().version().toString()));
 
@@ -629,16 +604,19 @@ public class Packager {
                         throw new IOException("Couldn't create " + tmp_dst + BINDIR);
 
                     File cmd = new File(bin, bincmd);
-                    launcher = new PrintStream(cmd);
-                    String java_launcher = System.getProperty("java.home") + "/bin/java";
-                    if (! (new File(java_launcher)).exists())
-                        throw new IOException("Couldn't find java launcher at " + java_launcher);
+                    try (PrintStream launcher = new PrintStream(cmd)) {
+                        String java_launcher = System.getProperty("java.home")
+                                               + "/bin/java";
+                        if (! (new File(java_launcher)).exists())
+                            throw new IOException("Couldn't find java launcher "
+                                                  + "at " + java_launcher);
 
-                    launcher.format("#!/bin/sh\n" +
-                                    "set -e\n" +
-                                    "exec %s -ea -L %s -m %s \"$@\"\n",
-                                    java_launcher, library, info.id().name())
-                        .close();
+                        launcher.format("#!/bin/sh\n" +
+                                        "set -e\n" +
+                                        "exec %s -ea -L %s -m %s \"$@\"\n",
+                                        java_launcher, library,
+                                        info.id().name());
+                    }
                     cmd.setExecutable(true, false);
                 }
 
@@ -648,45 +626,46 @@ public class Packager {
                 //   check if the jigsaw module library needs to be created first
                 if (!bootmodule) {
                     File preinst = new File(tmp_metadata_dst, "preinst");
-                    pis = new PrintStream(preinst);
-                    pis.format("#!/bin/sh\n" +
-                           "set -e\n" +
-                           "if [ ! -f %1$s/%%jigsaw-library ]\n" +
-                           "then\n" +
-                           "  %2$s  -L %1$s create\n" +
-                           "fi\n",
-                           library, installedJMod).close();
+                    try (PrintStream pis = new PrintStream(preinst)) {
+                        pis.format("#!/bin/sh\n" +
+                               "set -e\n" +
+                               "if [ ! -f %1$s/%%jigsaw-library ]\n" +
+                               "then\n" +
+                               "  %2$s  -L %1$s create\n" +
+                               "fi\n",
+                               library, installedJMod);
+                    }
                     preinst.setExecutable(true, false);
 
                     // After a package is installed,
                     //  reconfigure the jigsaw module library for the module
                     File postinst = new File(tmp_metadata_dst, "postinst");
-                    pis = new PrintStream(postinst);
-                    pis.format("#!/bin/sh\n" +
-                           "set -e\n" +
-                           "if [ -f %s/%s.pack ] ; then\n" +
-                           " for i in %s/*.pack ; do\n" +
-                           "   %s/bin/unpack200 -r $i %s/tmp.jar\n" +
-                           "   unzip -o -q -d / %s/tmp.jar\n" +
-                           "   rm %s/tmp.jar\n" +
-                           " done\n" +
-                           "fi\n" +
-                           "%s -L %s config %s\n",
-                           library, manifest.module(),
-                           library,
-                           javaHome, library,
-                           library,
-                           library,
-                           installedJMod, library, info.id());
-                    pis.close();
+                    try (PrintStream pis = new PrintStream(postinst)) {
+                        pis.format("#!/bin/sh\n" +
+                               "set -e\n" +
+                               "if [ -f %s/%s.pack ] ; then\n" +
+                               " for i in %s/*.pack ; do\n" +
+                               "   %s/bin/unpack200 -r $i %s/tmp.jar\n" +
+                               "   unzip -o -q -d / %s/tmp.jar\n" +
+                               "   rm %s/tmp.jar\n" +
+                               " done\n" +
+                               "fi\n" +
+                               "%s -L %s config %s\n",
+                               library, manifest.module(),
+                               library,
+                               javaHome, library,
+                               library,
+                               library,
+                               installedJMod, library, info.id());
+                    }
                     postinst.setExecutable(true, false);
                 }
 
                 // Before a package is removed,
                 //  remove the generated jigsaw module configuration
                 File prerm = new File(tmp_metadata_dst, "prerm");
-                pis = new PrintStream(prerm);
-                pis.format("#!/bin/sh\n" +
+                try (PrintStream pis = new PrintStream(prerm)) {
+                    pis.format("#!/bin/sh\n" +
                            "set -e\n" +
                            // Delete unpacked class files.
                            "if [ -e %1$s/%2$s/%3$s ]\n" +
@@ -696,18 +675,10 @@ public class Packager {
                            // Delete module library directory if it's empty.
                            "find %1$s/%2$s/ -maxdepth 0 -type d -empty -delete\n",
                            library, info.id().name(), info.id().version());
-                pis.close();
+                }
                 prerm.setExecutable(true, false);
             } catch (IOException x) {
                 throw new Command.Exception(x);
-            }
-            finally {
-                if (control != null)
-                    control.close();
-                if (launcher != null)
-                    launcher.close();
-                if (pis != null)
-                    pis.close();
             }
         }
 
@@ -715,29 +686,20 @@ public class Packager {
             throws Command.Exception
         {
             String dashz = "-z" + ((fast || jigsawDevMode) ? 1 : 9);
-            BufferedReader br = null;
             try {
                 Process build
                     = (new ProcessBuilder("fakeroot", "dpkg-deb", dashz, "-Zlzma", "--build",
                                           tmp_dst.toString(), destination.toString())).start();
 
-                br = new BufferedReader(new InputStreamReader(build.getErrorStream()));
+                try (BufferedReader br = new BufferedReader(
+                         new InputStreamReader(build.getErrorStream()))) {
 
-                if (0 != build.waitFor())
-                    throw new Command.Exception("Failed to create package " + br.readLine());
-            } catch (IOException x) {
+                    if (0 != build.waitFor())
+                        throw new Command.Exception("Failed to create package "
+                                                    + br.readLine());
+                }
+            } catch (IOException | InterruptedException x) {
                 throw new Command.Exception(x);
-            } catch (InterruptedException x) {
-                throw new Command.Exception(x);
-            }
-            finally {
-                if (br != null)
-                    try {
-                        br.close();
-                    }
-                    catch (IOException e) {
-                        throw new Command.Exception(e);
-                    }
             }
         }
 
@@ -763,7 +725,6 @@ public class Packager {
             if (BOOT_MODULE.equals(manifest.module()))
                 return;
 
-            BufferedReader br = null;
             try {
                 File tmp_jar = new File(tmp_dst, "module.jar");
 
@@ -774,9 +735,12 @@ public class Packager {
                     = (new ProcessBuilder("jar", "c0f",  tmp_jar.toString(),
                                           "-C", tmp_dst.toString(),
                                           library.toString())).start();
-                br = new BufferedReader(new InputStreamReader(jar.getErrorStream()));
-                if (0 != jar.waitFor())
-                    throw new Command.Exception("Failed to jar module " + br.readLine());
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(jar.getErrorStream()))) {
+                    if (0 != jar.waitFor())
+                        throw new Command.Exception("Failed to jar module "
+                                                    + br.readLine());
+                }
 
                 // Remove redundant META-INF directory from jar file,
                 // so that it doesn't pollute the filesystem hierarchy
@@ -784,36 +748,32 @@ public class Packager {
                 Process zip
                     = (new ProcessBuilder("zip",  tmp_jar.toString(),
                                           "-d", "META-INF/*")).start();
-                br = new BufferedReader(new InputStreamReader(zip.getErrorStream()));
-                if (0 != zip.waitFor())
-                    throw new Command.Exception("Failed to remove META-INF directory from jar module " + br.readLine());
-
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(zip.getErrorStream()))) {
+                    if (0 != zip.waitFor())
+                        throw new Command.Exception("Failed to remove META-INF "
+                                                    + "directory from jar "
+                                                    + "module "
+                                                    + br.readLine());
+                }
                 // Compress the jar file with pack200.
                 String dashE = "-E" + ((fast || jigsawDevMode) ? "0" : "9");
                 Process pack200
                     = (new ProcessBuilder("pack200", dashE, "-S-1", "--no-gzip",
                                           getPackFile(manifest).toString(),
                                           tmp_jar.toString())).start();
-                br = new BufferedReader(new InputStreamReader(pack200.getErrorStream()));
-                if (0 != pack200.waitFor())
-                    throw new Command.Exception("Failed to pack200 module " + br.readLine());
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(pack200.getErrorStream()))) {
+                    if (0 != pack200.waitFor())
+                        throw new Command.Exception("Failed to pack200 module "
+                                                    + br.readLine());
+                }
 
                 if (! tmp_jar.delete())
                     throw new Command.Exception("Failed to delete temporary file " + tmp_jar);
                 Files.deleteTree(new File(tmp_module_dst, manifest.module().toString()));
-            } catch (IOException x) {
+            } catch (IOException | InterruptedException x) {
                 throw new Command.Exception(x);
-            } catch (InterruptedException x) {
-                throw new Command.Exception(x);
-            }
-            finally {
-                if (br != null)
-                    try {
-                        br.close();
-                    }
-                    catch (IOException x) {
-                        throw new Command.Exception(x);
-                    }
             }
         }
 
@@ -1218,10 +1178,7 @@ public class Packager {
     public static void main(String[] args) throws Exception {
         try {
             run(args);
-        } catch (OptionException x) {
-            err.println(x.getMessage());
-            System.exit(1);
-        } catch (Command.Exception x) {
+        } catch (OptionException | Command.Exception x) {
             err.println(x.getMessage());
             System.exit(1);
         }
