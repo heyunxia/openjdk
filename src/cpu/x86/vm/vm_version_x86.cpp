@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2010, Oracle and/or its affiliates.  All Rights Reserved.
+ * Copyright (c) 1997, 2011, Oracle and/or its affiliates.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -429,11 +429,23 @@ void VM_Version::get_processor_features() {
         UseXmmI2D = false;
       }
     }
+    if( FLAG_IS_DEFAULT(UseSSE42Intrinsics) ) {
+      if( supports_sse4_2() && UseSSE >= 4 ) {
+        UseSSE42Intrinsics = true;
+      }
+    }
 
     // Use count leading zeros count instruction if available.
     if (supports_lzcnt()) {
       if (FLAG_IS_DEFAULT(UseCountLeadingZerosInstruction)) {
         UseCountLeadingZerosInstruction = true;
+      }
+    }
+
+    // On family 21 processors default is no sw prefetch
+    if ( cpu_family() == 21 ) {
+      if (FLAG_IS_DEFAULT(AllocatePrefetchStyle)) {
+        AllocatePrefetchStyle = 0;
       }
     }
   }

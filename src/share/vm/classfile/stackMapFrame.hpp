@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -227,6 +227,8 @@ class StackMapFrame : public ResourceObj {
   // Returns true if src is assignable to target.
   bool is_assignable_to(
     VerificationType* src, VerificationType* target, int32_t len, TRAPS) const;
+
+  bool has_flag_match_exception(const StackMapFrame* target) const;
 
   // Debugging
   void print() const PRODUCT_RETURN;
