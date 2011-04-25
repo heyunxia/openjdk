@@ -338,10 +338,16 @@ public class Paths {
          *  @param whether to generate a warning if a given directory does not exist
          */
         public Path addDirectories(String dirs, boolean warn) {
-            if (dirs != null)
-                for (File dir : getPathEntries(dirs))
-                    addDirectory(dir, warn);
-            return this;
+            boolean prev = expandJarClassPaths;
+            expandJarClassPaths = true;
+            try {
+                if (dirs != null)
+                    for (File dir : getPathEntries(dirs))
+                        addDirectory(dir, warn);
+                return this;
+            } finally {
+                expandJarClassPaths = prev;
+            }
         }
 
         /** Add all the jar files found in one or more directories.

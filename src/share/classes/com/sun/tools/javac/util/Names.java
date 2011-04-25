@@ -74,7 +74,6 @@ public class Names {
     public final Name java_io_Serializable;
     public final Name serialVersionUID;
     public final Name java_lang_Enum;
-    public final Name transient_java_dyn_MethodHandle; // transient - 292
     public final Name java_lang_invoke_MethodHandle;
     public final Name module_info;
     public final Name package_info;
@@ -199,7 +198,6 @@ public class Names {
         java_lang_Cloneable = fromString("java.lang.Cloneable");
         java_io_Serializable = fromString("java.io.Serializable");
         java_lang_Enum = fromString("java.lang.Enum");
-        transient_java_dyn_MethodHandle = fromString("java.dyn.MethodHandle"); //transient - 292
         java_lang_invoke_MethodHandle = fromString("java.lang.invoke.MethodHandle");
         module_info = fromString("module-info");
         package_info = fromString("package-info");

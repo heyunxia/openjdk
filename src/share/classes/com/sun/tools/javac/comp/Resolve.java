@@ -48,6 +48,8 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticFlag;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticType;
 
 import static com.sun.tools.javac.code.Flags.MODULE; // disambiguate
+import java.util.Set;
+import java.util.HashSet;
 
 /** Helper class for name resolution, used mostly by the attribution phase.
  *
@@ -351,7 +353,11 @@ public class Resolve {
 
         // tvars is the list of formal type variables for which type arguments
         // need to inferred.
-        List<Type> tvars = env.info.tvars;
+        List<Type> tvars = null;
+        if (env.info.tvars != null) {
+            tvars = types.newInstances(env.info.tvars);
+            mt = types.subst(mt, env.info.tvars, tvars);
+        }
         if (typeargtypes == null) typeargtypes = List.nil();
         if (mt.tag != FORALL && typeargtypes.nonEmpty()) {
             // This is not a polymorphic method, but typeargs are supplied
@@ -791,10 +797,12 @@ public class Resolve {
                     // due to error recovery or mixing incompatible class files
                     return ambiguityError(m1, m2);
                 }
+                List<Type> allThrown = chk.intersect(mt1.getThrownTypes(), mt2.getThrownTypes());
+                Type newSig = types.createMethodTypeWithThrown(mostSpecific.type, allThrown);
                 MethodSymbol result = new MethodSymbol(
                         mostSpecific.flags(),
                         mostSpecific.name,
-                        null,
+                        newSig,
                         mostSpecific.owner) {
                     @Override
                     public MethodSymbol implementation(TypeSymbol origin, Types types, boolean checkResult) {
@@ -804,9 +812,6 @@ public class Resolve {
                             return super.implementation(origin, types, checkResult);
                     }
                 };
-                result.type = (Type)mostSpecific.type.clone();
-                result.type.setThrown(chk.intersect(mt1.getThrownTypes(),
-                                                    mt2.getThrownTypes()));
                 return result;
             }
             if (m1SignatureMoreSpecific) return m1;
@@ -867,13 +872,8 @@ public class Resolve {
             }
             //append varargs element type as last synthetic formal
             args.append(types.elemtype(varargsTypeTo));
-            MethodSymbol msym = new MethodSymbol(to.flags_field,
-                                                 to.name,
-                                                 (Type)to.type.clone(), //see: 6990136
-                                                 to.owner);
-            MethodType mtype = msym.type.asMethodType();
-            mtype.argtypes = args.toList();
-            return msym;
+            Type mtype = types.createMethodTypeWithParameters(to.type, args.toList());
+            return new MethodSymbol(to.flags_field, to.name, mtype, to.owner);
         } else {
             return to;
         }
@@ -917,7 +917,8 @@ public class Resolve {
                           bestSoFar,
                           allowBoxing,
                           useVarargs,
-                          operator);
+                          operator,
+                          new HashSet<TypeSymbol>());
     }
     // where
     private Symbol findMethod(Env<AttrContext> env,
@@ -930,11 +931,13 @@ public class Resolve {
                               Symbol bestSoFar,
                               boolean allowBoxing,
                               boolean useVarargs,
-                              boolean operator) {
+                              boolean operator,
+                              Set<TypeSymbol> seen) {
         for (Type ct = intype; ct.tag == CLASS || ct.tag == TYPEVAR; ct = types.supertype(ct)) {
             while (ct.tag == TYPEVAR)
                 ct = ct.getUpperBound();
             ClassSymbol c = (ClassSymbol)ct.tsym;
+            if (!seen.add(c)) return bestSoFar;
             if ((c.flags() & (ABSTRACT | INTERFACE | ENUM)) == 0)
                 abstractok = false;
             for (Scope.Entry e = c.members().lookup(name);
@@ -963,7 +966,7 @@ public class Resolve {
                     bestSoFar = findMethod(env, site, name, argtypes,
                                            typeargtypes,
                                            l.head, abstractok, bestSoFar,
-                                           allowBoxing, useVarargs, operator);
+                                           allowBoxing, useVarargs, operator, seen);
                 }
                 if (concrete != bestSoFar &&
                     concrete.kind < ERR  && bestSoFar.kind < ERR &&
@@ -1757,24 +1760,26 @@ public class Resolve {
      */
     Symbol resolveSelfContaining(DiagnosticPosition pos,
                                  Env<AttrContext> env,
-                                 Symbol member) {
+                                 Symbol member,
+                                 boolean isSuperCall) {
         Name name = names._this;
-        Env<AttrContext> env1 = env;
+        Env<AttrContext> env1 = isSuperCall ? env.outer : env;
         boolean staticOnly = false;
-        while (env1.outer != null) {
-            if (isStatic(env1)) staticOnly = true;
-            if (env1.enclClass.sym.isSubClass(member.owner, types) &&
-                isAccessible(env, env1.enclClass.sym.type, member)) {
-                Symbol sym = env1.info.scope.lookup(name).sym;
-                if (sym != null) {
-                    if (staticOnly) sym = new StaticError(sym);
-                    return access(sym, pos, env.enclClass.sym.type,
-                                  name, true);
+        if (env1 != null) {
+            while (env1 != null && env1.outer != null) {
+                if (isStatic(env1)) staticOnly = true;
+                if (env1.enclClass.sym.isSubClass(member.owner, types)) {
+                    Symbol sym = env1.info.scope.lookup(name).sym;
+                    if (sym != null) {
+                        if (staticOnly) sym = new StaticError(sym);
+                        return access(sym, pos, env.enclClass.sym.type,
+                                      name, true);
+                    }
                 }
+                if ((env1.enclClass.sym.flags() & STATIC) != 0)
+                    staticOnly = true;
+                env1 = env1.outer;
             }
-            if ((env1.enclClass.sym.flags() & STATIC) != 0)
-                staticOnly = true;
-            env1 = env1.outer;
         }
         log.error(pos, "encl.class.required", member);
         return syms.errSymbol;
@@ -1785,9 +1790,13 @@ public class Resolve {
      * JLS2 8.8.5.1 and 15.9.2
      */
     Type resolveImplicitThis(DiagnosticPosition pos, Env<AttrContext> env, Type t) {
+        return resolveImplicitThis(pos, env, t, false);
+    }
+
+    Type resolveImplicitThis(DiagnosticPosition pos, Env<AttrContext> env, Type t, boolean isSuperCall) {
         Type thisType = (((t.tsym.owner.kind & (MTH|VAR)) != 0)
                          ? resolveSelf(pos, env, t.getEnclosingType().tsym, names._this)
-                         : resolveSelfContaining(pos, env, t.tsym)).type;
+                         : resolveSelfContaining(pos, env, t.tsym, isSuperCall)).type;
         if (env.info.isSelfCall && thisType.tsym == env.enclClass.sym)
             log.error(pos, "cant.ref.before.ctor.called", "this");
         return thisType;

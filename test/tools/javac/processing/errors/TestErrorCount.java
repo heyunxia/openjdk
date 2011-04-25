@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,11 +21,26 @@
  * questions.
  */
 
-// key: compiler.misc.diamond.invalid.arg
-// key: compiler.misc.diamond
-// key: compiler.err.cant.apply.diamond.1
+/*
+ * @test
+ * @bug 6988079
+ * @summary Errors reported via Messager.printMessage(ERROR,"error message") are not tallied correctly
+ * @library ../../lib
+ * @build JavacTestingAbstractProcessor TestErrorCount
+ * @compile/fail/ref=TestErrorCount.out -XDrawDiagnostics -processor TestErrorCount TestErrorCount.java
+ */
 
-class DiamondInvalidArg {
-    static class Foo<X extends Number & Comparable<Number>> { }
-    Foo<?> foo = new Foo<>();
+import java.io.*;
+import java.util.*;
+import javax.annotation.processing.*;
+import javax.lang.model.element.*;
+import javax.tools.*;
+
+public class TestErrorCount extends JavacTestingAbstractProcessor {
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        messager.printMessage(Diagnostic.Kind.ERROR, "intentional error");
+        return true;
+    }
 }
+
