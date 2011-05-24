@@ -28,7 +28,6 @@ package org.openjdk.jigsaw;
 import java.io.IOException;
 import java.security.*;
 import java.security.cert.*;
-import java.util.Collection;
 import java.util.Set;
 
 import static org.openjdk.jigsaw.FileConstants.*;
@@ -109,8 +108,8 @@ public interface ModuleFileVerifier {
      */
     public interface Parameters {
         /**
-         * Returns a collection of the most-trusted public key certificates.
+         * Returns a set of the most-trusted public key certificates.
          */
-        public Collection<X509Certificate> getTrustedCerts();
+        public Set<X509Certificate> getTrustedCerts();
     }
 }
