@@ -436,8 +436,41 @@ PKGDIR		= $(subst .,/,$(PACKAGE))
 # The java/javac/jdk variables (JAVAC_CMD, JAVA_CMD, etc.)
 #
 include $(JDK_MAKE_SHARED_DIR)/Defs-java.gmk
-
 UNIQUE_PATH_PATTERN = $(subst /,.,$(UNIQUE_PATH))
+
+#
+# The modules variables
+#
+include $(JDK_TOPDIR)/make/common/Defs-modules.gmk
+
+# Install a file to its module
+define install-module-file
+dest=$(call GetModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -f $@ $$dest; \
+$(TouchModule)
+endef
+
+# Install all files from the directory to its module
+define install-module-dir
+dest=$(call GetModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -rf $(@D)/* $$dest; \
+$(TouchModule)
+endef
+
+# chmod the file in its module
+define chmod-module-file
+dest=$(call GetModuleDest, $@) ; \
+$(CHMOD) $1 $$dest
+endef
+
+# install a sym link in its module
+define install-module-sym-link
+dest=$(call GetModuleDest, $@) ; \
+$(LN) -sf $1 $$dest
+endef
+
 
 # Run MAKE $@ for a launcher:
 #   $(call make-launcher, name, mainclass, java-args, main-args)
@@ -447,7 +480,9 @@ $(MAKE) -f Makefile.launcher \
         PROGRAM=$(strip $1) \
         MAIN_CLASS=$(strip $2) \
         MAIN_JAVA_ARGS="$(strip $3)" \
-        MAIN_ARGS="$(strip $4)"
+        MAIN_ARGS="$(strip $4)" \
+        MODULE="$(strip $5)" \
+        PROGRAM_MODULE="$(strip $5)"
 endef
 
 #
@@ -461,21 +496,41 @@ $(RM) $@
 endef
 
 # Simple install of $< file to $@
+# and also install $< file to its module directory
 define install-file
 $(prep-target)
 $(CP) $< $@
+@$(install-module-file)
+endef
+
+# Include header files always belongs the base module
+define install-include-file
+$(prep-target)
+$(CP) $< $@
+dest=$(call GetBaseModuleDest, $(@D)/) ; \
+$(MKDIR) -p $$dest; \
+$(CP) -f $@ $$dest
 endef
 
 define chmod-file
 $(CHMOD) $1 $@
+@$(call chmod-module-file, $1)
 endef
 
 define install-sym-link
 $(LN) -s $1 $@
+@$(call install-module-sym-link, $1)
+endef
+
+#
+# Marcos for files not belonging to any module 
+define install-non-module-file
+$(prep-target)
+$(CP) $< $@
 endef
 
 define install-manifest-file
-$(install-file)
+$(install-non-module-file)
 endef
 
 # Cleanup rule for after debug java run (hotspot.log file is left around)
@@ -549,6 +604,7 @@ endef
 
 define install-import-file
 $(install-importonly-file)
+@$(install-module-file)
 endef
 
 .PHONY: all build clean clobber
