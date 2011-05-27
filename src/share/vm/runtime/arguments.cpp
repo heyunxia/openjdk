@@ -68,6 +68,7 @@ int     Arguments::_num_jvm_flags               = 0;
 char**  Arguments::_jvm_args_array              = NULL;
 int     Arguments::_num_jvm_args                = 0;
 char*  Arguments::_java_command                 = NULL;
+char*  Arguments::_java_main                    = NULL;
 SystemProperty* Arguments::_system_properties   = NULL;
 const char*  Arguments::_gc_log_filename        = NULL;
 bool   Arguments::_has_profile                  = false;
@@ -80,6 +81,8 @@ const char*  Arguments::_java_vendor_url_bug    = DEFAULT_VENDOR_URL_BUG;
 const char*  Arguments::_sun_java_launcher      = DEFAULT_JAVA_LAUNCHER;
 int    Arguments::_sun_java_launcher_pid        = -1;
 bool   Arguments::_created_by_gamma_launcher    = false;
+const char*  Arguments::_sun_java_launcher_module      = NULL;
+const char*  Arguments::_sun_java_launcher_module_boot = NULL;
 
 // These parameters are reset in method parse_vm_init_args(JavaVMInitArgs*)
 bool   Arguments::_AlwaysCompileLoopMethods     = AlwaysCompileLoopMethods;
@@ -144,6 +147,14 @@ void Arguments::process_sun_java_launcher_properties(JavaVMInitArgs* args) {
     }
     if (match_option(option, "-Dsun.java.launcher.pid=", &tail)) {
       _sun_java_launcher_pid = atoi(tail);
+      continue;
+    }
+    if (match_option(option, "-Dsun.java.launcher.module.boot=", &tail)) {
+      _sun_java_launcher_module_boot = strdup(tail);
+      continue;
+    }
+    if (match_option(option, "-Dsun.java.launcher.module=", &tail)) {
+      _sun_java_launcher_module = strdup(tail);
       continue;
     }
   }
@@ -925,10 +936,23 @@ bool Arguments::add_property(const char* prop) {
     _java_command = value;
 
     // Record value in Arguments, but let it get passed to Java.
+  } else if (strcmp(key, "sun.java.main") == 0) {
+    _java_main = value;
+
+    // don't add this property to the properties exposed to the java application
+    FreeHeap(key);
+    return true;
   } else if (strcmp(key, "sun.java.launcher.pid") == 0) {
     // launcher.pid property is private and is processed
     // in process_sun_java_launcher_properties();
     // the sun.java.launcher property is passed on to the java application
+    FreeHeap(key);
+    if (eq != NULL) {
+      FreeHeap(value);
+    }
+    return true;
+  } else if (strcmp(key, "sun.java.launcher.module.boot") == 0) {
+    // Another private property
     FreeHeap(key);
     if (eq != NULL) {
       FreeHeap(value);
@@ -2052,6 +2076,7 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
 
     if (!match_option(option, "-Djava.class.path", &tail) &&
         !match_option(option, "-Dsun.java.command", &tail) &&
+        !match_option(option, "-Dsun.java.main", &tail) &&
         !match_option(option, "-Dsun.java.launcher", &tail)) {
 
         // add all jvm options to the jvm_args string. This string
@@ -2089,14 +2114,32 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       JavaAssertions::setSystemClassDefault(enable);
     // -bootclasspath:
     } else if (match_option(option, "-Xbootclasspath:", &tail)) {
+      if (is_module_mode()) {
+        jio_fprintf(defaultStream::error_stream(),
+                    "-Xbootclasspath: option is not supported in module mode\n");
+        return JNI_EINVAL;
+      }
+
       scp_p->reset_path(tail);
       *scp_assembly_required_p = true;
     // -bootclasspath/a:
     } else if (match_option(option, "-Xbootclasspath/a:", &tail)) {
+      if (is_module_mode()) {
+        jio_fprintf(defaultStream::error_stream(),
+                    "-Xbootclasspath/a: option is not supported in module mode\n");
+        return JNI_EINVAL;
+      }
+
       scp_p->add_suffix(tail);
       *scp_assembly_required_p = true;
     // -bootclasspath/p:
     } else if (match_option(option, "-Xbootclasspath/p:", &tail)) {
+      if (is_module_mode()) {
+        jio_fprintf(defaultStream::error_stream(),
+                    "-Xbootclasspath/p: option is not supported in module mode\n");
+        return JNI_EINVAL;
+      }
+
       scp_p->add_prefix(tail);
       *scp_assembly_required_p = true;
     // -Xrun
