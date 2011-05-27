@@ -130,6 +130,7 @@ public class RecognizedOptions {
         XBOOTCLASSPATH_PREPEND,
         XBOOTCLASSPATH_APPEND,
         XBOOTCLASSPATH,
+        MODULEPATH,
         EXTDIRS,
         DJAVA_EXT_DIRS,
         ENDORSEDDIRS,
@@ -169,7 +170,8 @@ public class RecognizedOptions {
         XJCOV,
         XD,
         AT,
-        SOURCEFILE);
+        SOURCEFILE,
+        L);
 
     static Set<OptionName> javacFileManagerOptions = EnumSet.of(
         CLASSPATH,
@@ -179,6 +181,7 @@ public class RecognizedOptions {
         XBOOTCLASSPATH_PREPEND,
         XBOOTCLASSPATH_APPEND,
         XBOOTCLASSPATH,
+        MODULEPATH,
         EXTDIRS,
         DJAVA_EXT_DIRS,
         ENDORSEDDIRS,
@@ -317,6 +320,16 @@ public class RecognizedOptions {
                 return super.process(options, "-bootclasspath", arg);
             }
         },
+        new Option(MODULEPATH,             "opt.arg.path",      "opt.modulepath") {
+            // TEMP HACK FOR JIGSAW TO AUTO-DEFAULT -source TO 7 WHEN -modulepath
+            // IS USED. REMOVE WHEN -source 7 IS THE DEFAULT
+            @Override
+            public boolean process(Options options, String option, String arg) {
+                options.put("jigsaw.source", "7");
+                return super.process(options, option, arg);
+            }
+        },
+        new Option(L,                      "opt.arg.library",   "opt.L"),
         new Option(EXTDIRS,                "opt.arg.dirs",      "opt.extdirs"),
         new XOption(DJAVA_EXT_DIRS,        "opt.arg.dirs",      "opt.extdirs") {
             @Override
@@ -609,6 +622,10 @@ public class RecognizedOptions {
                         helper.error("err.file.not.file", f);
                         return true;
                     }
+                    // TEMP HACK FOR JIGSAW TO AUTO-DEFAULT -source TO 7 WHEN
+                    // module-info.java USED. REMOVE WHEN -source 7 IS THE DEFAULT
+                    if (f.getName().equals("module-info.java"))
+                        options.put("jigsaw.source", "7");
                     helper.addFile(f);
                 }
                 else

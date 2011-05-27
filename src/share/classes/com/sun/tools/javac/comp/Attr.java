@@ -716,6 +716,9 @@ public class Attr extends JCTree.Visitor {
             }
             chk.checkOverride(tree, m);
 
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), m);
+
             // Create a new environment with local scope
             // for attributing the method.
             Env<AttrContext> localEnv = memberEnter.methodEnv(tree, env);
@@ -853,6 +856,8 @@ public class Attr extends JCTree.Visitor {
 
         try {
             chk.checkDeprecatedAnnotation(tree.pos(), v);
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), v);
 
             if (tree.init != null) {
                 if ((v.flags_field & FINAL) != 0 && tree.init.getTag() != JCTree.NEWCLASS) {
@@ -3041,6 +3046,62 @@ public class Attr extends JCTree.Visitor {
         result = tree.type = syms.errType;
     }
 
+    public void visitModuleDef(JCModuleDecl tree) {
+        attribStats(tree.getMetadataList(), env);
+    }
+
+    public void visitModuleExport(JCModuleExport tree) {
+        JCTree exp = tree.qualid;
+        if (exp.getTag() != JCTree.SELECT) {
+            log.error(exp.pos(), "invalid.export");
+            return;
+        }
+        ClassSymbol csym;
+        JCFieldAccess s = (JCFieldAccess) exp;
+        Name name = TreeInfo.name(exp);
+        if (name == names.double_asterisk) {
+            TypeSymbol p = attribTree(s.selected, env, PCK, Type.noType).tsym;
+            Scope.Entry e = p.members().lookup(name);
+            if (e.sym != null) {
+                csym = (ClassSymbol) e.sym;
+            } else {
+                csym = new ClassSymbol(0, name, p);
+                p.members().enter(csym);
+            }
+        } else if (name == names.asterisk) {
+            TypeSymbol t = attribTree(s.selected, env, PCK | TYP, Type.noType).tsym;
+            Scope.Entry e = t.members().lookup(name);
+            if (e.sym != null) {
+                csym = (ClassSymbol) e.sym;
+            } else {
+                csym = new ClassSymbol(0, name, t);
+                t.members().enter(csym);
+            }
+        } else {
+            csym = (ClassSymbol) attribTree(s, env, TYP, Type.noType).tsym;
+        }
+
+        ModuleSymbol msym = env.toplevel.modle;
+        msym.exports.add(new Symbol.ModuleExport(csym, List.<Name>nil()));
+
+    }
+
+    public void visitModuleRequires(JCModuleRequires tree) {
+    }
+
+    public void visitModulePermits(JCModulePermits tree) {
+    }
+
+    public void visitModuleClass(JCModuleClass tree) {
+        ModuleSymbol msym = env.toplevel.modle;
+        Type t = attribType(tree.qualId, env);
+        if (t.tag == CLASS) {
+            // FIXME: should check for duplicates
+            msym.className = (ClassSymbol) tree.qualId.type.tsym;
+            msym.classFlags = tree.flags;
+        }
+    }
+
     public void visitErroneous(JCErroneous tree) {
         if (tree.errs != null)
             for (JCTree err : tree.errs)
@@ -3054,14 +3115,17 @@ public class Attr extends JCTree.Visitor {
         throw new AssertionError();
     }
 
-    /**
-     * Attribute an env for either a top level tree or class declaration.
-     */
     public void attrib(Env<AttrContext> env) {
-        if (env.tree.getTag() == JCTree.TOPLEVEL)
-            attribTopLevel(env);
-        else
-            attribClass(env.tree.pos(), env.enclClass.sym);
+        switch (env.tree.getTag()) {
+            case JCTree.MODULE:
+                attribModule(env.tree.pos(), ((JCModuleDecl)env.tree).sym);
+                break;
+            case JCTree.TOPLEVEL:
+                attribTopLevel(env);
+                break;
+            default:
+                attribClass(env.tree.pos(), env.enclClass.sym);
+        }
     }
 
     /**
@@ -3072,10 +3136,27 @@ public class Attr extends JCTree.Visitor {
         JCCompilationUnit toplevel = env.toplevel;
         try {
             annotate.flush();
-            chk.validateAnnotations(toplevel.packageAnnotations, toplevel.packge);
+            chk.validateAnnotations(toplevel.getPackageAnnotations(), toplevel.packge);
         } catch (CompletionFailure ex) {
             chk.completionError(toplevel.pos(), ex);
         }
+    }
+
+    public void attribModule(DiagnosticPosition pos, ModuleSymbol m) {
+        try {
+            annotate.flush();
+            attribModule(m);
+        } catch (CompletionFailure ex) {
+            chk.completionError(pos, ex);
+        }
+
+    }
+
+    void attribModule(ModuleSymbol m) {
+        // Get environment current at the point of module definition.
+        Env<AttrContext> env = enter.typeEnvs.get(m);
+        //System.err.println("Attr.attribModule: " + env + " " + env.tree);
+        attribStat(env.tree, env);
     }
 
     /** Main method: attribute class definition associated with given class symbol.
@@ -3182,6 +3263,9 @@ public class Attr extends JCTree.Visitor {
             chk.validate(tree.extending, env);
             chk.validate(tree.implementing, env);
         }
+
+        // Module modifier may not be used in unnamed module
+        chk.checkModuleModifier(tree.pos(), c);
 
         // If this is a non-abstract class, check that it has no abstract
         // methods or unimplemented methods of an implemented interface.
