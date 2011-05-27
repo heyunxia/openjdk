@@ -47,7 +47,6 @@ import java.security.cert.CertPath;
 import java.security.cert.X509Certificate;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -134,7 +133,7 @@ public final class SignedModule {
             trustedCerts = KeyStores.getTrustedCerts(loadCACertsKeyStore());
         }
 
-        public Collection<X509Certificate> getTrustedCerts()
+        public Set<X509Certificate> getTrustedCerts()
         {
             return trustedCerts;
         }
@@ -222,20 +221,12 @@ public final class SignedModule {
             return ModuleFile.SignatureType.PKCS7;
         }
 
-        // ## Need to improve exception handling 
+        // ## Need to improve exception handling
         public Set<CodeSigner> verifySignature(ModuleFileVerifier.Parameters
                                                parameters)
             throws SignatureException
         {
             try {
-                VerifierParameters params = (VerifierParameters)parameters;
-                PKIXValidator csValidator
-                    = (PKIXValidator)Validator.getInstance(
-                            Validator.TYPE_PKIX, Validator.VAR_CODE_SIGNING,
-                            params.getTrustedCerts());
-
-                X509Certificate[] arrayType = new X509Certificate[0];
-
                 // Verify signature. This will return null if the signature
                 // cannot be verified successfully.
                 SignerInfo[] signerInfos = pkcs7.verify();
@@ -243,46 +234,17 @@ public final class SignedModule {
                     throw new SignatureException("Cannot verify module "
                                                  + "signature");
 
-                // Assume one signer
+                // Validate signer's certificate chain and timestamp
+                // (assume one signer)
                 SignerInfo signerInfo = signerInfos[0];
                 List<X509Certificate> certChain =
                     signerInfo.getCertificateChain(pkcs7);
-                X509Certificate signerCert = certChain.get(0);
-
                 Timestamp ts = signerInfo.getTimestamp();
-                if (ts != null) {
-                    // validate timestamp only if signer's cert is expired
-                    Date notAfter = signerCert.getNotAfter();
-                    if (notAfter.before(new Date())) {
-                        // check that timestamp is within cert's validity
-                        Date timestamp = ts.getTimestamp();
-                        if (timestamp.before(notAfter) &&
-                            timestamp.after(signerCert.getNotBefore())) {
-                            PKIXValidator tsaValidator
-                                = (PKIXValidator)Validator.getInstance(
-                                   Validator.TYPE_PKIX,
-                                   Validator.VAR_TSA_SERVER,
-                                   params.getTrustedCerts());
-                            // set validation times to timestamp
-                            tsaValidator.getParameters().setDate(timestamp);
-                            csValidator.getParameters().setDate(timestamp);
-                            // validate TSA certificate chain
-                            List<X509Certificate> tsChain
-                                = (List<X509Certificate>)
-                                ts.getSignerCertPath().getCertificates();
-                            tsaValidator.validate(tsChain.toArray(arrayType));
-                        } else {
-                            throw new SignatureException(
-                                "the timestamp is not within the validity " +
-                                "period of the signer's certificate");
-                        }
-                    }
-                }
-
-                // validate signer's certificate chain
-                csValidator.validate(certChain.toArray(arrayType));
                 CertPath certPath = cf.generateCertPath(certChain);
-                return Collections.singleton(new CodeSigner(certPath, ts));
+                CodeSigner signer = new CodeSigner(certPath, ts);
+                Set<CodeSigner> signers = Collections.singleton(signer);
+                validateSigners(signers, parameters.getTrustedCerts());
+                return signers;
 
             } catch (final IOException | GeneralSecurityException e) {
                 throw new SignatureException(e);
@@ -326,6 +288,106 @@ public final class SignedModule {
                               + hashHexString(expected) + " instead of "
                               + hashHexString(computed));
         }
+    }
+
+    /**
+     * Validates the set of code signers. For each signer, the signer's
+     * certificate chain, the timestamp (if not null), and the TSA's
+     * certificate chain is validated. The set of most-trusted CA certificates
+     * from the JRE cacerts file is used to validate the certificate chains.
+     *
+     * @param signers the code signers
+     * @throws CertificateException if any of the code signers or timestamps
+     *    are invalid for some reason
+     */
+    static void validateSigners(Set<CodeSigner> signers)
+        throws CertificateException
+    {
+        try {
+            validateSigners(signers,
+                            KeyStores.getTrustedCerts(loadCACertsKeyStore()));
+        } catch (IOException x) {
+            throw new CertificateException(x);
+        }
+    }
+
+    /**
+     * Validates the set of code signers. For each signer, the signer's
+     * certificate chain, the timestamp (if not null), and the TSA's
+     * certificate chain is validated.
+     *
+     * @param signers the code signers
+     * @param trustedCerts a set of most-trusted CA certificates used to
+     *    validate the certificate chains
+     * @throws CertificateException if any of the code signers or timestamps
+     *    are invalid for some reason
+     */
+    static void validateSigners(Set<CodeSigner> signers,
+                                Set<X509Certificate> trustedCerts)
+        throws CertificateException
+    {
+        PKIXValidator csValidator
+            = (PKIXValidator)Validator.getInstance(Validator.TYPE_PKIX,
+                                                   Validator.VAR_CODE_SIGNING,
+                                                   trustedCerts);
+        PKIXValidator tsaValidator
+            = (PKIXValidator)Validator.getInstance(Validator.TYPE_PKIX,
+                                                   Validator.VAR_TSA_SERVER,
+                                                   trustedCerts);
+        for (CodeSigner signer : signers) {
+            validateSigner(signer, csValidator, tsaValidator);
+        }
+    }
+
+    /**
+     * Validates the code signer's certificate chain, the timestamp (if not
+     * null), and the TSA's certificate chain.
+     *
+     * @param signer the code signer
+     * @param csValidator a PKIXValidator for the code signer
+     * @param tsaValidator a PKIXValidator for the TSA
+     * @throws CertificateException if the code signer or timestamp is invalid
+     *    for some reason
+     */
+    private static void validateSigner(CodeSigner signer,
+                                       PKIXValidator csValidator,
+                                       PKIXValidator tsaValidator)
+        throws CertificateException
+    {
+        // reset validity times to current date
+        csValidator.getParameters().setDate(null);
+        tsaValidator.getParameters().setDate(null);
+
+        List<X509Certificate> signerChain = (List<X509Certificate>)
+            signer.getSignerCertPath().getCertificates();
+        X509Certificate signerCert = signerChain.get(0);
+        X509Certificate[] arrayType = new X509Certificate[0];
+        Timestamp ts = signer.getTimestamp();
+        if (ts != null) {
+            // validate timestamp only if signer's cert is expired
+            Date notAfter = signerCert.getNotAfter();
+            if (notAfter.before(new Date())) {
+                // check that timestamp is within cert's validity period
+                Date timestamp = ts.getTimestamp();
+                if (timestamp.before(notAfter) &&
+                    timestamp.after(signerCert.getNotBefore())) {
+                    // set validation times to timestamp
+                    tsaValidator.getParameters().setDate(timestamp);
+                    csValidator.getParameters().setDate(timestamp);
+                    // validate TSA certificate chain
+                    List<X509Certificate> tsChain = (List<X509Certificate>)
+                        ts.getSignerCertPath().getCertificates();
+                    tsaValidator.validate(tsChain.toArray(arrayType));
+                } else {
+                    throw new CertificateException(
+                        "the timestamp is not within the validity " +
+                        "period of the signer's certificate");
+                }
+            }
+        }
+
+        // validate signer's certificate chain
+        csValidator.validate(signerChain.toArray(arrayType));
     }
 
     private static String hashHexString(byte[] hash) {

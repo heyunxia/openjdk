@@ -432,7 +432,7 @@ public final class SimpleLibrary
 
     }
 
-    private static final class Signer
+    private static final class Signers
         extends MetaData {
 
         private static String FILE = "signer";
@@ -440,61 +440,66 @@ public final class SimpleLibrary
         private static int MINOR_VERSION = 1;
 
         private CertificateFactory cf = null;
-        private CodeSigner signer;
-        private CodeSigner signer() { return signer; }
+        private Set<CodeSigner> signers;
+        private Set<CodeSigner> signers() { return signers; }
 
-        private Signer(File root, CodeSigner signer) {
+        private Signers(File root, Set<CodeSigner> signers) {
             super(MAJOR_VERSION, MINOR_VERSION,
                   FileConstants.Type.LIBRARY_MODULE_SIGNER,
                   new File(root, FILE));
-            this.signer = signer;
+            this.signers = signers;
         }
 
         protected void storeRest(DataOutputStream out)
             throws IOException
         {
-            try {
-                CertPath signerCertPath = signer.getSignerCertPath();
-                out.write(signerCertPath.getEncoded("PkiPath"));
-                Timestamp ts = signer.getTimestamp();
-                out.writeByte((ts != null) ? 1 : 0);
-                if (ts != null) {
-                    out.writeLong(ts.getTimestamp().getTime());
-                    out.write(ts.getSignerCertPath().getEncoded("PkiPath"));
+            out.writeInt(signers.size());
+            for (CodeSigner signer : signers) {
+                try {
+                    CertPath signerCertPath = signer.getSignerCertPath();
+                    out.write(signerCertPath.getEncoded("PkiPath"));
+                    Timestamp ts = signer.getTimestamp();
+                    out.writeByte((ts != null) ? 1 : 0);
+                    if (ts != null) {
+                        out.writeLong(ts.getTimestamp().getTime());
+                        out.write(ts.getSignerCertPath().getEncoded("PkiPath"));
+                    }
+                } catch (CertificateEncodingException cee) {
+                    throw new IOException(cee);
                 }
-            } catch (CertificateEncodingException cee) {
-                throw new IOException(cee);
             }
         }
 
         protected void loadRest(DataInputStream in)
             throws IOException
         {
-            try {
-                if (cf == null)
-                    cf = CertificateFactory.getInstance("X.509");
-                CertPath signerCertPath = cf.generateCertPath(in, "PkiPath");
-                signer = new CodeSigner(signerCertPath, null);
-                int b = in.readByte();
-                if (b != 0) {
-                    Date timestamp = new Date(in.readLong());
-                    CertPath tsaCertPath = cf.generateCertPath(in, "PkiPath");
-                    Timestamp ts = new Timestamp(timestamp, tsaCertPath);
-                    signer = new CodeSigner(signerCertPath, ts);
-                } else {
-                    signer = new CodeSigner(signerCertPath, null);
+            int size = in.readInt();
+            for (int i = 0; i < size; i++) {
+                try {
+                    if (cf == null)
+                        cf = CertificateFactory.getInstance("X.509");
+                    CertPath signerCertPath = cf.generateCertPath(in, "PkiPath");
+                    int b = in.readByte();
+                    if (b != 0) {
+                        Date timestamp = new Date(in.readLong());
+                        CertPath tsaCertPath = cf.generateCertPath(in, "PkiPath");
+                        Timestamp ts = new Timestamp(timestamp, tsaCertPath);
+                        signers.add(new CodeSigner(signerCertPath, ts));
+                    } else {
+                        signers.add(new CodeSigner(signerCertPath, null));
+                    }
+                } catch (CertificateException ce) {
+                    throw new IOException(ce);
                 }
-            } catch (CertificateException ce) {
-                throw new IOException(ce);
             }
         }
 
-        private static Signer load(File f)
+        private static Signers load(File f)
             throws IOException
         {
-            Signer signer = new Signer(f, null);
-            signer.load();
-            return signer;
+            Signers signers = new Signers(f, new HashSet<CodeSigner>());
+            signers.load();
+            return signers;
         }
     }
 
@@ -603,8 +608,7 @@ public final class SimpleLibrary
         // ## removed by another thread/process here?
         if (!f.exists())
             return null;
-        Signer signer = Signer.load(md);
-        return new CodeSigner[] {signer.signer()};
+        return Signers.load(md).signers().toArray(new CodeSigner[0]);
     }
 
     // ## Close all zip files when we close this library
@@ -918,9 +922,8 @@ public final class SimpleLibrary
                 // ## Check policy - is signer trusted and what permissions
                 // ## should be granted?
 
-                // Store signer info (only one signer is currently supported)
-                CodeSigner signer = signers.iterator().next();
-                new Signer(md, signer).store();
+                // Store signer info
+                new Signers(md, signers).store();
 
                 // Read and verify the rest of the hashes
                 mr.readRest(md);
@@ -931,7 +934,7 @@ public final class SimpleLibrary
             reIndex(mid);         // ## Could do this while reading module file
             return mid;
 
-        } catch (IOException|SignatureException x) {
+        } catch (IOException | SignatureException x) {
             if (md != null && md.exists()) {
                 try {
                     Files.deleteTree(md);
@@ -962,7 +965,7 @@ public final class SimpleLibrary
         return baos.toByteArray();
     }
 
-    private ModuleId installFromJarFile(File mf,  boolean verifySignature)
+    private ModuleId installFromJarFile(File mf, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
         File md = null;
@@ -981,26 +984,44 @@ public final class SimpleLibrary
 
             Files.store(mib, new File(md, "info"));
 
+            boolean signed = false;
+
             // copy the jar file to the module library in STORED compression
-            try (FileOutputStream fos = new FileOutputStream(new File(md, "classes"));
-                 JarOutputStream jos = new JarOutputStream(new BufferedOutputStream(fos))) {
+            File classesDir = new File(md, "classes");
+            try (FileOutputStream fos = new FileOutputStream(classesDir);
+                 BufferedOutputStream bos = new BufferedOutputStream(fos);
+                 JarOutputStream jos = new JarOutputStream(bos)) {
                 jos.setLevel(0);
 
                 Enumeration<JarEntry> entries = jf.entries();
                 while (entries.hasMoreElements()) {
                     JarEntry je = entries.nextElement();
-                    String name = je.getName();
                     try (InputStream is = jf.getInputStream(je)) {
                         writeJarEntry(is, je, jos);
+                    }
+                    if (!signed) {
+                        String name = je.getName().toUpperCase(Locale.ENGLISH);
+                        signed = name.startsWith("META-INF/")
+                                 && name.endsWith(".SF");
                     }
                 }
             }
 
-            // ## TODO: store signer info if it's a signed jar
+            try {
+                if (verifySignature && signed) {
+                    // validate the code signers
+                    Set<CodeSigner> signers = getSigners(jf);
+                    SignedModule.validateSigners(signers);
+                    // store the signers
+                    new Signers(md, signers).store();
+                }
+            } catch (CertificateException ce) {
+                throw new SignatureException(ce);
+            }
 
             reIndex(mid);
             return mid;
-        } catch (IOException x) {
+        } catch (IOException | SignatureException x) {
             if (md != null && md.exists()) {
                 try {
                     Files.deleteTree(md);
@@ -1013,8 +1034,64 @@ public final class SimpleLibrary
         }
     }
 
+    /**
+     * Returns the set of signers of the specified jar file. Each signer
+     * must have signed all relevant entries.
+     */
+    private static Set<CodeSigner> getSigners(JarFile jf)
+        throws SignatureException
+    {
+        Set<CodeSigner> signers = new HashSet<>();
+        Enumeration<JarEntry> entries = jf.entries();
+        while (entries.hasMoreElements()) {
+            JarEntry je = entries.nextElement();
+            String name = je.getName().toUpperCase(Locale.ENGLISH);
+            if (name.endsWith("/") || isSigningRelated(name))
+                continue;
+
+            // A signed modular jar can be signed by multiple signers.
+            // However, all entries must be signed by each of these signers.
+            // Signers that only sign a subset of entries are ignored.
+            CodeSigner[] jeSigners = je.getCodeSigners();
+            if (jeSigners == null || jeSigners.length == 0)
+                throw new SignatureException("Found unsigned entry in "
+                                             + "signed modular JAR");
+
+            Set<CodeSigner> jeSignerSet =
+                new HashSet<>(Arrays.asList(jeSigners));
+            if (signers.isEmpty())
+                signers.addAll(jeSignerSet);
+            else {
+                if (signers.retainAll(jeSignerSet) && signers.isEmpty())
+                    throw new SignatureException("No signers in common in "
+                                                 + "signed modular JAR");
+            }
+        }
+        return signers;
+    }
+
+    // true if file is part of the signature mechanism itself
+    private static boolean isSigningRelated(String name) {
+        if (!name.startsWith("META-INF/")) {
+            return false;
+        }
+        name = name.substring(9);
+        if (name.indexOf('/') != -1) {
+            return false;
+        }
+        if (name.endsWith(".DSA") ||
+            name.endsWith(".RSA") ||
+            name.endsWith(".SF")  ||
+            name.endsWith(".EC")  ||
+            name.startsWith("SIG-") ||
+            name.equals("MANIFEST.MF")) {
+            return true;
+        }
+        return false;
+    }
+
     private void writeJarEntry(InputStream is, JarEntry je, JarOutputStream jos)
-        throws IOException
+        throws IOException, SignatureException
     {
         JarEntry entry = new JarEntry(je.getName());
         entry.setMethod(ZipOutputStream.STORED);
@@ -1024,6 +1101,7 @@ public final class SimpleLibrary
             int size = 0;
             byte[] bs = new byte[1024];
             int cc = 0;
+            // This will throw a SecurityException if a signature is invalid.
             while ((cc = is.read(bs)) > 0) {
                 baos.write(bs, 0, cc);
                 size += cc;
@@ -1034,6 +1112,8 @@ public final class SimpleLibrary
             if (baos.size() > 0)
                 baos.writeTo(jos);
             jos.closeEntry();
+        } catch (SecurityException se) {
+            throw new SignatureException(se);
         }
     }
 
