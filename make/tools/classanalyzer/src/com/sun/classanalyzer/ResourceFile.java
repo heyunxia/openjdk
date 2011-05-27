@@ -87,6 +87,9 @@ public class ResourceFile implements Comparable<ResourceFile> {
         if (name.contains("META-INF/JCE_RSA.")) {
             return false;
         }
+        if (name.contains("META-INF/ORACLE_J.")) {
+            return false;
+        }
 
         return true;
     }

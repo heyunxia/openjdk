@@ -76,6 +76,12 @@ module jdk.base {
     class org.openjdk.jigsaw.Hi;    // testing
 }
 
+module jdk.advanced {
+    // sun.misc.PostVMInitHook is loaded by the VM
+    requires local jdk.boot;
+    include j4b;
+}
+
 /*
  * Names of jdk platform modules must start with "jdk." or "sun."
  * ("sun." prefix is added as a temporary solution for now until
