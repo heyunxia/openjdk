@@ -130,7 +130,7 @@ public final class FileConstants {
 
         public static enum HashType {
 
-            SHA256(0, "SHA-256");
+            SHA256(0, "SHA-256", 32);
 
             private final int value;
             public int value() { return value; }
@@ -142,11 +142,14 @@ public final class FileConstants {
             }
 
             private final String algorithm;
+            private final int length;
             public String algorithm() { return algorithm; }
+            public int length() { return length; }
 
-            private HashType(int v, String a) {
+            private HashType(int v, String a, int l) {
                 value = v;
                 algorithm = a;
+                length = l;
             }
 
         }

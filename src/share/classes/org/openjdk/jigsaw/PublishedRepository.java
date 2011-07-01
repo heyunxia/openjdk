@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -190,7 +190,6 @@ public class PublishedRepository
 
         long csize = bb.getLong();
         long usize = bb.getLong();
-        bb.getShort();                  // sections
 
         // Hash
         HashType ht = HashType.valueOf(bb.getShort());
@@ -216,7 +215,7 @@ public class PublishedRepository
         MessageDigest md = getDigest(ht);
         md.update(mibs);
         byte[] rhb = md.digest();
-        if (!Arrays.equals(hb, rhb))
+        if (!MessageDigest.isEqual(hb, rhb))
             throw new IOException("Hash mismatch");
 
         return new Entry(mibs, csize, usize, ht, fhb);

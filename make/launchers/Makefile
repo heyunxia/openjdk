@@ -71,6 +71,7 @@ $(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack, $(BA
 $(call make-launcher, jmod, org.openjdk.jigsaw.cli.Librarian, -J-Xmode:legacy, , $(JDK_BASE_MODULE))
 $(call make-launcher, jpkg, org.openjdk.jigsaw.cli.Packager, , , $(BASE_TOOLS_MODULE))
 $(call make-launcher, jrepo, org.openjdk.jigsaw.cli.Repositor, , , $(BASE_TOOLS_MODULE))
+$(call make-launcher, jsign, org.openjdk.jigsaw.cli.Signer, , , $(BASE_TOOLS_MODULE))
 $(call make-launcher, keytool, sun.security.tools.KeyTool, , , $(TOOLS_MODULE))
 $(call make-launcher, jarsigner, sun.security.tools.JarSigner, , , $(TOOLS_MODULE))
 $(call make-launcher, javac, com.sun.tools.javac.Main, -J-Xmode:legacy, , jdk.javac)

@@ -96,11 +96,11 @@ create
 #
 $BIN/jpkg \
     -v \
-    --sign \
     -m z.modules/com.foo.signed \
     -d z.modules \
-    --keystore keystore.jks \
-    jmod com.foo.signed < ${TESTSRC}/keystore.pw
+    jmod com.foo.signed
+$BIN/jsign -v --keystore keystore.jks \
+           z.modules/com.foo.signed@1.0.jmod signer < ${TESTSRC}/keystore.pw
 # Test installation without verifying module
 $BIN/jmod install --noverify z.modules/com.foo.signed@1.0.jmod
 compare

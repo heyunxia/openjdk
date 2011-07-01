@@ -419,7 +419,8 @@ JGSS_FILES_DIRS = \
 NOTJDKTOOLS = \
 	java_vm \
 	jmod \
-	jpkg
+	jpkg \
+	jsign
 
 # The following get removed from the JRE after the bulk-copy of BINDIR...
 NOTJRETOOLS = \
@@ -455,7 +456,8 @@ NOTJRETOOLS = \
 	jsadebugd$(EXE_SUFFIX) \
 	jhat$(EXE_SUFFIX) \
 	jmod$(EXE_SUFFIX) \
-	jpkg$(EXE_SUFFIX)
+	jpkg$(EXE_SUFFIX) \
+	jsign$(EXE_SUFFIX)
 
 # The following get removed from the JRE after the bulk-copy of LIBDIR...
 NOTJRELIBS = tools.jar \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -66,9 +66,9 @@ public class ModuleFormatTestLeftOverBytes {
         append(MNAME, MVER, "These bytes are not made for parsing!");
         try {
             extract(MNAME, MVER);
-        } catch (Exception e) {
-            /* swallow expected IOException */
-            if (! e.getMessage().startsWith("I/O error:"))
+        } catch (IllegalArgumentException e) {
+            /* swallow expected IllegalArgumentException */
+            if (! e.getMessage().startsWith("No SectionType"))
                 throw e;
         }
     }
