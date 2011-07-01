@@ -56,16 +56,16 @@ import sun.security.x509.X500Name;
 
 import org.openjdk.jigsaw.cli.Librarian;
 import org.openjdk.jigsaw.cli.Packager;
+import org.openjdk.jigsaw.cli.Signer;
 
 // copied from test/sun/security/tools/jarsigner and adapted for use with
 // jigsaw signed modules
 public class TimestampTest {
     private static final String BASE_DIR = System.getProperty("test.src", ".");
-
+    private static final String MNAME = "test.security";
     private int port;
-    private String[] signingArgs = {
+    private String[] jsignArgs = {
         "-v",
-        "--sign",
         "--keystore",
         "keystore.jks"
     };
@@ -74,19 +74,19 @@ public class TimestampTest {
         "-L",
         "z.lib",
         "install",
-        "test.security@0.1.jmod"
+        MNAME + "@0.1.jmod"
     };
 
     private String[] jpkgArgs = {
         "-L",
         "z.lib",
         "-m",
-        "z.modules/test.security",
+        "z.modules/" + MNAME,
         "jmod",
-        "test.security"
+        MNAME
     };
 
-    private File moduleDir = new File("z.lib");
+    private File moduleDir = new File("z.lib", MNAME);
 
     public static void main(String[] args) throws Exception {
         new TimestampTest().run();
@@ -112,6 +112,7 @@ public class TimestampTest {
     }
 
     void test() throws Exception {
+        Librarian.main(new String[] { "-L", "z.lib", "create" });
         testExpiredWithValidTimestamp();
         testNonExpiredWithValidTimestamp();
         testExpiredWithInvalidTimestamp();
@@ -145,7 +146,6 @@ public class TimestampTest {
     void reset() {
         if (moduleDir.exists())
             deleteAll(moduleDir);
-        Librarian.main(new String[] { "-L", "z.lib", "create" });
     }
 
     /**
@@ -160,18 +160,20 @@ public class TimestampTest {
     }
 
     void sign(String alias, int type) throws Exception {
-        List<String> args = new ArrayList<String>();
-        args.addAll(Arrays.asList(signingArgs));
-        args.add("--alias");
-        args.add(alias);
-        args.add("--tsa");
-        args.add("http://localhost:" + port + "/" + type);
+        List<String> args = new ArrayList<>();
         args.addAll(Arrays.asList(jpkgArgs));
         Packager.run(args.toArray(new String[0]));
+        args = new ArrayList<>();
+        args.addAll(Arrays.asList(jsignArgs));
+        args.add("--tsa");
+        args.add("http://localhost:" + port + "/" + type);
+        args.add(MNAME + "@0.1.jmod");
+        args.add(alias);
+        Signer.run(args.toArray(new String[0]));
     }
 
     void install() throws Exception {
-        List<String> args = new ArrayList<String>();
+        List<String> args = new ArrayList<>();
         args.addAll(Arrays.asList(jmodArgs));
         Librarian.run(args.toArray(new String[0]));
     }

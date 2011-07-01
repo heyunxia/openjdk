@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -75,23 +75,15 @@ public class ModuleFormatHeaderHashTest {
     }
 
     /**
-     * Extract a module.
-     */
-    void extract(String name, String version) throws Exception {
-        File module = new File(moduleDir, name + "@" + version + ".jmod");
-        String [] args = {"extract", module.getAbsolutePath()};
-        Librarian.run(args);
-    }
-
-
-    /**
      * Get a module file's stored hash.
      */
     byte [] readHash(String name, String version) throws Exception {
         String fname = moduleDir + File.separator + name + "@" + version + ".jmod";
-        DataInputStream in = new DataInputStream(new FileInputStream(fname));
-        ModuleFileFormat.Reader r = new ModuleFileFormat.Reader(in);
-        return r.getHash();
+        try (FileInputStream fis = new FileInputStream(fname);
+             DataInputStream in = new DataInputStream(fis);
+             ModuleFileFormat.Reader r = new ModuleFileFormat.Reader(in);) {
+            return r.getHash();
+        }
     }
 
     /**
@@ -99,16 +91,17 @@ public class ModuleFormatHeaderHashTest {
      */
     byte [] hash(String name, String version, String digest) throws Exception {
         String fname = moduleDir + File.separator + name + "@" + version + ".jmod";
-        FileInputStream fis = new FileInputStream(fname);
         MessageDigest md = MessageDigest.getInstance(digest);
-        DigestInputStream dis = new DigestInputStream(fis, md);
-        dis.read(new byte [32]);
-        dis.on(false);
-        dis.read(new byte [md.getDigestLength()]);
-        dis.on(true);
-        for (int c = dis.read() ; c != -1 ; c = dis.read())
-            ;
-        return md.digest();
+        try (FileInputStream fis = new FileInputStream(fname);
+             DigestInputStream dis = new DigestInputStream(fis, md)) {
+            dis.read(new byte[ModuleFileFormat.FILE_HEADER_LENGTH_WITHOUT_HASH]);
+            dis.on(false);
+            dis.read(new byte [md.getDigestLength()]);
+            dis.on(true);
+            for (int c = dis.read() ; c != -1 ; c = dis.read())
+                ;
+            return md.digest();
+        }
     }
 
     /**
@@ -172,15 +165,15 @@ public class ModuleFormatHeaderHashTest {
 
         String[] opts = options.toArray(new String[options.size()]);
         StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        int rc = com.sun.tools.javac.Main.compile(opts, pw);
-        pw.close();
+        try (PrintWriter pw = new PrintWriter(sw)) {
+            int rc = com.sun.tools.javac.Main.compile(opts, pw);
 
-        String out = sw.toString();
-        if (out.trim().length() > 0)
-            System.err.println(out);
-        if (rc != 0)
-            throw new Error("compilation failed: rc=" + rc);
+            String out = sw.toString();
+            if (out.trim().length() > 0)
+                System.err.println(out);
+            if (rc != 0)
+                throw new Error("compilation failed: rc=" + rc);
+        }
     }
 
     /**
@@ -200,9 +193,9 @@ public class ModuleFormatHeaderHashTest {
             return null;
         File file = new File(srcDir, path);
         file.getAbsoluteFile().getParentFile().mkdirs();
-        FileWriter out = new FileWriter(file);
-        out.write(body);
-        out.close();
+        try (FileWriter out = new FileWriter(file)) {
+            out.write(body);
+        }
         return file;
     }
 

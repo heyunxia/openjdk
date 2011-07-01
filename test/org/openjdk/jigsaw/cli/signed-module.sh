@@ -73,7 +73,7 @@ EOF
 
 mk signed-module.policy <<EOF
 keystore "keystore.jks";
-keystorePasswordURL "${SRC}/keystore.pw";
+keystorePasswordURL "file:${SRC}/keystore.pw";
 grant signedBy "signer" {
     permission java.util.PropertyPermission "user.home", "read";
 };
@@ -86,13 +86,13 @@ rm -rf z.modules && mkdir z.modules
 $BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 rm -f test.security@0.1.jmod
-# Create signed module with "signer" alias
-$BIN/jpkg -v --sign --alias signer --storetype JKS \
-          --keystore keystore.jks -L z.lib \
-          -m z.modules/test.security jmod test.security < ${SRC}/keystore.pw
+# Create and sign module file
+$BIN/jpkg -v -L z.lib -m z.modules/test.security jmod test.security
+$BIN/jsign -v --keystore keystore.jks -signedmodulefile signedmodulefile \
+           test.security@0.1.jmod signer < ${SRC}/keystore.pw
 # Install and run the signed module
 rm -rf z.lib
 $BIN/jmod -L z.lib create
 $BIN/jmod -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
-          -L z.lib install test.security@0.1.jmod
+          -L z.lib install signedmodulefile
 $BIN/java -L z.lib -m test.security signed-module.policy

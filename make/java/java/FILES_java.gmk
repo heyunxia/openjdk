@@ -557,6 +557,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/cli/Commands.java \
     org/openjdk/jigsaw/cli/Librarian.java \
     org/openjdk/jigsaw/cli/Packager.java \
-    org/openjdk/jigsaw/cli/Repositor.java
+    org/openjdk/jigsaw/cli/Repositor.java \
+    org/openjdk/jigsaw/cli/Signer.java
 
 FILES_java = $(JAVA_JAVA_java) $(JAVA_JAVA_jigsaw)
