@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE   = jdwp
 LIBRARY  = dt_shmem
 PRODUCT = jbug
 

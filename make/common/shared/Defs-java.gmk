@@ -111,15 +111,15 @@ ifndef DEBUG_CLASSFILES
     DEBUG_CLASSFILES = true
   endif
 endif
-JAVACFLAGS =
+SHARED_JAVACFLAGS =
 ifeq ($(DEBUG_CLASSFILES),true)
-  JAVACFLAGS += -g
+  SHARED_JAVACFLAGS += -g
 endif
 ifeq ($(JAVAC_MAX_WARNINGS), true)
-  JAVACFLAGS  += -Xlint:all
+  SHARED_JAVACFLAGS  += -Xlint:all
 endif
 ifeq ($(JAVAC_WARNINGS_FATAL), true)
-  JAVACFLAGS  += -Werror
+  SHARED_JAVACFLAGS  += -Werror
 endif
 
 #
@@ -136,18 +136,25 @@ endif
 # Add the source level
 SOURCE_LANGUAGE_VERSION = 7
 LANGUAGE_VERSION = -source $(SOURCE_LANGUAGE_VERSION)
-JAVACFLAGS  += $(LANGUAGE_VERSION)
+SHARED_JAVACFLAGS  += $(LANGUAGE_VERSION)
 
 # Add the class version we want
 TARGET_CLASS_VERSION = 7
 CLASS_VERSION = -target $(TARGET_CLASS_VERSION)
-JAVACFLAGS  += $(CLASS_VERSION)
-JAVACFLAGS  += -encoding ascii
+SHARED_JAVACFLAGS  += $(CLASS_VERSION)
+SHARED_JAVACFLAGS  += -encoding ascii
+
+JAVACFLAGS  = $(SHARED_JAVACFLAGS)
 JAVACFLAGS  += "-Xbootclasspath:$(CLASSBINDIR)$(JCEFLAGS)"
 JAVACFLAGS  += $(OTHER_JAVACFLAGS)
 
+# HOST_JAVAC_CMD will use the same javac flags except
+# the bootclasspath and OTHER_JAVACFLAGS
+HOST_JAVACFLAGS = $(SHARED_JAVACFLAGS)
+
 # Needed for javah
 JAVAHFLAGS += -bootclasspath "$(CLASSBINDIR)$(JCEFLAGS)"
+JAVAHFLAGS += $(OTHER_JAVAHFLAGS)
 
 # Needed for javadoc to ensure it builds documentation
 # against the newly built classes
@@ -238,3 +245,17 @@ IDLJ		= $(BOOTDIR)/bin/idlj $(JAVA_TOOLS_FLAGS:%=-J%)
 # Should not be used
 JAVA		= /should/not/be/used
 
+# Commands in the JDK_HOST_PATH that can run on the host system
+#
+# Since JDK_HOST_PATH defaults to OUTPUTDIR, need to add
+# ISA_DIR for sparv9 and amd64
+JDK_HOST_BINDIR=$(JDK_HOST_PATH)/bin
+ifndef ALT_JDK_HOST_PATH
+JDK_HOST_BINDIR=$(JDK_HOST_PATH)/bin$(ISA_DIR)
+endif
+
+HOST_JAVA_CMD  = $(JDK_HOST_BINDIR)/java $(JAVA_TOOLS_FLAGS)
+HOST_JAVAC_CMD = $(JDK_HOST_BINDIR)/javac $(JAVAC_JVM_FLAGS) $(HOST_JAVACFLAGS)
+HOST_JMOD_CMD  = $(JDK_HOST_BINDIR)/jmod $(JAVA_TOOLS_FLAGS:%=-J%)
+HOST_JPKG_CMD  = $(JDK_HOST_BINDIR)/jpkg $(JAVA_TOOLS_FLAGS:%=-J%)
+HOST_JSIGN_CMD = $(JDK_HOST_BINDIR)/jsign $(JAVA_TOOLS_FLAGS:%=-J%)

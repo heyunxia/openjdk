@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = jdwp
 PRODUCT = jpda
 include $(BUILDDIR)/common/Defs.gmk
 
@@ -46,7 +47,7 @@ all build clean clobber::
 FILES_h = $(INCLUDEDIR)/jdwpTransport.h
 
 $(INCLUDEDIR)/%.h: $(SHARE_SRC)/javavm/export/%.h
-	$(install-file)
+	$(install-include-file)
 
 all:: $(FILES_h)
 
