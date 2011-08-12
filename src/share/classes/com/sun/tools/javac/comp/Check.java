@@ -2126,10 +2126,10 @@ public class Check {
     void checkOverrideClashes(DiagnosticPosition pos, Type site, MethodSymbol sym) {
          ClashFilter cf = new ClashFilter(site);
          //for each method m1 that is a member of 'site'...
-         for (Symbol s1 : types.membersClosure(site).getElementsByName(sym.name, cf)) {
+         for (Symbol s1 : types.membersClosure(site, false).getElementsByName(sym.name, cf)) {
             //...find another method m2 that is overridden (directly or indirectly)
             //by method 'sym' in 'site'
-            for (Symbol s2 : types.membersClosure(site).getElementsByName(sym.name, cf)) {
+            for (Symbol s2 : types.membersClosure(site, false).getElementsByName(sym.name, cf)) {
                 if (s1 == s2 || !sym.overrides(s2, site.tsym, types, false)) continue;
                 //if (i) the signature of 'sym' is not a subsignature of m1 (seen as
                 //a member of 'site') and (ii) m1 has the same erasure as m2, issue an error
@@ -2162,7 +2162,7 @@ public class Check {
     void checkHideClashes(DiagnosticPosition pos, Type site, MethodSymbol sym) {
         ClashFilter cf = new ClashFilter(site);
         //for each method m1 that is a member of 'site'...
-        for (Symbol s : types.membersClosure(site).getElementsByName(sym.name, cf)) {
+        for (Symbol s : types.membersClosure(site, true).getElementsByName(sym.name, cf)) {
             //if (i) the signature of 'sym' is not a subsignature of m1 (seen as
             //a member of 'site') and (ii) 'sym' has the same erasure as m1, issue an error
             if (!types.isSubSignature(sym.type, types.memberType(site, s), false) &&
@@ -2268,8 +2268,10 @@ public class Check {
         class AnnotationValidator extends TreeScanner {
             @Override
             public void visitAnnotation(JCAnnotation tree) {
-                super.visitAnnotation(tree);
-                validateAnnotation(tree);
+                if (!tree.type.isErroneous()) {
+                    super.visitAnnotation(tree);
+                    validateAnnotation(tree);
+                }
             }
         }
         tree.accept(new AnnotationValidator());
@@ -2411,8 +2413,6 @@ public class Check {
     /** Check an annotation value.
      */
     public void validateAnnotation(JCAnnotation a) {
-        if (a.type.isErroneous()) return;
-
         // collect an inventory of the members (sorted alphabetically)
         Set<MethodSymbol> members = new TreeSet<MethodSymbol>(new Comparator<Symbol>() {
             public int compare(Symbol t, Symbol t1) {

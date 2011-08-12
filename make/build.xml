@@ -170,7 +170,7 @@
             <isset property="boot.java.provides.modules"/>
             <available
                 ignoresystemclasses="true"
-                classpath="${boot.java.home}/jre/lib/rt.jar" classname="java.nio.file.Path"/>
+                classpath="${boot.java.home}/jre/lib/rt.jar" classname="java.lang.module.ModuleInfo"/>
         </or>
     </condition>
 
@@ -192,10 +192,10 @@
         in the build-bootstrap-classes macro. -->
 
     <available property="import.jdk.src.dir" value="${import.jdk}/src/share/classes"
-        filepath="${import.jdk}/src/share/classes" file="java/nio/file/Path.java"/>
+        filepath="${import.jdk}/src/share/classes" file="java/lang/module/ModuleInfo.java"/>
     <available property="import.jdk.jar" value="${import.jdk}/jre/lib/rt.jar"
         ignoresystemclasses="true"
-        classpath="${import.jdk}/jre/lib/rt.jar" classname="java.nio.file.Path"/>
+        classpath="${import.jdk}/jre/lib/rt.jar" classname="java.lang.module.ModuleInfo"/>
 
 
     <!-- Require stubs if ${boot.java.home} does not provide latest JDK API and
@@ -385,7 +385,9 @@
             classpath="${dist.lib.dir}/javac.jar"
             includeAntRuntime="no"
             debug="${javac.debug}"
-            debuglevel="${javac.debuglevel}"/>
+            debuglevel="${javac.debuglevel}">
+            <compilerarg line="${javac.lint.opts}"/>
+        </javac>
         <java fork="true"
             jvm="${target.java.home}/bin/java"
             dir="test/tools/javac/diags"
@@ -1106,7 +1108,10 @@
                srcdir="${make.tools.dir}/CompileProperties"
                destdir="${build.toolclasses.dir}/"
                classpath="${ant.core.lib}"
-               includeantruntime="false"/>
+               bootclasspath="${boot.java.home}/jre/lib/rt.jar"
+               includeantruntime="false">
+            <compilerarg line="${javac.lint.opts}"/>
+        </javac>
         <taskdef name="pcompile"
                  classname="CompilePropertiesTask"
                  classpath="${build.toolclasses.dir}/"/>
@@ -1123,6 +1128,7 @@
                classpath="${ant.core.lib}"
                includeantruntime="false">
             <compilerarg value="-Xbootclasspath/p:${build.bootstrap.dir}/classes"/>
+            <compilerarg line="${javac.lint.opts}"/>
         </javac>
         <taskdef name="genstubs"
                  classname="GenStubs$$Ant"

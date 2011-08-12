@@ -1009,7 +1009,7 @@ public class Modules extends JCTree.Visitor {
         }
 
         public String getDefaultPlatformModule() {
-            return "jdk@7-ea"; // for now
+            return "jdk@8-ea"; // for now
         }
 
         private class ModuleException extends Exception {
