@@ -761,6 +761,7 @@ void os::print_cpu_info(outputStream* st) {
   // st->print("(active %d)", os::active_processor_count());
   st->print(" %s", VM_Version::cpu_features());
   st->cr();
+  pd_print_cpu_info(st);
 }
 
 void os::print_date_and_time(outputStream *st) {
@@ -1122,10 +1123,10 @@ bool os::set_boot_path(char fileSep, char pathSep) {
 
         // ## TEMPORARY hack to keep the legacy launcher working when
         // ## only the boot module is installed (cf. j.l.ClassLoader)
-        "%/lib/modules/jdk.boot/7-ea/classes:"
-        "%/lib/modules/jdk.boot/7-ea/classes.jar:"
-        "%/lib/modules/jdk.boot/7-ea/resources:"
-        "%/lib/modules/jdk.boot/7-ea/resources.jar:"
+        "%/lib/modules/jdk.boot/8-ea/classes:"
+        "%/lib/modules/jdk.boot/8-ea/classes.jar:"
+        "%/lib/modules/jdk.boot/8-ea/resources:"
+        "%/lib/modules/jdk.boot/8-ea/resources.jar:"
         "%/classes";
     char* sysclasspath = format_boot_path(classpath_format, home, home_len, fileSep, pathSep);
     if (sysclasspath == NULL) return false;
