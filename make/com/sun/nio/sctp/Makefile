@@ -32,7 +32,6 @@ MODULE  = sctp
 PACKAGE = com.sun.nio.sctp
 LIBRARY = sctp
 PRODUCT = sun
-#OTHER_JAVACFLAGS += -Xmaxwarns 1000 -Xlint
 include $(BUILDDIR)/common/Defs.gmk
 
 #

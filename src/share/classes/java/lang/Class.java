@@ -31,7 +31,6 @@ import java.lang.reflect.Member;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.GenericDeclaration;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Module;
 import java.lang.reflect.Type;
@@ -46,10 +45,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.LinkedList;
-import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
@@ -57,7 +53,6 @@ import sun.misc.Unsafe;
 import sun.reflect.ConstantPool;
 import sun.reflect.Reflection;
 import sun.reflect.ReflectionFactory;
-import sun.reflect.SignatureIterator;
 import sun.reflect.generics.factory.CoreReflectionFactory;
 import sun.reflect.generics.factory.GenericsFactory;
 import sun.reflect.generics.repository.ClassRepository;
@@ -356,7 +351,8 @@ public final class Class<T>
                         });
                 cachedConstructor = c;
             } catch (NoSuchMethodException e) {
-                throw new InstantiationException(getName());
+                throw (InstantiationException)
+                    new InstantiationException(getName()).initCause(e);
             }
         }
         Constructor<T> tmpConstructor = cachedConstructor;
@@ -980,7 +976,8 @@ public final class Class<T>
                 descriptor      = (String)   enclosingInfo[2];
                 assert((name != null && descriptor != null) || name == descriptor);
             } catch (ClassCastException cce) {
-                throw new InternalError("Invalid type in enclosing method information");
+                throw (InternalError)
+                    new InternalError("Invalid type in enclosing method information").initCause(cce);
             }
         }
 
@@ -1246,7 +1243,8 @@ public final class Class<T>
         try {
             return getName().substring(enclosingClass.getName().length());
         } catch (IndexOutOfBoundsException ex) {
-            throw new InternalError("Malformed class name");
+            throw (InternalError)
+                new InternalError("Malformed class name").initCause(ex);
         }
     }
 
@@ -2561,7 +2559,7 @@ public final class Class<T>
         // Start by fetching public declared methods
         MethodArray methods = new MethodArray();
         {
-            Method[] tmp = privateGetDeclaredMethods(true);
+                Method[] tmp = privateGetDeclaredMethods(true);
             methods.addAll(tmp);
         }
         // Now recur over superclass and direct superinterfaces.
@@ -2911,6 +2909,7 @@ public final class Class<T>
                         return null;
                     }
 
+                    // Doesn't use Boolean.getBoolean to avoid class init.
                     String val =
                         System.getProperty("sun.reflect.noCaches");
                     if (val != null && val.equals("true")) {
@@ -2960,9 +2959,8 @@ public final class Class<T>
             }
             // These can happen when users concoct enum-like classes
             // that don't comply with the enum spec.
-            catch (InvocationTargetException ex) { return null; }
-            catch (NoSuchMethodException ex) { return null; }
-            catch (IllegalAccessException ex) { return null; }
+            catch (InvocationTargetException | NoSuchMethodException |
+                   IllegalAccessException ex) { return null; }
         }
         return enumConstants;
     }
