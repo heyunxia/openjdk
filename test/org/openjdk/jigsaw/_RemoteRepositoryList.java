@@ -54,6 +54,7 @@ public class _RemoteRepositoryList {
         assert equals(c1, c2) : String.format("%s : %s", c1, c2);
     }
 
+    @SuppressWarnings("unchecked")
     private static <T> void assertEquals(Collection<T> c1, T ... xs) {
         Collection<T> c2 = Arrays.asList(xs);
         assertEquals(c1, c2);
@@ -114,6 +115,14 @@ public class _RemoteRepositoryList {
         return us;
     }
 
+    static String localHost;
+
+    static URI local(int port, String path) throws Exception {
+        if (localHost == null)
+            localHost = InetAddress.getLocalHost().getHostName();
+        return URI.create("http://" + localHost + ":" + port + path);
+    }
+
     static void testAddRemove(int port) throws Exception {
 
         File LIB = new File("z.lib.addrem");
@@ -121,7 +130,7 @@ public class _RemoteRepositoryList {
         RemoteRepositoryList rl = lib.repositoryList();
         assert rl.repositories().isEmpty();
 
-        URI u1 = URI.create("http://localhost:" + port + "/foo");
+        URI u1 = local(port, "/foo");
         RemoteRepository rr = rl.add(u1, 0);
         assert rr != null;
         u1 = URI.create(u1.toString() + "/");
@@ -137,17 +146,17 @@ public class _RemoteRepositoryList {
         RemoteRepository rr_ = rrs.get(0);
         assert rr_.location().equals(rr.location());
 
-        URI u2 = URI.create("http://localhost:" + port + "/bar/");
+        URI u2 = local(port, "/bar/");
         RemoteRepository rr2 = rl.add(u2, Integer.MAX_VALUE);
         assertEquals(locations(rl), u1, u2);
         assertEquals(rl.repositories(), rr_, rr2);
 
-        URI u3 = URI.create("http://localhost:" + port + "/baz/");
+        URI u3 = local(port, "/baz/");
         RemoteRepository rr3 = rl.add(u3, 0);
         assertEquals(locations(rl), u3, u1, u2);
         assertEquals(rl.repositories(), rr3, rr_, rr2);
 
-        URI u4 = URI.create("http://localhost:" + port + "/qux/");
+        URI u4 = local(port, "/qux/");
         RemoteRepository rr4 = rl.add(u4, 1);
         assertEquals(locations(rl), u3, u4, u1, u2);
         assertEquals(rl.repositories(), rr3, rr4, rr_, rr2);
