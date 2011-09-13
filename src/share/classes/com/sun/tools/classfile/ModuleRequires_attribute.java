@@ -78,6 +78,12 @@ public class ModuleRequires_attribute extends Attribute {
                 attributes[i] = cr.readUnsignedShort();
         }
 
+        public Entry(int index, int[] attrs) {
+            requires_index = index;
+            attributes_length = attrs.length;
+            attributes = attrs;
+        }
+
         public int length() {
             return 4 + attributes_length * 2;
         }

@@ -72,6 +72,11 @@ public class ModuleExport_attribute extends Attribute {
             flags = cr.readUnsignedByte();
         }
 
+        public Entry(int e, int f) {
+            export_index = e;
+            flags = f;
+        }
+
         public static int length() {
             return 3;
         }
