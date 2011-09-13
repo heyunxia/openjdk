@@ -83,11 +83,8 @@ grant signedBy "expired-signer" {
 EOF
 
 mkdir z.modules z.jarfiles
-$BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
+$BIN/javac -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
-mkdir z.modules/test.security/META-INF
-mv z.modules/test.security/module-info.class \
-       z.modules/test.security/META-INF
 $BIN/jar cf z.jarfiles/GetProperty.jar -C z.modules/test.security .
 $BIN/jarsigner -keystore keystore.jks z.jarfiles/GetProperty.jar signer < ${SRC}/keystore.pw
 

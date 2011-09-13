@@ -40,6 +40,7 @@ rm -rf z.*
 mk z.src/com.greetings/module-info.java <<EOF
 module com.greetings @ 0.1 {
     requires org.astro @ 1.2;
+    requires test @ 1.0;
     class com.greetings.Hello;
 }
 EOF
@@ -67,29 +68,95 @@ public class World {
 }
 EOF
 
+mk z.src/test/module-info.java <<EOF
+module test @ 1.0 {
+    class test.Test;
+}
+EOF
+
+mk z.src/test/test/Test.java <<EOF
+package test;
+import java.lang.module.*;
+import java.util.jar.*;
+public class Test {
+    public static void main(String[] argv) throws Exception {
+        Test t = new Test(argv[0]);
+        t.run();
+    }
+    String jfname;
+    public Test(String name) {
+        this.jfname = name;
+    } 
+    public void run() throws Exception {
+        JarFile jf = new JarFile(jfname);
+        ModuleInfo mi = jf.getModuleInfo();
+        if (mi == null)
+            throw new RuntimeException("null ModuleInfo in " + jfname);
+        if (!mi.mainClass().equals("com.greetings.Hello")) {
+            throw new RuntimeException("Unexpected main class " + mi);
+        }
+        if (mi.requires().size() != 3)
+            throw new RuntimeException("requires.length != 3");
+        Dependence[] ds = mi.requires().toArray(new Dependence[0]);
+        for (Dependence d : mi.requires()) {
+            String n = d.query().name();
+            if (n.startsWith("jdk")) continue;
+            if (!n.equals("org.astro") && !n.equals("test"))
+                throw new RuntimeException("Unexpected requires " + d);
+        }
+    }
+}
+EOF
+
 mk z.src/manifest <<EOF
-Class-Path: world.jar
-Main-Class: com.greetings/Hello
+Class-Path: world.jar test.jar
+Main-Class: com.greetings.Hello
 EOF
 mkdir z.modules z.jarfiles
 
-$BIN/javac -source 7 -d z.modules -modulepath z.modules \
+$BIN/javac -d z.modules -modulepath z.modules \
    `find z.src -name '*.java'`
 
-mkdir z.modules/com.greetings/META-INF
-mkdir z.modules/org.astro/META-INF
-mv z.modules/com.greetings/module-info.class \
-       z.modules/com.greetings/META-INF
-mv z.modules/org.astro/module-info.class \
-       z.modules/org.astro/META-INF
+run() {
+   rm -rf z.lib
+   DIR=$1
+   # launch in legacy mode
+   $BIN/java -jar $DIR/hello.jar
+
+   # launch in module mode
+   $BIN/jmod -L z.lib create
+   $BIN/jmod -L z.lib install $DIR/test.jar $DIR/world.jar $DIR/hello.jar
+   $BIN/java -L z.lib -m com.greetings
+   # validate module-info.class in hello.jar
+   $BIN/java -L z.lib -m test $DIR/hello.jar
+}
 
 # Test jar file in both store-only mode and compressed mode
-$BIN/jar c0f z.jarfiles/world.jar -C z.modules/org.astro .
-$BIN/jar cfm z.jarfiles/hello.jar z.src/manifest -C z.modules/com.greetings .
+$BIN/jar c0fe z.modules/test.jar test.Test -C z.modules/test .
+$BIN/jar c0f z.modules/world.jar -C z.modules/org.astro .
+$BIN/jar cfm z.modules/hello.jar z.src/manifest -C z.modules/com.greetings .
 
-# launch in legacy mode
-$BIN/java -jar z.jarfiles/hello.jar
+# modular jars with module-info.class entry
+run z.modules
 
-$BIN/jmod -L z.lib create
-$BIN/jmod -L z.lib install z.jarfiles/world.jar z.jarfiles/hello.jar
-$BIN/java -L z.lib -m com.greetings
+
+# modular jars without module-info.class entry but use -I option
+$BIN/jar c0fIe z.jarfiles/test.jar test@1.0 test.Test \
+             -C z.modules/test test 
+$BIN/jar cfI z.jarfiles/world.jar org.astro@1.2 \
+             -C z.modules/org.astro org
+$BIN/jar c0fmI z.jarfiles/hello.jar z.src/manifest com.greetings@0.1 \
+             -C z.modules/com.greetings com
+
+# Run in legacy mode and module mode
+run z.jarfiles
+
+# Update z.jarfiles 
+$BIN/jar ufI z.jarfiles/test.jar test@1.0
+$BIN/jar u0f z.jarfiles/world.jar \
+             -C z.modules/org.astro module-info.class
+$BIN/jar u0fm z.jarfiles/hello.jar z.src/manifest \
+             -C z.modules/com.greetings com
+
+# Run in legacy mode and module mode
+run z.jarfiles

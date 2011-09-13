@@ -947,42 +947,21 @@ public final class SimpleLibrary
         }
     }
 
-    private byte[] readModuleInfoBytes(JarFile jf)
-        throws IOException
-    {
-        JarEntry je = jf.getJarEntry("META-INF/module-info.class");
-        if (je == null)
-            return null;
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (InputStream is = jf.getInputStream(je)) {
-            byte[] bs = new byte[1024];
-            int cc = 0;
-            while ((cc = is.read(bs)) > 0) {
-                baos.write(bs, 0, cc);
-            }
-        }
-        return baos.toByteArray();
-    }
-
     private ModuleId installFromJarFile(File mf, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
         File md = null;
         try (JarFile jf = new JarFile(mf, verifySignature)) {
-            byte[] mib = readModuleInfoBytes(jf);
-            if (mib == null)
+            ModuleInfo mi = jf.getModuleInfo();
+            if (mi == null)
                 throw new ConfigurationException(mf + ": not a modular JAR file");
 
-            ModuleInfo mi = jms.parseModuleInfo(mib);
             md = moduleDir(mi.id());
             ModuleId mid = mi.id();
             if (md.exists())
                 throw new ConfigurationException(mid + ": Already installed");
             if (!md.mkdirs())
                 throw new IOException(md + ": Cannot create");
-
-            Files.store(mib, new File(md, "info"));
 
             boolean signed = false;
 
@@ -997,7 +976,11 @@ public final class SimpleLibrary
                 while (entries.hasMoreElements()) {
                     JarEntry je = entries.nextElement();
                     try (InputStream is = jf.getInputStream(je)) {
-                        writeJarEntry(is, je, jos);
+                       if (je.getName().equals(JarFile.MODULEINFO_NAME)) {
+                            java.nio.file.Files.copy(is, md.toPath().resolve("info"));
+                        } else {
+                            writeJarEntry(is, je, jos);
+                        }
                     }
                     if (!signed) {
                         String name = je.getName().toUpperCase(Locale.ENGLISH);
