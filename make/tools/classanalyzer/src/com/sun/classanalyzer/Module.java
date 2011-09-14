@@ -23,21 +23,22 @@
  */
 package com.sun.classanalyzer;
 
+import com.sun.classanalyzer.ModuleInfo.Dependence;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
-
 
 /**
  * Module contains a list of classes and resources.
@@ -45,36 +46,6 @@ import java.util.TreeSet;
  * @author Mandy Chung
  */
 public class Module implements Comparable<Module> {
-
-    private static final Map<String, Module> modules =
-            new LinkedHashMap<String, Module>();
-
-    public static Collection<Module> getAllModules() {
-        return Collections.unmodifiableCollection(modules.values());
-    }
-
-    public static void addModule(Module m) {
-        String name = m.name();
-        if (modules.containsKey(name)) {
-            throw new RuntimeException("module \"" + name + "\" already exists");
-        }
-        modules.put(name, m);
-    }
-
-    public static Module addModule(ModuleConfig config) {
-        String name = config.module;
-        if (modules.containsKey(name)) {
-            throw new RuntimeException("module \"" + name + "\" already exists");
-        }
-        Module m = new Module(config);
-        addModule(m);
-        return m;
-    }
-
-    public static Module findModule(String name) {
-        return modules.get(name);
-    }
-
     private static String baseModuleName = "base";
     static void setBaseModule(String name) {
         if (name == null || name.isEmpty()) {
@@ -100,20 +71,26 @@ public class Module implements Comparable<Module> {
             }
         }
     }
+
     private final String name;
+    private final String version;
     private final ModuleConfig config;
     private final Set<Klass> classes;
     private final Set<ResourceFile> resources;
     private final Set<Reference> unresolved;
     private final Set<Module> members;
     // update during the analysis
+
     private Module group;
     private ModuleInfo minfo;
+    private Set<PackageInfo> pkgInfos;
+
     private boolean isBaseModule;
     protected String mainClassName;
 
     protected Module(ModuleConfig config) {
         this.name = config.module;
+        this.version = config.version;
         this.isBaseModule = name.equals(baseModuleName);
         this.classes = new TreeSet<Klass>();
         this.resources = new TreeSet<ResourceFile>();
@@ -126,6 +103,10 @@ public class Module implements Comparable<Module> {
 
     String name() {
         return name;
+    }
+
+    String version() {
+        return version;
     }
 
     ModuleConfig config() {
@@ -142,6 +123,13 @@ public class Module implements Comparable<Module> {
 
     Set<Klass> classes() {
         return Collections.unmodifiableSet(classes);
+    }
+
+    synchronized Set<PackageInfo> packages() {
+        if (pkgInfos == null) {
+            pkgInfos = PackageInfo.getPackageInfos(this);
+        }
+        return pkgInfos;
     }
 
     Set<ResourceFile> resources() {
@@ -166,15 +154,21 @@ public class Module implements Comparable<Module> {
         return moduleProps.getProperty(name + ".allow.empty") != null;
     }
 
-    // returns itself.
-    public Module exporter(Module from) {
-        return this;
+    boolean exportAllPackages() {
+        // default - exports all packages
+        String value = moduleProps.getProperty(name + ".exports.all");
+        return value == null || Boolean.valueOf(value);
     }
 
     protected boolean isTopLevel() {
         // module with no class is not included except the base module
-        return this.group == this
-                && (isBase() || !isEmpty() || !config.requires().isEmpty() || allowEmpty());
+        // or reexporting APIs from required modules
+        boolean reexports = false;
+        for (Dependence d : config().requires()) {
+            reexports = reexports || d.isPublic();
+        }
+        return this.group() == this
+                && (isBase() || !isEmpty() || allowEmpty() || reexports);
     }
 
     Klass mainClass() {
@@ -282,9 +276,9 @@ public class Module implements Comparable<Module> {
     Module getModuleDependence(Klass k) {
         if (isModuleDependence(k)) {
             Module m = k.getModule();
-            if (group == this && m != null) {
+            if (group() == this && m != null) {
                 // top-level module
-                return m.group;
+                return m.group();
             } else {
                 return m;
             }
@@ -330,75 +324,127 @@ public class Module implements Comparable<Module> {
         }
     }
 
-    static void buildModuleMembers() {
-        // set up module member relationship
-        for (Module m : modules.values()) {
-            m.group = m; // initialize to itself
-            for (String name : m.config.members()) {
-                Module member = modules.get(name);
-                if (member == null) {
-                    throw new RuntimeException("module \"" + name + "\" doesn't exist");
-                }
-                m.members.add(member);
+    private static Factory INSTANCE = new Factory();
+    public static Factory getFactory() {
+        return INSTANCE;
+    }
+
+    static class Factory {
+        protected Map<String, Module> modules =
+                new LinkedHashMap<String, Module>();
+        protected final void addModule(Module m) {
+            // ## For now, maintain the static all modules list.
+            // ## Need to revisit later
+            String name = m.name();
+            if (modules.containsKey(name)) {
+                throw new RuntimeException("module \"" + name + "\" already exists");
+            }
+            modules.put(name, m);
+        }
+
+        public final Module findModule(String name) {
+            return modules.get(name);
+        }
+
+        public final Set<Module> getAllModules() {
+            Set<Module> ms = new LinkedHashSet<Module>(modules.values());
+            // always add nullModule the last as classes may be added later
+            ms.add(nullModule);
+            return ms;
+        }
+
+        public void init(List<ModuleConfig> mconfigs) {
+            for (ModuleConfig mconfig : mconfigs) {
+                Module m = this.newModule(mconfig);
+                addModule(m);
             }
         }
 
-        // set up the top-level module
-        ModuleVisitor<Module> groupSetter = new ModuleVisitor<Module>() {
+        public Module newModule(String name, String version) {
+            return this.newModule(new ModuleConfig(name, version));
+        }
 
-            public void preVisit(Module m, Module p) {
-                m.group = p;
-                if (p.isBaseModule) {
-                    // all members are also base
-                    m.isBaseModule = true;
-                }
-            }
+        public Module newModule(ModuleConfig config) {
+            return new Module(config);
+        }
 
-            public void visited(Module m, Module child, Module p) {
-                // nop - breadth-first search
-            }
-
-            public void postVisit(Module m, Module p) {
-                // nop - breadth-first search
-            }
-        };
-
-        // propagate the top-level module to all its members
-        for (Module p : modules.values()) {
-            for (Module m : p.members) {
-                if (m.group == m) {
-                    m.visitMembers(new TreeSet<Module>(), groupSetter, p);
-                }
+        public final void addModules(Set<Module> ms) {
+            for (Module m : ms) {
+                addModule(m);
             }
         }
 
-        ModuleVisitor<Module> mergeClassList = new ModuleVisitor<Module>() {
+        Module nullModule = initNullModule();
+        private Module initNullModule() {
+            return this.newModule(new ModuleConfig("unknown", "unknown"));
+        }
 
-            public void preVisit(Module m, Module p) {
-                // nop - depth-first search
+        void buildModuleMembers() {
+            // set up module member relationship
+            for (Module m : getAllModules()) {
+                m.group = m; // initialize to itself
+                for (String name : m.config.members()) {
+                    Module member = findModule(name);
+                    if (member != null) {
+                        m.members.add(member);
+                    }
+                }
             }
 
-            public void visited(Module m, Module child, Module p) {
-                m.addMember(child);
+            // set up the top-level module
+            ModuleVisitor<Module> groupSetter = new ModuleVisitor<Module>() {
+                public void preVisit(Module m, Module p) {
+                    m.group = p;
+                    if (p.isBaseModule) {
+                        // all members are also base
+                        m.isBaseModule = true;
+                    }
+                }
+
+                public void visited(Module m, Module child, Module p) {
+                    // nop - breadth-first search
+                }
+
+                public void postVisit(Module m, Module p) {
+                    // nop - breadth-first search
+                }
+            };
+
+            // propagate the top-level module to all its members
+            for (Module p : getAllModules()) {
+                for (Module m : p.members) {
+                    if (m.group == m) {
+                        m.visitMembers(new TreeSet<Module>(), groupSetter, p);
+                    }
+                }
             }
 
-            public void postVisit(Module m, Module p) {
-            }
-        };
+            ModuleVisitor<Module> mergeClassList = new ModuleVisitor<Module>() {
+                public void preVisit(Module m, Module p) {
+                    // nop - depth-first search
+                }
 
-        Set<Module> visited = new TreeSet<Module>();
-        Set<Module> groups = new TreeSet<Module>();
-        for (Module m : modules.values()) {
-            if (m.group() == m) {
-                groups.add(m);
-                if (m.members().size() > 0) {
-                    // merge class list from all its members
-                    m.visitMembers(visited, mergeClassList, m);
+                public void visited(Module m, Module child, Module p) {
+                    m.addMember(child);
+                }
+
+                public void postVisit(Module m, Module p) {
+                }
+            };
+
+            Set<Module> visited = new TreeSet<Module>();
+            Set<Module> groups = new TreeSet<Module>();
+            for (Module m : getAllModules()) {
+                if (m.group() == m) {
+                    groups.add(m);
+                    if (m.members().size() > 0) {
+                        // merge class list from all its members
+                        m.visitMembers(visited, mergeClassList, m);
+                    }
                 }
             }
         }
     }
-
 
     ModuleInfo getModuleInfo() {
         return minfo;

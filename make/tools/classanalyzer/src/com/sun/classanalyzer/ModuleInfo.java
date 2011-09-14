@@ -33,25 +33,20 @@ import java.util.*;
 public class ModuleInfo {
 
     private final Module module;
-    private final String version;
-    private final Set<PackageInfo> packages;
     private final Set<Dependence> requires;
     private final Set<Module> permits;
 
-    ModuleInfo(Module m, String version,
-               Collection<PackageInfo> packages,
-               Collection<Dependence> reqs,
-               Collection<Module> permits) {
+    ModuleInfo(Module m,
+            Collection<Dependence> reqs,
+            Collection<Module> permits) {
         this.module = m;
-        this.version = version;
-        this.packages = new TreeSet<PackageInfo>(packages);
         this.permits = new TreeSet<Module>(permits);
-
         this.requires = new TreeSet<Dependence>();
         // filter non-top level module
         for (Dependence d : reqs) {
-            if (d.getModule().isTopLevel())
+            if (d.getModule().isTopLevel()) {
                 requires.add(d);
+            }
         }
     }
 
@@ -67,11 +62,7 @@ public class ModuleInfo {
     }
 
     public String id() {
-        return module.name() + " @ " + version;
-    }
-
-    public Set<PackageInfo> packages() {
-        return Collections.unmodifiableSet(packages);
+        return module.name() + " @ " + module.version();
     }
 
     /**
@@ -100,7 +91,7 @@ public class ModuleInfo {
         return k != null ? k.getClassName() : "";
     }
 
-    private void visitDependence(Dependence.Filter filter, Set<Module> visited, Set<Module> result) {
+    void visitDependence(Dependence.Filter filter, Set<Module> visited, Set<Module> result) {
         if (!visited.contains(module)) {
             visited.add(module);
 
@@ -122,7 +113,45 @@ public class ModuleInfo {
         return result;
     }
 
+    private Set<String> reexports;
+
+    private synchronized Set<String> reexports() {
+        if (reexports != null) {
+            return reexports;
+        }
+
+        final Module m = module;
+        Set<Module> deps = dependences(new Dependence.Filter() {
+
+            @Override
+            public boolean accept(Dependence d) {
+                // filter itself
+                return d.isPublic();
+            }
+        });
+
+        reexports = new TreeSet<String>();
+        for (Module dm : deps) {
+            if (dm != module) {
+                // exports all local packages
+                for (PackageInfo p : dm.packages()) {
+                    if (PackageInfo.isExportedPackage(p.pkgName)) {
+                        reexports.add(p.pkgName + ".*");
+                    }
+                }
+                reexports.addAll(dm.getModuleInfo().reexports());
+            }
+        }
+        return reexports;
+    }
+
+    // a system property to specify to use "requires public"
+    // or the "exports" statement
+    private static final boolean requiresPublic =
+        Boolean.parseBoolean(System.getProperty("classanalyzer.requiresPublic", "true"));
     private static final String INDENT = "    ";
+
+
     /**
      * Returns a string representation of module-info.java for
      * this module.
@@ -130,15 +159,18 @@ public class ModuleInfo {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("module ").append(id()).append(" {\n");
+        sb.append(String.format("module %s {%n", id()));
 
         for (Dependence d : requires()) {
-            sb.append(INDENT).append("requires");
+            String mods = "";
             for (Dependence.Modifier mod : d.mods) {
-                sb.append(" ").append(mod);
+                if (requiresPublic || mod != Dependence.Modifier.PUBLIC) {
+                    mods += mod.toString() + " ";
+                }
             }
-            String did = d.getModule().getModuleInfo().id();
-            sb.append(" ").append(did).append(";\n");
+            sb.append(String.format("%srequires %s%s;%n", INDENT,
+                                    mods,
+                                    d.getModule().getModuleInfo().id()));
         }
 
         String permits = INDENT + "permits ";
@@ -146,8 +178,9 @@ public class ModuleInfo {
         for (Module pm : permits()) {
             if (i > 0) {
                 permits += ", ";
-                if ((i % 5) == 0)
+                if ((i % 5) == 0) {
                     permits += "\n" + INDENT + "        "; // "permits"
+                }
             }
             permits += pm.name();
             i++;
@@ -157,10 +190,72 @@ public class ModuleInfo {
             sb.append(permits).append(";\n");
         }
         if (module.mainClass() != null) {
-            sb.append(INDENT).append("class ").append(mainClass()).append(";\n");
+            sb.append(String.format("%sclass %s;%n", INDENT, mainClass()));
         }
+
+        if (!requiresPublic)
+            printExports(sb);
+
         sb.append("}\n");
         return sb.toString();
+    }
+
+    private void printExports(StringBuilder sb) {
+        Set<Module> modules = dependences(new Dependence.Filter() {
+
+            @Override
+            public boolean accept(Dependence d) {
+                // filter itself
+                return d.isPublic();
+            }
+        });
+
+        // explicit exports in the given config file
+        Set<String> cexports = new TreeSet<String>();
+        for (Module m : modules) {
+            cexports.addAll(m.config().exports());
+        }
+
+        if (cexports.size() > 0) {
+            sb.append("\n" + INDENT + "// explicit exports\n");
+            for (String e : cexports) {
+                sb.append(String.format("%sexport %s;%n", INDENT, e));
+            }
+        }
+
+        // exports all local packages
+        Set<String> pkgs = new TreeSet<String>();
+        for (PackageInfo pi : module.packages()) {
+            String p = pi.pkgName;
+            if (module.exportAllPackages() || PackageInfo.isExportedPackage(p))
+                pkgs.add(p);
+        }
+
+        if (pkgs.size() > 0) {
+            sb.append(String.format("%n%s// exports %s packages%n", INDENT,
+                                    module.exportAllPackages() ? "all local" : "supported"));
+            for (String p : pkgs) {
+                sb.append(String.format("%sexport %s.*;%n", INDENT, p));
+            }
+        }
+
+        // reexports
+        if (reexports().size() > 0) {
+            Set<String> rexports = new TreeSet<String>();
+            if (modules.size() == 2) {
+                // special case?
+                rexports.addAll(reexports());
+            } else {
+                for (String e : reexports()) {
+                    int j = e.indexOf('.');
+                    rexports.add(e.substring(0, j) + ".**");
+                }
+            }
+            sb.append("\n" + INDENT + "// reexports\n");
+            for (String p : rexports) {
+                sb.append(String.format("%sexport %s;%n", INDENT, p));
+            }
+        }
     }
 
     static class Dependence implements Comparable<Dependence> {
@@ -181,27 +276,24 @@ public class ModuleInfo {
                 return name;
             }
         }
-        private final String id;
+        final String id;
         private EnumSet<Modifier> mods;
-        private Module sm = null;
+        private Module dm = null;
 
-        public Dependence(Module sm) {
-            this(sm, false);
+        public Dependence(Module dm) {
+            this(dm, false);
         }
 
-        public Dependence(Module sm, boolean optional) {
-            this(sm, modifier(optional));
+        public Dependence(Module dm, boolean optional) {
+            this(dm, modifier(optional));
         }
 
-        public Dependence(Klass from, Klass to, boolean optional) {
-            this(to.getModule(), modifier(optional));
-        }
-
-        public Dependence(Module sm, EnumSet<Modifier> mods) {
-            this.sm = sm.group();
-            this.id = this.sm.name();
+        public Dependence(Module dm, EnumSet<Modifier> mods) {
+            this.dm = dm.group();
+            this.id = dm.name();
             this.mods = mods;
         }
+
         public Dependence(String name, boolean optional) {
             this(name, optional, false, false);
         }
@@ -224,19 +316,17 @@ public class ModuleInfo {
         }
 
         private static EnumSet<Modifier> modifier(boolean optional) {
-            return optional ? EnumSet.of(Modifier.OPTIONAL) :
-                EnumSet.noneOf(Modifier.class);
+            return optional ? EnumSet.of(Modifier.OPTIONAL)
+                    : EnumSet.noneOf(Modifier.class);
         }
 
-        synchronized Module getModule() {
-            if (sm == null) {
-                Module m = Module.findModule(id);
-                if (m == null) {
-                    throw new RuntimeException("Module " + id + " doesn't exist");
-                }
-                sm = m.group();
-            }
-            return sm;
+        void setModule(Module m) {
+            assert dm == null && m != null;
+            dm = m.group();
+        }
+
+        Module getModule() {
+            return dm;
         }
 
         public boolean isOptional() {
@@ -276,6 +366,7 @@ public class ModuleInfo {
         }
 
         static interface Filter {
+
             public boolean accept(Dependence d);
         }
 
@@ -315,60 +406,6 @@ public class ModuleInfo {
             }
             sb.append(getModule().name());
             return sb.toString();
-        }
-    }
-
-    static class PackageInfo implements Comparable<PackageInfo> {
-
-        final Module module;
-        final String pkgName;
-        int count;
-        long filesize;
-
-        public PackageInfo(Module m, String name) {
-            this.module = m;
-            this.pkgName = name;
-            this.count = 0;
-            this.filesize = 0;
-        }
-
-        void add(PackageInfo pkg) {
-            this.count += pkg.count;
-            this.filesize += pkg.filesize;
-        }
-
-        void add(long size) {
-            count++;
-            filesize += size;
-
-        }
-
-        @Override
-        public int hashCode() {
-            int hash = 5;
-            hash = 59 * hash + (this.module != null ? this.module.hashCode() : 0);
-            hash = 59 * hash + (this.pkgName != null ? this.pkgName.hashCode() : 0);
-            return hash;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o instanceof PackageInfo) {
-                PackageInfo p = (PackageInfo) o;
-                return p.module.equals(this.module) && p.pkgName.equals(this.pkgName);
-            }
-            return false;
-        }
-
-        @Override
-        public int compareTo(PackageInfo p) {
-            if (this.equals(p)) {
-                return 0;
-            } else if (pkgName.compareTo(p.pkgName) == 0) {
-                return module.compareTo(p.module);
-            } else {
-                return pkgName.compareTo(p.pkgName);
-            }
         }
     }
 }

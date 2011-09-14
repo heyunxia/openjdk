@@ -301,7 +301,7 @@ public class ClassPath {
 
         @Override
         public void visitClass(File f, String cn) throws IOException {
-            ClassFileParser cfparser = ClassFileParser.newParser(f, true);
+            ClassFileParser cfparser = ClassFileParser.newParser(f, parseDeps);
             classes.add(cfparser.this_klass);
             if (parseDeps) {
                 cfparser.parseDependency(apiOnly);
@@ -310,7 +310,7 @@ public class ClassPath {
 
         @Override
         public void visitClass(JarFile jf, JarEntry e) throws IOException {
-            ClassFileParser cfparser = ClassFileParser.newParser(jf.getInputStream(e), e.getSize(), true);
+            ClassFileParser cfparser = ClassFileParser.newParser(jf.getInputStream(e), e.getSize(), parseDeps);
             classes.add(cfparser.this_klass);
             if (parseDeps) {
                 cfparser.parseDependency(apiOnly);
@@ -321,7 +321,7 @@ public class ClassPath {
         public void visitResource(File f, String rn) throws IOException {
             BufferedInputStream in = new BufferedInputStream(new FileInputStream(f));
             try {
-                ResourceFile res = ResourceFile.addResource(rn, in);
+                ResourceFile res = ResourceFile.addResource(rn, in, f.length());
                 resources.add(res);
             } finally {
                 in.close();
@@ -330,7 +330,7 @@ public class ClassPath {
 
         @Override
         public void visitResource(JarFile jf, JarEntry e) throws IOException {
-            ResourceFile res = ResourceFile.addResource(e.getName(), jf.getInputStream(e));
+            ResourceFile res = ResourceFile.addResource(e.getName(), jf.getInputStream(e), e.getSize());
             resources.add(res);
         }
     }
@@ -374,7 +374,7 @@ public class ClassPath {
         public Void visitDir(final File dir, final ClassPathEntry cp, Void v) throws IOException {
             List<File> ls = Files.walkTree(dir, null);
             for (File f : ls) {
-                visitFile(f, (ClassPathEntry) cp, null);
+                visitFile(f, cp, null);
             }
             return null;
         }

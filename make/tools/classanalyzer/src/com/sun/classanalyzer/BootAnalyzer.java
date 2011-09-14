@@ -44,7 +44,6 @@ import com.sun.tools.classfile.ConstantPool.*;
 import static com.sun.tools.classfile.ConstantPool.*;
 import com.sun.tools.classfile.Instruction.TypeKind;
 import com.sun.tools.classfile.Type.*;
-import com.sun.classanalyzer.ModuleInfo.PackageInfo;
 import static com.sun.classanalyzer.Trace.*;
 
 /**
@@ -150,9 +149,9 @@ public class BootAnalyzer {
         ModuleBuilder builder =
                 new ModuleBuilder(Collections.singletonList(bootconfig), version);
 
-        assert Module.getAllModules().size() == 1;
+        assert builder.getModules().size() == 1;
         Module module = null;
-        for (Module m : Module.getAllModules()) {
+        for (Module m : builder.getModules()) {
             module = m;
             break;
         }
@@ -176,12 +175,12 @@ public class BootAnalyzer {
             long total = 0L;
             int count = 0;
             summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
-            for (PackageInfo info : m.getModuleInfo().packages()) {
-                if (info.count > 0) {
+            for (PackageInfo info : m.packages()) {
+                if (info.classCount > 0) {
                     summary.format("%10d\t%10d\t%s%n",
-                                  info.filesize, info.count, info.pkgName);
-                    total += info.filesize;
-                    count += info.count;
+                                  info.classBytes, info.classCount, info.pkgName);
+                    total += info.classBytes;
+                    count += info.classCount;
                 }
             }
             summary.format("%nTotal: %d bytes (uncompressed) %d classes%n",

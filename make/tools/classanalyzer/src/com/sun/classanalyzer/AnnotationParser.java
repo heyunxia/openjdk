@@ -59,7 +59,9 @@ public class AnnotationParser {
 
     private AnnotatedDependency addAnnotation(Annotation annot, Klass.Method method) {
         String type = getType(annot.type_index);
-        AnnotatedDependency dep = AnnotatedDependency.newAnnotatedDependency(type, cfparser.this_klass);
+        AnnotatedDependency dep =
+            AnnotatedDependency.newAnnotatedDependency(type, cfparser.this_klass);
+
         if (dep != null) {
             for (int i = 0; i < annot.num_element_value_pairs; i++) {
                 Element element = getElement(annot.element_value_pairs[i]);
@@ -181,8 +183,12 @@ public class AnnotationParser {
         }
     }
 
-    void parseAttributes(Attributes attributes) {
-        parseAttributes(attributes, null);
+    void parseAttributes(Field f) {
+        parseAttributes(f.attributes, null);
+    }
+
+    void parseAttributes(ClassFile cf) throws ConstantPoolException {
+        parseAttributes(cf.attributes, null);
     }
 
     public static void main(String[] args) throws Exception {

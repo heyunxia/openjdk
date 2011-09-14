@@ -65,14 +65,12 @@ module jdk.base {
     include US_export_policy;
     include local_policy;
 
-    include instrument;
-
     requires public local jdk.boot;
 
     // explicit optional dependences
-    requires optional local sun.resources;
-    requires optional local sun.localedata;
-    requires optional local sun.charsets;
+    requires optional sun.resources;
+    requires optional sun.localedata;
+    requires optional sun.charsets;
     class org.openjdk.jigsaw.Hi;    // testing
 }
 
@@ -80,6 +78,11 @@ module jdk.advanced {
     // sun.misc.PostVMInitHook is loaded by the VM
     requires local jdk.boot;
     include j4b;
+}
+
+module jdk.instrument {
+    requires local jdk.boot;
+    include instrument;
 }
 
 /*
@@ -320,6 +323,7 @@ module jdk.ext {
     requires local jdk.boot;   // loaded by bootstrap class loader
     include httpserver;
     include net-ext;
+    include zipfs;
 }
 
 // ## langtools maintains the list of modules and names

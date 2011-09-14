@@ -459,8 +459,8 @@ public class Modularizer {
             cpath = ClassPath.newInstance(classpath);
         }
 
-        ClassListReader reader = new ClassListReader();
-        Set<Module> modules = reader.loadModulesFrom(new File(classlistDir));
+        ClassListReader reader = new ClassListReader(classlistDir, "default");
+        Set<Module> modules = reader.run();
         Modularizer modularizer = new Modularizer(cpath, new File(modulepath), modules);
         modularizer.run(update);
     }

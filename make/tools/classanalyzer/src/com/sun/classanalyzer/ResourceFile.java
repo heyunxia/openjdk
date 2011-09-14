@@ -40,12 +40,18 @@ import java.util.TreeSet;
  */
 public class ResourceFile implements Comparable<ResourceFile> {
     private final String pathname;
+    private final long filesize;
     protected final String name;
     private Module module;
 
     ResourceFile(String fname) {
+        this(fname, 0);
+    }
+
+    ResourceFile(String fname, long size) {
         this.pathname = fname.replace('/', File.separatorChar);
         this.name = fname.replace(File.separatorChar, '/');
+        this.filesize = size;
     }
 
     Module getModule() {
@@ -65,6 +71,10 @@ public class ResourceFile implements Comparable<ResourceFile> {
 
     String getPathname() {
         return pathname;
+    }
+
+    long getFileSize() {
+        return filesize;
     }
 
     @Override
@@ -87,20 +97,17 @@ public class ResourceFile implements Comparable<ResourceFile> {
         if (name.contains("META-INF/JCE_RSA.")) {
             return false;
         }
-        if (name.contains("META-INF/ORACLE_J.")) {
-            return false;
-        }
 
         return true;
     }
 
-    static ResourceFile addResource(String fname, InputStream in) {
+    static ResourceFile addResource(String fname, InputStream in, long size) {
         ResourceFile res;
         fname = fname.replace(File.separatorChar, '/');
         if (fname.startsWith("META-INF/services")) {
-            res = new ServiceProviderConfigFile(fname, in);
+            res = new ServiceProviderConfigFile(fname, in, size);
         } else {
-            res = new ResourceFile(fname);
+            res = new ResourceFile(fname, size);
         }
         resources.add(res);
         return res;
@@ -113,8 +120,13 @@ public class ResourceFile implements Comparable<ResourceFile> {
     static class ServiceProviderConfigFile extends ResourceFile {
         final List<String> providers = new ArrayList<String>();
         final String service;
+
         ServiceProviderConfigFile(String fname, InputStream in) {
-            super(fname);
+            this(fname, in, 0);
+        }
+
+        ServiceProviderConfigFile(String fname, InputStream in, long size) {
+            super(fname, size);
             readServiceConfiguration(in, providers);
             this.service = name.substring("META-INF/services".length() + 1, name.length());
         }

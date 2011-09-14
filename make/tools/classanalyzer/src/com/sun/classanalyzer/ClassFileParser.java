@@ -145,7 +145,7 @@ public class ClassFileParser {
                 }
             }
             // parse attributes
-            annotationParser.parseAttributes(classfile.attributes);
+            annotationParser.parseAttributes(classfile);
         } catch (ConstantPoolException ex) {
             throw new RuntimeException(ex);
         }
@@ -172,7 +172,7 @@ public class ClassFileParser {
                     addFieldTypes(getKlass(t), info, flags);
                 }
                 // parse attributes
-                annotationParser.parseAttributes(f.attributes);
+                annotationParser.parseAttributes(f);
             } catch (ConstantPoolException ex) {
                 throw new RuntimeException(ex);
             } catch (InvalidDescriptor ex) {

@@ -37,6 +37,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import com.sun.classanalyzer.ModuleInfo.Dependence;
+import com.sun.classanalyzer.ModuleInfo.Dependence.Modifier;
 
 /**
  *
@@ -48,20 +49,27 @@ public class ModuleConfig {
     protected final Set<String> includes;
     protected final Set<String> permits;
     protected final Map<String, Dependence> requires;
+    protected final Set<String> exports;
     private final Filter filter;
     private List<String> members;
     private String mainClass;
     final String module;
+    final String version;
 
-    ModuleConfig(String name) throws IOException {
-        this(name, null);
+    ModuleConfig(String name, String version) {
+        this(name, version, null);
     }
 
-    ModuleConfig(String name, String mainClass) throws IOException {
+    ModuleConfig(String name, String version, String mainClass)
+    {
+        assert name != null && version != null;
+
         this.module = name;
+        this.version = version;
         this.roots = new TreeSet<String>();
         this.includes = new TreeSet<String>();
         this.permits = new TreeSet<String>();
+        this.exports = new TreeSet<String>();
         this.requires = new LinkedHashMap<String, Dependence>();
         this.filter = new Filter(this);
         this.mainClass = mainClass;
@@ -72,8 +80,8 @@ public class ModuleConfig {
             members = new LinkedList<String>();
 
             for (String s : includes) {
-                if (!s.contains("*") && Module.findModule(s) != null) {
-                    // module member
+                if (!s.contains("*")) {
+                    // this isn't necessarily a module.  Will determine later.
                     members.add(s);
                 }
             }
@@ -85,18 +93,28 @@ public class ModuleConfig {
         return permits;
     }
 
+    Set<String> exports() {
+        return exports;
+    }
+
     Collection<Dependence> requires() {
         return requires.values();
     }
 
-    void export(Module m) {
+    void reexportModule(Module m) {
+        reexportModule(m, false);
+    }
+
+    void reexportModule(Module m, boolean optional) {
         Dependence d = requires.get(m.name());
         if (d == null) {
-            d = new Dependence(m, EnumSet.of(Dependence.Modifier.PUBLIC));
+            EnumSet<Modifier> mods = optional ?
+                EnumSet.of(Modifier.PUBLIC, Modifier.OPTIONAL) :
+                EnumSet.of(Modifier.PUBLIC);
+            requires.put(m.name(), new Dependence(m, mods));
         } else if (!d.isPublic()){
             throw new RuntimeException(module + " should require public " + m.name());
         }
-        requires.put(m.name(), d);
     }
 
     void addPermit(Module m) {
@@ -204,13 +222,12 @@ public class ModuleConfig {
             int pos = pattern.indexOf('*');
             String prefix = pattern.substring(0, pos);
             String suffix = pattern.substring(pos + 1, pattern.length());
-            String tail = name.substring(pos, name.length());
-
             if (!name.startsWith(prefix)) {
                 // prefix has to exact match
                 return false;
             }
 
+            String tail = name.substring(pos, name.length());
             if (pattern.indexOf('*') == pattern.lastIndexOf('*')) {
                 // exact match prefix with no '/' in the tail string
                 String wildcard = tail.substring(0, tail.length() - suffix.length());
@@ -414,7 +431,7 @@ public class ModuleConfig {
     // the naming convention for the module names without dashes
     static final Pattern classNamePattern = Pattern.compile("[\\w\\.\\*_$-/]+");
 
-    static List<ModuleConfig> readConfigurationFile(String file) throws IOException {
+    static List<ModuleConfig> readConfigurationFile(String file, String version) throws IOException {
         List<ModuleConfig> result = new ArrayList<ModuleConfig>();
         // parse configuration file
         FileInputStream in = new FileInputStream(file);
@@ -459,7 +476,8 @@ public class ModuleConfig {
                 }
 
                 String values;
-                if (inRoots || inIncludes || inExcludes || inAllows || inPermits || inRequires) {
+                if (inRoots || inIncludes || inExcludes || inAllows ||
+                        inPermits || inRequires) {
                     values = line;
                 } else {
                     String[] s = line.split("\\s+");
@@ -470,7 +488,8 @@ public class ModuleConfig {
                             throw new RuntimeException(file + ", line " +
                                     lineNumber + ", is malformed");
                         }
-                        config = new ModuleConfig(s[1].trim());
+                        // use the given version
+                        config = new ModuleConfig(s[1].trim(), version);
                         result.add(config);
                         // switch to a new module; so reset the flags
                         inRoots = false;
@@ -481,12 +500,12 @@ public class ModuleConfig {
                         inPermits = false;
                         continue;
                     } else if (keyword.equals("class")) {
-                         if (s.length != 2 || !s[1].trim().endsWith(";")) {
-                            throw new RuntimeException(file + ", line " +
-                                    lineNumber + ", is malformed");
-                         }
-                         config.mainClass = s[1].substring(0, s[1].length() - 1);
-                         continue;
+                        if (s.length != 2 || !s[1].trim().endsWith(";")) {
+                            throw new RuntimeException(file + ", line "
+                                    + lineNumber + ", is malformed");
+                        }
+                        config.mainClass = s[1].substring(0, s[1].length() - 1);
+                        continue;
                     } else if (keyword.equals("roots")) {
                         inRoots = true;
                     } else if (keyword.equals("include")) {
@@ -497,6 +516,14 @@ public class ModuleConfig {
                         inAllows = true;
                     } else if (keyword.equals("permits")) {
                         inPermits = true;
+                    } else if (keyword.equals("export")) {
+                        // only support one class/package/wildcard in each export statement
+                        if (s.length != 2 || !s[1].trim().endsWith(";")) {
+                            throw new RuntimeException(file + ", line "
+                                    + lineNumber + ", is malformed");
+                        }
+                        config.exports.add(s[1].substring(0, s[1].length() - 1));
+                        continue;
                     } else if (keyword.equals("requires")) {
                         inRequires = true;
                         optional = false;
@@ -572,11 +599,6 @@ public class ModuleConfig {
                             if (config.requires.containsKey(s)) {
                                 throw new RuntimeException(file + ", line " +
                                     lineNumber + " duplicated requires: \"" + s + "\"");
-                            }
-                            boolean isBootModule = s.equals("jdk.boot");
-                            if (!local && isBootModule) {
-                                throw new RuntimeException(file + ", line " +
-                                    lineNumber + " requires: \"" + s + "\" must be local");
                             }
                             Dependence d = new Dependence(s, optional, reexport, local);
                             config.requires.put(s, d);

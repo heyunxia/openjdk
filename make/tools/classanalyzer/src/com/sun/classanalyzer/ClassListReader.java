@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,6 +23,7 @@
  */
 package com.sun.classanalyzer;
 
+import com.sun.classanalyzer.Module.Factory;
 import java.io.*;
 import java.util.*;
 
@@ -30,32 +31,47 @@ import java.util.*;
  * ClassListReader constructs modules from the .classlist and
  * .resources files
  *
- * @author Mandy Chung
- *
  * @see ClassListWriter
  */
 public class ClassListReader {
-    private final ModuleBuilder builder;
-    ClassListReader() {
-        ModuleBuilder mb = null;
-        try {
-            mb = new ModuleBuilder(null, ""); // use default module builder
-        } catch (IOException e) {
-            // should not reach here
-        }
-        this.builder = mb;
-    }
-    ClassListReader(ModuleBuilder builder) {
-        this.builder = builder;
+    private final Factory factory;
+    private final File cldir;
+    private final String version;
+    public ClassListReader(String dir, String version) {
+        this(Module.getFactory(), new File(dir), version);
     }
 
-    Module loadModule(String name, Set<String> classes, Set<String> resources)
+    public ClassListReader(Factory factory, String dir, String version) {
+        this(factory, new File(dir), version);
+    }
+
+    public ClassListReader(Factory factory, File dir, String version) {
+        this.factory = factory;
+        this.cldir = dir;
+        this.version = version;
+    }
+
+    public Set<Module> run() throws IOException {
+       String[] summaryFiles = cldir.list(new FilenameFilter() {
+            public boolean accept(File f, String fname) {
+                return fname.endsWith(".summary") && !fname.equals("modules.summary");
+            }
+        });
+
+        for (String fn : summaryFiles) {
+            String name = fn.substring(0, fn.length() - ".summary".length());
+            Module m = loadModuleFrom(cldir, name);
+        }
+        return factory.getAllModules();
+    }
+
+    private Module loadModule(String name, Set<String> classes, Set<String> resources)
             throws IOException {
-        Module module = Module.findModule(name);
+        Module module = factory.findModule(name);
         if (module == null) {
-            module = builder.newModule(name);
+            module = factory.newModule(name, version);
+            factory.addModule(module);
         }
-
         for (String pathname : classes) {
             String cn = pathname.substring(0, pathname.length() - ".class".length())
                             .replace(File.separatorChar, '.');
@@ -72,36 +88,9 @@ public class ClassListReader {
         return module;
     }
 
-    /**
-     * Returns the list of modules constructed from the classlist
-     * and resources list in the given directory.
-     */
-    public Set<Module> loadModulesFrom(File dir) throws IOException {
-        String[] summaryFiles = dir.list(new FilenameFilter() {
-            public boolean accept(File f, String fname) {
-                if (fname.endsWith(".summary")) {
-                    return true;
-                }
-                return false;
-            }
-        });
-
-        Set<Module> modules = new LinkedHashSet<Module>();
-        for (String fn : summaryFiles) {
-            String name = fn.substring(0, fn.length() - ".summary".length());
-            Module m = loadModuleFrom(dir, name);
-            if (m != null) {
-                modules.add(m);
-            }
-        }
-
-        return modules;
-    }
-
     private Module loadModuleFrom(File dir, String name) throws IOException {
         File clist = new File(dir, name + ".classlist");
         File rlist = new File(dir, name + ".resources");
-        assert clist.exists() || rlist.exists();
 
         Module module = loadModule(name, readFile(clist), readFile(rlist));
 

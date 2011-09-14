@@ -65,8 +65,9 @@ public class ClassAnalyzer {
         String version = null;
         String classlistDir = ".";
         String minfoDir = null;
-        String nonCorePkgsFile = null;
+        String jigsawLibrary = null;
         ClassPath cpath = null;
+        boolean usePlatformModuleBuilder = false;
         boolean mergeModules = true;
         boolean apiOnly = false;
         boolean showDynamic = false;
@@ -102,16 +103,19 @@ public class ClassAnalyzer {
                 minfoDir = getOption(args, i++);
             } else if (arg.equals("-version")) {
                 version = getOption(args, i++);
-            } else if (arg.equals("-nomerge")) {
-                // analyze the fine-grained module dependencies
-                mergeModules = false;
+            } else if (arg.equals("-platform")) {
+                // a special case for generating JDK modules
+                usePlatformModuleBuilder = true;
+            } else if (arg.equals("-jigsawLibrary")) {
+                jigsawLibrary = getOption(args, i++);
             } else if (arg.equals("-api")) {
                 // analyze the fine-grained module dependencies
                 apiOnly = true;
+            } else if (arg.equals("-nomerge")) {
+                // analyze the fine-grained module dependencies
+                mergeModules = false;
             } else if (arg.equals("-showdynamic")) {
                 showDynamic = true;
-            } else if (arg.equals("-noncorepkgs")) {
-                nonCorePkgsFile = getOption(args, i++);
             } else {
                 error("Invalid option: " + arg);
             }
@@ -130,49 +134,69 @@ public class ClassAnalyzer {
         }
 
         ModuleBuilder builder;
-        if (jdkhome != null) {
-            PlatformModuleBuilder pmb =
+        if (usePlatformModuleBuilder) {
+            builder =
                 new PlatformModuleBuilder(configs, depconfigs, mergeModules, version);
-            if (nonCorePkgsFile != null) {
-                pmb.readNonCorePackagesFrom(nonCorePkgsFile);
-            }
-            builder = pmb;
         } else {
             builder = new ModuleBuilder(configs, depconfigs, mergeModules, version);
         }
 
+        File systemLib;
+        if (jigsawLibrary != null) {
+            systemLib = new File(jigsawLibrary);
+        } else {
+            systemLib = new File(new File(System.getProperty("java.home"),
+                                          "lib"),
+                                 "modules");
+        }
+        if (systemLib.exists() && jdkhome == null) {
+            // if running on a modular JDK, first load the jigsaw modules
+            // The jigsaw modules are not added to the ModuleBuilder
+            // as they are only used in the module dependency graph.
+            JigsawModuleBuilder jb = new JigsawModuleBuilder(systemLib);
+            builder.addModules(jb.run());
+        }
+
+        // incremental build
+        boolean incremental = update && doIncremental(classlistDir);
+        if (incremental) {
+            // Load modules from the existing class list and resource list
+            // Add them in the builder to be included in the analysis
+            ClassListReader reader = new ClassListReader(builder.getFactory(), classlistDir, version);
+            reader.run();
+        }
+
         ClassAnalyzer analyzer = new ClassAnalyzer(cpath, builder, classlistDir);
         // parse class and resource files
-        analyzer.run(update, apiOnly);
-
-        // print reports and module-info.java
-        analyzer.generateReports(classlistDir, showDynamic);
+        analyzer.run(incremental, apiOnly);
+        // print classlist and dependencies reports
+        analyzer.generateReports(showDynamic);
+        // print module-info.java
         if (minfoDir != null) {
             analyzer.printModuleInfos(minfoDir);
         }
     }
+
+    static boolean doIncremental(String classlistDir) {
+        File moduleList = new File(classlistDir, "modules.list");
+        return (moduleList.exists() && moduleList.lastModified() > 0);
+    }
+
     private final ClassPath cpath;
     private final ModuleBuilder builder;
-    private final File classlistDir;
+    private final String classlistDir;
     private final File moduleList;
     private final Set<Module> updatedModules; // updated modules
 
     ClassAnalyzer(ClassPath cpath, ModuleBuilder builder, String clistDir) {
         this.cpath = cpath;
         this.builder = builder;
-        this.classlistDir = new File(clistDir);
-        this.moduleList = new File(clistDir, "modules.list");
+        this.classlistDir = clistDir;
+        this.moduleList = new File(new File(clistDir), "modules.list");
         this.updatedModules = new TreeSet<Module>();
     }
 
     void run(boolean update, boolean apiOnly) throws IOException {
-        if (update) {
-            // incremental
-            if (!moduleList.exists()) {
-                // fall back to the default - analyze the entire jdk
-                update = false;
-            }
-        }
         // parse class and resource files
         processClassPath(update, apiOnly);
 
@@ -184,11 +208,16 @@ public class ClassAnalyzer {
         } else {
             updatedModules.addAll(builder.getModules());
         }
+
+        Module unknown = builder.getFactory().nullModule;
+        if (builder.getModules().contains(unknown))
+            System.out.println("WARNING: classes are not assigned to any module."
+                    + " Please see the unknown.classlist report.");
     }
 
-    public void generateReports(String output, boolean showDynamic)
+    public void generateReports(boolean showDynamic)
             throws IOException {
-        File outputDir = new File(output);
+        File outputDir = new File(classlistDir);
         if (!outputDir.exists())
             Files.mkdirs(outputDir);
 
@@ -237,9 +266,6 @@ public class ClassAnalyzer {
                     return lastModified <= 0 || lastModified > ts;
                 }
             };
-
-            // load modules from the existing class list and resource list
-            builder.loadModulesFrom(classlistDir);
         }
 
         // parse class and resource files
@@ -279,20 +305,28 @@ public class ClassAnalyzer {
         PrintWriter summary =
                 new PrintWriter(Files.resolve(dir, m.name(), "summary"));
         try {
-            ModuleInfo mi = m.getModuleInfo();
             long total = 0L;
             int count = 0;
             summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
-            for (PackageInfo info : mi.packages()) {
-                if (info.count > 0) {
+            for (PackageInfo info : m.packages()) {
+                if (info.classCount > 0) {
                     summary.format("%10d\t%10d\t%s%n",
-                            info.filesize, info.count, info.pkgName);
-                    total += info.filesize;
-                    count += info.count;
+                            info.classBytes, info.classCount, info.pkgName);
+                    total += info.classBytes;
+                    count += info.classCount;
                 }
             }
-            summary.format("%nTotal: %d bytes (uncompressed) %d classes%n",
-                    total, count);
+
+            long resBytes = 0;
+            int resCount = 0;
+            for (ResourceFile res : m.resources()) {
+                resCount++;
+                resBytes += res.getFileSize();
+            }
+
+            summary.format("%nTotal: %d bytes (uncompressed) %d classes " +
+                    "%d bytes %d resources %n",
+                    total, count, resBytes, resCount);
         } finally {
             summary.close();
         }
@@ -390,7 +424,7 @@ public class ClassAnalyzer {
     private void printModulesDot(File dir, boolean showDynamic) throws IOException {
         PrintWriter writer = new PrintWriter(new File(dir, "modules.dot"));
         try {
-            writer.println("digraph jdk {");
+            writer.println("digraph modules {");
             for (Module m : builder.getModules()) {
                 ModuleInfo mi = m.getModuleInfo();
                 for (Dependence dep : mi.requires()) {
@@ -477,12 +511,12 @@ public class ClassAnalyzer {
         sb.append("\t-config      <module config file>\n");
         sb.append("\t             This option can be repeated for multiple module config files\n");
         sb.append("\t-output      <output dir>\n");
-        sb.append("\t-update      update modules with newer files\n");
         sb.append("\t-moduleinfo  <output dir of module-info.java>\n");
+        sb.append("\t-jigsawLibrary <module-library-path>\n");
+        sb.append("\t-platform    platform modules\n");
         sb.append("\t-properties  module's properties\n");
-        sb.append("\t-noncorepkgs NON_CORE_PKGS.gmk\n");
         sb.append("\t-version     <module's version>\n");
-        sb.append("\t-showdynamic show dynamic dependencies in the reports\n");
+        sb.append("\t-update      update modules with newer files\n");
         sb.append("\t-nomerge     specify not to merge modules\n");
         return sb.toString();
     }

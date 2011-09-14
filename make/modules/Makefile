@@ -97,7 +97,10 @@ OPTIONAL_DEP_CONFIG = optional.depconfig
 #
 ORB_IDL=$(MODULEPATH_DIR)/$(IDLJ_MODULE)/lib/orb.idl
 IR_IDL=$(MODULEPATH_DIR)/$(IDLJ_MODULE)/lib/ir.idl
+
+
 all: $(MODULES_LIST) module-info-classes $(ORB_IDL) $(IR_IDL) modularize
+
 
 # clean modules build
 define clean-build
@@ -125,6 +128,7 @@ $(MODULES_LIST):: $(MODULES_UPDATE_MARKER)
 	$(HOST_JAVA_CMD) \
                 -jar $(CLASSANALYZER_JAR_FILE) \
                 -jdkhome $(OUTPUTDIR) \
+                -platform \
                 -config $(MODULES_CONFIG) \
                 -config $(MODULES_GROUP) \
                 -depconfig $(DEP_CONFIG) \
@@ -133,8 +137,7 @@ $(MODULES_LIST):: $(MODULES_UPDATE_MARKER)
                 -version $(MODULE_VERSION) \
                 -update \
                 -output $(MODULE_CLASSLIST_DIR) \
-                -moduleinfo $(MODULEINFO_SRC) \
-                -noncorepkgs $(BUILDDIR)/docs/NON_CORE_PKGS.gmk
+                -moduleinfo $(MODULEINFO_SRC)
 	@$(java-vm-cleanup)
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
@@ -155,13 +158,12 @@ JAVAC_CMD = $(HOST_JAVAC_CMD) \
                     -Xbootclasspath:$(BOOTCLASSPATH) \
                     -modulepath $(MODULEPATH_DIR) \
                     -sourcepath $(MODULEINFO_SRC)
-FILES_java := $(shell $(CD) $(MODULEINFO_SRC) && \
-                   $(FIND) . -name '*.java' -print)
+FILES_java := $(shell $(NAWK) '{print $$1 "/module-info.java"}' ${MODULES_LIST})
 CLASSDESTDIR = $(MODULEPATH_DIR)
 
 include $(BUILDDIR)/common/Classes.gmk
 
-# Compile module-info.java
+# Compile module-info.java 
 # javac depends on the jigsaw module library to exist
 module-info-classes:
 	if [ ! -d $(JIGSAW_MODULE_LIB) ] ; then \
@@ -263,7 +265,7 @@ $(JIGSAW_MODULE_LIB)/%/$(MODULE_VERSION)/info: $(MODULEPATH_DIR)/%/classes/modul
 $(MODULEPATH_DIR)/$(IDLJ_MODULE)/lib/%.idl : $(LIBDIR)/%.idl
 	$(install-non-module-file)
 
-clean clobber::
+clean clobber:: classes.clean
 	$(clean-build)
 
 

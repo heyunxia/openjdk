@@ -76,7 +76,7 @@ public class Files {
         public boolean accept(T x) throws IOException;
     }
 
-    public static List<File> walkTree(File src, Filter filter)
+    public static List<File> walkTree(File src, Filter<File> filter)
             throws IOException {
         ensureIsDirectory(src);
         List<File> result = new ArrayList<File>();

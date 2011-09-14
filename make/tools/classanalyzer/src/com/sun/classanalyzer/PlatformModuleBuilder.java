@@ -22,12 +22,10 @@
  */
 package com.sun.classanalyzer;
 
+import com.sun.classanalyzer.Module.Factory;
 import com.sun.classanalyzer.ModuleInfo.Dependence;
-import static com.sun.classanalyzer.PlatformModuleBuilder.PlatformModuleNames.*;
+import static com.sun.classanalyzer.PlatformModuleBuilder.PlatformFactory.*;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
 
@@ -43,10 +41,191 @@ import java.util.*;
  * @author Mandy Chung
  */
 public class PlatformModuleBuilder extends ModuleBuilder {
-    /**
-     * Platform modules that must be defined in the modules.properties
+    private final PlatformFactory factory;
+
+    public PlatformModuleBuilder(List<String> configs, String version)
+            throws IOException {
+        this(configs, null, true, version);
+    }
+
+    public PlatformModuleBuilder(List<String> configs,
+            List<String> depconfigs,
+            boolean merge,
+            String version)
+            throws IOException {
+        super(null, depconfigs, merge, version);
+        // the factory will create the modules for the input config files
+        this.factory = new PlatformFactory(configs, version);
+    }
+
+    @Override
+    protected Factory getFactory() {
+        return factory;
+    }
+
+    @Override
+    public Set<Module> run() throws IOException {
+        // assign classes and resource files to the modules
+        // group fine-grained modules per configuration files
+        buildModules();
+
+        // build public jdk modules to reexport sun.* modules
+        buildJDKModules();
+
+        // generate package infos and determine if there is any split package
+        buildPackageInfos();
+
+        // analyze cross-module dependencies and generate ModuleInfo
+        List<ModuleInfo> minfos = buildModuleInfos();
+
+        // generate an ordered list from the module dependency graph
+        result = Collections.unmodifiableSet(orderedModuleList(minfos));
+        return result;
+    }
+
+    private void buildJDKModules() {
+        Set<PlatformModule> pmodules = new LinkedHashSet<PlatformModule>();
+        PlatformModule jreToolModule = (PlatformModule)
+                factory.findModule(JRE_TOOLS_MODULE);
+        BootModule bootModule = (BootModule)
+                factory.findModule(BOOT_MODULE);
+        PlatformModule jdkModule = (PlatformModule) factory.findModule(JDK_MODULE);
+        PlatformModule jreModule = (PlatformModule) factory.findModule(JRE_MODULE);
+
+        for (Module m : factory.getAllModules()) {
+            if (m.isTopLevel()) {
+                PlatformModule pm = (PlatformModule) m;
+                pmodules.add(pm);
+            }
+        }
+
+        // set exporter
+        for (PlatformModule pm : pmodules) {
+            PlatformModule exporter = pm;
+            String name = pm.name();
+            if (name.startsWith("sun.")) {
+                // create an aggregate module for each sun.* module
+                String mn = name.replaceFirst("sun", "jdk");
+                String mainClassName =
+                        pm.mainClass() == null ? null : pm.mainClass().getClassName();
+
+                PlatformModule rm = (PlatformModule) factory.findModule(mn);
+                if (rm != null) {
+                    if (pm.mainClass() != rm.mainClass()) {
+                        // propagate the main class to its aggregator module
+                        rm.setMainClass(mainClassName);
+                    }
+                    exporter = rm;
+                } else if (pm.hasPlatformAPIs()) {
+                    ModuleConfig config = new ModuleConfig(mn, version, mainClassName);
+                    exporter = factory.addPlatformModule(config);
+                }
+
+                if (pm != exporter) {
+                    pm.reexportBy(exporter);
+                }
+            }
+        }
+
+        // base module to reexport boot module
+        bootModule.reexportBy((PlatformModule) factory.findModule(BASE_MODULE));
+
+        // set up the jdk and jdk.jre modules
+        for (Module m : factory.getAllModules()) {
+            if (m.isTopLevel()) {
+                PlatformModule pm = (PlatformModule) m;
+                String name = pm.name();
+                if (name.startsWith("jdk.") || name.startsWith("sun.")) {
+                    if (pm != jdkModule && pm != jreModule) {
+                        Module exp = pm.exporter(jdkModule);
+                        // the "jdk" module requires all platform modules (public ones)
+                        jdkModule.config().reexportModule(exp);
+                        if (pm.isBootConnected() || pm == jreToolModule) {
+                            // add all modules that are strongly connected to jdk.boot to JRE
+                            jreModule.config().reexportModule(exp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+     * Returns an ordered list of platform modules according to
+     * their dependencies with jdk.boot always be the first.
      */
-    static class PlatformModuleNames {
+    private Set<Module> orderedModuleList(Collection<ModuleInfo> minfos) {
+        Set<Module> visited = new TreeSet<Module>();
+        Set<Module> orderedList = new LinkedHashSet<Module>();
+        Dependence.Filter filter = new Dependence.Filter() {
+
+            @Override
+            public boolean accept(Dependence d) {
+                return !d.isOptional();
+            }
+        };
+
+        BootModule bootModule = (BootModule)
+                factory.findModule(BOOT_MODULE);
+
+        // put the boot module first
+        visited.add(bootModule);
+        orderedList.add(bootModule);
+        factory.findModule(BASE_MODULE).getModuleInfo().visitDependence(filter, visited, orderedList);
+        factory.findModule(JDK_MODULE).getModuleInfo().visitDependence(filter, visited, orderedList);
+        for (ModuleInfo mi : minfos) {
+            mi.visitDependence(filter, visited, orderedList);
+        }
+
+        return orderedList;
+    }
+
+    @Override
+    protected ModuleInfo buildModuleInfo(Module m) {
+        ModuleInfo mi = super.buildModuleInfo(m);
+
+        // use the module's exporter in the dependence
+        Set<Dependence> depset = new TreeSet<Dependence>();
+        Module base = factory.findModule(BASE_MODULE);
+        boolean useExporter = false;
+        for (Dependence d : mi.requires()) {
+            // if the config has a "requires jdk.base"
+            // this module will depend on its public exporter module
+            if (d.getModule() == base) {
+                useExporter = true;
+                break;
+            }
+        }
+
+        for (Dependence d : mi.requires()) {
+            Dependence dep = d;
+            if (useExporter && !d.isLocal()) {
+                Module exp = ((PlatformModule)d.getModule()).exporter(m);
+                if (exp == null) {
+                    throw new RuntimeException(d.getModule() + " null exporter");
+                }
+                if (d.getModule() != exp && exp != m) {
+                    dep = new Dependence(exp, d.modifiers());
+                }
+            }
+
+            // ## not to include optional dependences in jdk.boot
+            // ## should move this to jdk.base
+            if (m instanceof PlatformModuleBuilder.BootModule && d.isOptional()) {
+                continue;
+            }
+            depset.add(dep);
+
+        }
+
+        // return a new ModuleInfo with patched dependences
+        return new ModuleInfo(m, depset, mi.permits());
+    }
+
+    static class PlatformFactory extends Factory {
+       /**
+        * Platform modules that must be defined in the modules.properties
+        */
         static final String BOOT_MODULE =
                 getValue("platform.boot.module");
         static final String BASE_MODULE =
@@ -58,190 +237,59 @@ public class PlatformModuleBuilder extends ModuleBuilder {
         static final String JRE_TOOLS_MODULE =
                 getValue("platform.jre.tools.module");
 
-        private static String getValue(String key) {
+        static String getValue(String key) {
             String value = Module.getModuleProperty(key);
             if (value == null || value.isEmpty()) {
                 throw new RuntimeException("Null or empty module property: " + key);
             }
             return value;
         }
-    }
 
-    private BootModule bootModule;
-    private final PlatformModule jdkModule;
-    private final PlatformModule jreModule;
+        PlatformFactory(List<String> configs, String version) throws IOException {
+            Module.setBaseModule(BASE_MODULE);
 
-    public PlatformModuleBuilder(List<String> configs, String version)
-            throws IOException {
-        this(configs, null, true, version);
-    }
+            // create modules based on the input config files
+            List<ModuleConfig> mconfigs = new ArrayList<ModuleConfig>();
+            for (String file : configs) {
+                mconfigs.addAll(ModuleConfig.readConfigurationFile(file, version));
+            }
+            init(mconfigs);
 
-    public PlatformModuleBuilder(List<String> configs,
-                                 List<String> depconfigs,
-                                 boolean merge,
-                                 String version)
-            throws IOException {
-        super(null, depconfigs, merge, version);
+            // Create the full jdk and jre modules
+            addModule(new NoClassModule(JDK_MODULE, version));
+            addModule(new NoClassModule(JRE_MODULE, version));
+        }
 
-        Module.setBaseModule(BASE_MODULE);
+        @Override
+        public Module newModule(String name, String version) {
+            return newPlatformModule(new ModuleConfig(name, version));
+        }
 
-        // create modules based on the input config files
-        for (String file : configs) {
-            for (ModuleConfig mconfig : ModuleConfig.readConfigurationFile(file)) {
-                newModule(mconfig);
+        @Override
+        public Module newModule(ModuleConfig config) {
+            return newPlatformModule(config);
+        }
+
+        private PlatformModule newPlatformModule(ModuleConfig config) {
+            if (config.module.equals(BOOT_MODULE)) {
+                return new BootModule(config);
+            } else {
+                return new PlatformModule(config);
             }
         }
 
-        // Create the full jdk and jre modules
-        jdkModule = (PlatformModule) newModule(JDK_MODULE);
-        jreModule = (PlatformModule) newModule(JRE_MODULE);
-    }
+        PlatformModule addPlatformModule(String name, String version) {
+            return addPlatformModule(new ModuleConfig(name, version));
+        }
 
-    @Override
-    public Module newModule(ModuleConfig mconfig) {
-        return addPlatformModule(mconfig);
-    }
-
-    @Override
-    public void run() throws IOException {
-        // assign classes and resource files to the modules
-        // group fine-grained modules per configuration files
-        buildModules();
-
-        // build public jdk modules to reexport sun.* modules
-        buildJDKModules();
-
-        // generate package information
-        buildPackageInfos();
-
-        // analyze cross-module dependencies and generate ModuleInfo
-        buildModuleInfos();
-
-        // ## Hack: add local to all requires
-        for (Module m : Module.getAllModules()) {
-            if (m.isTopLevel()) {
-                PlatformModule pm = (PlatformModule) m;
-                if (pm.isBootConnected()) {
-                    for (Dependence d : pm.getModuleInfo().requires()) {
-                        d.addModifier(Dependence.Modifier.LOCAL);
-                    }
-                }
-            }
+        PlatformModule addPlatformModule(ModuleConfig config) {
+            PlatformModule m = newPlatformModule(config);
+            addModule(m);
+            return m;
         }
     }
 
-    private void buildJDKModules() {
-        Set<PlatformModule> modules = new LinkedHashSet<PlatformModule>();
-        PlatformModule jreToolModule = (PlatformModule)
-                Module.findModule(JRE_TOOLS_MODULE);
-
-        for (Module m : Module.getAllModules()) {
-            if (m.isTopLevel()) {
-                PlatformModule pm = (PlatformModule) m;
-                modules.add(pm);
-            }
-        }
-
-        // set exporter
-        for (PlatformModule pm : modules) {
-            PlatformModule exporter = pm;
-            String name = pm.name();
-            if (name.startsWith("sun.")) {
-                // create an aggregate module for each sun.* module
-                String mn = name.replaceFirst("sun", "jdk");
-                String mainClassName =
-                        pm.mainClass() == null ? null : pm.mainClass().getClassName();
-
-                PlatformModule rm = (PlatformModule) Module.findModule(mn);
-                if (rm != null) {
-                    if (pm.mainClass() != rm.mainClass()) {
-                        // propagate the main class to its aggregator module
-                        rm.setMainClass(mainClassName);
-                    }
-                    exporter = rm;
-                } else if (pm.hasPlatformAPIs()) {
-                    ModuleConfig config = null;
-                    try {
-                        config = new ModuleConfig(mn, mainClassName);
-                    } catch (IOException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                    exporter = addPlatformModule(config);
-                }
-
-                if (pm != exporter) {
-                    pm.reexportBy(exporter);
-                }
-            }
-        }
-
-        // base module to reexport boot module
-        bootModule.reexportBy((PlatformModule) Module.findModule(BASE_MODULE));
-
-        // set up the jdk, jdk.jre and jdk.legacy modules
-        for (Module m : Module.getAllModules()) {
-            if (m.isTopLevel()) {
-                PlatformModule pm = (PlatformModule) m;
-                String name = pm.name();
-                if (name.startsWith("jdk.") || name.startsWith("sun.")) {
-                    if (pm != jdkModule && pm != jreModule) {
-                        Module exp = pm.exporter(jdkModule);
-                        // the "jdk" module requires all platform modules (public ones)
-                        jdkModule.config().export(exp);
-                        if (pm.isBootConnected() || pm == jreToolModule) {
-                            // add all modules that are strongly connected to jdk.boot to JRE
-                            jreModule.config().export(exp);
-                        }
-                    }
-                }
-            }
-        }
-
-    }
-
-    /*
-     * Returns an ordered list of platform modules according to
-     * their dependencies with jdk.boot always be the first.
-     */
-    @Override
-    public Set<Module> getModules() {
-        Set<Module> modules = new LinkedHashSet<Module>();
-        // put the boot module first
-        modules.add(bootModule);
-        Module base = Module.findModule(BASE_MODULE);
-        modules.addAll(base.getModuleInfo().dependences(
-                new Dependence.Filter() {
-                    @Override
-                    public boolean accept(Dependence d) {
-                        return !d.isOptional();
-                    }
-                }));
-        modules.addAll(jdkModule.getModuleInfo().dependences(null));
-        for (Module m : Module.getAllModules()) {
-            if (m.isTopLevel() && !modules.contains(m)) {
-                modules.addAll(m.getModuleInfo().dependences(null));
-            }
-        }
-        return modules;
-    }
-
-    void readNonCorePackagesFrom(String nonCorePkgsFile) throws IOException {
-        PlatformPackage.addNonCorePkgs(nonCorePkgsFile);
-    }
-
-    private PlatformModule addPlatformModule(ModuleConfig config) {
-        PlatformModule m;
-        if (config.module.equals(BOOT_MODULE)) {
-            bootModule = new BootModule(config);
-            m = bootModule;
-        } else {
-            m = new PlatformModule(config);
-        }
-        Module.addModule(m);
-        return m;
-    }
-
-    public class PlatformModule extends Module {
+    static class PlatformModule extends Module {
         private Module exporter;  // module that reexports this platform module
         public PlatformModule(ModuleConfig config) {
             super(config);
@@ -255,34 +303,32 @@ public class PlatformModuleBuilder extends ModuleBuilder {
         void setMainClass(String classname) {
             String mn = name();
             if (!mn.startsWith("jdk") || !isEmpty()) {
-                throw new RuntimeException("module " + name() +
-                    " not an aggregator");
+                throw new RuntimeException("module " + name()
+                        + " not an aggregator");
             }
 
-            if (classname == null)
+            if (classname == null) {
                 throw new RuntimeException("Null main class for module " + name());
+            }
 
             mainClassName = classname;
-        }
-
-        @Override
-        boolean allowEmpty() {
-            return this == jdkModule || this == jreModule || super.allowEmpty();
         }
 
         // requires local for JRE modules that are strongly
         // connected with the boot module
         boolean isBootConnected() {
             // ## should it check for local?
-            return config().requires.containsKey(BOOT_MODULE);
+            Dependence d = config().requires.get(BOOT_MODULE);
+            return d != null; // && d.isLocal());
         }
-
         private int platformAPIs;
+
         boolean hasPlatformAPIs() {
             platformAPIs = 0;
             Visitor<Void, PlatformModule> v = new Visitor<Void, PlatformModule>() {
+
                 public Void visitClass(Klass k, PlatformModule pm) {
-                    if (PlatformPackage.isOfficialClass(k.getClassName())) {
+                    if (PackageInfo.isExportedPackage(k.getPackageName())) {
                         pm.platformAPIs++;
                     }
                     return null;
@@ -299,8 +345,7 @@ public class PlatformModuleBuilder extends ModuleBuilder {
 
         // returns the module that is used by the requires statement
         // in other module's module-info
-        @Override
-        public Module exporter(Module from) {
+        Module exporter(Module from) {
             PlatformModule pm = (PlatformModule) from;
             if (pm.isBootConnected()) {
                 // If it's a local module requiring jdk.boot, retain
@@ -317,11 +362,11 @@ public class PlatformModuleBuilder extends ModuleBuilder {
             // sun.<m> permits jdk.<m>
             this.config().addPermit(pm);
             // jdk.<m> requires public sun.<m>;
-            pm.config().export(this);
+            pm.config().reexportModule(this);
         }
     }
 
-    public class BootModule extends PlatformModule {
+    static class BootModule extends PlatformModule {
         BootModule(ModuleConfig config) {
             super(config);
         }
@@ -331,77 +376,14 @@ public class PlatformModuleBuilder extends ModuleBuilder {
             return true;
         }
     }
-
-    static class PlatformPackage {
-
-        private static String[] corePkgs = new String[]{
-            "java", "javax",
-            "org.omg", "org.w3c.dom",
-            "org.xml.sax", "org.ietf.jgss"
-        };
-        private static Set<String> nonCorePkgs = new TreeSet<String>();
-
-        static boolean isOfficialClass(String classname) {
-            for (String pkg : corePkgs) {
-                if (classname.startsWith(pkg + ".")) {
-                    return true;
-                }
-            }
-
-            // TODO: include later
-            /*
-            for (String pkg : nonCorePkgs) {
-            if (classname.startsWith(pkg + ".")) {
-            return true;
-            }
-            }
-             */
-            return false;
+    static class NoClassModule extends PlatformModule {
+        NoClassModule(String name, String version) {
+            super(new ModuleConfig(name, version));
         }
 
-        // process a properties file listing the non core packages
-        static void addNonCorePkgs(String file) throws IOException {
-            File f = new File(file);
-            Properties props = new Properties();
-            BufferedReader reader = null;
-
-            try {
-                reader = new BufferedReader(new FileReader(f));
-                props.load(reader);
-                String s = props.getProperty("NON_CORE_PKGS");
-                String[] ss = s.split("\\s+");
-                Deque<String> values = new LinkedList<String>();
-
-                for (String v : ss) {
-                    values.add(v.trim());
-                }
-
-                String pval;
-                while ((pval = values.poll()) != null) {
-                    if (pval.startsWith("$(") && pval.endsWith(")")) {
-                        String key = pval.substring(2, pval.length() - 1);
-                        String value = props.getProperty(key);
-                        if (value == null) {
-                            throw new RuntimeException("key " + key + " not found");
-                        }
-                        ss = value.split("\\s+");
-                        for (String v : ss) {
-                            values.add(v.trim());
-                        }
-                        continue;
-                    }
-                    if (pval.startsWith("java.") || pval.startsWith("javax")
-                            || pval.startsWith("com.") || pval.startsWith("org.")) {
-                        nonCorePkgs.add(pval);
-                    } else {
-                        throw new RuntimeException("Invalid non core package: " + pval);
-                    }
-                }
-            } finally {
-                if (reader != null) {
-                    reader.close();
-                }
-            }
+        @Override
+        boolean allowEmpty() {
+            return true;
         }
     }
 }
