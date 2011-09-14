@@ -213,6 +213,11 @@ final class Linker {
                         assert d.modifiers().contains(Modifier.OPTIONAL);
                         continue;
                     }
+                    if (scx == cx) {
+                        // Same context
+                        continue;
+                    }
+
                     if (!d.modifiers().contains(Modifier.LOCAL)) {
                         // Dependence upon some other context
                         cx.suppliers.add(scx);

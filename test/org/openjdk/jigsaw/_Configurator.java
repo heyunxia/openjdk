@@ -226,6 +226,7 @@ public class _Configurator {
             }
         };
 
+
         new Test("diamond", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requires("y@2").requires("w@4"))
@@ -373,6 +374,26 @@ public class _Configurator {
                     .add(context("z@1").remote("+b"))
                     .add(context("a@1").remote("+b"))
                     .add(context("b@1"));
+            }
+        };
+
+        new Test("local-same-context", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("ll@1").requiresLocal("lc@1"))
+                    .add(module("lr@1").requiresLocal("lc@1").requiresLocal("x"))
+                    .add(module("lc@1").permits("ll").permits("lr"))
+                    .add(module("x@1").requires("ll@1").requires("lr@1").permits("lr"))
+                    .addPublic("x@1", "x.X")
+                    .addPublic("ll@1", "p.L")
+                    .addPublic("lc@1", "p.C")
+                    .addPublic("lr@1", "p.R");
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("lc@1", "ll@1", "lr@1", "x@1")
+                         .localClass("x.X", "x")
+                         .localClass("p.L", "ll")
+                         .localClass("p.C", "lc")
+                         .localClass("p.R", "lr"));
             }
         };
 
