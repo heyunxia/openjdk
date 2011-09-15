@@ -186,20 +186,9 @@ public class PlatformModuleBuilder extends ModuleBuilder {
 
         // use the module's exporter in the dependence
         Set<Dependence> depset = new TreeSet<Dependence>();
-        Module base = factory.findModule(BASE_MODULE);
-        boolean useExporter = false;
-        for (Dependence d : mi.requires()) {
-            // if the config has a "requires jdk.base"
-            // this module will depend on its public exporter module
-            if (d.getModule() == base) {
-                useExporter = true;
-                break;
-            }
-        }
-
         for (Dependence d : mi.requires()) {
             Dependence dep = d;
-            if (useExporter && !d.isLocal()) {
+            if (!d.isInternal() && !d.isLocal()) {
                 Module exp = ((PlatformModule)d.getModule()).exporter(m);
                 if (exp == null) {
                     throw new RuntimeException(d.getModule() + " null exporter");

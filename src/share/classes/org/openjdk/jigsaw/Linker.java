@@ -243,8 +243,11 @@ final class Linker {
         resolveLocalSuppliers();
         resolveRemoteSuppliers();
 
-        // Synchronize the context-for-package maps
+        // Synchronize the supplier-name maps and context-for-package maps
         for (Context cx : cxs.contexts) {
+            for (Context scx : cx.suppliers) {
+                cx.addSupplier(scx.name());
+            }
             for (Map.Entry<String,Context> me
                      : cx.contextForPackage.entrySet())
             {

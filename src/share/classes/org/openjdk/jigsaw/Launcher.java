@@ -65,7 +65,6 @@ public final class Launcher {
         LoaderPool lp = new LoaderPool(lb, cf, cn);
 
         return lp.findLoader(cx);
-
     }
 
     public static ClassLoader launch(String midqs) {

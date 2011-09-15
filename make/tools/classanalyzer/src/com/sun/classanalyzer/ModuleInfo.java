@@ -279,6 +279,7 @@ public class ModuleInfo {
         final String id;
         private EnumSet<Modifier> mods;
         private Module dm = null;
+        private boolean internal = false;
 
         public Dependence(Module dm) {
             this(dm, false);
@@ -325,6 +326,14 @@ public class ModuleInfo {
             dm = m.group();
         }
 
+        void setInternal(boolean b) {
+            internal = b;
+        }
+
+        boolean isInternal() {
+            return internal;
+        }
+
         Module getModule() {
             return dm;
         }
@@ -359,6 +368,7 @@ public class ModuleInfo {
             if (!isPublic() && d.isPublic()) {
                 mods.add(Modifier.PUBLIC);
             }
+            internal = internal || d.internal;
         }
 
         public EnumSet<Modifier> modifiers() {

@@ -153,6 +153,25 @@ public class Context
         return Collections.unmodifiableSet(contextForRemotePackage.keySet());
     }
 
+    // Suppliers (i.e. remote contexts)
+    //
+    private Set<String> suppliers = new HashSet<String>();
+    protected void addSupplier(String cxn) {
+        suppliers.add(cxn);
+    }
+
+    /**
+     * Return the set of remote contexts (read-only).  This includes
+     * contexts supplying remote classes as well as any suppliers
+     * re-exporting remote classes.
+     *
+     * @return this context's remote-context set
+     */
+    public final Set<String> remoteContexts()  {
+        return Collections.unmodifiableSet(suppliers);
+    }
+
+
     public boolean equals(Object ob) {
         if (!(ob instanceof Context))
             return false;

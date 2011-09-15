@@ -161,7 +161,7 @@ EOF
 
 mkdir z.modules z.classes
 
-$BIN/javac -source 7 -d z.modules -modulepath z.modules \
+$BIN/javac -d z.modules -modulepath z.modules \
    `find z.src -name '*.java'`
 
 # optional module is not installed

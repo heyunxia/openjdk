@@ -67,9 +67,9 @@ endif
 # Modules for imports
 CORBA_MODULE             = sun.corba
 JTA_MODULE               = sun.jta
-XML_MODULE               = sun.jaxp
-XERCES_MODULE            = sun.jaxp
-XALAN_MODULE             = sun.jaxp
+XML_MODULE               = jdk.jaxp
+XERCES_MODULE            = jdk.jaxp
+XALAN_MODULE             = jdk.jaxp
 JAXWS_MODULE             = jdk.jaxws
 JX_ANNOTATION_MODULE     = jdk.jx.annotations
 IDLJ_MODULE              = jdk.tools

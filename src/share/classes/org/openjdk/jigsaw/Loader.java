@@ -48,7 +48,7 @@ public class Loader
 {
 
     protected final LoaderPool pool;
-    private final Context context;
+    protected final Context context;
 
     private final Map<String,Module> moduleForName = new HashMap<>();
 
@@ -128,10 +128,8 @@ public class Loader
         return m;
     }
 
-    private ClassNotFoundException cnf(Module m, String cn, IOException x) {
-        return m != null
-            ? new ClassNotFoundException(m.getName() + ":" + cn, x)
-            : new ClassNotFoundException(cn, x);
+    private ClassNotFoundException cnf(String mn, String cn, IOException x) {
+        return new ClassNotFoundException(mn + ":" + cn, x);
     }
 
     Class<?> findClass(ModuleId mid, String cn)
@@ -154,51 +152,18 @@ public class Loader
             return c;
         }
 
-        // Have we defined this class's module yet?
-        //
-        Module m = moduleForName.get(mid.name());
-        if (m != null) {
-            if (!m.getModuleId().equals(mid))
-                throw new AssertionError("Duplicate module in loader");
-        }
-
-        // Find the library from which we'll load the class
-        //
+        Module m = null;
         Library lib = null;
         try {
+            // Find the library from which we'll load the class
+            //
             lib = pool.library(context, mid);
-        } catch (IOException x) {
-            ClassNotFoundException cnfx
-                = new ClassNotFoundException(mid.name() + ":" + cn);
-            cnfx.initCause(x);
-            throw cnfx;
-        }
 
-        // Define the module
-        //
-        if (m == null) {
-            try {
-                final ModuleId modid = mid;
-                final Library l = lib;
-                m = AccessController.doPrivileged(
-                    new PrivilegedExceptionAction<Module>() {
-                        public Module run()
-                            throws IOException 
-                        {
-                            byte[] bs = l.readLocalModuleInfoBytes(modid);
-                            if (bs == null)
-                                throw new AssertionError();
-                            CodeSigner[] cs = l.readLocalCodeSigners(modid);
-                            return defineModule(modid, bs,
-                                                new CodeSource(null, cs));
-                        }
-                    }
-                );
-                if (tracing)
-                    trace(0, "%s: define %s [%s]", this, mid, lib.name());
-            } catch (PrivilegedActionException x) {
-                throw cnf(m, cn, (IOException) x.getException());
-            }
+            // Find this class's module 
+            //
+            m = findModule(lib, mid);
+        } catch (IOException x) {
+            throw cnf(mid.name(), cn, x);
         }
 
         // Define the package
@@ -214,10 +179,47 @@ public class Loader
         }
 
         // The last step, of actually locating the class, is in a
-        // separate method so that the kernel loader can override it
+        // separate method so that the boot loader can override it
         //
         return finishFindingClass(lib, mid, m, cn);
 
+    }
+
+    Module findModule(Library lib, ModuleId mid) throws IOException {
+        // Have we defined this module yet?
+        //
+        Module m = moduleForName.get(mid.name());
+        if (m != null) {
+            if (!m.getModuleId().equals(mid))
+                throw new AssertionError("Duplicate module in loader");
+            return m;
+        }
+
+        // Define the module
+        //
+        try {
+            final ModuleId modid = mid;
+            final Library l = lib;
+            m = AccessController.doPrivileged(
+                new PrivilegedExceptionAction<Module>() {
+                    public Module run()
+                        throws IOException 
+                    {
+                        byte[] bs = l.readLocalModuleInfoBytes(modid);
+                        if (bs == null)
+                            throw new AssertionError();
+                        CodeSigner[] cs = l.readLocalCodeSigners(modid);
+                        return defineModule(modid, bs,
+                                            new CodeSource(null, cs));
+                    }
+                }
+            );
+            if (tracing)
+                trace(0, "%s: define %s [%s]", this, mid, lib.name());
+        } catch (PrivilegedActionException x) {
+            throw (IOException) x.getException();
+        }
+        return m;
     }
 
     Class<?> finishFindingClass(final Library lib, final ModuleId mid, 
@@ -240,9 +242,17 @@ public class Loader
                 trace(0, "%s: define %s:%s [%s]", this, mid, cn, lib.name());
             return c;
         } catch (PrivilegedActionException x) {
-            throw cnf(m, cn, (IOException) x.getException());
+            throw cnf(m.getName(), cn, (IOException) x.getException());
         }
 
+    }
+
+    public boolean isModulePresent(String mn) {
+        Context cx = pool.config().findContextForModuleName(mn);
+        if (cx == null) return false; 
+
+        return cx == context ||
+            context.remoteContexts().contains(cx.name());
     }
 
     public String toString() {
@@ -370,7 +380,6 @@ public class Loader
             });
         return Collections.enumeration(us);
     }
-
 
     // -- Stubs for methods not yet re-implemented --
 

@@ -382,6 +382,11 @@ public final class SimpleLibrary
                     out.writeUTF(me.getKey());
                     out.writeUTF(me.getValue());
                 }
+                // Suppliers
+                out.writeInt(cx.remoteContexts().size());
+                for (String cxn : cx.remoteContexts()) {
+                    out.writeUTF(cxn);
+                }
             }
         }
 
@@ -418,6 +423,11 @@ public final class SimpleLibrary
                 int nPackages = in.readInt();
                 for (int j = 0; j < nPackages; j++)
                     cx.putContextForRemotePackage(in.readUTF(), in.readUTF());
+
+                // Suppliers
+                int nSuppliers = in.readInt();
+                for (int j = 0; j < nSuppliers; j++)
+                    cx.addSupplier(in.readUTF());
             }
 
         }

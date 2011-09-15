@@ -38,7 +38,7 @@ import org.openjdk.jigsaw.*;
  */
 public class JigsawModuleBuilder extends ClassListReader {
     private static JigsawFactory factory = new JigsawFactory();
-    private static String DEFAULT_VERSION = "7-ea";
+    private static String DEFAULT_VERSION = "8-ea";
 
     private final File path;
     public JigsawModuleBuilder(File path) {

@@ -31,7 +31,7 @@ import java.security.CodeSource;
 import java.security.SecureClassLoader;
 import sun.reflect.ReflectionFactory;
 
-public class ModuleClassLoader 
+public abstract class ModuleClassLoader 
     extends SecureClassLoader
 {
 
@@ -72,6 +72,32 @@ public class ModuleClassLoader
     {
         // ## Handle compatibility cases here
         throw new ClassNotFoundException(name);
+    }
+
+    /**
+     * Tests if a {@linkplain java.lang.reflect.Module module}
+     * of the given name is present in this module loader's context.
+     *
+     * @param mn a module's name
+     * @return {@code true} if the module of the given name is present;
+     *         {@code false} otherwise.
+     */
+    public boolean isModulePresent(String mn) {
+        return ((org.openjdk.jigsaw.Loader)this).isModulePresent(mn);
+    }
+
+    /**
+     * Checks if a {@linkplain java.lang.reflect.Module module}
+     * of the given name is present in this module loader's context.
+     *
+     * @param mn a module's name
+     * @throws ModuleNotPresentException if the module of the given name
+     *         is not present in this module class loader's context.
+     */
+    public void requireModulePresent(String mn) {
+        if (!isModulePresent(mn)) {
+            throw new ModuleNotPresentException("module " + mn + " not present");
+        }
     }
 
 }

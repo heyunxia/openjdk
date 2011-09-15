@@ -22,9 +22,10 @@
  */
 package com.sun.classanalyzer;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -34,18 +35,22 @@ public class PackageInfo implements Comparable<PackageInfo> {
 
     final Module module;
     final String pkgName;
-    int classCount;
+    final boolean exportPkg;
+    int  classCount;
     long classBytes;
-    int publicClassCount;
-    int resourceCount;
+    int  publicClassCount;
+    int  innerClassCount;
+    int  resourceCount;
     long resourceBytes;
 
     PackageInfo(Module m, String name) {
         this.module = m;
         this.pkgName = name;
+        this.exportPkg = isExportedPackage(name);
         this.classCount = 0;
         this.classBytes = 0;
         this.publicClassCount = 0;
+        this.innerClassCount = 0;
         this.resourceCount = 0;
         this.resourceBytes = 0;
     }
@@ -54,6 +59,7 @@ public class PackageInfo implements Comparable<PackageInfo> {
         this.classCount += pkg.classCount;
         this.classBytes += pkg.classBytes;
         this.publicClassCount += pkg.publicClassCount;
+        this.innerClassCount += pkg.innerClassCount;
         this.resourceCount += pkg.resourceCount;
         this.resourceBytes += pkg.resourceBytes;
     }
@@ -64,11 +70,18 @@ public class PackageInfo implements Comparable<PackageInfo> {
         if (k.isPublic()) {
             publicClassCount++;
         }
+        if (k.getClassName().contains("$")) {
+            innerClassCount++;
+        }
     }
 
-    private void addResource(long size) {
+    private void addResource(ResourceFile r) {
         resourceCount++;
-        resourceBytes += size;
+        resourceBytes += r.getFileSize();
+    }
+
+    boolean isExported() {
+        return exportPkg;
     }
 
     @Override
@@ -99,22 +112,24 @@ public class PackageInfo implements Comparable<PackageInfo> {
         }
     }
 
-    public static Set<PackageInfo> getPackageInfos(final Module m) {
-        Map<String, PackageInfo> packages = new TreeMap<String, PackageInfo>();
+    public static Collection<PackageInfo> getPackageInfos(final Module m) {
+        Map<String, PackageInfo> packages = new HashMap<String, PackageInfo>();
         Module.Visitor<Void, Map<String, PackageInfo>> visitor =
                 new Module.Visitor<Void, Map<String, PackageInfo>>() {
-
-                    @Override
-                    public Void visitClass(Klass k, Map<String, PackageInfo> packages) {
-                        // update package statistics
-                        String pkg = k.getPackageName();
+                    private PackageInfo getPackageInfo(Map<String, PackageInfo> packages, String pkg) {
                         PackageInfo pkginfo = packages.get(pkg);
                         if (pkginfo == null) {
                             pkginfo = new PackageInfo(m, pkg);
                             packages.put(pkg, pkginfo);
                         }
-
+                        return pkginfo;
+                    }
+                    @Override
+                    public Void visitClass(Klass k, Map<String, PackageInfo> packages) {
                         if (k.exists()) {
+                            // update package statistics
+                            String pkg = k.getPackageName();
+                            PackageInfo pkginfo = getPackageInfo(packages, pkg);
                             // only count the class that is parsed
                             pkginfo.addKlass(k);
                         }
@@ -123,17 +138,25 @@ public class PackageInfo implements Comparable<PackageInfo> {
 
                     @Override
                     public Void visitResource(ResourceFile r, Map<String, PackageInfo> packages) {
-                        // nop
+                        String pkg = "";
+                        int i = r.getName().lastIndexOf('/');
+                        if (i > 0) {
+                            pkg = r.getName().substring(0, i).replace('/', '.');
+                        }
+                        PackageInfo pkginfo = getPackageInfo(packages, pkg);
+                        pkginfo.addResource(r);
                         return null;
                     }
                 };
 
         m.visit(visitor, packages);
-        return new TreeSet<PackageInfo>(packages.values());
+        return packages.values();
     }
     final static Set<String> exportedPackages = new TreeSet<String>();
 
     static {
+        // if exported.packages property is not set,
+        // exports all packages
         String apis = Module.getModuleProperty("exported.packages");
         if (apis != null) {
             for (String s : apis.split("\\s+")) {
@@ -143,6 +166,6 @@ public class PackageInfo implements Comparable<PackageInfo> {
     }
 
     static boolean isExportedPackage(String pkg) {
-        return exportedPackages.contains(pkg);
+        return exportedPackages.isEmpty() || exportedPackages.contains(pkg);
     }
 }

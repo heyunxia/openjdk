@@ -290,8 +290,7 @@ public class ModuleBuilder {
                     // if class is not assigned to any module, assign it to unknown
                     if (to.getModule() == null)
                          getFactory().nullModule.addKlass(to);
-                    addDependence(requires,
-                            new Dependence(to.getModule(), optional));
+                    addDependence(requires, to, optional);
                 }
             }
         }
@@ -304,7 +303,7 @@ public class ModuleBuilder {
         if (k != null && m.isModuleDependence(k)) {
             if (k.getModule() == null)
                 getFactory().nullModule.addKlass(k);
-            addDependence(requires, new Dependence(k.getModule()));
+            addDependence(requires, k);
         }
 
         // add dependencies due to the AnnotatedDependency
@@ -341,20 +340,29 @@ public class ModuleBuilder {
         return mi;
     }
 
+    private void addDependence(Map<Module, Dependence> requires, Klass k) {
+        addDependence(requires, k, false);
+    }
+
+    private void addDependence(Map<Module, Dependence> requires, Klass k, boolean optional) {
+        Dependence d = new Dependence(k.getModule(), optional);
+        d.setInternal(PackageInfo.isExportedPackage(k.getPackageName()) == false);
+        addDependence(requires, d);
+    }
+
     private void addDependence(Map<Module, Dependence> requires, Dependence d) {
         Module dm = d.getModule();
         Dependence dep = requires.get(dm);
-        if (dep == null || dep.equals(d)) {
-            requires.put(dm, d);
-        } else {
+        if (dep != null && !dep.equals(d)) {
             if (dep.getModule() != d.getModule()) {
                 throw new RuntimeException("Unexpected dependence " + dep + " != " + d);
             }
 
             // update the modifiers
             dep.update(d);
-            requires.put(dm, dep);
+            d = dep;
         }
+        requires.put(dm, d);
     }
 
     private void processModuleConfigs(final Module module,

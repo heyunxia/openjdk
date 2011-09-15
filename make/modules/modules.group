@@ -68,6 +68,8 @@ module jdk.base {
     requires public local jdk.boot;
 
     // explicit optional dependences
+    requires optional jdk.jaxp;
+    requires optional jdk.desktop;
     requires optional sun.resources;
     requires optional sun.localedata;
     requires optional sun.charsets;
@@ -115,6 +117,21 @@ module sun.desktop {
 
     // com.sun.security.auth callback dialog
     include sun.callback.dialog;
+}
+
+module jdk.desktop {
+    // ## To be revisited: 
+    // There are packages splitted between sun.desktop, jdk.boot, and 
+    // other modules.  sun.desktop only permits certain modules to 
+    // require due to the split packages.
+    //
+    // As jdk.base requires optionally jdk.desktop and jdk.base is
+    // in the same context with sun.desktop, jdk.desktop must be in 
+    // the same context with sun.desktop; otherwise, packages be defined in
+    // the boot context and exported by jdk.jaxp context.
+ 
+    requires public local sun.desktop;
+    requires optional jdk.jaxp;
 }
 
 module sun.management {
@@ -203,23 +220,29 @@ module jdk.smartcardio {
 }
 
 module sun.xml {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include jaxp-api;
 }
 
 module sun.xalan {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include jaxp-xalan;
 }
 
 module sun.xerces {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include jaxp-xerces-impl;
     include jaxp-xerces-resolver;
 }
 
-module sun.jaxp {
-    requires local jdk.boot;   // ensure loaded by bootstrap class loader
+module jdk.jaxp {
+    // ## VM has an optimization to load classes directly 
+    // ## from the null class loader; java.util.Properties fails
+    // ## to load classes from this module if not local 
+    // 
+    // In other words, jdk.jaxp would require public local sun.jaxp.
+    // Otherwise, javax.xml and other packages would be defined in
+    // the boot context and exported by jdk.jaxp context.
+    //
+    requires local jdk.boot;
+
     include sun.xml;
     include sun.xalan;
     include sun.xerces;

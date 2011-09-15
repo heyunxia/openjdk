@@ -176,12 +176,10 @@ public class BootAnalyzer {
             int count = 0;
             summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
             for (PackageInfo info : m.packages()) {
-                if (info.classCount > 0) {
-                    summary.format("%10d\t%10d\t%s%n",
-                                  info.classBytes, info.classCount, info.pkgName);
-                    total += info.classBytes;
-                    count += info.classCount;
-                }
+                summary.format("%10d\t%10d\t%s%n",
+                        info.classBytes, info.classCount, info.pkgName);
+                total += info.classBytes;
+                count += info.classCount;
             }
             summary.format("%nTotal: %d bytes (uncompressed) %d classes%n",
                     total, count);

@@ -305,23 +305,20 @@ public class ClassAnalyzer {
         PrintWriter summary =
                 new PrintWriter(Files.resolve(dir, m.name(), "summary"));
         try {
-            long total = 0L;
+            long total = 0;
             int count = 0;
-            summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
-            for (PackageInfo info : m.packages()) {
-                if (info.classCount > 0) {
-                    summary.format("%10d\t%10d\t%s%n",
-                            info.classBytes, info.classCount, info.pkgName);
-                    total += info.classBytes;
-                    count += info.classCount;
-                }
-            }
-
             long resBytes = 0;
             int resCount = 0;
-            for (ResourceFile res : m.resources()) {
+            summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
+            for (PackageInfo info : m.packages()) {
+                summary.format("%10d\t%10d\t%s%n",
+                        info.classBytes, info.classCount, info.pkgName);
+                total += info.classBytes;
+                count += info.classCount;
+            }
+            for (ResourceFile rf : m.resources()) {
                 resCount++;
-                resBytes += res.getFileSize();
+                resBytes += rf.getFileSize();
             }
 
             summary.format("%nTotal: %d bytes (uncompressed) %d classes " +

@@ -100,6 +100,7 @@ $AWK -v sep="$FS" -v dash_p="$DASH_P" '
     if (NF == 3) e = $3; else e = $3 " " $4;
     efile = toPath(tdir, "expected");
     print e >efile;
+    close(efile);
     msdir = toPath(tdir, "src");
     mkdir(msdir);
   }
@@ -109,6 +110,7 @@ $AWK -v sep="$FS" -v dash_p="$DASH_P" '
     mname = module;
     mdir = toPath(msdir, mname);
     mkdir(mdir);
+    if (mfile != "") close(mfile);
     mfile = toPath(mdir, "module-info.java");
     print $0 >mfile;
     next;
@@ -134,6 +136,7 @@ $AWK -v sep="$FS" -v dash_p="$DASH_P" '
     class = $0;
     sub(" +\{ *\}? *", "", class);
     sub(".*class +", "", class);
+    if (cfile != "") close(cfile);
     cfile = toPath(pdir, class ".java");
     print pkgpre >>cfile;
     print $0 >>cfile;
@@ -170,7 +173,7 @@ fail() {
 }
 
 compile() {
-  $BIN/javac -source 7 -d modules -modulepath modules \
+  $BIN/javac -d modules -modulepath modules \
      `find src -name '*.java'`
 }
 
@@ -188,7 +191,9 @@ catfile() {
 invoke() {
   if [ -f main ] ; then
     modulename=`catfile main`
-    $BIN/java $VM_FLAGS -ea -L z.mlib -m $modulename
+    $BIN/java $VM_FLAGS \
+              -Dtest.src=${TESTSRC} -Dtest.classes=${TESTCLASSES} \
+              -ea -L z.mlib -m $modulename
   else
     true 
   fi

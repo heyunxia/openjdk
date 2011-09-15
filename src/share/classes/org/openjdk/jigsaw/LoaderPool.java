@@ -94,7 +94,7 @@ public final class LoaderPool {
             ld = AccessController.doPrivileged(new PrivilegedAction<Loader>() {
                 public Loader run() {
                     if (Platform.isBootContext(cx)) {
-                        return new BootLoader(LoaderPool.this, cx);
+                        return BootLoader.newLoader(LoaderPool.this, cx);
                     } else {
                         return new Loader(LoaderPool.this, cx);
                     }

@@ -47,7 +47,7 @@ public class UnsupportedElementTypeException extends RuntimeException {
     /**
      * Constructs a new UnsupportedElementTypeException.
      *
-     * @param classnames a list of fully-qualified class name
+     * @param classname a fully-qualified class name
      * specified in the element being accessed.
      */
     public UnsupportedElementTypeException(String classname) {

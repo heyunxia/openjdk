@@ -90,6 +90,7 @@ public class ResourceFile implements Comparable<ResourceFile> {
     static Set<ResourceFile> resources = new TreeSet<ResourceFile>();
 
     static boolean isResource(String pathname) {
+        // skip these files
         String name = pathname.replace(File.separatorChar, '/');
         if (name.endsWith("META-INF/MANIFEST.MF")) {
             return false;
@@ -97,6 +98,11 @@ public class ResourceFile implements Comparable<ResourceFile> {
         if (name.contains("META-INF/JCE_RSA.")) {
             return false;
         }
+        if (name.contains("META-INF/") &&
+                (name.endsWith(".RSA") || name.endsWith(".SF"))) {
+            return false;
+        }
+
 
         return true;
     }

@@ -54,10 +54,18 @@ public class Module implements Comparable<Module> {
         baseModuleName = name;
     }
 
-    private static Properties moduleProps = new Properties();
+    static Properties moduleProps = new Properties();
     static String getModuleProperty(String key) {
-        return moduleProps.getProperty(key);
+        return getModuleProperty(key, null);
     }
+    static String getModuleProperty(String key, String defaultValue) {
+        String value = moduleProps.getProperty(key);
+        if (value == null)
+            return defaultValue;
+        else
+            return value;
+    }
+
 
     static void setModuleProperties(String file) throws IOException {
         File f = new File(file);
@@ -84,6 +92,7 @@ public class Module implements Comparable<Module> {
     private Module group;
     private ModuleInfo minfo;
     private Set<PackageInfo> pkgInfos;
+    private Set<PackageInfo> resourcePkgInfos;
 
     private boolean isBaseModule;
     protected String mainClassName;
@@ -127,9 +136,18 @@ public class Module implements Comparable<Module> {
 
     synchronized Set<PackageInfo> packages() {
         if (pkgInfos == null) {
-            pkgInfos = PackageInfo.getPackageInfos(this);
+            pkgInfos = new TreeSet<PackageInfo>();
+            resourcePkgInfos = new TreeSet<PackageInfo>();
+            for (PackageInfo pi : PackageInfo.getPackageInfos(this)) {
+                if (pi.classCount > 0) {
+                    pkgInfos.add(pi);
+                }
+                if (pi.resourceCount > 0) {
+                    resourcePkgInfos.add(pi);
+                }
+            }
         }
-        return pkgInfos;
+        return Collections.unmodifiableSet(pkgInfos);
     }
 
     Set<ResourceFile> resources() {
@@ -155,9 +173,9 @@ public class Module implements Comparable<Module> {
     }
 
     boolean exportAllPackages() {
-        // default - exports all packages
+        // default - only exported packages
         String value = moduleProps.getProperty(name + ".exports.all");
-        return value == null || Boolean.valueOf(value);
+        return value != null && Boolean.valueOf(value);
     }
 
     protected boolean isTopLevel() {

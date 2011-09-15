@@ -34,6 +34,8 @@ import java.lang.Integer;
 import java.lang.Long;
 import java.lang.Float;
 import java.lang.Double;
+import java.lang.module.RequireOptionalModule;
+import java.lang.module.ModuleNotPresentException;
 
 /**
  * This class provides a skeletal implementation of the {@link Preferences}
@@ -1588,10 +1590,13 @@ public abstract class AbstractPreferences extends Preferences {
      *         results in an <tt>IOException</tt>.
      * @throws BackingStoreException if preference data cannot be read from
      *         backing store.
+     * @throws ModuleNotPresentException if XML module is not present.
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void exportNode(OutputStream os)
         throws IOException, BackingStoreException
     {
+        AbstractPreferences.class.requireModulePresent("jdk.jaxp");
         XmlSupport.export(os, this, false);
     }
 
@@ -1604,10 +1609,13 @@ public abstract class AbstractPreferences extends Preferences {
      *         results in an <tt>IOException</tt>.
      * @throws BackingStoreException if preference data cannot be read from
      *         backing store.
+     * @throws ModuleNotPresentException if XML module is not present.
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void exportSubtree(OutputStream os)
         throws IOException, BackingStoreException
     {
+        AbstractPreferences.class.requireModulePresent("jdk.jaxp");
         XmlSupport.export(os, this, true);
     }
 }

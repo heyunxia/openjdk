@@ -52,7 +52,7 @@ public final class BootLoader    // ## TEMPORARY should be package-private
         extendBootPath0(path.getPath());
     }
 
-    BootLoader(LoaderPool lp, Context cx) {
+    private BootLoader(LoaderPool lp, Context cx) {
         super(lp, cx);
 
         // Add the rest of the boot context's modules
@@ -82,7 +82,41 @@ public final class BootLoader    // ## TEMPORARY should be package-private
         Class<?> c = findBootClass(cn);
         if (tracing)
             trace(0, "%s: found %s:%s (boot)", this, mid, cn);
+
+        sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
         return c;
+    }
+
+    private static BootLoader bootLoader;
+    static BootLoader newLoader(LoaderPool p, Context cx) {
+        if (bootLoader != null)
+            throw new AssertionError("Not supporting multiple LoaderPool yet");
+
+        bootLoader = new BootLoader(p, cx);
+        return bootLoader;
+    }
+
+    public static BootLoader getLoader() {
+        if (bootLoader == null)
+            throw new AssertionError("BootLoader not initialized: booted=" +
+                sun.misc.VM.isBooted());
+        return bootLoader;
+    }
+
+    /**
+     * Returns the Module for the given class loaded by the VM
+     * bootstrap class loader. 
+     */
+    public Module findModule(Class<?> c) throws IOException {
+        Context cx = context;
+        ModuleId mid = cx.findModuleForLocalClass(c.getName());
+        if (mid == null)
+            return null;
+
+        // Find the library from which we'll load the class
+        //
+        Library lib = bootLoader.pool.library(cx, mid);
+        return findModule(lib, mid);
     }
 
 }
