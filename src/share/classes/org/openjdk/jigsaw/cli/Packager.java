@@ -261,23 +261,33 @@ public class Packager {
         }
 
         private String translateVersion(String v) {
-            return v.replaceAll("-", "_");
+            // Debian version format: [epoch:]upstream_version[-debian_revision]
+            // upstream_version may contain only alphanumerics and '.', '+', '-', '~'
+            // There is no epoch, ':' not allowed.
+            //
+            if (!v.matches("[A-Za-z0-9\\+-~\\.]+"))
+                throw new AssertionError("Invalid debian version format: " + v);
+            return v;
         }
 
         private String computeDependencies(ModuleInfo info)
         {
             StringBuilder deps = new StringBuilder();
 
-            for (Dependence d : info.requires())
+            for (Dependence d : info.requires()) {
+                if (d.modifiers().contains(Dependence.Modifier.OPTIONAL))
+                    continue; // skip optional dependency
+
                 deps.append(", ")
                     .append(d.query().name())
                     .append(' ')
                     .append(d.query().versionQuery() != null ?
                             "(" + translateVersion(d.query().versionQuery().toString()) + ")" :
                             "");
+            }
 
             return deps.length() > 0 ?
-                deps.substring(1) :
+                deps.substring(2) :
                 "";
         }
 
@@ -290,7 +300,7 @@ public class Packager {
                     .append(id.name());
 
             return deps.length() > 0 ?
-                deps.substring(1) :
+                deps.substring(2) :
                 "";
         }
 
