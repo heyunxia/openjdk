@@ -251,7 +251,7 @@ implements java.io.Serializable {
         try {
             digest = MessageDigest.getInstance ("SHA");
         } catch (NoSuchAlgorithmException e) {
-            throw new InternalError("internal error: SHA-1 not available.");
+            throw new InternalError("internal error: SHA-1 not available.", e);
         }
     }
 }

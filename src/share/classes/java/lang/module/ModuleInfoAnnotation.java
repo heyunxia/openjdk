@@ -157,6 +157,7 @@ import sun.reflect.generics.tree.*;
     /**
      * Returns Annotation object for a java.lang.reflect.Module
      */
+    @SuppressWarnings({"unchecked"})
     Annotation getAnnotation(Module module) {
         Class<? extends Annotation> annotationClass = null;
         try {
@@ -417,6 +418,8 @@ import sun.reflect.generics.tree.*;
 
     // proxy exception
     private static class UnsupportedElementTypeExceptionProxy extends ExceptionProxy {
+        static final long serialVersionUID = 7579289665484587465L;
+
         private List<String> typeSigs;
 
         UnsupportedElementTypeExceptionProxy(String sig) {
@@ -449,6 +452,8 @@ import sun.reflect.generics.tree.*;
     }
 
     private static class DefaultValueExceptionProxy extends ExceptionProxy {
+        static final long serialVersionUID = 1361256048223626671L;
+
         private List<String> typeNames = new ArrayList<String>();
 
         DefaultValueExceptionProxy(Class<?> cls) {
@@ -615,11 +620,12 @@ import sun.reflect.generics.tree.*;
             return ev.constValue;
         }
 
+        @SuppressWarnings({"unchecked", "rawtypes"})
         public Object visitEnum(EnumElementValue ev, Class<?> elementType) {
-            Class<? extends Enum> enumType = (Class<? extends Enum>) elementType;
+            Class<Enum<?>> enumType = (Class<Enum<?>>) elementType;
             Object value;
             try {
-                value = Enum.valueOf(enumType, ev.constName);
+                value = Enum.valueOf((Class)enumType, ev.constName);
             } catch (IllegalArgumentException ex) {
                 value = new EnumConstantNotPresentExceptionProxy(enumType, ev.constName);
             }
@@ -638,6 +644,7 @@ import sun.reflect.generics.tree.*;
             }
         }
 
+        @SuppressWarnings({"unchecked"})
         public Object visitAnnotation(AnnotationElementValue ev, Class<?> elementType) {
             Class<? extends Annotation> type = (Class<? extends Annotation>) elementType;
             return ev.annotationValue.generateAnnotation(type);

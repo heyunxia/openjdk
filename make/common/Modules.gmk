@@ -24,7 +24,7 @@
 #
 
 #
-# modules           Target to build jigsaw modules images.
+# images            Target to build jigsaw modules images.
 # 
 # This target will build the modules images taking the jdk modules
 # under the $outputdir/modules directory. For incremental build,
@@ -82,9 +82,10 @@ ifeq ($(PLATFORM), solaris)
   endif
 endif
 
-
-modules modules-clobber::
+images modules modules-clobber::
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+
+images:: modules
 
 #
 # jdk-xxx-image depends on jre-xxx-image
@@ -316,7 +317,7 @@ post-image-build:
 modules-clobber::
 	$(RM) -r $(MODULE_IMAGES_DIR)
 
-modules modules-clobber::
+images modules modules-clobber::
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 	@$(java-vm-cleanup)
 

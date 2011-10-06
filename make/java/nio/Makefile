@@ -207,7 +207,6 @@ FILES_java += \
 	sun/nio/fs/LinuxUserDefinedFileAttributeView.java \
 	sun/nio/fs/LinuxNativeDispatcher.java \
 	sun/nio/fs/LinuxWatchService.java \
-	sun/nio/fs/PollingWatchService.java \
 	sun/nio/fs/UnixChannelFactory.java \
 	sun/nio/fs/UnixCopyFile.java \
 	sun/nio/fs/UnixDirectoryStream.java \

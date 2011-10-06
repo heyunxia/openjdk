@@ -372,6 +372,8 @@ public class TSResponse {
     }
 
     final static class TimestampException extends IOException {
+        private static final long serialVersionUID = -1631631794891940953L;
+
         TimestampException(String message) {
             super(message);
         }

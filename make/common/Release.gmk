@@ -32,8 +32,8 @@ THIS_JDK_VERSION := $(JDK_MAJOR_VERSION).$(JDK_MINOR_VERSION).$(JDK_MICRO_VERSIO
 #
 # Perform release engineering tasks.
 #
-# images    An image is what the product looks like when it is
-#           installed.
+# legacy-images    An image is what the product looks like when it is
+#                  installed.
 #
 
 IMAGE_BINDIR = bin
@@ -60,7 +60,8 @@ EXCLUDE_PROPWARN_PKGS = com.sun.java.swing.plaf.windows  \
 # with a new module system (being discussed for JDK 8).
 #
 EXPORTED_PRIVATE_PKGS = com.sun.servicetag \
-                        com.oracle.net
+                        com.oracle.net \
+                        com.oracle.nio
 
 # 64-bit solaris has a few special cases. We define the variable
 # SOLARIS64 for use in this Makefile to easily test those cases
@@ -216,7 +217,7 @@ ifeq ($(PLATFORM), solaris)
   endif
 endif
 
-images images-clobber \
+legacy-images images-clobber \
 initial-image-jre initial-image-jdk \
 initial-image-jre-sol64 initial-image-jdk-sol64 \
 trim-image-jre trim-image-jdk \
@@ -227,7 +228,7 @@ sec-files sec-files-win jgss-files ::
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 
 # Order is important here, trim jre after jdk image is created
-images:: sanity-images post-sanity-images  \
+legacy-images:: sanity-images post-sanity-images  \
 	 $(INITIAL_IMAGE_JRE) $(INITIAL_IMAGE_JDK) \
 	 trim-image-jre trim-image-jdk \
          identify-image-jre identify-image-jdk \
@@ -1298,11 +1299,11 @@ endif
 	$(RM) -r $(JDK_IMAGE_DIR)
 	$(RM) -r $(JRE_IMAGE_DIR)
 
-images images-clobber::
+legacy-images images-clobber::
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 	@$(java-vm-cleanup)
 
-.PHONY: images image-jre image-jdk \
+.PHONY: legacy-images image-jre image-jdk \
 	initial-image-jre initial-image-jdk \
 	initial-image-jre-sol64 initial-image-jdk-sol64 \
         initial-image-jdk-setup \

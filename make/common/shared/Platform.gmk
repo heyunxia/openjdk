@@ -56,7 +56,7 @@ PLATFORM_SHARED=done
 #     ARCH                        sparc, sparcv9, i586, amd64, or ia64
 #     ARCH_FAMILY                 sparc or i586
 #     ARCHPROP                    sparc or x86
-#     ARCH_VM_SUBDIR              jre/bin, jre/lib/sparc, etc.
+#     ARCH_VM_SUBDIR              bin, lib/sparc, etc.
 #     LIBARCH                     sparc, sparcv9, i386, amd64, or ia64
 #     DEV_NULL                    destination of /dev/null, NUL or /dev/NULL
 #     CLASSPATH_SEPARATOR         separator in classpath, ; or :
@@ -347,8 +347,7 @@ ifeq ($(PLATFORM), windows)
   else
     _USER:=$(USER)
   endif
-  # Location of client/server directories
-  ARCH_VM_SUBDIR=jre/bin
+  ARCH_VM_SUBDIR=bin
   # Suffix for file bundles used in previous release
   BUNDLE_FILE_SUFFIX=.tar
   # ISHIELD_TEMP_MIN is the difference of an empty C:\TEMP vs. one after a
@@ -422,7 +421,7 @@ ifneq ($(PLATFORM), windows)
     _USER:=$(USER)
   endif
   # Location of client/server directories
-  ARCH_VM_SUBDIR=jre/lib/$(LIBARCH)
+  ARCH_VM_SUBDIR=lib/$(LIBARCH)
 endif
 
 # Machines with 512Mb or less of real memory are considered low memory

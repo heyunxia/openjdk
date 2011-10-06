@@ -97,9 +97,8 @@ public final class BootLoader    // ## TEMPORARY should be package-private
     }
 
     public static BootLoader getLoader() {
-        if (bootLoader == null)
-            throw new AssertionError("BootLoader not initialized: booted=" +
-                sun.misc.VM.isBooted());
+        // ### this may return null as VM bypasses the library
+        // ### to load system classes.  Revisit in the VM support.
         return bootLoader;
     }
 

@@ -259,11 +259,9 @@ public abstract class Preferences {
                                       .getContextClassLoader())
                         .newInstance();
                 } catch (Exception e) {
-                    InternalError error = new InternalError(
+                    throw new InternalError(
                         "Can't instantiate Preferences factory "
-                        + factoryName);
-                    error.initCause(e);
-                    throw error;
+                        + factoryName, e);
                 }
             }
         }
@@ -302,11 +300,9 @@ public abstract class Preferences {
             return (PreferencesFactory)
                 Class.forName(platformFactory, false, null).newInstance();
         } catch (Exception e) {
-            InternalError error = new InternalError(
+            throw new InternalError(
                 "Can't instantiate platform default Preferences factory "
-                + platformFactory);
-            error.initCause(e);
-            throw error;
+                + platformFactory, e);
         }
     }
 

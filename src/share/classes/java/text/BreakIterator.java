@@ -254,7 +254,7 @@ public abstract class BreakIterator implements Cloneable
             return super.clone();
         }
         catch (CloneNotSupportedException e) {
-            throw new InternalError();
+            throw new InternalError(e);
         }
     }
 
@@ -617,9 +617,7 @@ public abstract class BreakIterator implements Cloneable
             }
         }
         catch (Exception e) {
-            Error err = new InternalError(e.toString());
-            err.initCause(e);
-            throw err;
+            throw new InternalError(e.toString(), e);
         }
     }
 

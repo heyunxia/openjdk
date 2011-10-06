@@ -302,7 +302,6 @@ LIBRARY_SUFFIX = dll
 LIB_SUFFIX     = lib
 
 # Settings for the JDI - Serviceability Agent binding.
-HOTSPOT_SALIB_PATH   = $(HOTSPOT_IMPORT_PATH)/jre/bin
 SALIB_NAME = $(LIB_PREFIX)sawindbg.$(LIBRARY_SUFFIX)
 SAMAP_NAME = $(LIB_PREFIX)sawindbg.map
 SAPDB_NAME = $(LIB_PREFIX)sawindbg.pdb

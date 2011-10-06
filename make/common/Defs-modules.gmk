@@ -72,8 +72,17 @@ XERCES_MODULE            = jdk.jaxp
 XALAN_MODULE             = jdk.jaxp
 JAXWS_MODULE             = jdk.jaxws
 JX_ANNOTATION_MODULE     = jdk.jx.annotations
-IDLJ_MODULE              = jdk.tools
 RMIC_MODULE              = jdk.tools
+COMPILER_MODULE          = jdk.compiler
+JAVAC_MODULE             = jdk.javac
+JAVAP_MODULE             = jdk.javap
+JAVAH_MODULE             = jdk.javah
+JAVADOC_MODULE           = jdk.javadoc
+APT_MODULE               = jdk.apt
+MIRROR_MODULE            = jdk.mirror
+
+# idlj is grouped with the corba runtime
+IDLJ_MODULE              = sun.corba
 
 JDK_BASE_MODULE          = jdk.base
 BASE_TOOLS_MODULE        = jdk.tools.base

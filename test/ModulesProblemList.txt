@@ -156,6 +156,10 @@ sun/security/krb5/auto/W83.java                         windows-all
 sun/security/krb5/tools/ktarg.sh                        windows-all
 sun/security/krb5/tools/ktcheck.sh                      windows-all
 
+# JarVerifer throws JarException: Class is on the bootclasspath
+# SecurityException: JCE cannot authenticate the provider SunPKCS11-Solaris
+java/security/Signature/NONEwithRSA.java                generic-all
+java/security/KeyRep/Serial.java                        generic-all
 
 ############################################################################
 

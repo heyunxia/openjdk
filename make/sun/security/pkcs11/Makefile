@@ -111,6 +111,9 @@ ifndef OPENJDK
   endif
 endif
 
+JAVAC_MAX_WARNINGS=false
+JAVAC_LINT_OPTIONS=-Xlint:all,-deprecation
+JAVAC_WARNINGS_FATAL=true
 # Set OTHER_* flags before including Defs.gmk
 CLASSDESTDIR = $(TEMPDIR)/classes
 OTHER_JAVAHFLAGS += -classpath $(CLASSDESTDIR)

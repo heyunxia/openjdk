@@ -69,12 +69,12 @@ debug             -- build the core JDK in 'debug' mode (-g) \n\
 clean             -- remove all built and imported files \n\
 clobber           -- same as clean \n\
 docs              -- run javadoc to generate the JDK documentation \n\
-images            -- build the jdk and jre image directories \n\
+images            -- build the modules image directories \n\
+legacy-images     -- build the legacy jdk and jre image directories (TO BE REMOVED)\n\
 import            -- copy in the pre-built components (e.g. VM) \n\
 import_product    -- copy in the product components \n\
 import_fastdebug  -- copy in the fastdebug components \n\
 import_debug      -- copy in the debug components \n\
-modules           -- build the jdk and jre module images (experimental) \n\
 create_links      -- create softlinks in Solaris 32bit build to 64bit dirs \n\
 "
 
@@ -364,9 +364,9 @@ $(OUTPUTDIR)/test_failures.txt: $(OUTPUTDIR)/test_log.txt
 	@( $(EGREP) '^FAILED:' $< || $(ECHO) "" ) | $(NAWK) 'length>0' > $@
 
 # The resulting full jdk image (legacy or module image)
-JDK_IMAGE_NAME=j2sdk-image
-ifdef BUILD_MODULES
-  JDK_IMAGE_NAME=jdk-module-image
+JDK_IMAGE_NAME=jdk-module-image
+ifdef BUILD_LEGACY
+   JDK_IMAGE_NAME=j2sdk-image
 endif
 
 # Get log file of all tests run
