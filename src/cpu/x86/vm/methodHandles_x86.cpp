@@ -624,6 +624,11 @@ address MethodHandles::generate_method_handle_interpreter_entry(MacroAssembler* 
 
   // error path for invokeExact (only)
   __ bind(invoke_exact_error_path);
+  // ensure that the top of stack is properly aligned.
+  __ mov(rdi, rsp);
+  __ andptr(rsp, -StackAlignmentInBytes); // Align the stack for the ABI
+  __ pushptr(Address(rdi, 0));  // Pick up the return address
+
   // Stub wants expected type in rax and the actual type in rcx
   __ jump(ExternalAddress(StubRoutines::throw_WrongMethodTypeException_entry()));
 
@@ -1192,11 +1197,11 @@ void MethodHandles::generate_method_handle_stub(MacroAssembler* _masm, MethodHan
       const int jobject_oop_offset = 0;
       __ movptr(rbx_method, Address(rbx_method, jobject_oop_offset));  // dereference the jobject
 
-      __ movptr(rsi, rsp);
+      __ movptr(saved_last_sp, rsp);
       __ subptr(rsp, 3 * wordSize);
       __ push(rax_pc);         // restore caller PC
 
-      __ movptr(__ argument_address(constant(2)), rarg0_code);
+      __ movl  (__ argument_address(constant(2)), rarg0_code);
       __ movptr(__ argument_address(constant(1)), rarg1_actual);
       __ movptr(__ argument_address(constant(0)), rarg2_required);
       jump_from_method_handle(_masm, rbx_method, rax);
@@ -1342,6 +1347,13 @@ void MethodHandles::generate_method_handle_stub(MacroAssembler* _masm, MethodHan
       }
     }
     break;
+
+  case _adapter_opt_profiling:
+    if (java_lang_invoke_CountingMethodHandle::vmcount_offset_in_bytes() != 0) {
+      Address rcx_mh_vmcount(rcx_recv, java_lang_invoke_CountingMethodHandle::vmcount_offset_in_bytes());
+      __ incrementl(rcx_mh_vmcount);
+    }
+    // fall through
 
   case _adapter_retype_only:
   case _adapter_retype_raw:

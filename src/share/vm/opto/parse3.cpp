@@ -100,6 +100,14 @@ void Parse::do_field_access(bool is_get, bool is_field) {
     }
   }
 
+  // Deoptimize on putfield writes to call site target field.
+  if (!is_get && field->is_call_site_target()) {
+    uncommon_trap(Deoptimization::Reason_unhandled,
+                  Deoptimization::Action_reinterpret,
+                  NULL, "put to call site target field");
+    return;
+  }
+
   assert(field->will_link(method()->holder(), bc()), "getfield: typeflow responsibility");
 
   // Note:  We do not check for an unloaded field type here any more.
@@ -139,19 +147,21 @@ void Parse::do_field_access(bool is_get, bool is_field) {
 void Parse::do_get_xxx(Node* obj, ciField* field, bool is_field) {
   // Does this field have a constant value?  If so, just push the value.
   if (field->is_constant()) {
+    // final field
     if (field->is_static()) {
       // final static field
       if (push_constant(field->constant_value()))
         return;
     }
     else {
-      // final non-static field of a trusted class (classes in
-      // java.lang.invoke and sun.invoke packages and subpackages).
+      // final non-static field
+      // Treat final non-static fields of trusted classes (classes in
+      // java.lang.invoke and sun.invoke packages and subpackages) as
+      // compile time constants.
       if (obj->is_Con()) {
         const TypeOopPtr* oop_ptr = obj->bottom_type()->isa_oopptr();
         ciObject* constant_oop = oop_ptr->const_oop();
         ciConstant constant = field->constant_value_of(constant_oop);
-
         if (push_constant(constant, true))
           return;
       }
