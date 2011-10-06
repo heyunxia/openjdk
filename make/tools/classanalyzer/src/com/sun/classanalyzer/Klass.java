@@ -30,16 +30,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.HashSet;
 
 import com.sun.tools.classfile.AccessFlags;
 import java.util.Collections;
 
 /**
  *
- * @author Mandy Chung
  */
 public class Klass implements Comparable<Klass> {
     private final String classname;
@@ -51,8 +48,8 @@ public class Klass implements Comparable<Klass> {
     private AccessFlags accessFlags;
     private long filesize;
 
-    private SortedMap<Klass, Set<ResolutionInfo>> deps;
-    private SortedMap<Klass, Set<ResolutionInfo>> referrers;
+    private Map<Klass, Set<ResolutionInfo>> deps;
+    private Map<Klass, Set<ResolutionInfo>> referrers;
     private List<AnnotatedDependency> annotatedDeps;
     private Set<String> classForNameRefs;
 
@@ -60,11 +57,11 @@ public class Klass implements Comparable<Klass> {
         this.classname = classname;
         this.paths = classname.replace('.', '/').split("/");
         this.isJavaLangObject = classname.equals("java.lang.Object");
-        this.deps = new TreeMap<Klass, Set<ResolutionInfo>>();
-        this.referrers = new TreeMap<Klass, Set<ResolutionInfo>>();
+        this.deps = new HashMap<Klass, Set<ResolutionInfo>>();
+        this.referrers = new HashMap<Klass, Set<ResolutionInfo>>();
         this.methods = new HashMap<String, Set<Method>>();
         this.annotatedDeps = new ArrayList<AnnotatedDependency>();
-        this.classForNameRefs = new TreeSet<String>();
+        this.classForNameRefs = new HashSet<String>();
 
         int pos = classname.lastIndexOf('.');
         this.packagename = (pos > 0) ? classname.substring(0, pos) : "<unnamed>";
@@ -145,7 +142,7 @@ public class Klass implements Comparable<Klass> {
         }
         Set<ResolutionInfo> resInfos = deps.get(ref);
         if (resInfos == null) {
-            resInfos = new TreeSet<ResolutionInfo>();
+            resInfos = new HashSet<ResolutionInfo>();
             deps.put(ref, resInfos);
         }
         resInfos.add(ri);
@@ -161,7 +158,7 @@ public class Klass implements Comparable<Klass> {
         }
         Set<ResolutionInfo> resInfos = referrers.get(k);
         if (resInfos == null) {
-            resInfos = new TreeSet<ResolutionInfo>();
+            resInfos = new HashSet<ResolutionInfo>();
             referrers.put(k, resInfos);
         }
         resInfos.add(ri);
@@ -174,7 +171,7 @@ public class Klass implements Comparable<Klass> {
     Method getMethod(String name, String signature) {
         Set<Method> set = methods.get(name);
         if (set == null) {
-            set = new TreeSet<Method>();
+            set = new HashSet<Method>();
             methods.put(name, set);
         }
 
@@ -210,7 +207,7 @@ public class Klass implements Comparable<Klass> {
         return annotatedDeps;
     }
 
-    private static Map<String, Klass> classes = new TreeMap<String, Klass>();
+    private static Map<String, Klass> classes = new HashMap<String, Klass>();
 
     // cache the sorted list of classes for performance
     // No more class can be added after this point
@@ -218,8 +215,9 @@ public class Klass implements Comparable<Klass> {
     static synchronized Iterable<Klass> getAllClasses() {
         if (sortedClassList == null) {
             sortedClassList = new ArrayList<Klass>(classes.values());
+            Collections.sort(sortedClassList);
         }
-        return Collections.unmodifiableCollection(sortedClassList);
+        return Collections.unmodifiableList(sortedClassList);
     }
 
     static Klass findKlassFromPathname(String filename) {

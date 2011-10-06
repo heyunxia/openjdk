@@ -36,7 +36,6 @@ import java.util.TreeSet;
 
 /**
  *
- * @author Mandy Chung
  */
 public class CodeAttributeParser {
     private final ClassFileParser cfparser;

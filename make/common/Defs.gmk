@@ -294,13 +294,8 @@ ifndef MESSAGE_FILE
   MESSAGE_FILE = $(OUTPUTDIR)/sanityCheckMessages.txt
 endif
 
-JDK_IMAGE_DIR = $(ABS_OUTPUTDIR)/jdk-module-image
-JRE_IMAGE_DIR = $(ABS_OUTPUTDIR)/jre-module-image
-
-ifdef BUILD_LEGACY
-  JDK_IMAGE_DIR = $(ABS_OUTPUTDIR)/j2sdk-image
-  JRE_IMAGE_DIR = $(ABS_OUTPUTDIR)/j2re-image
-endif
+JDK_LEGACY_IMAGE_DIR = $(ABS_OUTPUTDIR)/j2sdk-image
+JRE_LEGACY_IMAGE_DIR = $(ABS_OUTPUTDIR)/j2re-image
 
 #where the demo source can be found
 DEMOSRCDIR          = $(SHARE_SRC)/demo

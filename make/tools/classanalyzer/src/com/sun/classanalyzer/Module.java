@@ -43,7 +43,6 @@ import java.util.TreeSet;
 /**
  * Module contains a list of classes and resources.
  *
- * @author Mandy Chung
  */
 public class Module implements Comparable<Module> {
     private static String baseModuleName = "base";
@@ -106,7 +105,7 @@ public class Module implements Comparable<Module> {
         this.config = config;
         this.mainClassName = config.mainClass();
         this.unresolved = new HashSet<Reference>();
-        this.members = new TreeSet<Module>();
+        this.members = new HashSet<Module>();
         this.group = this; // initialize to itself
     }
 
@@ -366,8 +365,6 @@ public class Module implements Comparable<Module> {
 
         public final Set<Module> getAllModules() {
             Set<Module> ms = new LinkedHashSet<Module>(modules.values());
-            // always add nullModule the last as classes may be added later
-            ms.add(nullModule);
             return ms;
         }
 
@@ -392,9 +389,15 @@ public class Module implements Comparable<Module> {
             }
         }
 
-        Module nullModule = initNullModule();
-        private Module initNullModule() {
-            return this.newModule(new ModuleConfig("unknown", "unknown"));
+        private static Module unknown;
+        Module unknownModule() {
+            synchronized (Factory.class) {
+                if (unknown == null) {
+                    unknown = this.newModule(new ModuleConfig("unknown", "unknown"));
+                    addModule(unknown);
+                }
+            }
+            return unknown;
         }
 
         void buildModuleMembers() {
@@ -416,7 +419,7 @@ public class Module implements Comparable<Module> {
                     if (p.isBaseModule) {
                         // all members are also base
                         m.isBaseModule = true;
-                    }
+                   }
                 }
 
                 public void visited(Module m, Module child, Module p) {
@@ -432,7 +435,7 @@ public class Module implements Comparable<Module> {
             for (Module p : getAllModules()) {
                 for (Module m : p.members) {
                     if (m.group == m) {
-                        m.visitMembers(new TreeSet<Module>(), groupSetter, p);
+                        m.visitMembers(new HashSet<Module>(), groupSetter, p);
                     }
                 }
             }
@@ -450,8 +453,8 @@ public class Module implements Comparable<Module> {
                 }
             };
 
-            Set<Module> visited = new TreeSet<Module>();
-            Set<Module> groups = new TreeSet<Module>();
+            Set<Module> visited = new HashSet<Module>();
+            Set<Module> groups = new HashSet<Module>();
             for (Module m : getAllModules()) {
                 if (m.group() == m) {
                     groups.add(m);

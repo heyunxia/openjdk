@@ -78,7 +78,6 @@ import static com.sun.classanalyzer.Trace.*;
  *     the root set.</li>
  * </ul>
  *
- * @author Mandy Chung
  */
 public class BootAnalyzer {
     private static ClassPath cpath;

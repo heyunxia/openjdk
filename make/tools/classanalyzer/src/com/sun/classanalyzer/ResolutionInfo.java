@@ -28,7 +28,6 @@ import com.sun.classanalyzer.Klass.Method;
 
 /**
  *
- * @author mchung
  */
 public class ResolutionInfo implements Comparable<ResolutionInfo> {
 

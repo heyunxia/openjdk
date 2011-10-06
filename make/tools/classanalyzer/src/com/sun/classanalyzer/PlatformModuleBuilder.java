@@ -38,7 +38,6 @@ import java.util.*;
  * - one jdk.<m> aggregator module for each sun.<m> module to
  *   reexport its public APIs
  *
- * @author Mandy Chung
  */
 public class PlatformModuleBuilder extends ModuleBuilder {
     private final PlatformFactory factory;
@@ -155,7 +154,7 @@ public class PlatformModuleBuilder extends ModuleBuilder {
      * their dependencies with jdk.boot always be the first.
      */
     private Set<Module> orderedModuleList(Collection<ModuleInfo> minfos) {
-        Set<Module> visited = new TreeSet<Module>();
+        Set<Module> visited = new HashSet<Module>();
         Set<Module> orderedList = new LinkedHashSet<Module>();
         Dependence.Filter filter = new Dependence.Filter() {
 
@@ -185,7 +184,7 @@ public class PlatformModuleBuilder extends ModuleBuilder {
         ModuleInfo mi = super.buildModuleInfo(m);
 
         // use the module's exporter in the dependence
-        Set<Dependence> depset = new TreeSet<Dependence>();
+        Set<Dependence> depset = new HashSet<Dependence>();
         for (Dependence d : mi.requires()) {
             Dependence dep = d;
             if (!d.isInternal() && !d.isLocal()) {
@@ -204,7 +203,6 @@ public class PlatformModuleBuilder extends ModuleBuilder {
                 continue;
             }
             depset.add(dep);
-
         }
 
         // return a new ModuleInfo with patched dependences

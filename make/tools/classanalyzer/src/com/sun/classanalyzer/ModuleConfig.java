@@ -41,7 +41,6 @@ import com.sun.classanalyzer.ModuleInfo.Dependence.Modifier;
 
 /**
  *
- * @author Mandy Chung
  */
 public class ModuleConfig {
 

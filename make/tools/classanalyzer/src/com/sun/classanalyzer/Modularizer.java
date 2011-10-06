@@ -33,7 +33,6 @@ import java.util.jar.JarFile;
  * Modularize classes and resources from legacy classpath to
  * a module path containing a list of modules, one directory per module.
  *
- * @author Mandy Chung
  */
 public class Modularizer {
 

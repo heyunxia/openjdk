@@ -364,15 +364,15 @@ $(OUTPUTDIR)/test_failures.txt: $(OUTPUTDIR)/test_log.txt
 	@( $(EGREP) '^FAILED:' $< || $(ECHO) "" ) | $(NAWK) 'length>0' > $@
 
 # The resulting full jdk image (legacy or module image)
-JDK_IMAGE_NAME=jdk-module-image
-ifdef BUILD_LEGACY
-   JDK_IMAGE_NAME=j2sdk-image
-endif
+JDK_MODULES_IMAGE_NAME=jdk-module-image
+JDK_LEGACY_IMAGE_NAME=j2sdk-image
 
 # Get log file of all tests run
 JDK_TO_TEST := $(shell 							\
-  if [ -d "$(ABS_OUTPUTDIR)/$(JDK_IMAGE_NAME)" ] ; then 		\
-    $(ECHO) "$(ABS_OUTPUTDIR)/$(JDK_IMAGE_NAME)"; 			\
+  if [ -d "$(ABS_OUTPUTDIR)/$(JDK_MODULES_IMAGE_NAME)" ] ; then 	\
+    $(ECHO) "$(ABS_OUTPUTDIR)/$(JDK_MODULES_IMAGE_NAME)"; 		\
+  elif [ -d "$(ABS_OUTPUTDIR)/$(JDK_LEGACY_IMAGE_NAME)" ] ; then 	\
+    $(ECHO) "$(ABS_OUTPUTDIR)/$(JDK_LEGACY_IMAGE_NAME)"; 		\
   elif [ -d "$(ABS_OUTPUTDIR)/bin" ] ; then 				\
     $(ECHO) "$(ABS_OUTPUTDIR)"; 					\
   elif [ "$(PRODUCT_HOME)" != "" -a -d "$(PRODUCT_HOME)/bin" ] ; then 	\

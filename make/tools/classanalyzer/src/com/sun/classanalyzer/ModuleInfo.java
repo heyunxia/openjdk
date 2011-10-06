@@ -28,7 +28,6 @@ import java.util.*;
  * Information about a module.  ModuleInfo.toString() returns
  * a string representation of the module-info.java source file.
  *
- * @author Mandy Chung
  */
 public class ModuleInfo {
 

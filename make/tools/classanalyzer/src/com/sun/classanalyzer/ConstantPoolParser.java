@@ -28,7 +28,6 @@ import static com.sun.tools.classfile.ConstantPool.*;
 
 /**
  *
- * @author Mandy Chung
  */
 public class ConstantPoolParser {
 

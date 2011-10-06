@@ -38,7 +38,6 @@ import com.sun.classanalyzer.Module.*;
  * &lt;module&gt;.summary,
  * &lt;module&gt;.dependencies.
  *
- * @author Mandy Chung
  */
 public class ClassListWriter {
     private final Module module;

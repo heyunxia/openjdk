@@ -38,7 +38,6 @@ import java.util.*;
  * Class.forName, JNI_FindClass, and service providers.
  *
  * @see DependencyConfig
- * @author mchung
  */
 public class ModuleBuilder {
     protected Set<Module> result = new LinkedHashSet<Module>();
@@ -125,6 +124,12 @@ public class ModuleBuilder {
             m.processRootsAndReferences();
         }
 
+        // add classes with null module to the default unknown module
+        for (Klass k : Klass.getAllClasses()) {
+            if (k.getModule() == null)
+                getFactory().unknownModule().addKlass(k);
+        }
+
         if (mergeModules) {
             // group fine-grained modules
             getFactory().buildModuleMembers();
@@ -155,7 +160,7 @@ public class ModuleBuilder {
 
     private void fixupPermits(List<ModuleInfo> minfos) {
         // backedges (i.e. reverse dependences)
-        Map<Module, Set<Module>> backedges = new TreeMap<Module, Set<Module>>();
+        Map<Module, Set<Module>> backedges = new HashMap<Module, Set<Module>>();
         Map<Module, ModuleInfo> map = new LinkedHashMap<Module, ModuleInfo>();
 
         // fixup permits after all ModuleInfo are created in two passes:
@@ -170,7 +175,7 @@ public class ModuleBuilder {
                 Module dep = d.getModule();
                 Set<Module> set = backedges.get(dep);
                 if (set == null) {
-                    set = new TreeSet<Module>();
+                    set = new HashSet<Module>();
                     backedges.put(dep, set);
                 }
                 set.add(mi.getModule());
@@ -213,7 +218,7 @@ public class ModuleBuilder {
         // add modules to the moduleinfos map in order
         // its dependences first before the module
         // TODO: what if there is a cycle??
-        Set<Module> visited = new TreeSet<Module>();
+        Set<Module> visited = new HashSet<Module>();
         Set<Module> orderedList = new LinkedHashSet<Module>();
         Dependence.Filter filter = new Dependence.Filter() {
 
@@ -234,7 +239,7 @@ public class ModuleBuilder {
 
     // module with split packages
     private final Map<String, Set<Module>> splitPackages =
-            new LinkedHashMap<String, Set<Module>>();
+            new TreeMap<String, Set<Module>>();
     public Map<String, Set<Module>> getSplitPackages() {
         return splitPackages;
     }
@@ -244,7 +249,7 @@ public class ModuleBuilder {
     protected void buildPackageInfos() {
         // package name to PackageInfo set
         Map<String, Set<PackageInfo>> packages =
-                new TreeMap<String, Set<PackageInfo>>();
+                new HashMap<String, Set<PackageInfo>>();
         // build the map of a package name to PackageInfo set
         // It only looks at its own list of modules.
         // Subclass of ModuleBuilder can exclude any modules
@@ -253,7 +258,7 @@ public class ModuleBuilder {
                 for (PackageInfo p : m.packages()) {
                     Set<PackageInfo> set = packages.get(p.pkgName);
                     if (set == null) {
-                        set = new TreeSet<PackageInfo>();
+                        set = new HashSet<PackageInfo>();
                         packages.put(p.pkgName, set);
                     }
                     set.add(p);
@@ -279,7 +284,7 @@ public class ModuleBuilder {
 
     protected ModuleInfo buildModuleInfo(Module m) {
         Map<Module, Dependence> requires = new LinkedHashMap<Module, Dependence>();
-        Set<Module> permits = new TreeSet<Module>();
+        Set<Module> permits = new HashSet<Module>();
 
         // add static dependences
         for (Klass from : m.classes()) {
@@ -287,9 +292,6 @@ public class ModuleBuilder {
                 if (m.isModuleDependence(to)) {
                     // is this dependence overridden as optional?
                     boolean optional = OptionalDependency.isOptional(from, to);
-                    // if class is not assigned to any module, assign it to unknown
-                    if (to.getModule() == null)
-                         getFactory().nullModule.addKlass(to);
                     addDependence(requires, to, optional);
                 }
             }
@@ -301,8 +303,6 @@ public class ModuleBuilder {
         // add dependency due to the main class
         Klass k = m.mainClass();
         if (k != null && m.isModuleDependence(k)) {
-            if (k.getModule() == null)
-                getFactory().nullModule.addKlass(k);
             addDependence(requires, k);
         }
 
@@ -335,7 +335,7 @@ public class ModuleBuilder {
         }
 
         ModuleInfo mi = new ModuleInfo(m,
-                new TreeSet<Dependence>(requires.values()),
+                new HashSet<Dependence>(requires.values()),
                 permits);
         return mi;
     }
@@ -400,7 +400,7 @@ public class ModuleBuilder {
             }
         };
 
-        Set<Module> visited = new TreeSet<Module>();
+        Set<Module> visited = new HashSet<Module>();
         // first add requires and permits for the module
         v.visited(module, module, null);
         // then visit their members

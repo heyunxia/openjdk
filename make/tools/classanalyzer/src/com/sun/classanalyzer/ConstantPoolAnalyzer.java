@@ -25,7 +25,6 @@ package com.sun.classanalyzer;
 
 /**
  *
- * @author Mandy Chung
  */
 public class ConstantPoolAnalyzer {
     public static void main(String[] args) throws Exception {

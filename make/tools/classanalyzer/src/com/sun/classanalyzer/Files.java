@@ -30,7 +30,6 @@ import java.util.List;
 /**
  * Convenient methods for accessing files.
  *
- * @author Mandy Chung
  */
 public class Files {
 

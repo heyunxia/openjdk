@@ -35,11 +35,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.HashSet;
 
 /**
  *
- * @author Mandy Chung
  */
 public class ClassFileParser {
 
@@ -265,7 +264,7 @@ public class ClassFileParser {
     }
 
     private Set<Klass> getKlass(Type type) throws IOException {
-        Set<Klass> refTypes = new TreeSet<Klass>();
+        Set<Klass> refTypes = new HashSet<Klass>();
         if (!buildDeps) {
             return refTypes;
         }
@@ -582,7 +581,7 @@ public class ClassFileParser {
     }
 
     private Set<Klass> parseDescriptor(Descriptor d) {
-        Set<Klass> types = new TreeSet<Klass>();
+        Set<Klass> types = new HashSet<Klass>();
         try {
             String desc = d.getValue(classfile.constant_pool);
             int p = 0;

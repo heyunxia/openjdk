@@ -36,7 +36,6 @@ import java.util.TreeSet;
 
 /**
  *
- * @author Mandy Chung
  */
 public class ResourceFile implements Comparable<ResourceFile> {
     private final String pathname;
@@ -87,7 +86,7 @@ public class ResourceFile implements Comparable<ResourceFile> {
         return name.compareTo(o.name);
     }
 
-    static Set<ResourceFile> resources = new TreeSet<ResourceFile>();
+    private static Set<ResourceFile> resources = new TreeSet<ResourceFile>();
 
     static boolean isResource(String pathname) {
         // skip these files
@@ -102,7 +101,6 @@ public class ResourceFile implements Comparable<ResourceFile> {
                 (name.endsWith(".RSA") || name.endsWith(".SF"))) {
             return false;
         }
-
 
         return true;
     }

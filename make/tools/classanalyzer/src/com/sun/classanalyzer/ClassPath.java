@@ -39,7 +39,6 @@ import java.util.jar.JarFile;
  * and also recursive wildcard "**" that lists all jar files
  * recursively in the given directory and its subdirectories.
  *
- * @author Mandy Chung
  */
 public class ClassPath {
 

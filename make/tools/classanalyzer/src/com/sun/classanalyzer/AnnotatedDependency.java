@@ -30,19 +30,17 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
-import java.util.Map;
 
 import com.sun.classanalyzer.Module.Reference;
 import com.sun.classanalyzer.ModuleInfo.Dependence;
-import java.util.LinkedList;
-import java.util.TreeMap;
 
 /**
- *
- * @author Mandy Chung
  */
 public abstract class AnnotatedDependency implements Comparable<AnnotatedDependency> {
 
@@ -563,7 +561,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         // ensure it's initialized
         initDependencies();
 
-        Map<Reference, Set<AnnotatedDependency>> result = new TreeMap<Reference, Set<AnnotatedDependency>>();
+        Map<Reference, Set<AnnotatedDependency>> result = new HashMap<Reference, Set<AnnotatedDependency>>();
         for (Reference ref : annotatedDepsMap.keySet()) {
             if (m.contains(ref.referrer()) && m.isModuleDependence(ref.referree())) {
                 result.put(ref, annotatedDepsMap.get(ref));
@@ -576,7 +574,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         // ensure it's initialized
         initDependencies();
 
-        Set<Dependence> deps = new TreeSet<Dependence>();
+        Set<Dependence> deps = new HashSet<Dependence>();
         for (Reference ref : annotatedDepsMap.keySet()) {
             if (m.contains(ref.referrer())) {
                 Module other = m.getModuleDependence(ref.referree());
@@ -597,8 +595,8 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         }
 
         // Build a map of references to its dependencies
-        annotatedDepsMap = new TreeMap<Reference, Set<AnnotatedDependency>>();
-        optionalDepsMap = new TreeMap<Reference, Set<AnnotatedDependency>>();
+        annotatedDepsMap = new HashMap<Reference, Set<AnnotatedDependency>>();
+        optionalDepsMap = new HashMap<Reference, Set<AnnotatedDependency>>();
 
         for (Klass k : Klass.getAllClasses()) {
             for (AnnotatedDependency ad : annotatedDependencies) {
@@ -606,7 +604,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
                     Reference ref = new Reference(ad.from, k);
                     Set<AnnotatedDependency> set = annotatedDepsMap.get(ref);
                     if (set == null) {
-                        set = new TreeSet<AnnotatedDependency>();
+                        set = new HashSet<AnnotatedDependency>();
                         annotatedDepsMap.put(ref, set);
                     }
                     set.add(ad);
@@ -618,7 +616,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
                     Reference ref = new Reference(ad.from, k);
                     Set<AnnotatedDependency> set = optionalDepsMap.get(ref);
                     if (set == null) {
-                        set = new TreeSet<AnnotatedDependency>();
+                        set = new HashSet<AnnotatedDependency>();
                         optionalDepsMap.put(ref, set);
                     }
                     set.add(ad);

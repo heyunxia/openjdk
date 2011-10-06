@@ -36,6 +36,8 @@ THIS_JDK_VERSION := $(JDK_MAJOR_VERSION).$(JDK_MINOR_VERSION).$(JDK_MICRO_VERSIO
 #                  installed.
 #
 
+JDK_IMAGE_DIR=$(JDK_LEGACY_IMAGE_DIR)
+JRE_IMAGE_DIR=$(JRE_LEGACY_IMAGE_DIR)
 IMAGE_BINDIR = bin
 
 # The compiler should not issue a "Proprietary" warning when compiling

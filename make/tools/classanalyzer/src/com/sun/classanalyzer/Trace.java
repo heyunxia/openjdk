@@ -25,7 +25,6 @@ package com.sun.classanalyzer;
 
 /**
  *
- * @author Mandy Chung
  */
 public class Trace {
     // Turn on tracing by setting a system property "classanalyzer.debug"

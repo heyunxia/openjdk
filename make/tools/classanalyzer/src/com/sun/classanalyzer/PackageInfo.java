@@ -24,9 +24,9 @@ package com.sun.classanalyzer;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * Package Information
@@ -126,13 +126,11 @@ public class PackageInfo implements Comparable<PackageInfo> {
                     }
                     @Override
                     public Void visitClass(Klass k, Map<String, PackageInfo> packages) {
-                        if (k.exists()) {
-                            // update package statistics
-                            String pkg = k.getPackageName();
-                            PackageInfo pkginfo = getPackageInfo(packages, pkg);
-                            // only count the class that is parsed
-                            pkginfo.addKlass(k);
-                        }
+                        // update package statistics
+                        String pkg = k.getPackageName();
+                        PackageInfo pkginfo = getPackageInfo(packages, pkg);
+                        // only count the class that is parsed
+                        pkginfo.addKlass(k);
                         return null;
                     }
 
@@ -152,7 +150,7 @@ public class PackageInfo implements Comparable<PackageInfo> {
         m.visit(visitor, packages);
         return packages.values();
     }
-    final static Set<String> exportedPackages = new TreeSet<String>();
+    final static Set<String> exportedPackages = new HashSet<String>();
 
     static {
         // if exported.packages property is not set,

@@ -53,7 +53,6 @@ import java.util.jar.JarFile;
  * The -update option can be specified to perform an incremental analysis
  * rather than parsing all class files.
  *
- * @author Mandy Chung
  */
 public class ClassAnalyzer {
 
@@ -209,8 +208,8 @@ public class ClassAnalyzer {
             updatedModules.addAll(builder.getModules());
         }
 
-        Module unknown = builder.getFactory().nullModule;
-        if (builder.getModules().contains(unknown))
+        Module unknown = builder.getFactory().unknownModule();
+        if (unknown != null && builder.getModules().contains(unknown))
             System.out.println("WARNING: classes are not assigned to any module."
                     + " Please see the unknown.classlist report.");
     }

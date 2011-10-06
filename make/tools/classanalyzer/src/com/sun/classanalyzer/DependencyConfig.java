@@ -37,7 +37,6 @@ import java.util.List;
  *    @Provider and <value> is the service name
  *    @Providers and <value> is the list of the service names
  *
- * @author Mandy Chung
  */
 public class DependencyConfig {
     private DependencyConfig() {
