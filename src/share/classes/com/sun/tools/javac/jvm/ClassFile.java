@@ -25,6 +25,11 @@
 
 package com.sun.tools.javac.jvm;
 
+import java.util.Locale;
+import javax.lang.model.element.ModuleElement;
+
+import com.sun.tools.javac.api.Formattable;
+import com.sun.tools.javac.api.Messages;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.Name;
 
@@ -83,6 +88,7 @@ public class ClassFile {
     public final static int CONSTANT_MethodHandle = 15;
     public final static int CONSTANT_MethodType = 16;
     public final static int CONSTANT_InvokeDynamic = 18;
+    public final static int CONSTANT_ModuleId = 13;
 
     public final static int MAX_PARAMETERS = 0xff;
     public final static int MAX_DIMENSIONS = 0xff;
@@ -171,6 +177,60 @@ public class ClassFile {
 
         public int hashCode() {
             return name.hashCode() * type.hashCode();
+        }
+    }
+
+    // move to top level in code or jvm?
+    public static class ModuleId
+            implements ModuleElement.ModuleId, ModuleElement.ModuleIdQuery, Formattable {
+        public final Name name;
+        public final Name version;
+
+        public ModuleId(Name name, Name version) {
+            this.name = name;
+            this.version = version;
+        }
+
+        public CharSequence getName() {
+            return name;
+        }
+
+        public CharSequence getVersion() {
+            return version;
+        }
+
+        public CharSequence getVersionQuery() {
+            return version;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return
+                other instanceof ModuleId &&
+                name == ((ModuleId) other).name &&
+                version.equals(((ModuleId) other).version);
+        }
+
+        @Override
+        public int hashCode() {
+            if (version == null)
+                return name.hashCode();
+            else
+                return name.hashCode() * version.hashCode();
+        }
+
+        @Override // for debugging
+        public String toString() {
+            return "ModuleId[" + name + (version == null ? "" : "@" + version) + "]";
+        }
+
+        @Override // for use in diagnostics
+        public String toString(Locale locale, Messages messages) {
+            return (version == null ? name.toString() : name + "@" + version);
+        }
+
+        public String getKind() {
+            return "ModuleId";
         }
     }
 }

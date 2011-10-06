@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.SourceVersion;
@@ -115,6 +116,10 @@ public class ClassReader implements Completer {
      */
     boolean lintClassfile;
 
+
+    /** Switch: allow modules
+     */
+    boolean allowModules;
 
     /** Switch: preserve parameter names from the variable table.
      */
@@ -279,6 +284,7 @@ public class ClassReader implements Completer {
         allowVarargs     = source.allowVarargs();
         allowAnnotations = source.allowAnnotations();
         allowSimplifiedVarargs = source.allowSimplifiedVarargs();
+        allowModules     = source.allowModules();
         saveParameterNames = options.isSet("save-parameter-names");
         cacheCompletionFailure = options.isUnset("dev");
         preferSource = "source".equals(options.get("-Xprefer"));
@@ -443,6 +449,7 @@ public class ClassReader implements Completer {
             case CONSTANT_Integer:
             case CONSTANT_Float:
             case CONSTANT_InvokeDynamic:
+            case CONSTANT_ModuleId:
                 bp = bp + 4;
                 break;
             case CONSTANT_Long:
@@ -520,6 +527,11 @@ public class ClassReader implements Completer {
         case CONSTANT_InvokeDynamic:
             skipBytes(5);
             break;
+        case CONSTANT_ModuleId:
+            poolObj[i] = new ModuleId(
+                readInternalName(getChar(index + 1)),
+                readName(getChar(index + 3)));
+            break;
         default:
             throw badClassFile("bad.const.pool.tag", Byte.toString(tag));
         }
@@ -566,6 +578,29 @@ public class ClassReader implements Completer {
      */
     Name readName(int i) {
         return (Name) (readPool(i));
+    }
+
+    /** Read module id.
+     */
+    ModuleId readModuleId(int i) {
+        return (ModuleId) (readPool(i));
+    }
+
+    Name readInternalName(int i) {
+        int index = poolIdx[i];
+        return names.fromUtf(internalize(buf, index + 3, getChar(index + 1)));
+    }
+
+    /** Read module name.
+     * The module name is in a CONSTANT_Class_info, but we don't want to
+     * enter a class for it, so can't use readClassSymbol.
+     */
+    Name readModuleInfoName(int i) {
+        int index = poolIdx[i];
+        assert index != 0;
+        byte tag = buf[index];
+        assert tag == CONSTANT_Class;
+        return readInternalName(getChar(index+1));
     }
 
 /************************************************************************
@@ -1130,6 +1165,93 @@ public class ClassReader implements Completer {
                 void read(Symbol sym, int attrLen) {
                     if (allowVarargs)
                         sym.flags_field |= VARARGS;
+                }
+            },
+
+            //  v51 module attributes
+
+            new AttributeReader(names.Module, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+                @Override
+                boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        ModuleId mid = readModuleId(nextChar());
+                        msym.name = msym.fullname = mid.name;
+                        msym.version = mid.version;
+                    }
+                }
+            },
+
+            new AttributeReader(names.ModuleExport, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+                @Override
+                boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int num = nextChar();
+                        for (int i = 0; i < num; i++) {
+                            ClassSymbol esym = readClassSymbol(nextChar());
+                            int flags = nextByte(); // ignored, for now
+                            msym.exports.append(new Symbol.ModuleExport(esym, List.<Name>nil()));
+                        }
+                    }
+                }
+            },
+
+            new AttributeReader(names.ModulePermits, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+                @Override
+                boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int num = nextChar();
+                        for (int i = 0; i < num; i++)
+                            msym.permits.append(readName(nextChar()));
+                    }
+                }
+            },
+
+            new AttributeReader(names.ModuleProvides, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+                @Override
+                boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int num = nextChar();
+                        for (int i = 0; i < num; i++)
+                            msym.provides.append(readModuleId(nextChar()));
+                    }
+                }
+            },
+
+            new AttributeReader(names.ModuleRequires, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+                @Override
+                boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int numRequires = nextChar();
+                        for (int r = 0; r < numRequires; r++) {
+                            ModuleId id = readModuleId(nextChar());
+                            ListBuffer<Name> flags = new ListBuffer<Name>();
+                            int numFlags = nextChar();
+                            for (int f = 0; f < numFlags; f++) {
+                                flags.append(readName(nextChar()));
+                            }
+                            msym.requires.put(id, new ModuleRequires(id, flags.toList()));
+                        }
+                    }
                 }
             },
 
@@ -1903,11 +2025,20 @@ public class ClassReader implements Completer {
         long flags = adjustClassFlags(nextChar());
         if (c.owner.kind == PCK) c.flags_field = flags;
 
-        // read own class name and check that it matches
-        ClassSymbol self = readClassSymbol(nextChar());
-        if (c != self)
-            throw badClassFile("class.file.wrong.class",
-                               self.flatname);
+        if (c.owner.kind == MDL) {
+            //System.err.println("ClassReader.readClass getModuleInfoName");
+            c.fullname = c.flatname = readModuleInfoName(nextChar());
+            c.name = Convert.shortName(c.fullname);
+            assert c.name == names.module_info;
+        } else {
+            // read own class name and check that it matches
+            ClassSymbol self = readClassSymbol(nextChar());
+            if (c != self) {
+                //System.err.println("ClassReader.readClass c=" + c + " self=" + self);
+                throw badClassFile("class.file.wrong.class",
+                                   self.flatname);
+            }
+        }
 
         // class attributes must be read before class
         // skip ahead to read class attributes
@@ -2144,6 +2275,16 @@ public class ClassReader implements Completer {
             } catch (IOException ex) {
                 throw new CompletionFailure(sym, ex.getLocalizedMessage()).initCause(ex);
             }
+        } else if (sym.kind == MDL) {
+            //System.err.println("ClassReader.complete module " + sym + " " + sym.name);
+            ModuleSymbol msym = (ModuleSymbol) sym;
+            msym.permits = new ListBuffer<Name>();
+            msym.provides = new ListBuffer<ModuleId>();
+            msym.requires = new LinkedHashMap<ModuleId,ModuleRequires>();
+            msym.module_info.members_field = new Scope(sym); // or Scope.empty?
+            fillIn(msym.module_info);
+            assert msym.name != null;
+            //System.err.println("ClassReader.completed module " + sym + " " + sym.name);
         }
         if (!filling && !suppressFlush)
             annotate.flush(); // finish attaching annotations
@@ -2362,7 +2503,9 @@ public class ClassReader implements Completer {
      *         (2) we have one of the other kind, and the given class file
      *             is older.
      */
-    protected void includeClassFile(PackageSymbol p, JavaFileObject file) {
+    protected void includeClassFile(PackageSymbol p, JavaFileObject file, Name simpleName) {
+        boolean isPackageInfo = simpleName == names.package_info;
+
         if ((p.flags_field & EXISTS) == 0)
             for (Symbol q = p; q != null && q.kind == PCK; q = q.owner)
                 q.flags_field |= EXISTS;
@@ -2372,18 +2515,14 @@ public class ClassReader implements Completer {
             seen = CLASS_SEEN;
         else
             seen = SOURCE_SEEN;
-        String binaryName = fileManager.inferBinaryName(currentLoc, file);
-        int lastDot = binaryName.lastIndexOf(".");
-        Name classname = names.fromString(binaryName.substring(lastDot + 1));
-        boolean isPkgInfo = classname == names.package_info;
-        ClassSymbol c = isPkgInfo
-            ? p.package_info
-            : (ClassSymbol) p.members_field.lookup(classname).sym;
+        ClassSymbol c =
+            isPackageInfo ? p.package_info
+            : (ClassSymbol) p.members_field.lookup(simpleName).sym;
         if (c == null) {
-            c = enterClass(classname, p);
+            c = enterClass(simpleName, p);
             if (c.classfile == null) // only update the file if's it's newly created
                 c.classfile = file;
-            if (isPkgInfo) {
+            if (isPackageInfo) {
                 p.package_info = c;
             } else {
                 if (c.owner == p)  // it might be an inner class
@@ -2404,7 +2543,7 @@ public class ClassReader implements Completer {
      *  file or a class file when both are present.  May be overridden
      *  by subclasses.
      */
-    protected JavaFileObject preferredFileObject(JavaFileObject a,
+    public JavaFileObject preferredFileObject(JavaFileObject a,
                                            JavaFileObject b) {
 
         if (preferSource)
@@ -2431,9 +2570,13 @@ public class ClassReader implements Completer {
     protected void extraFileActions(PackageSymbol pack, JavaFileObject fe) {
     }
 
-    protected Location currentLoc; // FIXME
+    public void setPathLocation(Location pathLocation) {
+        this.pathLocation = pathLocation;
+    }
 
+    private Location pathLocation;
     private boolean verbosePath = true;
+
 
     /** Load directory of package into members scope.
      */
@@ -2441,13 +2584,23 @@ public class ClassReader implements Completer {
         if (p.members_field == null) p.members_field = new Scope(p);
         String packageName = p.fullname.toString();
 
-        Set<JavaFileObject.Kind> kinds = getPackageFileKinds();
+        //System.err.println("ClassReader.fillIn using pathLocation " + (pathLocation != null));
+        if (pathLocation != null) {
+            fillIn(p, pathLocation,
+                    fileManager.list(pathLocation,
+                                    packageName,
+                                    EnumSet.allOf(JavaFileObject.Kind.class),
+                                    false));
+            return;
+        }
 
         fillIn(p, PLATFORM_CLASS_PATH,
                fileManager.list(PLATFORM_CLASS_PATH,
                                 packageName,
                                 EnumSet.of(JavaFileObject.Kind.CLASS),
                                 false));
+
+        Set<JavaFileObject.Kind> kinds = getPackageFileKinds();
 
         Set<JavaFileObject.Kind> classKinds = EnumSet.copyOf(kinds);
         classKinds.remove(JavaFileObject.Kind.SOURCE);
@@ -2515,17 +2668,16 @@ public class ClassReader implements Completer {
                             Location location,
                             Iterable<JavaFileObject> files)
         {
-            currentLoc = location;
             for (JavaFileObject fo : files) {
                 switch (fo.getKind()) {
                 case CLASS:
                 case SOURCE: {
-                    // TODO pass binaryName to includeClassFile
-                    String binaryName = fileManager.inferBinaryName(currentLoc, fo);
+                    String binaryName = fileManager.inferBinaryName(location, fo);
                     String simpleName = binaryName.substring(binaryName.lastIndexOf(".") + 1);
                     if (SourceVersion.isIdentifier(simpleName) ||
-                        simpleName.equals("package-info"))
-                        includeClassFile(p, fo);
+                        simpleName.contentEquals(names.package_info)) {
+                        includeClassFile(p, fo, names.fromString(simpleName));
+                    }
                     break;
                 }
                 default:
@@ -2547,7 +2699,6 @@ public class ClassReader implements Completer {
         void complete(ClassSymbol sym)
             throws CompletionFailure;
     }
-
     /**
      * A subclass of JavaFileObject for the sourcefile attribute found in a classfile.
      * The attribute is only the last component of the original filename, so is unlikely
@@ -2629,6 +2780,11 @@ public class ClassReader implements Completer {
         @Override
         protected String inferBinaryName(Iterable<? extends File> path) {
             return flatname.toString();
+        }
+
+        @Override
+        protected String inferModuleTag(String binaryName) {
+            return null;
         }
 
         @Override
