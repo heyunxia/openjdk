@@ -35,6 +35,8 @@ import java.io.Writer;
 import java.io.OutputStreamWriter;
 import java.io.BufferedWriter;
 import java.lang.reflect.*;
+import java.lang.module.RequireOptionalModule;
+import java.lang.module.ModuleNotPresentException;
 
 /**
  * The <code>Properties</code> class represents a persistent set of
@@ -858,12 +860,16 @@ class Properties extends Hashtable<Object,Object> {
      * @throws InvalidPropertiesFormatException Data on input stream does not
      *         constitute a valid XML document with the mandated document type.
      * @throws NullPointerException if <code>in</code> is null.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #storeToXML(OutputStream, String, String)
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public synchronized void loadFromXML(InputStream in)
         throws IOException, InvalidPropertiesFormatException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         if (in == null)
             throw new NullPointerException();
         XMLUtils.load(this, in);
@@ -887,12 +893,16 @@ class Properties extends Hashtable<Object,Object> {
      * @throws ClassCastException  if this <code>Properties</code> object
      *         contains any keys or values that are not
      *         <code>Strings</code>.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #loadFromXML(InputStream)
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void storeToXML(OutputStream os, String comment)
         throws IOException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         if (os == null)
             throw new NullPointerException();
         storeToXML(os, comment, "UTF-8");
@@ -926,12 +936,16 @@ class Properties extends Hashtable<Object,Object> {
      * @throws ClassCastException  if this <code>Properties</code> object
      *         contains any keys or values that are not
      *         <code>Strings</code>.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #loadFromXML(InputStream)
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void storeToXML(OutputStream os, String comment, String encoding)
         throws IOException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         if (os == null)
             throw new NullPointerException();
         XMLUtils.save(this, os, comment, encoding);

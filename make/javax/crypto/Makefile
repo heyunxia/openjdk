@@ -108,6 +108,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = base
 PACKAGE = javax.crypto
 PRODUCT = sun
 
@@ -295,7 +296,7 @@ limited: \
 
 $(UNSIGNED_POLICY_BUILDDIR)/limited/US_export_policy.jar:		\
 	    $(UNSIGNED_POLICY_BUILDDIR)/unlimited/US_export_policy.jar
-	$(install-file)
+	$(install-non-module-file)
 
 $(UNSIGNED_POLICY_BUILDDIR)/limited/local_policy.jar:			\
 	    policy/limited/default_local.policy				\
@@ -414,7 +415,7 @@ $(JAR_DESTFILE): $(UNSIGNED_DIR)/jce.jar
 else
 $(JAR_DESTFILE): $(SIGNED_DIR)/jce.jar
 endif
-	$(install-file)
+	$(install-non-module-file)
 
 #
 # Install the appropriate policy file, depending on the type of build.
@@ -425,52 +426,56 @@ else
 INSTALL_POLICYDIR = $(SIGNED_POLICY_BUILDDIR)
 endif
 
-install-limited-jars: \
+POLICY_MODULE_DESTDIR=$(call GetModuleDest, $(POLICY_DESTDIR))
+
+install-limited: \
 	    $(INSTALL_POLICYDIR)/limited/US_export_policy.jar	\
 	    $(INSTALL_POLICYDIR)/limited/local_policy.jar
 	$(MKDIR) -p $(POLICY_DESTDIR)
 	$(RM) \
-	    $(POLICY_DESTDIR)/US_export_policy.jar		\
-	    $(POLICY_DESTDIR)/local_policy.jar
+            $(POLICY_DESTDIR)/US_export_policy.jar              \
+            $(POLICY_DESTDIR)/local_policy.jar
 	$(CP) $^ $(POLICY_DESTDIR)
+	$(CP) $^ $(POLICY_MODULE_DESTDIR)
 
-install-limited: install-limited-jars
 ifndef OPENJDK
 	$(release-warning)
 endif
 
-install-unlimited-jars: \
+install-unlimited: \
 	    $(INSTALL_POLICYDIR)/unlimited/US_export_policy.jar	\
 	    $(INSTALL_POLICYDIR)/unlimited/local_policy.jar 
 	$(MKDIR) -p $(POLICY_DESTDIR)
 	$(RM) \
-	    $(POLICY_DESTDIR)/US_export_policy.jar		\
-	    $(POLICY_DESTDIR)/local_policy.jar
+            $(POLICY_DESTDIR)/US_export_policy.jar              \
+            $(POLICY_DESTDIR)/local_policy.jar
 	$(CP) $^ $(POLICY_DESTDIR)
-
-install-unlimited: install-unlimited-jars
+	$(CP) $^ $(POLICY_MODULE_DESTDIR)
 ifndef OPENJDK
 	$(release-warning)
 endif
 
 ifndef OPENJDK
-install-prebuilt-jars:
+install-prebuilt:
 	@$(ECHO) "\n>>>Installing prebuilt JCE framework..."
 	$(RM) $(JAR_DESTFILE) \
 	    $(POLICY_DESTDIR)/US_export_policy.jar \
-	    $(POLICY_DESTDIR)/local_policy.jar
+            $(POLICY_DESTDIR)/local_policy.jar
 	$(CP) $(PREBUILT_DIR)/jce/jce.jar $(JAR_DESTFILE)
 	$(CP) \
 	    $(PREBUILT_DIR)/jce/US_export_policy.jar \
 	    $(PREBUILT_DIR)/jce/local_policy.jar \
-	    $(POLICY_DESTDIR)
-
-install-prebuilt: install-prebuilt-jars
+            $(POLICY_DESTDIR)
+	$(CP) \
+	    $(PREBUILT_DIR)/jce/US_export_policy.jar \
+	    $(PREBUILT_DIR)/jce/local_policy.jar \
+            $(POLICY_MODULE_DESTDIR)
 endif
 
 # =====================================================
 # Support routines.
 #
+
 
 clobber clean::
 	$(RM) -r $(JAR_DESTFILE) $(POLICY_DESTDIR)/US_export_policy.jar \

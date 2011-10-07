@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../../../..
+MODULE  = unpack200-tool
 PACKAGE = com.sun.java.util.jar.pack
 LIBRARY = unpack
 PRODUCT = sun
@@ -121,13 +122,10 @@ COBJDIR = $(strip $(subst unpack,unpack-cmd,$(OBJDIR)))
 
 all: build
 
-build: prop pack200-tool
+build: prop
 
 prop:
 	$(MAKE) -C prop
-
-pack200-tool:
-	$(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
 
 # ignore mapfile for non-product binary 
 unpacker:
@@ -160,6 +158,7 @@ ifdef MT
 endif
 	$(CP) $(TEMPDIR)/unpack200$(EXE_SUFFIX) $(UNPACK_EXE)
 	@$(call binary_file_verification,$@)
+	$(install-module-file)
 
 ifeq ($(PLATFORM), windows) 
 $(RES):: $(VERSIONINFO_RESOURCE)

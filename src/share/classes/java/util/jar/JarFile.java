@@ -26,6 +26,8 @@
 package java.util.jar;
 
 import java.io.*;
+import java.lang.module.ModuleInfo;
+import java.lang.module.ModuleSystem;
 import java.lang.ref.SoftReference;
 import java.net.URL;
 import java.util.*;
@@ -44,8 +46,10 @@ import sun.misc.SharedSecrets;
  * It extends the class <code>java.util.zip.ZipFile</code> with support
  * for reading an optional <code>Manifest</code> entry. The
  * <code>Manifest</code> can be used to specify meta-information about the
- * jar file and its entries.
- *
+ * jar file and its entries.  A jar file with a {@link
+ * #MODULEINFO_NAME module-info.class} entry is a modular jar file
+ * that can be installed as a module in a module library.
+ * 
  * <p> Unless otherwise noted, passing a <tt>null</tt> argument to a constructor
  * or method in this class will cause a {@link NullPointerException} to be
  * thrown.
@@ -75,6 +79,12 @@ class JarFile extends ZipFile {
      * The JAR manifest file name.
      */
     public static final String MANIFEST_NAME = "META-INF/MANIFEST.MF";
+
+    /**
+     * The module definition file name in a modular JAR file.
+     * @since 1.8
+     */
+    public static final String MODULEINFO_NAME = "module-info.class";
 
     /**
      * Creates a new <code>JarFile</code> to read from the specified
@@ -190,6 +200,25 @@ class JarFile extends ZipFile {
     }
 
     private native String[] getMetaInfEntryNames();
+
+    /**
+     * Returns the {@code ModuleInfo}, or {@code null} if none.
+     *
+     * @return the {@code ModuleInfo}, or {@code null} if none
+     *
+     * @throws IllegalStateException
+     *         may be thrown if the jar file has been closed
+     *
+     * @since 1.8
+     */
+    public ModuleInfo getModuleInfo() throws IOException {
+        JarEntry je = getJarEntry(MODULEINFO_NAME);
+        if (je == null)
+            return null;
+
+        byte[] bs = getBytes(je);
+        return ModuleSystem.base().parseModuleInfo(bs);
+    }
 
     /**
      * Returns the <code>JarEntry</code> for the given entry name or

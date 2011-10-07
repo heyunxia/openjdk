@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = management
 PACKAGE = java.lang.management
 LIBRARY = management
 PRODUCT = java
