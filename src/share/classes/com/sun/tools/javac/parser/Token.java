@@ -140,6 +140,7 @@ public enum Token implements Formattable {
     PLUSEQ("+="),
     SUBEQ("-="),
     STAREQ("*="),
+    STARSTAR("**"),
     SLASHEQ("/="),
     AMPEQ("&="),
     BAREQ("|="),
@@ -149,6 +150,7 @@ public enum Token implements Formattable {
     GTGTEQ(">>="),
     GTGTGTEQ(">>>="),
     MONKEYS_AT("@"),
+    MODULEVERSIONLITERAL,
     CUSTOM;
 
     Token() {
@@ -176,6 +178,8 @@ public enum Token implements Formattable {
             return "token.float";
         case DOUBLELITERAL:
             return "token.double";
+        case MODULEVERSIONLITERAL:
+            return "token.version";
         case ERROR:
             return "token.bad-symbol";
         case EOF:

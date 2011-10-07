@@ -299,6 +299,37 @@ public class Main {
             }
         }
 
+
+        OptionName[] bootclasspathOptions = {
+//            XBOOTCLASSPATH_PREPEND,
+            ENDORSEDDIRS,
+//            BOOTCLASSPATH,
+//            XBOOTCLASSPATH_APPEND,
+            EXTDIRS
+        };
+        OptionName[] moduleOptions = {
+            L,
+            MODULEPATH
+        };
+        List<OptionName> bcpOpts = List.nil();
+        List<OptionName> mOpts = List.nil();
+        for (OptionName n: bootclasspathOptions) {
+            if (options.get(n) != null)
+                bcpOpts = bcpOpts.prepend(n);
+        }
+        for (OptionName n: moduleOptions) {
+            if (options.get(n) != null)
+                mOpts = mOpts.prepend(n);
+        }
+        if (bcpOpts.nonEmpty() && mOpts.nonEmpty()) {
+            error("err.conficting.options", bcpOpts.head.optionName, mOpts.head.optionName);
+            return null;
+        }
+        if (mOpts.nonEmpty() && !source.allowModules()) {
+            error("err.option.not.supported.in.source", mOpts.head.optionName, source.name);
+            return null;
+        }
+
         // handle this here so it works even if no other options given
         String showClass = options.get("showClass");
         if (showClass != null) {
