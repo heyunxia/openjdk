@@ -160,6 +160,11 @@ module sun.jdbc {
     include jdbc;
 }
 
+module sun.jdbc.rowset {
+    requires local jdk.boot;
+    include jdbc-rowset;
+}
+
 module sun.compat {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include private-legacy;

@@ -147,3 +147,23 @@
 @Optional
   java.lang.System -> java.nio.channels.Channel
   java.lang.System -> java.nio.channels.spi.SelectorProvider
+
+# public javax.xml.transform.Source getSource(java.lang.Class)
+@Optional
+  java.sql.SQLXML -> javax.xml.transform.Source
+
+# public javax.xml.transform.Result setResult(java.lang.Class)
+@Optional
+  java.sql.SQLXML -> javax.xml.transform.Result
+ 
+# public java.util.logging.Logger getParentLogger() 
+@Optional
+  java.sql.Driver -> java.util.logging.Logger
+
+# public java.util.logging.Logger getParentLogger()
+@Optional
+  javax.sql.CommonDataSource -> java.util.logging.Logger
+
+# public javax.transaction.xa.XAResource getXAResource()
+@Optional
+  javax.sql.XAConnection -> javax.transaction.xa.XAResource 
