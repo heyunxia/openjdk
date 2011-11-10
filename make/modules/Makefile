@@ -31,7 +31,7 @@ CLASSANALYZER_JAR_FILE = $(BUILDTOOLJARDIR)/classanalyzer.jar
 MODULES_CONFIG = modules.config
 MODULES_GROUP = modules.group
 MODULES_PROPERTIES = modules.properties
-DEP_CONFIG = jdk7.depconfig
+DEP_CONFIG = jdk.depconfig
 OPTIONAL_DEP_CONFIG = optional.depconfig
 
 #
@@ -63,7 +63,7 @@ OPTIONAL_DEP_CONFIG = optional.depconfig
 #    modules.config : defines the low-level modules and specifies
 #       what classes and resource files each module includes.
 #    modules.group  : defines the module groups and its members.
-#    jdk7.depconfig : lists the dynamic dependencies including
+#    jdk.depconfig : lists the dynamic dependencies including
 #       use of reflection Class.forName and JNI FindClass and
 #       service provider.
 #    optional.depconfig : lists the optional dependencies

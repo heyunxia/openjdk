@@ -148,6 +148,9 @@
 @Provider
   java.rmi.server.RMIClassLoader -> META-INF/services/java.rmi.server.RMIClassLoaderSpi
 
+@ClassForName(optional)
+  java.util.Properties -> sun.util.xml.XMLUtils
+
 # private static void initializeSystemScope()
 @ClassForName(optional)
   java.security.IdentityScope -> sun.security.provider.IdentityDatabase
@@ -500,4 +503,11 @@
   sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.IDLGenerator
   sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.PrintGenerator
   sun.rmi.rmic.Main -> sun.rmi.rmic.iiop.BatchEnvironment
+
+@ClassForName(optional)
+  javax.management.remote.rmi.RMIConnector -> org.omg.stub.javax.management.remote.rmi._RMIConnection_Stub
+  javax.management.remote.rmi.RMIConnector -> com.sun.jmx.remote.protocol.iiop.ProxyStub
+  javax.management.remote.rmi.RMIConnector -> com.sun.jmx.remote.protocol.iiop.ProxyInputStream
+  javax.management.remote.rmi.RMIConnector -> com.sun.jmx.remote.protocol.iiop.PInputStream
+  com.sun.jmx.remote.internal.IIOPHelper -> com.sun.jmx.remote.protocol.iiop.IIOPProxyImpl
 

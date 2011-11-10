@@ -138,12 +138,6 @@
   java.io.FileInputStream -> java.nio.channels.FileChannel
   java.io.FileInputStream -> sun.nio.ch.FileChannelImpl
 
-# public void loadFromXML(java.io.InputStream)
-# public void storeToXML(java.io.OutputStream, java.lang.String, java.lang.String)
-@Optional
-  java.util.Properties -> java.util.XMLUtils
-
-# public static java.nio.channels.Channel inheritedChannel()
 @Optional
   java.lang.System -> java.nio.channels.Channel
   java.lang.System -> java.nio.channels.spi.SelectorProvider
