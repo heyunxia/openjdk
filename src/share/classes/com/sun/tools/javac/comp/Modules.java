@@ -53,6 +53,12 @@ import javax.tools.StandardLocation;
 
 import static javax.tools.StandardLocation.*;
 
+import com.sun.tools.javac.code.Directive.PermitsDirective;
+import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
+import com.sun.tools.javac.code.Directive.RequiresFlag;
+import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
+import com.sun.tools.javac.code.ModuleId;
+import com.sun.tools.javac.code.ModuleIdQuery;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -61,8 +67,6 @@ import com.sun.tools.javac.code.Symbol.ModuleRequires;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.JavacFileManager;
-import com.sun.tools.javac.jvm.ClassFile;
-import com.sun.tools.javac.jvm.ClassFile.ModuleId;
 import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.main.OptionName;
 import com.sun.tools.javac.tree.JCTree;
@@ -87,6 +91,7 @@ import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Options;
 
+import java.util.EnumSet;
 import static com.sun.tools.javac.main.OptionName.*;
 
 /**
@@ -223,9 +228,13 @@ public class Modules extends JCTree.Visitor {
         sym.permits = new ListBuffer<Name>();
         sym.provides = new ListBuffer<ModuleId>();
         sym.requires = new LinkedHashMap<ModuleId,ModuleRequires>();
+        sym.directives = ListBuffer.lb();
         for (List<JCModuleId> l = tree.provides; l.nonEmpty(); l = l.tail) {
             JCModuleId moduleId = l.head;
             sym.provides.append(new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version));
+            ModuleId mid = new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version);
+            ProvidesModuleDirective d = new ProvidesModuleDirective(mid);
+            sym.directives.add(d);
         }
 
         currSym = sym;
@@ -240,6 +249,8 @@ public class Modules extends JCTree.Visitor {
                 DEBUG("Modules.visitModuleDef seenPlatformRequires:" + env.info.seenPlatformRequires);
                 ModuleId mid = getDefaultPlatformModule();
                 sym.requires.put(mid, new ModuleRequires(mid, List.of(names.synthetic)));
+                ModuleIdQuery mq = mid.toQuery();
+                RequiresModuleDirective d = new RequiresModuleDirective(mq, EnumSet.of(RequiresFlag.SYNTHETIC));
             }
         } finally {
             currSym = null;
@@ -300,6 +311,9 @@ public class Modules extends JCTree.Visitor {
             Name moduleName = TreeInfo.fullName(qualId);
             // JIGSAW TODO check duplicates
             sym.permits.add(moduleName);
+            // TODO: should have context for view
+            PermitsDirective d = new PermitsDirective(moduleName);
+            sym.directives.add(d);
         }
     }
 
@@ -311,6 +325,18 @@ public class Modules extends JCTree.Visitor {
             ModuleId mid = new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version);
             // JIGSAW TODO check duplicates
             sym.requires.put(mid, new ModuleRequires(mid, tree.flags));
+            ModuleIdQuery mq = mid.toQuery();
+            Set<RequiresFlag> flags = EnumSet.noneOf(RequiresFlag.class);
+            for (Name f: tree.flags) {
+                if (f == names._public)
+                    flags.add(RequiresFlag.PUBLIC);
+                else if (f == names.local)
+                    flags.add(RequiresFlag.LOCAL);
+                else if (f == names.optional)
+                    flags.add(RequiresFlag.OPTIONAL);
+            }
+            RequiresModuleDirective d = new RequiresModuleDirective(mq, flags);
+            sym.directives.add(d);
             ModuleResolver mr = getModuleResolver();
             if (mr.isPlatformName(mid.name))
                 env.info.seenPlatformRequires = true;
@@ -351,6 +377,10 @@ public class Modules extends JCTree.Visitor {
                 ModuleId p = getDefaultPlatformModule();
                 sym.requires = new HashMap<ModuleId, ModuleRequires>(1);
                 sym.requires.put(p, new ModuleRequires(p, List.<Name>nil()));
+                ModuleIdQuery mq = p.toQuery();
+                RequiresModuleDirective d = new RequiresModuleDirective(mq, EnumSet.noneOf(RequiresFlag.class));
+                sym.directives = ListBuffer.lb();
+                sym.directives.add(d);
                 return;
             }
             file = classFile;
@@ -951,8 +981,8 @@ public class Modules extends JCTree.Visitor {
             // build module index
             for (ModuleElement elem: modules) {
                 ModuleSymbol sym = (ModuleSymbol) elem;
-                add(table, sym, new ClassFile.ModuleId(sym.name, sym.version));
-                for (List<ClassFile.ModuleId> l = sym.provides.toList(); l.nonEmpty(); l = l.tail)
+                add(table, sym, new ModuleId(sym.name, sym.version));
+                for (List<ModuleId> l = sym.provides.toList(); l.nonEmpty(); l = l.tail)
                     add(table, sym, l.head);
             }
 
@@ -967,6 +997,7 @@ public class Modules extends JCTree.Visitor {
                 psym.location = StandardLocation.PLATFORM_CLASS_PATH;
                 psym.requires = new HashMap<ModuleId,ModuleRequires>();
                 versions.put(p.version, psym);
+                psym.directives = ListBuffer.lb();
             }
 
             return table;

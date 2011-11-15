@@ -162,6 +162,7 @@ public class JigsawModuleResolver implements ModuleResolver {
                     sym.version = names.fromString(mid.version().toString());
                     sym.location = new JigsawLibraryLocation(catalog.library, mid);
                     sym.requires = Collections.emptyMap();
+                    sym.directives = ListBuffer.lb();
                 }
                 results.add(sym);
             }

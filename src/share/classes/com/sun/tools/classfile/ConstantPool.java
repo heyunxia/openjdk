@@ -117,7 +117,7 @@ public class ConstantPool {
     public static final int CONSTANT_MethodHandle = 15;
     public static final int CONSTANT_MethodType = 16;
     public static final int CONSTANT_InvokeDynamic = 18;
-    public static final int CONSTANT_ModuleId = 13;
+    public static final int CONSTANT_ModuleId = 19;
 
     public static enum RefKind {
         REF_getField(1, "getfield"),

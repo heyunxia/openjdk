@@ -38,6 +38,9 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.util.List;
 
 import com.sun.tools.javac.jvm.Target;
+import com.sun.tools.javac.code.Directive.EntrypointDirective;
+import com.sun.tools.javac.code.Directive.ExportsDirective;
+import com.sun.tools.javac.code.Directive.ExportFlag;
 import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.tree.JCTree.*;
@@ -3066,34 +3069,45 @@ public class Attr extends JCTree.Visitor {
             log.error(exp.pos(), "invalid.export");
             return;
         }
-        ClassSymbol csym;
+//        ClassSymbol csym;
         JCFieldAccess s = (JCFieldAccess) exp;
         Name name = TreeInfo.name(exp);
-        if (name == names.double_asterisk) {
-            TypeSymbol p = attribTree(s.selected, env, PCK, Type.noType).tsym;
-            Scope.Entry e = p.members().lookup(name);
-            if (e.sym != null) {
-                csym = (ClassSymbol) e.sym;
-            } else {
-                csym = new ClassSymbol(0, name, p);
-                p.members().enter(csym);
-            }
-        } else if (name == names.asterisk) {
-            TypeSymbol t = attribTree(s.selected, env, PCK | TYP, Type.noType).tsym;
-            Scope.Entry e = t.members().lookup(name);
-            if (e.sym != null) {
-                csym = (ClassSymbol) e.sym;
-            } else {
-                csym = new ClassSymbol(0, name, t);
-                t.members().enter(csym);
-            }
-        } else {
-            csym = (ClassSymbol) attribTree(s, env, TYP, Type.noType).tsym;
+//        if (name == names.double_asterisk) {
+//            TypeSymbol p = attribTree(s.selected, env, PCK, Type.noType).tsym;
+//            Scope.Entry e = p.members().lookup(name);
+//            if (e.sym != null) {
+//                csym = (ClassSymbol) e.sym;
+//            } else {
+//                csym = new ClassSymbol(0, name, p);
+//                p.members().enter(csym);
+//            }
+//        } else if (name == names.asterisk) {
+//            TypeSymbol t = attribTree(s.selected, env, PCK | TYP, Type.noType).tsym;
+//            Scope.Entry e = t.members().lookup(name);
+//            if (e.sym != null) {
+//                csym = (ClassSymbol) e.sym;
+//            } else {
+//                csym = new ClassSymbol(0, name, t);
+//                t.members().enter(csym);
+//            }
+//        } else {
+//            csym = (ClassSymbol) attribTree(s, env, TYP, Type.noType).tsym;
+//        }
+//
+//        ModuleSymbol msym = env.toplevel.modle;
+//        msym.exports.add(new Symbol.ModuleExport(csym, List.<Name>nil()));
+
+        boolean asterisk = (name == names.asterisk);
+        TypeSymbol tsym = attribTree(asterisk ? s.selected : s, env,
+                PCK | TYP, Type.noType).tsym;
+        if (tsym.kind != ERR) {
+            EnumSet<ExportFlag> flags = EnumSet.of(ExportFlag.valueOf(tsym.kind, asterisk));
+            ModuleId origin = (tsym.kind == TYP) ? ((ClassSymbol) tsym).modle.getModuleId() : null;
+            ExportsDirective d = new ExportsDirective(tsym, flags, origin);
+            // need to add to correct view
+            ModuleSymbol msym = env.toplevel.modle;
+            msym.directives.add(d);
         }
-
-        ModuleSymbol msym = env.toplevel.modle;
-        msym.exports.add(new Symbol.ModuleExport(csym, List.<Name>nil()));
-
     }
 
     public void visitModuleRequires(JCModuleRequires tree) {
@@ -3109,6 +3123,9 @@ public class Attr extends JCTree.Visitor {
             // FIXME: should check for duplicates
             msym.className = (ClassSymbol) tree.qualId.type.tsym;
             msym.classFlags = tree.flags;
+            EntrypointDirective d = new EntrypointDirective((ClassSymbol) tree.qualId.type.tsym);
+            // get and use a View from the env?
+            msym.directives.add(d);
         }
     }
 

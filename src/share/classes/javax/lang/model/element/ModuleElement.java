@@ -29,11 +29,14 @@ import java.util.List;
 
 /** Interim API. */
 public interface ModuleElement extends Element {
+
+    // consider using java.lang.module.ModuleId
     interface ModuleId {
         CharSequence getName();
         CharSequence getVersion();
     }
 
+    // consider using java.lang.module.ModuleIdQuery
     interface ModuleIdQuery {
         CharSequence getName();
         CharSequence getVersionQuery();

@@ -490,46 +490,45 @@ public class ClassWriter {
             return null;
         }
 
-        public Void visitModuleClass(ModuleClass_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.class_index);
-            out.writeShort(attr.attributes.length);
-            for (int index: attr.attributes) {
-                out.writeShort(index);
-            }
-            return null;
-        }
-
-        public Void visitModuleExport(ModuleExport_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.export_table.length);
-            for (ModuleExport_attribute.Entry e: attr.export_table) {
-                out.writeShort(e.export_index);
-                out.writeByte(e.flags);
-            }
-            return null;
-        }
-
-        public Void visitModulePermits(ModulePermits_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.permits_table.length);
-            for (int i: attr.permits_table)
-                out.writeShort(i);
+        public Void visitModuleData(ModuleData_attribute attr, ClassOutputStream out) {
+            out.writeShort(attr.data_index);
             return null;
         }
 
         public Void visitModuleProvides(ModuleProvides_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.provides_table.length);
-            for (int i: attr.provides_table)
-                out.writeShort(i);
+            out.writeShort(attr.view_table.length);
+            for (ModuleProvides_attribute.View v: attr.view_table)
+                writeView(v, out);
             return null;
         }
 
+        protected void writeView(ModuleProvides_attribute.View v, ClassOutputStream out) {
+            out.writeShort(v.view_name_index);
+            out.writeShort(v.entrypoint_index);
+            out.writeShort(v.alias_table.length);
+            for (int alias_index: v.alias_table)
+                out.writeShort(alias_index);
+            out.writeShort(v.service_table.length);
+            for (ModuleProvides_attribute.Service s: v.service_table) {
+                out.writeShort(s.service_index);
+                out.writeShort(s.impl_index);
+            }
+            out.writeShort(v.export_table.length);
+            for (ModuleProvides_attribute.Export e: v.export_table) {
+                out.writeShort(e.export_index);
+                out.writeShort(e.export_flags);
+                out.writeShort(e.source_index);
+            }
+            out.writeShort(v.permit_table.length);
+            for (int permit_index: v.permit_table)
+                out.writeShort(permit_index);
+        }
+
         public Void visitModuleRequires(ModuleRequires_attribute attr, ClassOutputStream out) {
-            out.writeShort(attr.requires_table.length);
-            for (ModuleRequires_attribute.Entry e: attr.requires_table) {
-                out.writeShort(e.requires_index);
-                out.writeShort(e.attributes.length);
-                for (int i = 0; i < e.attributes_length; i++) {
-                    out.writeShort(e.attributes[i]);
-                }
+            out.writeShort(attr.module_table.length);
+            for (ModuleRequires_attribute.Entry e: attr.module_table) {
+                out.writeShort(e.index);
+                out.writeShort(e.flags);
             }
             return null;
         }

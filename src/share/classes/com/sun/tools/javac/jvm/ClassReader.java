@@ -25,6 +25,15 @@
 
 package com.sun.tools.javac.jvm;
 
+import com.sun.tools.javac.code.Directive.PermitsDirective;
+import com.sun.tools.javac.code.Directive.EntrypointDirective;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
+import com.sun.tools.javac.code.Directive.ExportFlag;
+import com.sun.tools.javac.code.Directive.ExportsDirective;
+import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
+import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
+import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
+import com.sun.tools.javac.code.Directive.RequiresFlag;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -46,6 +55,7 @@ import static javax.tools.StandardLocation.*;
 
 import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.code.*;
+import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.code.Symbol.*;
@@ -584,6 +594,35 @@ public class ClassReader implements Completer {
      */
     ModuleId readModuleId(int i) {
         return (ModuleId) (readPool(i));
+    }
+
+    /** Read module id query.
+     */
+    ModuleIdQuery readModuleIdQuery(int i) {
+        ModuleId id = (ModuleId) (readPool(i));
+        return id.toQuery();
+    }
+
+    /** Read exports_flags.
+     */
+    Set<ExportFlag> readExportFlags(int flags) {
+        Set<ExportFlag> set = EnumSet.noneOf(ExportFlag.class);
+        for (ExportFlag f: ExportFlag.values()) {
+            if ((flags & f.value) != 0)
+                set.add(f);
+        }
+        return set;
+    }
+
+    /** Read requires_flags.
+     */
+    Set<RequiresFlag> readRequiresFlags(int flags) {
+        Set<RequiresFlag> set = EnumSet.noneOf(RequiresFlag.class);
+        for (RequiresFlag f: RequiresFlag.values()) {
+            if ((flags & f.value) != 0)
+                set.add(f);
+        }
+        return set;
     }
 
     Name readInternalName(int i) {
@@ -1168,9 +1207,9 @@ public class ClassReader implements Completer {
                 }
             },
 
-            //  v51 module attributes
+            //  v52 module attributes
 
-            new AttributeReader(names.Module, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+            new AttributeReader(names.Module, V52, CLASS_ATTRIBUTE) {
                 @Override
                 boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
@@ -1185,7 +1224,7 @@ public class ClassReader implements Completer {
                 }
             },
 
-            new AttributeReader(names.ModuleExport, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+            new AttributeReader(names.ModuleProvides, V51, CLASS_ATTRIBUTE) {
                 @Override
                 boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
@@ -1193,17 +1232,66 @@ public class ClassReader implements Completer {
                 void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP && sym.owner.kind == MDL) {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
-                        int num = nextChar();
-                        for (int i = 0; i < num; i++) {
-                            ClassSymbol esym = readClassSymbol(nextChar());
-                            int flags = nextByte(); // ignored, for now
-                            msym.exports.append(new Symbol.ModuleExport(esym, List.<Name>nil()));
+                        int numViews = nextChar();
+                        for (int v = 0; v < numViews; v++) {
+                            Name viewName = readName(nextChar());
+                            ListBuffer<Directive> directives;
+                            if (viewName == null) {
+                                directives = msym.directives;
+                            } else {
+                                ViewDeclaration vdecl = new ViewDeclaration(viewName);
+                                directives = vdecl.directives;
+                            }
+
+                            ClassSymbol entrypoint = readClassSymbol(nextChar());
+                            if (entrypoint != null) {
+                                EntrypointDirective d = new EntrypointDirective(entrypoint);
+                                directives.add(d);
+                            }
+
+                            int numAliases = nextChar();
+                            for (int i = 0; i < numAliases; i++) {
+                                ModuleId id = readModuleId(nextChar());
+                                ProvidesModuleDirective d = new ProvidesModuleDirective(id);
+                                directives.add(d);
+                            }
+
+                            int numServices = nextChar();
+                            for (int i = 0; i < numServices; i++) {
+                                ClassSymbol svcSym = readClassSymbol(nextChar());
+                                ClassSymbol implSym = readClassSymbol(nextChar());
+                                ProvidesServiceDirective d = new ProvidesServiceDirective(svcSym, implSym);
+                                directives.add(d);
+                            }
+
+                            int numExports = nextChar();
+                            for (int i = 0; i < numExports; i++) {
+                                Name export = readName(nextChar());
+                                Set<ExportFlag> flags = readExportFlags(nextChar());
+                                ModuleId origin = readModuleId(nextChar());
+                                TypeSymbol tsym;
+                                if (flags.contains(ExportFlag.PACKAGE) || flags.contains(ExportFlag.PACKAGE_AND_SUBPACKAGES))
+                                    tsym = enterPackage(export);
+                                else if (flags.contains(ExportFlag.TYPE) || flags.contains(ExportFlag.TYPE_AND_MEMBERS))
+                                    tsym = enterClass(export);
+                                else
+                                    continue;
+                                ExportsDirective d = new ExportsDirective(tsym, flags, origin);
+                                directives.add(d);
+                            }
+
+                            int numPermits = nextChar();
+                            for (int i = 0; i < numPermits; i++) {
+                                ModuleId id = readModuleId(nextChar());
+                                PermitsDirective d = new PermitsDirective(id);
+                                directives.add(d);
+                            }
                         }
                     }
                 }
             },
 
-            new AttributeReader(names.ModulePermits, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
+            new AttributeReader(names.ModuleRequires, V51, CLASS_ATTRIBUTE) {
                 @Override
                 boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
@@ -1211,45 +1299,25 @@ public class ClassReader implements Completer {
                 void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP && sym.owner.kind == MDL) {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
-                        int num = nextChar();
-                        for (int i = 0; i < num; i++)
-                            msym.permits.append(readName(nextChar()));
-                    }
-                }
-            },
-
-            new AttributeReader(names.ModuleProvides, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
-                @Override
-                boolean accepts(AttributeKind kind) {
-                    return super.accepts(kind) && allowModules;
-                }
-                void read(Symbol sym, int attrLen) {
-                    if (sym.kind == TYP && sym.owner.kind == MDL) {
-                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
-                        int num = nextChar();
-                        for (int i = 0; i < num; i++)
-                            msym.provides.append(readModuleId(nextChar()));
-                    }
-                }
-            },
-
-            new AttributeReader(names.ModuleRequires, V51, CLASS_OR_MEMBER_ATTRIBUTE) {
-                @Override
-                boolean accepts(AttributeKind kind) {
-                    return super.accepts(kind) && allowModules;
-                }
-                void read(Symbol sym, int attrLen) {
-                    if (sym.kind == TYP && sym.owner.kind == MDL) {
-                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
-                        int numRequires = nextChar();
-                        for (int r = 0; r < numRequires; r++) {
-                            ModuleId id = readModuleId(nextChar());
-                            ListBuffer<Name> flags = new ListBuffer<Name>();
-                            int numFlags = nextChar();
-                            for (int f = 0; f < numFlags; f++) {
-                                flags.append(readName(nextChar()));
-                            }
-                            msym.requires.put(id, new ModuleRequires(id, flags.toList()));
+                        int numModules = nextChar();
+                        for (int r = 0; r < numModules; r++) {
+                            ModuleIdQuery q = readModuleIdQuery(nextChar());
+                            Set<RequiresFlag> flags = readRequiresFlags(nextChar());
+                            RequiresModuleDirective d = new RequiresModuleDirective(q, flags);
+                            msym.directives.add(d);
+                            // TOGO: old
+                            ListBuffer<Name> oldFlags = new ListBuffer<Name>();
+                            for (RequiresFlag f: flags)
+                                oldFlags.add(names.fromString(f.name().toLowerCase()));
+                            ModuleId oldId = new ModuleId(q.name, q.versionQuery);
+                            msym.requires.put(oldId, new ModuleRequires(oldId, oldFlags.toList()));
+                        }
+                        int numServices = nextChar();
+                        for (int r = 0; r < numServices; r++) {
+                            ClassSymbol csym = readClassSymbol(nextChar());
+                            Set<RequiresFlag> flags = readRequiresFlags(nextChar());
+                            RequiresServiceDirective d = new RequiresServiceDirective(csym, flags);
+                            msym.directives.add(d);
                         }
                     }
                 }

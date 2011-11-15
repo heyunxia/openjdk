@@ -28,7 +28,7 @@ package com.sun.tools.classfile;
 import java.io.IOException;
 
 /**
- * See JSR 294.
+ * See Jigsaw.
  *
  *  <p><b>This is NOT part of any supported API.
  *  If you write code that depends on this, you do so at your own risk.
@@ -36,60 +36,63 @@ import java.io.IOException;
  *  deletion without notice.</b>
  */
 public class ModuleRequires_attribute extends Attribute {
+    public static final int MR_OPTIONAL = 0x1;
+    public static final int MR_LOCAL = 0x2;
+    public static final int MR_PUBLIC = 0x4;
+    public static final int MR_SYNTHETIC = 0x1000;    // THIS IS NOT IN THE OFFICIAL SPEC, YET
+
     ModuleRequires_attribute(ClassReader cr, int name_index, int length) throws IOException {
         super(name_index, length);
-        requires_length = cr.readUnsignedShort();
-        requires_table = new Entry[requires_length];
-        for (int i = 0; i < requires_length; i++)
-            requires_table[i] = new Entry(cr);
+        module_length = cr.readUnsignedShort();
+        module_table = new Entry[module_length];
+        for (int i = 0; i < module_length; i++)
+            module_table[i] = new Entry(cr);
+        service_length = cr.readUnsignedShort();
+        service_table = new Entry[service_length];
+        for (int i = 0; i < service_length; i++)
+            service_table[i] = new Entry(cr);
     }
 
-    public ModuleRequires_attribute(ConstantPool constant_pool, Entry[] requires_table)
+    public ModuleRequires_attribute(ConstantPool constant_pool, Entry[] module_table, Entry[] service_table)
             throws ConstantPoolException {
-        this(constant_pool.getUTF8Index(Attribute.ModuleRequires), requires_table);
+        this(constant_pool.getUTF8Index(Attribute.ModuleRequires), module_table, service_table);
     }
 
-    public ModuleRequires_attribute(int name_index, Entry[] requires_table) {
-        super(name_index, 2 + length(requires_table));
-        this.requires_length = requires_table.length;
-        this.requires_table = requires_table;
+    public ModuleRequires_attribute(int name_index, Entry[] module_table, Entry[] service_table) {
+        super(name_index, 2 + length(module_table) + 2 + length(service_table));
+        this.module_length = module_table.length;
+        this.module_table = module_table;
+        this.service_length = service_table.length;
+        this.service_table = service_table;
     }
 
     public <R, D> R accept(Visitor<R, D> visitor, D data) {
         return visitor.visitModuleRequires(this, data);
     }
 
-    public final int requires_length;
-    public final Entry[] requires_table;
+    public final int module_length;
+    public final Entry[] module_table;
+    public final int service_length;
+    public final Entry[] service_table;
 
-    private static int length(Entry[] requires_table) {
-        int n = 0;
-        for (int i = 0; i < requires_table.length; i++)
-            n += requires_table[i].length();
-        return n;
+    private static int length(Entry[] table) {
+        return table.length * Entry.length;
     }
 
     public static class Entry {
         Entry(ClassReader cr) throws IOException {
-            requires_index = cr.readUnsignedShort();
-            attributes_length = cr.readUnsignedShort();
-            attributes = new int[attributes_length];
-            for (int i = 0; i < attributes_length; i++)
-                attributes[i] = cr.readUnsignedShort();
+            index = cr.readUnsignedShort();
+            flags = cr.readUnsignedShort();
         }
 
-        public Entry(int index, int[] attrs) {
-            requires_index = index;
-            attributes_length = attrs.length;
-            attributes = attrs;
+        public Entry(int index, int flags) {
+            this.index = index;
+            this.flags = flags;
         }
 
-        public int length() {
-            return 4 + attributes_length * 2;
-        }
+        public static final int length = 4;
 
-        public final int requires_index;
-        public final int attributes_length;
-        public final int[] attributes;
+        public final int index;
+        public final int flags;
     }
 }

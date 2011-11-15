@@ -65,9 +65,7 @@ public abstract class Attribute {
 
     // JSR 294
     public static final String Module                   = "Module";
-    public static final String ModuleClass              = "ModuleClass";
-    public static final String ModuleExport             = "ModuleExport";
-    public static final String ModulePermits            = "ModulePermits";
+    public static final String ModuleData               = "ModuleData";
     public static final String ModuleProvides           = "ModuleProvides";
     public static final String ModuleRequires           = "ModuleRequires";
 
@@ -121,9 +119,7 @@ public abstract class Attribute {
             standardAttributes.put(LocalVariableTypeTable, LocalVariableTypeTable_attribute.class);
 
             standardAttributes.put(Module,            Module_attribute.class);
-            standardAttributes.put(ModuleClass,       ModuleClass_attribute.class);
-            standardAttributes.put(ModuleExport,      ModuleExport_attribute.class);
-            standardAttributes.put(ModulePermits,     ModulePermits_attribute.class);
+            standardAttributes.put(ModuleData,        ModuleData_attribute.class);
             standardAttributes.put(ModuleProvides,    ModuleProvides_attribute.class);
             standardAttributes.put(ModuleRequires,    ModuleRequires_attribute.class);
 
@@ -199,9 +195,7 @@ public abstract class Attribute {
         R visitSynthetic(Synthetic_attribute attr, P p);
 
         R visitModule(Module_attribute attr, P p);
-        R visitModuleClass(ModuleClass_attribute attr, P p);
-        R visitModuleExport(ModuleExport_attribute attr, P p);
-        R visitModulePermits(ModulePermits_attribute attr, P p);
+        R visitModuleData(ModuleData_attribute attr, P p);
         R visitModuleProvides(ModuleProvides_attribute attr, P p);
         R visitModuleRequires(ModuleRequires_attribute attr, P p);
     }

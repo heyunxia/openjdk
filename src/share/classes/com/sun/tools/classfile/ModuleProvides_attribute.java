@@ -26,10 +26,9 @@
 package com.sun.tools.classfile;
 
 import java.io.IOException;
-import com.sun.tools.classfile.ConstantPool.CONSTANT_ModuleId_info;
 
 /**
- * See JSR 294.
+ * See Jigsaw.
  *
  *  <p><b>This is NOT part of any supported API.
  *  If you write code that depends on this, you do so at your own risk.
@@ -39,32 +38,104 @@ import com.sun.tools.classfile.ConstantPool.CONSTANT_ModuleId_info;
 public class ModuleProvides_attribute extends Attribute {
     ModuleProvides_attribute(ClassReader cr, int name_index, int length) throws IOException {
         super(name_index, length);
-        provides_length = cr.readUnsignedShort();
-        provides_table = new int[provides_length];
-        for (int i = 0; i < provides_length; i++)
-            provides_table[i] = cr.readUnsignedShort();
+        view_length = cr.readUnsignedShort();
+        view_table = new View[view_length];
+        for (int i = 0; i < view_length; i++)
+            view_table[i] = new View(cr);
     }
 
-    public ModuleProvides_attribute(ConstantPool constant_pool, int[] provides_table)
+    public ModuleProvides_attribute(ConstantPool constant_pool, View[] provides_table)
             throws ConstantPoolException {
         this(constant_pool.getUTF8Index(Attribute.ModuleProvides), provides_table);
     }
 
-    public ModuleProvides_attribute(int name_index, int[] provides_table) {
-        super(name_index, 2 + 2 * provides_table.length);
-        this.provides_length = provides_table.length;
-        this.provides_table = provides_table;
-    }
-
-    public CONSTANT_ModuleId_info getProvides(int index, ConstantPool constant_pool) throws ConstantPoolException {
-        int provides_index = provides_table[index];
-        return constant_pool.getModuleIdInfo(provides_index);
+    public ModuleProvides_attribute(int name_index, View[] view_table) {
+        super(name_index, 2 + length(view_table));
+        this.view_length = view_table.length;
+        this.view_table = view_table;
     }
 
     public <R, D> R accept(Visitor<R, D> visitor, D data) {
         return visitor.visitModuleProvides(this, data);
     }
 
-    public final int provides_length;
-    public final int[] provides_table;
+    public final int view_length;
+    public final View[] view_table;
+    
+    private static int length(View[] view_table) {
+        int n = 0;
+        for (View v: view_table)
+            n += v.length();
+        return n;
+    }
+
+    public static class View {
+        public final int view_name_index;
+        public final int entrypoint_index;
+        public final int alias_length;
+        public final int[] alias_table;
+        public final int service_length;
+        public final Service[] service_table;
+        public final int export_length;
+        public final Export[] export_table;
+        public final int  permit_length;
+        public final int[] permit_table;
+
+        View(ClassReader cr) throws IOException {
+            view_name_index = cr.readUnsignedShort();
+            entrypoint_index = cr.readUnsignedShort();
+            alias_length = cr.readUnsignedShort();
+            alias_table = new int[alias_length];
+            for (int i = 0; i < alias_table.length; i++)
+                alias_table[i] = cr.readUnsignedShort();
+            service_length = cr.readUnsignedShort();
+            service_table = new Service[service_length];
+            for (int i = 0; i < service_table.length; i++)
+                service_table[i] = new Service(cr);
+            export_length = cr.readUnsignedShort();
+            export_table = new Export[export_length];
+            for (int i = 0; i < export_table.length; i++)
+                export_table[i] = new Export(cr);
+            permit_length = cr.readUnsignedShort();
+            permit_table = new int[permit_length];
+            for (int i = 0; i < permit_table.length; i++)
+                permit_table[i] = cr.readUnsignedShort();
+        }
+
+        int length() {
+            return  2   // view_name_index
+                    + 2 // entrypoint_index
+                    + 2 + 2 * alias_table.length
+                    + 2 + Service.length * service_table.length
+                    + 2 + Export.length * export_table.length
+                    + 2 + 2 * permit_table.length;
+
+        }
+    }
+
+    public static class Service {
+        static final int length = 4;
+
+        public final int service_index;
+        public final int impl_index;
+
+        Service(ClassReader cr) throws IOException {
+            service_index = cr.readUnsignedShort();
+            impl_index = cr.readUnsignedShort();
+        }
+    }
+
+    public static class Export {
+        static final int length = 6;
+
+        public final int export_index;
+        public final int export_flags;
+        public final int source_index;
+
+        Export(ClassReader cr) throws IOException {
+            export_index = cr.readUnsignedShort();
+            export_flags = cr.readUnsignedShort();
+            source_index = cr.readUnsignedShort();
+        }
+    }
 }

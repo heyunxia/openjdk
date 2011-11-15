@@ -97,7 +97,7 @@ public class JavacCatalog  extends Catalog {
             ModuleSymbol msym = (ModuleSymbol) me;
             DEBUG("JavacCatalog.init: msym:" + msym + " msym.fullname:" + msym.fullname + " msym.version:" + msym.version);
             addModule(msym.fullname, msym.version, msym);
-            for (ClassFile.ModuleId mid: msym.provides) {
+            for (com.sun.tools.javac.code.ModuleId mid: msym.provides) {
                 addModule(mid.name, mid.version, msym);
             }
         }
@@ -174,7 +174,7 @@ public class JavacCatalog  extends Catalog {
         return getModuleId(sym.fullname, sym.version); // FIXME -- throws IllegalArgumentException
     }
 
-    ModuleId getModuleId(ClassFile.ModuleId mid) {
+    ModuleId getModuleId(com.sun.tools.javac.code.ModuleId mid) {
         return getModuleId(mid.name, mid.version); // FIXME -- throws IllegalArgumentException
     }
 
@@ -183,7 +183,7 @@ public class JavacCatalog  extends Catalog {
         return jigsaw.parseModuleId(mid); // FIXME -- throws IllegalArgumentException
     }
 
-    ModuleIdQuery getModuleIdQuery(ClassFile.ModuleId midq) {
+    ModuleIdQuery getModuleIdQuery(com.sun.tools.javac.code.ModuleId midq) {
         return getModuleIdQuery(midq.name, midq.version); // FIXME -- throws IllegalArgumentException
     }
 
@@ -230,7 +230,7 @@ public class JavacCatalog  extends Catalog {
             permits = Collections.unmodifiableSet(permits);
 
             provides = new LinkedHashSet<ModuleId>();
-            for (ClassFile.ModuleId p: msym.provides)
+            for (com.sun.tools.javac.code.ModuleId p: msym.provides)
                 provides.add(getModuleId(p));
             provides = Collections.unmodifiableSet(provides);
 

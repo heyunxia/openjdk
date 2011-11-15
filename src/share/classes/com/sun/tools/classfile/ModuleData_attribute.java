@@ -30,59 +30,44 @@ import java.io.IOException;
 import com.sun.tools.classfile.ConstantPool.*;
 
 /**
- * See JSR 294.
+ * See Jigsaw.
  *
  *  <p><b>This is NOT part of any supported API.
  *  If you write code that depends on this, you do so at your own risk.
  *  This code and its internal interfaces are subject to change or
  *  deletion without notice.</b>
  */
-public class ModuleClass_attribute extends Attribute {
-    ModuleClass_attribute(ClassReader cr, int name_index, int length) throws IOException {
+public class ModuleData_attribute extends Attribute {
+    ModuleData_attribute(ClassReader cr, int name_index, int length) throws IOException {
         super(name_index, length);
-        class_index = cr.readUnsignedShort();
-        attributes_length = cr.readUnsignedShort();
-        attributes = new int[attributes_length];
-        for (int i = 0; i < attributes.length; i++)
-            attributes[i] = cr.readUnsignedShort();
+        data_index = cr.readUnsignedShort();
     }
 
-    public ModuleClass_attribute(ConstantPool constant_pool, int class_index, int[] attributes)
+    public ModuleData_attribute(ConstantPool constant_pool, int class_index, int[] attributes)
             throws ConstantPoolException {
-        this(constant_pool.getUTF8Index(Attribute.ModuleRequires), class_index, attributes);
+        this(constant_pool.getUTF8Index(Attribute.ModuleData), class_index, attributes);
     }
 
-    public ModuleClass_attribute(int name_index, int class_index, int[] attributes) {
+    public ModuleData_attribute(int name_index, int data_index, int[] attributes) {
         super(name_index, 2 + attributes.length * 2);
-        this.class_index = class_index;
-        this.attributes_length = attributes.length;
-        this.attributes = attributes;
+        this.data_index = data_index;
     }
 
     public CONSTANT_Class_info getClassInfo(ConstantPool constant_pool) throws ConstantPoolException {
-        if (class_index == 0)
+        if (data_index == 0)
             return null;
-        return constant_pool.getClassInfo(class_index);
+        return constant_pool.getClassInfo(data_index);
     }
 
-    public String getClassName(ConstantPool constant_pool) throws ConstantPoolException {
-        if (class_index == 0)
+    public String getData(ConstantPool constant_pool) throws ConstantPoolException {
+        if (data_index == 0)
             return null;
-        return constant_pool.getClassInfo(class_index).getName();
-    }
-
-    public String[] getClassAttributes(ConstantPool constant_pool) throws ConstantPoolException {
-        String[] attrs = new String[attributes.length];
-        for (int i = 0; i < attrs.length; i++)
-            attrs[i] = constant_pool.getUTF8Value(attributes[i]);
-        return attrs;
+        return constant_pool.getClassInfo(data_index).getName();
     }
 
     public <R, D> R accept(Visitor<R, D> visitor, D data) {
-        return visitor.visitModuleClass(this, data);
+        return visitor.visitModuleData(this, data);
     }
 
-    public final int class_index;
-    public final int attributes_length;
-    public final int[] attributes;
+    public final int data_index;
 }

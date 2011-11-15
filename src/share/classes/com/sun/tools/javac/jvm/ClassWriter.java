@@ -35,12 +35,12 @@ import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.code.Attribute.RetentionPolicy;
+import com.sun.tools.javac.code.Directive.*;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.file.BaseFileObject;
 import com.sun.tools.javac.util.*;
 
-import java.util.Map;
 import javax.tools.JavaFileManager.Location;
 import javax.tools.ModuleFileManager;
 import static com.sun.tools.javac.code.BoundKind.*;
@@ -544,6 +544,11 @@ public class ClassWriter extends ClassFile {
                 poolbuf.appendByte(CONSTANT_ModuleId);
                 poolbuf.appendChar(pool.put(mid.name));
                 poolbuf.appendChar(mid.version == null ? 0 : pool.put(mid.version));
+            } else if (value instanceof ModuleIdQuery) {
+                ModuleIdQuery mid = (ModuleIdQuery)value;
+                poolbuf.appendByte(CONSTANT_ModuleId);
+                poolbuf.appendChar(pool.put(mid.name));
+                poolbuf.appendChar(mid.versionQuery == null ? 0 : pool.put(mid.versionQuery));
             } else {
                 Assert.error("writePool " + value);
             }
@@ -878,60 +883,69 @@ public class ClassWriter extends ClassFile {
     int writeModuleMetadata(ModuleSymbol sym) {
         int n = 0;
 
-        if (sym.provides.size() > 0) {
-            int alenIdx = writeAttr(names.ModuleProvides);
-            databuf.appendChar(sym.provides.size());
-            for (List<ModuleId> l = sym.provides.elems; l.nonEmpty(); l = l.tail) {
-                databuf.appendChar(pool.put(l.head));
-            }
-            endAttr(alenIdx);
-            n++;
-        }
-
-        if (sym.requires.size() > 0) {
+        if (sym.hasRequires()) {
             int alenIdx = writeAttr(names.ModuleRequires);
-            databuf.appendChar(sym.requires.size());
-            for (Map.Entry<ModuleId,ModuleRequires> e: sym.requires.entrySet()) {
-                ModuleId m = e.getKey();
-                ModuleRequires mr = e.getValue();
-                databuf.appendChar(pool.put(m));
-                databuf.appendChar(mr.flags.size());
-                for (List<Name> l = mr.flags; l.nonEmpty(); l = l.tail) {
-                    databuf.appendChar(pool.put(l.head));
+                // modules
+                List<RequiresModuleDirective> modules = sym.getRequiredModules();
+                databuf.appendChar(modules.size());
+                for (RequiresModuleDirective m: modules) {
+                    databuf.appendChar(pool.put(m.moduleQuery));
+                    databuf.appendChar(RequiresFlag.value(m.flags));
                 }
+                // services
+                List<RequiresServiceDirective> services = sym.getRequiredServices();
+                databuf.appendChar(services.size());
+                for (RequiresServiceDirective s: services) {
+                    databuf.appendChar(pool.put(s.sym));
+                    databuf.appendChar(RequiresFlag.value(s.flags));
+                }
+            endAttr(alenIdx);
+            n++;
+        }
+
+        if (sym.hasViews()) {
+            int alenIdx = writeAttr(names.ModuleProvides);
+            List<ViewDeclaration> views = sym.getViews();
+            databuf.appendChar(views.size());
+            for (ViewDeclaration v: views) {
+                // name
+                databuf.appendChar(v.isDefault() ? 0 : pool.put(v.name));
+                // entrypoint, if any
+                ClassSymbol esym = v.getEntrypoint();
+                databuf.appendChar(esym == null ? 0 : pool.put(esym));
+                // aliases
+                List<ProvidesModuleDirective> aliases = v.getAliases();
+                databuf.appendChar(aliases.size());
+                for (ProvidesModuleDirective a: aliases)
+                    databuf.appendChar(pool.put(a.moduleId));
+                // services
+                List<ProvidesServiceDirective> services = v.getServices();
+                databuf.appendChar(services.size());
+                for (ProvidesServiceDirective s: services) {
+                    databuf.appendChar(pool.put(s.service));
+                    databuf.appendChar(pool.put(s.impl));
+                }
+                // exports
+                List<ExportsDirective> exports = v.getExports();
+                databuf.appendChar(exports.size());
+                for (ExportsDirective e: exports) {
+                    databuf.appendChar(pool.put(e.sym.flatName()));  // CHECK YTHIS: ensure this is the binary name
+                    databuf.appendChar(ExportFlag.value(e.flags));
+                    databuf.appendChar(pool.put(e.origin));
+                }
+                // permits
+                List<PermitsDirective> permits = v.getPermits();
+                databuf.appendChar(permits.size());
+                for (PermitsDirective p: permits)
+                    databuf.appendChar(pool.put(p.moduleId));
             }
             endAttr(alenIdx);
             n++;
         }
 
-        if (sym.permits.size() > 0) {
-            int alenIdx = writeAttr(names.ModulePermits);
-            databuf.appendChar(sym.permits.size());
-            for (Name name: sym.permits) {
-                databuf.appendChar(pool.put(name));
-            }
-            endAttr(alenIdx);
-            n++;
-        }
-
-        if (sym.exports.size() > 0) {
-            int alenIdx = writeAttr(names.ModuleExport);
-            databuf.appendChar(sym.exports.size());
-            for (ModuleExport e: sym.exports) {
-                databuf.appendChar(pool.put(e.sym));
-                databuf.appendByte(0); // no flags for now
-            }
-            endAttr(alenIdx);
-            n++;
-        }
-
-        if (sym.className != null) {
-            int alenIdx = writeAttr(names.ModuleClass);
-            databuf.appendChar(pool.put(sym.className));
-            databuf.appendChar(sym.classFlags.size());
-            for (Name name: sym.classFlags) {
-                databuf.appendChar(pool.put(name));
-            }
+        if (sym.hasExtendedMetadata()) {
+            int alenIdx = writeAttr(names.ModuleData);
+            databuf.appendChar(pool.put(sym.extendedMetadata));
             endAttr(alenIdx);
             n++;
         }

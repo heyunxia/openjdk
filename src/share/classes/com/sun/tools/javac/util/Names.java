@@ -159,10 +159,14 @@ public class Names {
     public final Name permits;
     public final Name synthetic;
     public final Name ModuleClass;
+    public final Name ModuleData;
     public final Name ModuleExport;
     public final Name ModulePermits;
     public final Name ModuleProvides;
     public final Name ModuleRequires;
+    public final Name _public;
+    public final Name optional;
+    public final Name local;
 
     public final Name.Table table;
 
@@ -290,10 +294,15 @@ public class Names {
         permits = fromString("permits");
         synthetic = fromString("synthetic");
         ModuleClass = fromString("ModuleClass");
+        ModuleData = fromString("ModuleData");
         ModuleExport = fromString("ModuleExport");
         ModulePermits = fromString("ModulePermits");
         ModuleProvides = fromString("ModuleProvides");
         ModuleRequires = fromString("ModuleRequires");
+        _public = fromString("public");
+        optional = fromString("optional");
+        local = fromString("local");
+
     }
 
     protected Name.Table createTable(Options options) {

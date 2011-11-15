@@ -34,12 +34,12 @@ import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.code.Directive.*;
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.jvm.*;
-import com.sun.tools.javac.jvm.ClassFile.ModuleId;
 import com.sun.tools.javac.model.*;
 import com.sun.tools.javac.tree.JCTree;
 
@@ -669,7 +669,7 @@ public abstract class Symbol implements Element {
         }
 
         public ModuleElement.ModuleIdQuery getModuleIdQuery() {
-            return moduleId;
+            return moduleId.toQuery();
         }
 
         public java.util.List<? extends CharSequence> getFlags() {
@@ -685,17 +685,23 @@ public abstract class Symbol implements Element {
      */
     public static class ModuleSymbol extends TypeSymbol implements ModuleElement // JIGSAW need TypeSymbol?
             /*implements ModuleElement*/ {
+
         public Name fullname;
         public Name version;
 
+        /* all directives, in natural order */
+        public ListBuffer<Directive> directives;
+
+        public Name extendedMetadata;
+
         public ClassSymbol module_info;
 
-        public ClassSymbol className;
-        public List<Name> classFlags;
-        public ListBuffer<Name> permits;
-        public ListBuffer<Symbol.ModuleExport> exports;
-        public ListBuffer<ClassFile.ModuleId> provides;
-        public Map<ClassFile.ModuleId,Symbol.ModuleRequires> requires;
+        public ClassSymbol className;                       // TOGO, directive done
+        public List<Name> classFlags;                       // TOGO, unused
+        public ListBuffer<Name> permits;                    // TOGO, directive done
+        public ListBuffer<Symbol.ModuleExport> exports;     // TOGO, directive done
+        public ListBuffer<com.sun.tools.javac.code.ModuleId> provides; // TOGO, directive done
+        public Map<com.sun.tools.javac.code.ModuleId,Symbol.ModuleRequires> requires; // TOGO
         public JavaFileManager.Location location;
 
         public ModuleSymbol() {
@@ -711,8 +717,71 @@ public abstract class Symbol implements Element {
             this.fullname = formFullName(name, owner);
         }
 
-        public ClassFile.ModuleId getModuleId() {
-            return new ClassFile.ModuleId(fullname, version);
+        public com.sun.tools.javac.code.ModuleId getModuleId() {
+            return new com.sun.tools.javac.code.ModuleId(fullname, version);
+        }
+
+        public boolean hasRequires() {
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case REQUIRES_MODULE:
+                    case REQUIRES_SERVICE:
+                        System.err.println("hasRequires: true");
+                        return true;
+                }
+            }
+            System.err.println("hasRequires: false");
+            return false;
+        }
+
+        public List<RequiresModuleDirective> getRequiredModules() {
+            return Directive.filter(directives, Directive.Kind.REQUIRES_MODULE,
+                    RequiresModuleDirective.class);
+        }
+
+        public List<RequiresServiceDirective> getRequiredServices() {
+            return Directive.filter(directives, Directive.Kind.REQUIRES_SERVICE,
+                    RequiresServiceDirective.class);
+        }
+
+        public boolean hasViews() {
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case REQUIRES_MODULE:
+                    case REQUIRES_SERVICE:
+                        continue;
+                    default:
+                        System.err.println("hasViews: true");
+                        return true;
+                }
+            }
+            System.err.println("hasViews: false");
+            return false;
+        }
+
+        public List<ViewDeclaration> getViews() {
+            ListBuffer<Directive> defaultViewDirectives = ListBuffer.lb();
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case PROVIDES_MODULE:
+                    case PROVIDES_SERVICE:
+                    case EXPORTS:
+                    case PERMITS:
+                    case ENTRYPOINT:
+                        defaultViewDirectives.add(d);
+                }
+            }
+            List<ViewDeclaration> views =
+                    Directive.filter(directives, Directive.Kind.VIEW,
+                        ViewDeclaration.class);
+            if (defaultViewDirectives.nonEmpty())
+                views.prepend(new ViewDeclaration(defaultViewDirectives));
+            return views;
+        }
+
+        public boolean hasExtendedMetadata() {
+            System.err.println("hasData: " + Boolean.valueOf((extendedMetadata != null) && !extendedMetadata.isEmpty()));
+            return (extendedMetadata != null) && !extendedMetadata.isEmpty();
         }
 
         public java.util.List<Symbol.ModuleRequires> getRequires() {
