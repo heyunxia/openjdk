@@ -26,6 +26,7 @@
 
 package com.sun.tools.javac.comp;
 
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -63,7 +64,6 @@ import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.CompletionFailure;
-import com.sun.tools.javac.code.Symbol.ModuleRequires;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.JavacFileManager;
@@ -224,14 +224,9 @@ public class Modules extends JCTree.Visitor {
         tree.sym = sym;
 
         sym.version = tree.getId().version;
-        sym.exports = new ListBuffer<Symbol.ModuleExport>();
-        sym.permits = new ListBuffer<Name>();
-        sym.provides = new ListBuffer<ModuleId>();
-        sym.requires = new LinkedHashMap<ModuleId,ModuleRequires>();
         sym.directives = ListBuffer.lb();
         for (List<JCModuleId> l = tree.provides; l.nonEmpty(); l = l.tail) {
             JCModuleId moduleId = l.head;
-            sym.provides.append(new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version));
             ModuleId mid = new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version);
             ProvidesModuleDirective d = new ProvidesModuleDirective(mid);
             sym.directives.add(d);
@@ -248,9 +243,7 @@ public class Modules extends JCTree.Visitor {
             if (!env.info.seenPlatformRequires) {
                 DEBUG("Modules.visitModuleDef seenPlatformRequires:" + env.info.seenPlatformRequires);
                 ModuleId mid = getDefaultPlatformModule();
-                sym.requires.put(mid, new ModuleRequires(mid, List.of(names.synthetic)));
-                ModuleIdQuery mq = mid.toQuery();
-                RequiresModuleDirective d = new RequiresModuleDirective(mq, EnumSet.of(RequiresFlag.SYNTHETIC));
+                sym.directives.add(new RequiresModuleDirective(mid.toQuery()));
             }
         } finally {
             currSym = null;
@@ -310,7 +303,6 @@ public class Modules extends JCTree.Visitor {
             JCTree qualId = l.head;
             Name moduleName = TreeInfo.fullName(qualId);
             // JIGSAW TODO check duplicates
-            sym.permits.add(moduleName);
             // TODO: should have context for view
             PermitsDirective d = new PermitsDirective(moduleName);
             sym.directives.add(d);
@@ -322,10 +314,8 @@ public class Modules extends JCTree.Visitor {
         ModuleSymbol sym = currSym;
         for (List<JCModuleId> l = tree.moduleIds; l.nonEmpty(); l = l.tail) {
             JCModuleId moduleId = l.head;
-            ModuleId mid = new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version);
+            ModuleIdQuery mq = new ModuleIdQuery(TreeInfo.fullName(moduleId.qualId), moduleId.version);
             // JIGSAW TODO check duplicates
-            sym.requires.put(mid, new ModuleRequires(mid, tree.flags));
-            ModuleIdQuery mq = mid.toQuery();
             Set<RequiresFlag> flags = EnumSet.noneOf(RequiresFlag.class);
             for (Name f: tree.flags) {
                 if (f == names._public)
@@ -338,7 +328,7 @@ public class Modules extends JCTree.Visitor {
             RequiresModuleDirective d = new RequiresModuleDirective(mq, flags);
             sym.directives.add(d);
             ModuleResolver mr = getModuleResolver();
-            if (mr.isPlatformName(mid.name))
+            if (mr.isPlatformName(mq.name))
                 env.info.seenPlatformRequires = true;
         }
     }
@@ -374,11 +364,8 @@ public class Modules extends JCTree.Visitor {
             if (classFile == null) {
                 sym.name = sym.fullname = names.empty; // unnamed module
                 DEBUG("Modules.readModule: (" + sym.hashCode() + ") no module info found for " + locn );
-                ModuleId p = getDefaultPlatformModule();
-                sym.requires = new HashMap<ModuleId, ModuleRequires>(1);
-                sym.requires.put(p, new ModuleRequires(p, List.<Name>nil()));
-                ModuleIdQuery mq = p.toQuery();
-                RequiresModuleDirective d = new RequiresModuleDirective(mq, EnumSet.noneOf(RequiresFlag.class));
+                ModuleIdQuery mq = getDefaultPlatformModule().toQuery();
+                RequiresModuleDirective d = new RequiresModuleDirective(mq);
                 sym.directives = ListBuffer.lb();
                 sym.directives.add(d);
                 return;
@@ -610,6 +597,9 @@ public class Modules extends JCTree.Visitor {
             public void report(ModuleSymbol msym, ModuleId mid, String key, Object... args) {
                 error(msym, mid, key, args);
             }
+            public void report(ModuleSymbol msym, ModuleIdQuery mq, String key, Object... args) {
+                error(msym, mq, key, args);
+            }
         });
         DEBUG("Modules.initModuleResolver: zeromod: " + moduleResolver);
     }
@@ -620,6 +610,10 @@ public class Modules extends JCTree.Visitor {
         File javaHome = new File(System.getProperty("java.home"));
         File rt_jar = new File(new File(javaHome, "lib"), "rt.jar");
         return rt_jar.exists();
+    }
+
+    private void error(ModuleSymbol msym, ModuleIdQuery mq, String key, Object... args) {
+        error(msym, new ModuleId(mq.name, mq.versionQuery), key, args);
     }
 
     private void error(ModuleSymbol msym, ModuleId id, String key, Object... args) {
@@ -857,9 +851,9 @@ public class Modules extends JCTree.Visitor {
                     // short form only, for now
                     debug.print("    requires: ");
                     String sep = "";
-                    for (ModuleRequires r: msym.getRequires()) {
+                    for (RequiresModuleDirective d: msym.getRequiredModules()) {
                         debug.print(sep);
-                        showNameAndVersion(r.moduleId.name, r.moduleId.version);
+                        showNameAndVersion(d.moduleQuery.name, d.moduleQuery.versionQuery);
                         sep = ", ";
                     }
                     debug.println();
@@ -922,6 +916,7 @@ public class Modules extends JCTree.Visitor {
 
     interface ErrorHandler {
         void report(ModuleSymbol msym, ModuleId mid, String key, Object... args);
+        void report(ModuleSymbol msym, ModuleIdQuery mq, String key, Object... args);
     }
 
     class ZeroMod implements ModuleResolver {
@@ -982,8 +977,10 @@ public class Modules extends JCTree.Visitor {
             for (ModuleElement elem: modules) {
                 ModuleSymbol sym = (ModuleSymbol) elem;
                 add(table, sym, new ModuleId(sym.name, sym.version));
-                for (List<ModuleId> l = sym.provides.toList(); l.nonEmpty(); l = l.tail)
-                    add(table, sym, l.head);
+                for (ViewDeclaration v : sym.getViews()) {
+                    for (ProvidesModuleDirective d : v.getAliases())
+                        add(table, sym, d.moduleId);
+                }
             }
 
             // Add entry for default platform module if needed
@@ -995,7 +992,6 @@ public class Modules extends JCTree.Visitor {
                     table.put(p.name, versions = new HashMap<Name,ModuleSymbol>());
                 psym = new ModuleSymbol(p.name, syms.rootModule);
                 psym.location = StandardLocation.PLATFORM_CLASS_PATH;
-                psym.requires = new HashMap<ModuleId,ModuleRequires>();
                 versions.put(p.version, psym);
                 psym.directives = ListBuffer.lb();
             }
@@ -1016,16 +1012,16 @@ public class Modules extends JCTree.Visitor {
                 versions.put(mid.version, sym);
         }
 
-        private ModuleSymbol getModule(ModuleId mid) throws ModuleException {
+        private ModuleSymbol getModule(ModuleIdQuery mid) throws ModuleException {
             Map<Name, ModuleSymbol> versions = moduleTable.get(mid.name);
             if (versions == null)
                 throw new ModuleException("mdl.no.version.available", mid);
-            if (mid.version == null) {
+            if (mid.versionQuery == null) {
                 if (versions.size() > 1)
                     throw new ModuleException("mdl.no.unique.version.available", mid);
                 return versions.values().iterator().next();
             } else {
-                ModuleSymbol sym = versions.get(mid.version);
+                ModuleSymbol sym = versions.get(mid.versionQuery);
                 if (sym == null)
                     throw new ModuleException("mdl.required.version.not.available", mid);
                 return sym;
@@ -1045,12 +1041,12 @@ public class Modules extends JCTree.Visitor {
 
         private class ModuleException extends Exception {
             private static final long serialVersionUID = 0;
-            ModuleException(String key, ModuleId moduleId) {
+            ModuleException(String key, ModuleIdQuery moduleQuery) {
                 this.key = key;
-                this.moduleId = moduleId;
+                this.moduleQuery = moduleQuery;
             }
             final String key;
-            final ModuleId moduleId;
+            final ModuleIdQuery moduleQuery;
         }
 
 ////////        List<Node> getNodes(Iterable<? extends ModuleElement.ModuleIdQuery> queries) {
@@ -1096,13 +1092,13 @@ public class Modules extends JCTree.Visitor {
             }
 
             Iterable<Node> getDependencies() {
-                DEBUG("ZeroMod.Node.getDependencies: " + sym + " " + sym.requires);
+                DEBUG("ZeroMod.Node.getDependencies: " + sym + " " + sym.getRequiredModules());
                 ListBuffer<Node> nodes = new ListBuffer<Node>();
-                for (ModuleRequires mr: sym.requires.values()) {
+                for (RequiresModuleDirective d: sym.getRequiredModules()) {
                     try {
-                        nodes.add(getNode(getModule(mr.moduleId)));
+                        nodes.add(getNode(getModule(d.moduleQuery)));
                     } catch (ModuleException e) {
-                        errorHandler.report(sym, e.moduleId, e.key, e.moduleId);
+                        errorHandler.report(sym, e.moduleQuery, e.key, e.moduleQuery);
                     }
                 }
                 return nodes.toList();

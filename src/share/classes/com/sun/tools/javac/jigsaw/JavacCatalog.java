@@ -48,6 +48,9 @@ import org.openjdk.jigsaw.JigsawModuleSystem;
 import org.openjdk.jigsaw.Library;
 import org.openjdk.jigsaw.SimpleLibrary;
 
+import com.sun.tools.javac.code.Directive.PermitsDirective;
+import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.jvm.ClassFile;
@@ -97,8 +100,11 @@ public class JavacCatalog  extends Catalog {
             ModuleSymbol msym = (ModuleSymbol) me;
             DEBUG("JavacCatalog.init: msym:" + msym + " msym.fullname:" + msym.fullname + " msym.version:" + msym.version);
             addModule(msym.fullname, msym.version, msym);
-            for (com.sun.tools.javac.code.ModuleId mid: msym.provides) {
-                addModule(mid.name, mid.version, msym);
+            for (ViewDeclaration v: msym.getViews()) {
+                for (ProvidesModuleDirective d: v.getAliases()) {
+                    com.sun.tools.javac.code.ModuleId mid = d.moduleId;
+                    addModule(mid.name, mid.version, msym);
+                }
             }
         }
         DEBUG("JavacCatalog.init: map:" + moduleMap);
@@ -222,16 +228,24 @@ public class JavacCatalog  extends Catalog {
 
             id = getModuleId(msym); // FIXME -- throws IllegalArgumentException
 
-            mainClass = (msym.className == null) ? null : msym.className.toString();
+            {   // needs to be updated for multiple views
+                ViewDeclaration v = msym.getDefaultView();
+                if (v.hasEntrypoint())
+                    mainClass = new String(ClassFile.externalize(v.getEntrypoint().flatname));
+            }
 
             permits = new LinkedHashSet<String>();
-            for (Name p: msym.permits)
-                permits.add(p.toString()); // FIXME: validate name?
+            for (PermitsDirective d: msym.getDefaultView().getPermits()) {
+                permits.add(d.moduleId.name.toString()); // FIXME: validate name?
+            }
             permits = Collections.unmodifiableSet(permits);
 
             provides = new LinkedHashSet<ModuleId>();
-            for (com.sun.tools.javac.code.ModuleId p: msym.provides)
-                provides.add(getModuleId(p));
+            for (ViewDeclaration v: msym.getViews()) {
+                for (ProvidesModuleDirective d: v.getAliases()) {
+                    provides.add(getModuleId(d.moduleId));
+                }
+            }
             provides = Collections.unmodifiableSet(provides);
 
             requires = new LinkedHashSet<Dependence>();

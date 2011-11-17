@@ -25,6 +25,7 @@
 
 package com.sun.tools.javac.jigsaw;
 
+import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import java.io.File;
 import java.io.IOException;
 import java.lang.module.ModuleId;
@@ -97,15 +98,17 @@ public class JigsawModuleResolver implements ModuleResolver {
         catalog.init(modules);
         Collection<ModuleIdQuery> jigsawRootQueries = new LinkedHashSet<ModuleIdQuery>();
         for (ModuleElement r: roots) {
+            // TEMP, until we model directives in ModuleElement
+            ModuleSymbol msym = (ModuleSymbol) r;
             // should use catalog here
             CharSequence rn = r.getModuleId().getName();
             if (rn.length() == 0) {
                 // unnamed module
 ////////////                // assert r.getRequires() == default platform module
 ////////////                q = getDefaultPlatformModule();
-                for (ModuleElement.ModuleRequires mr: r.getRequires()) {
+                for (RequiresModuleDirective d: msym.getRequiredModules()) {
                     // assert mr.getFlags().isEmpty()
-                    jigsawRootQueries.add(getModuleIdQuery(mr.getModuleIdQuery())); // FIXME: handle IllegalArgumentException
+                    jigsawRootQueries.add(getModuleIdQuery(d.moduleQuery)); // FIXME: handle IllegalArgumentException
                 }
             } else {
                 jigsawRootQueries.add(getModuleIdQuery(r.getModuleId())); // FIXME: handle IllegalArgumentException
@@ -161,7 +164,6 @@ public class JigsawModuleResolver implements ModuleResolver {
                     sym = new ModuleSymbol(name, syms.rootModule);
                     sym.version = names.fromString(mid.version().toString());
                     sym.location = new JigsawLibraryLocation(catalog.library, mid);
-                    sym.requires = Collections.emptyMap();
                     sym.directives = ListBuffer.lb();
                 }
                 results.add(sym);

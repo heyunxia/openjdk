@@ -1305,12 +1305,6 @@ public class ClassReader implements Completer {
                             Set<RequiresFlag> flags = readRequiresFlags(nextChar());
                             RequiresModuleDirective d = new RequiresModuleDirective(q, flags);
                             msym.directives.add(d);
-                            // TOGO: old
-                            ListBuffer<Name> oldFlags = new ListBuffer<Name>();
-                            for (RequiresFlag f: flags)
-                                oldFlags.add(names.fromString(f.name().toLowerCase()));
-                            ModuleId oldId = new ModuleId(q.name, q.versionQuery);
-                            msym.requires.put(oldId, new ModuleRequires(oldId, oldFlags.toList()));
                         }
                         int numServices = nextChar();
                         for (int r = 0; r < numServices; r++) {
@@ -2346,9 +2340,7 @@ public class ClassReader implements Completer {
         } else if (sym.kind == MDL) {
             //System.err.println("ClassReader.complete module " + sym + " " + sym.name);
             ModuleSymbol msym = (ModuleSymbol) sym;
-            msym.permits = new ListBuffer<Name>();
-            msym.provides = new ListBuffer<ModuleId>();
-            msym.requires = new LinkedHashMap<ModuleId,ModuleRequires>();
+            msym.directives = new ListBuffer<Directive>();
             msym.module_info.members_field = new Scope(sym); // or Scope.empty?
             fillIn(msym.module_info);
             assert msym.name != null;

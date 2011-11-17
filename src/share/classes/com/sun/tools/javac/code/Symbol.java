@@ -645,42 +645,6 @@ public abstract class Symbol implements Element {
         }
     }
 
-    public static class ModuleExport {
-        public ClassSymbol sym;
-        public List<Name> flags;
-        public ModuleExport(ClassSymbol sym, List<Name> flags) {
-            this.sym = sym;
-            this.flags = flags;
-        }
-
-        @Override
-        public String toString() {
-            return "ModuleExport[" + flags + "," + sym + "]";
-        }
-    }
-
-    public static class ModuleRequires implements ModuleElement.ModuleRequires {
-        public ModuleId moduleId;
-        public List<Name> flags;
-
-        public ModuleRequires(ModuleId moduleIdQuery, List<Name> flags) {
-            this.moduleId = moduleIdQuery;
-            this.flags = flags;
-        }
-
-        public ModuleElement.ModuleIdQuery getModuleIdQuery() {
-            return moduleId.toQuery();
-        }
-
-        public java.util.List<? extends CharSequence> getFlags() {
-            return flags;
-        }
-
-        public String toString() {
-            return "ModuleRequires[" + flags + "," + moduleId + "]";
-        }
-    }
-
     /** A class for module symbols.
      */
     public static class ModuleSymbol extends TypeSymbol implements ModuleElement // JIGSAW need TypeSymbol?
@@ -689,19 +653,14 @@ public abstract class Symbol implements Element {
         public Name fullname;
         public Name version;
 
-        /* all directives, in natural order */
+        /** All directives, in natural order. */
         public ListBuffer<Directive> directives;
 
+        /** An uninterpreted string associated with the module. */
         public Name extendedMetadata;
 
         public ClassSymbol module_info;
 
-        public ClassSymbol className;                       // TOGO, directive done
-        public List<Name> classFlags;                       // TOGO, unused
-        public ListBuffer<Name> permits;                    // TOGO, directive done
-        public ListBuffer<Symbol.ModuleExport> exports;     // TOGO, directive done
-        public ListBuffer<com.sun.tools.javac.code.ModuleId> provides; // TOGO, directive done
-        public Map<com.sun.tools.javac.code.ModuleId,Symbol.ModuleRequires> requires; // TOGO
         public JavaFileManager.Location location;
 
         public ModuleSymbol() {
@@ -717,6 +676,7 @@ public abstract class Symbol implements Element {
             this.fullname = formFullName(name, owner);
         }
 
+        // Currently ModuleId is defined in ModuleElement, which means
         public com.sun.tools.javac.code.ModuleId getModuleId() {
             return new com.sun.tools.javac.code.ModuleId(fullname, version);
         }
@@ -726,11 +686,9 @@ public abstract class Symbol implements Element {
                 switch (d.getKind()) {
                     case REQUIRES_MODULE:
                     case REQUIRES_SERVICE:
-                        System.err.println("hasRequires: true");
                         return true;
                 }
             }
-            System.err.println("hasRequires: false");
             return false;
         }
 
@@ -751,12 +709,25 @@ public abstract class Symbol implements Element {
                     case REQUIRES_SERVICE:
                         continue;
                     default:
-                        System.err.println("hasViews: true");
                         return true;
                 }
             }
-            System.err.println("hasViews: false");
             return false;
+        }
+
+        public ViewDeclaration getDefaultView() {
+            ListBuffer<Directive> defaultViewDirectives = ListBuffer.lb();
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case PROVIDES_MODULE:
+                    case PROVIDES_SERVICE:
+                    case EXPORTS:
+                    case PERMITS:
+                    case ENTRYPOINT:
+                        defaultViewDirectives.add(d);
+                }
+            }
+            return new ViewDeclaration(defaultViewDirectives);
         }
 
         public List<ViewDeclaration> getViews() {
@@ -782,14 +753,6 @@ public abstract class Symbol implements Element {
         public boolean hasExtendedMetadata() {
             System.err.println("hasData: " + Boolean.valueOf((extendedMetadata != null) && !extendedMetadata.isEmpty()));
             return (extendedMetadata != null) && !extendedMetadata.isEmpty();
-        }
-
-        public java.util.List<Symbol.ModuleRequires> getRequires() {
-            List<Symbol.ModuleRequires> l = List.nil();
-            for (Symbol.ModuleRequires mr: requires.values()) {
-                l = l.prepend(mr);
-            }
-            return l.reverse();
         }
 
         @Override

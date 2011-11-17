@@ -60,8 +60,7 @@ public abstract class Directive {
     public enum RequiresFlag {
         OPTIONAL(0x0001),
         LOCAL(0x0002),
-        PUBLIC(0x0004),
-        SYNTHETIC(0x1000);  // THIS IS NOT IN THE OFFICIAL SPEC, YET
+        PUBLIC(0x0004);
 
         // overkill? move to ClassWriter?
         public static int value(Set<RequiresFlag> s) {
@@ -128,8 +127,12 @@ public abstract class Directive {
      * 'requires' ['optional'] {'local' | 'public'} ModuleNameAndVersionQuery ';'
      */
     public static class RequiresModuleDirective extends Directive {
-        public ModuleIdQuery moduleQuery;
-        public Set<RequiresFlag> flags;
+        public final ModuleIdQuery moduleQuery;
+        public final Set<RequiresFlag> flags;
+
+        public RequiresModuleDirective(ModuleIdQuery moduleQuery) {
+            this(moduleQuery, EnumSet.noneOf(RequiresFlag.class));
+        }
 
         public RequiresModuleDirective(ModuleIdQuery moduleQuery, Set<RequiresFlag> flags) {
             this.moduleQuery = moduleQuery;
@@ -146,8 +149,8 @@ public abstract class Directive {
      * 'requires' ['optional'] 'service' ServiceName ';'
      */
     public static class RequiresServiceDirective extends Directive {
-        public ClassSymbol sym;
-        public Set<RequiresFlag> flags;
+        public final ClassSymbol sym;
+        public final Set<RequiresFlag> flags;
 
         public RequiresServiceDirective(ClassSymbol sym, Set<RequiresFlag> flags) {
             this.sym = sym;
@@ -180,8 +183,8 @@ public abstract class Directive {
      * 'provides' 'service' ServiceName 'with' QualifiedIdentifer ';'
      */
     public static class ProvidesServiceDirective extends Directive {
-        public ClassSymbol service;
-        public ClassSymbol impl;
+        public final ClassSymbol service;
+        public final ClassSymbol impl;
 
         public ProvidesServiceDirective(ClassSymbol service, ClassSymbol impl) {
             this.service = service;
@@ -269,6 +272,14 @@ public abstract class Directive {
 
         public boolean isDefault() {
             return name == null;
+        }
+
+        public boolean hasEntrypoint() {
+            for (Directive d: directives) {
+                if (d.getKind() == Directive.Kind.ENTRYPOINT)
+                    return true;
+            }
+            return false;
         }
 
         public ClassSymbol getEntrypoint() {

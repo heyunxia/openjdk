@@ -25,8 +25,6 @@
 
 package javax.lang.model.element;
 
-import java.util.List;
-
 /** Interim API. */
 public interface ModuleElement extends Element {
 
@@ -42,12 +40,6 @@ public interface ModuleElement extends Element {
         CharSequence getVersionQuery();
     }
 
-    interface ModuleRequires {
-        ModuleIdQuery getModuleIdQuery();
-        List<? extends CharSequence> getFlags();
-    }
-
     ModuleId getModuleId();
-    List<? extends ModuleRequires> getRequires();
 
 }

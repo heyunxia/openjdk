@@ -3121,8 +3121,6 @@ public class Attr extends JCTree.Visitor {
         Type t = attribType(tree.qualId, env);
         if (t.tag == CLASS) {
             // FIXME: should check for duplicates
-            msym.className = (ClassSymbol) tree.qualId.type.tsym;
-            msym.classFlags = tree.flags;
             EntrypointDirective d = new EntrypointDirective((ClassSymbol) tree.qualId.type.tsym);
             // get and use a View from the env?
             msym.directives.add(d);
