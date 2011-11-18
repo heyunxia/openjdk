@@ -29,7 +29,7 @@ import java.net.URI;
 import java.security.*;
 import java.security.cert.Certificate;
 
-import static org.openjdk.jigsaw.FileConstants.*;
+import static org.openjdk.jigsaw.FileConstants.ModuleFile.SignatureType;
 
 /**
  * Generate a digital signature for a module file.
@@ -43,7 +43,7 @@ public interface ModuleFileSigner {
      *
      * @see FileConstants.ModuleFile.SignatureType
      */
-    public ModuleFile.SignatureType getSignatureType();
+    public SignatureType getSignatureType();
 
     /**
      * Generates the digital signature.

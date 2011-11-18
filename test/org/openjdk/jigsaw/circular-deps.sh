@@ -90,7 +90,7 @@ EOF
 
 mkdir z.modules z.classes
 
-$BIN/javac -source 7 -d z.modules -modulepath z.modules \
+$BIN/javac -source 8 -d z.modules -modulepath z.modules \
   `find z.src -name '*.java'`
 $BIN/jmod -J-ea -L z.lib create
 $BIN/jmod -J-ea -L z.lib install z.modules `ls z.src`

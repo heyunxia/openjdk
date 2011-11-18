@@ -61,7 +61,7 @@ public class Main {
 EOF
 
 rm -rf z.modules && mkdir z.modules
-$BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
+$BIN/javac -source 8 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 rm -rf z.lib
 JAVA_MODULES=z.lib

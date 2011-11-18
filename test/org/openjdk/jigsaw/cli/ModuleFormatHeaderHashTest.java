@@ -81,8 +81,8 @@ public class ModuleFormatHeaderHashTest {
         String fname = moduleDir + File.separator + name + "@" + version + ".jmod";
         try (FileInputStream fis = new FileInputStream(fname);
              DataInputStream in = new DataInputStream(fis);
-             ModuleFileFormat.Reader r = new ModuleFileFormat.Reader(in);) {
-            return r.getHash();
+             ModuleFile.Reader r = new ModuleFile.Reader(in);) {
+             return r.getHash();
         }
     }
 
@@ -94,7 +94,7 @@ public class ModuleFormatHeaderHashTest {
         MessageDigest md = MessageDigest.getInstance(digest);
         try (FileInputStream fis = new FileInputStream(fname);
              DigestInputStream dis = new DigestInputStream(fis, md)) {
-            dis.read(new byte[ModuleFileFormat.FILE_HEADER_LENGTH_WITHOUT_HASH]);
+            dis.read(new byte[ModuleFile.ModuleFileHeader.LENGTH_WITHOUT_HASH]);
             dis.on(false);
             dis.read(new byte [md.getDigestLength()]);
             dis.on(true);
@@ -111,21 +111,17 @@ public class ModuleFormatHeaderHashTest {
         compress(name, false);
     }
 
-    void compress(String name, boolean haveResources) throws Exception {
-        compress(name, haveResources, false);
-    }
-
-    void compress(String name, boolean haveResources, boolean haveNatLibs)
+    void compress(String name, boolean haveNatLibs)
         throws Exception {
-        compress(name, haveResources, haveNatLibs, false);
+        compress(name, haveNatLibs, false);
     }
 
-    void compress(String name, boolean haveResources, boolean haveNatLibs,
+    void compress(String name, boolean haveNatLibs,
                   boolean haveNatCmds) throws Exception {
-        compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+        compress(name, haveNatLibs, haveNatCmds, false);
     }
 
-    void compress(String name, boolean haveResources, boolean haveNatLibs,
+    void compress(String name, boolean haveNatLibs,
                   boolean haveNatCmds, boolean haveConfig)
         throws Exception {
         List<String> args = new ArrayList<String>();
@@ -133,10 +129,6 @@ public class ModuleFormatHeaderHashTest {
         args.add(classesDir.getAbsolutePath());
         args.add("-d");
         args.add(moduleDir.getAbsolutePath());
-        if (haveResources) {
-            args.add("-r");
-            args.add(resourceDir.toString());
-        }
         if (haveNatLibs) {
             args.add("--natlib");
             args.add(natlibDir.toString());
@@ -159,7 +151,7 @@ public class ModuleFormatHeaderHashTest {
      */
     void compile(List<File> files) {
         List<String> options = new ArrayList<String>();
-        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath()));
+        options.addAll(Arrays.asList("-source", "8", "-d", classesDir.getPath()));
         for (File f: files)
             options.add(f.getPath());
 
@@ -244,7 +236,6 @@ public class ModuleFormatHeaderHashTest {
     File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
     File classesDir = new File("tmp", "classes");
     File moduleDir = new File("tmp", "modules");
-    File resourceDir = new File(srcDir, "resources");
     File natlibDir = new File(srcDir, "natlib");
     File natcmdDir = new File(srcDir, "natcmd");
     File configDir = new File(srcDir, "config");

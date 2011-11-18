@@ -227,16 +227,7 @@ define install-module
   $(RM) -r $(JIGSAW_MODULE_LIB)/$$m ; \
   $(ECHO) "Installing module $$m" ; \
   $(CD) $(MODULEPATH_DIR) && \
-  if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then \
-      $(ECHO) "$(HOST_JMOD_CMD) install $$m/classes -r $$m/resources $$m \
-               -L $(JIGSAW_MODULE_LIB)" ; \
-      $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources $$m \
-           -L $(JIGSAW_MODULE_LIB) || exit 1 ; \
-  else \
-      $(ECHO) "$(HOST_JMOD_CMD) install $$m/classes $$m -L $(JIGSAW_MODULE_LIB)" ; \
-      $(HOST_JMOD_CMD) install $$m/classes $$m \
-           -L $(JIGSAW_MODULE_LIB) || exit 1 ; \
-  fi
+  $(HOST_JMOD_CMD) install $$m/classes $$m -L $(JIGSAW_MODULE_LIB) || exit 1 ; 
 endef
 
 #

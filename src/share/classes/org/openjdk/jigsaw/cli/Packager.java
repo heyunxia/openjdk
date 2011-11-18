@@ -45,7 +45,6 @@ jpkg [-v] [-L <library>] [-r <resource-dir>] [-i include-dir] \
 
   -v           : verbose output
   -L           : library the modules are installed to
-  -r           : directory with resources to bundle as part of the module
   -i           : directory with files to include as part of the package
   -m           : directory with modules to package
   -d           : destination directory to put the package in
@@ -88,9 +87,6 @@ public class Packager {
 
     /** Command launcher for main class */
     private String bincmd;
-
-    /** Directory with optional loadable resources in module */
-    private File resources;
 
     /** Directory with optional files to include in package */
     private File includes;
@@ -171,12 +167,9 @@ public class Packager {
                                            + outputfilename + " for "
                                            + modulename);
                     outputfile = new File(destination, outputfilename);
-                    ModuleFileFormat.Writer writer
-                        = new ModuleFileFormat.Writer(outputfile, classes);
-                    writer.useFastestCompression(fast || jigsawDevMode);
-
-                    writer.writeModule(classes, resources,
-                                       natlibs, natcmds, config_dir);
+                    ModuleFileWriter writer
+                        = new ModuleFileWriter(outputfile, (fast || jigsawDevMode));
+                    writer.writeModule(classes, natlibs, natcmds, config_dir);
                 }
                 catch (IOException x) {
                     if (outputfile != null && !outputfile.delete()) {
@@ -570,12 +563,8 @@ public class Packager {
             throws Command.Exception
         {
             List<Manifest> mfs = new ArrayList<>();
-            while (hasArg())
+            while (hasArg()) {
                 mfs.add(Manifest.create(takeArg(), classes));
-            if (!mfs.isEmpty() && null != resources) {
-                // ## Single -r option only applies to first module
-                // ## Should support one -r option for each module
-                mfs.get(0).addResources(resources);
             }
             finishArgs();
 
@@ -665,13 +654,6 @@ public class Packager {
         OptionSpec<File> modulePath
             = (parser.acceptsAll(Arrays.asList("m", "module-dir"),
                           "Source directory for modules")
-               .withRequiredArg()
-               .describedAs("path")
-               .ofType(File.class));
-
-        OptionSpec<File> resourcePath
-            = (parser.acceptsAll(Arrays.asList("r", "resources"),
-                                 "Directory of resources to be processed")
                .withRequiredArg()
                .describedAs("path")
                .ofType(File.class));
@@ -791,10 +773,6 @@ public class Packager {
             String jm = System.getenv("JAVA_MODULES");
             if (jm != null)
                 library = new File(jm);
-        }
-        if (opts.has(resourcePath)) {
-            resources = opts.valueOf(resourcePath);
-            checkPathArgument(resources, "Resource");
         }
         if (opts.has(includePath))
             includes = opts.valueOf(includePath);

@@ -104,21 +104,17 @@ public class ModuleFormatTestLeftOverBytes {
         compress(name, false);
     }
 
-    void compress(String name, boolean haveResources) throws Exception {
-        compress(name, haveResources, false);
-    }
-
-    void compress(String name, boolean haveResources, boolean haveNatLibs)
+    void compress(String name, boolean haveNatLibs)
         throws Exception {
-        compress(name, haveResources, haveNatLibs, false);
+        compress(name, haveNatLibs, false);
     }
 
-    void compress(String name, boolean haveResources, boolean haveNatLibs,
+    void compress(String name, boolean haveNatLibs,
                   boolean haveNatCmds) throws Exception {
-        compress(name, haveResources, haveNatLibs, haveNatCmds, false);
+        compress(name, haveNatLibs, haveNatCmds, false);
     }
 
-    void compress(String name, boolean haveResources, boolean haveNatLibs,
+    void compress(String name, boolean haveNatLibs,
                   boolean haveNatCmds, boolean haveConfig)
         throws Exception {
         List<String> args = new ArrayList<String>();
@@ -126,10 +122,6 @@ public class ModuleFormatTestLeftOverBytes {
         args.add(classesDir.getAbsolutePath());
         args.add("-d");
         args.add(moduleDir.getAbsolutePath());
-        if (haveResources) {
-            args.add("-r");
-            args.add(resourceDir.toString());
-        }
         if (haveNatLibs) {
             args.add("--natlib");
             args.add(natlibDir.toString());
@@ -237,7 +229,6 @@ public class ModuleFormatTestLeftOverBytes {
     File srcDir = new File("tmp", "src"); // use "tmp" to help avoid accidents
     File classesDir = new File("tmp", "classes");
     File moduleDir = new File("tmp", "modules");
-    File resourceDir = new File(srcDir, "resources");
     File natlibDir = new File(srcDir, "natlib");
     File natcmdDir = new File(srcDir, "natcmd");
     File configDir = new File(srcDir, "config");

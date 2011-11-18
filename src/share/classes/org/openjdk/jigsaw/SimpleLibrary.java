@@ -847,14 +847,13 @@ public final class SimpleLibrary
                     public boolean accept(File f) throws IOException {
                         if (f.isDirectory())
                             return true;
-                        return addToIndex(ClassInfo.read(f), ix);
+                        if (f.getName().endsWith(".class")) {
+                            return addToIndex(ClassInfo.read(f), ix);
+                        } else {
+                            return true;
+                        }
                     }});
             ix.store();
-
-            // Copy resources
-            for (File rsrc : mf.resources())
-                Files.copyTree(rsrc, cldst);
-
         } else {
 
             FileOutputStream fos
@@ -869,14 +868,13 @@ public final class SimpleLibrary
                         public boolean accept(File f) throws IOException {
                             if (f.isDirectory())
                                 return true;
-                            return addToIndex(ClassInfo.read(f), ix);
+                            if (f.getName().endsWith(".class")) {
+                                return addToIndex(ClassInfo.read(f), ix);
+                            } else {
+                                return true;
+                            }
                         }});
                 ix.store();
-
-                // Copy resources
-                for (File rsrc : mf.resources())
-                    Files.storeTree(rsrc, jos);
-
             } finally {
                 jos.close();
             }
@@ -907,7 +905,7 @@ public final class SimpleLibrary
         BufferedInputStream bin = new BufferedInputStream(is);
         DataInputStream in = new DataInputStream(bin);
         File md = null;
-        try (ModuleFileFormat.Reader mr = new ModuleFileFormat.Reader(in)) {
+        try (ModuleFile.Reader mr = new ModuleFile.Reader(in)) {
             byte[] mib = mr.readStart();
             ModuleInfo mi = jms.parseModuleInfo(mib);
             md = moduleDir(mi.id());

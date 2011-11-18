@@ -121,7 +121,7 @@ public class Librarian {
                 File classes = null;
                 try (FileInputStream fis = new FileInputStream(module);
                      DataInputStream dis = new DataInputStream(fis);
-                     ModuleFileFormat.Reader reader = new ModuleFileFormat.Reader(dis)) {
+                     ModuleFile.Reader reader = new ModuleFile.Reader(dis)) {
 
                     ModuleInfo mi = jms.parseModuleInfo(reader.readStart());
                     classes = new File(mi.id().name());
@@ -163,11 +163,6 @@ public class Librarian {
                 while (hasArg())
                     mfs.add(Manifest.create(takeArg(), kf));
                 finishArgs();
-                if (!mfs.isEmpty() && opts.has(resourcePath)) {
-                    // ## Single -r option only applies to first module
-                    // ## Should support one -r option for each module
-                    mfs.get(0).addResources(opts.valueOf(resourcePath));
-                }
                 try {
                     lib.installFromManifests(mfs);
                 } catch (ConfigurationException x) {
@@ -255,11 +250,6 @@ public class Librarian {
             List<Manifest> mfs = new ArrayList<Manifest>();
             while (hasArg())
                 mfs.add(Manifest.create(takeArg(), classes));
-            if (!mfs.isEmpty() && opts.has(resourcePath)) {
-                // ## Single -r option only applies to first module
-                // ## Should support one -r option for each module
-                mfs.get(0).addResources(opts.valueOf(resourcePath));
-            }
             finishArgs();
             try {
                 lib.preInstall(mfs, dst);
@@ -455,8 +445,7 @@ public class Librarian {
             }
         }
     }
-
-
+    
     private static Map<String,Class<? extends Command<SimpleLibrary>>> commands
         = new HashMap<>();
 
@@ -481,7 +470,6 @@ public class Librarian {
 
     private OptionParser parser;
 
-    private static OptionSpec<File> resourcePath; // ##
     private static OptionSpec<Integer> repoIndex; // ##
 
     private void usage() {
@@ -496,7 +484,7 @@ public class Librarian {
         out.format("       jmod identify%n");
         out.format("       jmod install [--noverify] [-n] <module-id-query> ...%n");
         out.format("       jmod install [--noverify] <module-file> ...%n");
-        out.format("       jmod install <classes-dir> [-r <resource-dir>] <module-name> ...%n");
+        out.format("       jmod install <classes-dir> <module-name> ...%n");
         out.format("       jmod list [-v] [-p] [-R] [<module-id-query>]%n");
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
         out.format("       jmod refresh [-f] [-n] [-v]%n");
@@ -542,12 +530,6 @@ public class Librarian {
                           "Show this help message");
         parser.acceptsAll(Arrays.asList("p", "parent"),
                           "Apply operation to parent library, if any");
-        resourcePath
-            = (parser.acceptsAll(Arrays.asList("r", "resources"),
-                                 "Directory of resources to be processed")
-               .withRequiredArg()
-               .describedAs("path")
-               .ofType(File.class));
         repoIndex
             = (parser.acceptsAll(Arrays.asList("i"),
                                  "Repository-list index")
@@ -563,7 +545,7 @@ public class Librarian {
         parser.acceptsAll(Arrays.asList("noverify"),
                           "Do not verify module signatures. "
                           + "Treat as unsigned.");
-
+        
         if (args.length == 0)
             usage();
 
