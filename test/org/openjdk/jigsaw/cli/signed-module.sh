@@ -45,7 +45,7 @@ $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
              -noprompt -storepass test123 -alias ca 
 
 # Import the signer's private key and cert
-$BIN/javac -source 7 -d  . ${TESTSRC}/ImportPrivateKey.java
+$BIN/javac -source 8 -d  . ${TESTSRC}/ImportPrivateKey.java
 $BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer signer-prikey.pem \
           RSA signer-cert.pem
 
@@ -83,7 +83,7 @@ grant signedBy "expired-signer" {
 EOF
 
 rm -rf z.modules && mkdir z.modules
-$BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
+$BIN/javac -source 8 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 rm -f test.security@0.1.jmod
 # Create and sign module file

@@ -58,8 +58,7 @@ import static java.security.KeyStore.PasswordProtection;
 import static java.security.KeyStore.PrivateKeyEntry;
 
 import org.openjdk.jigsaw.*;
-import static org.openjdk.jigsaw.ModuleFileFormat.Reader;
-import static org.openjdk.jigsaw.ModuleFileFormat.SectionHeader;
+import static org.openjdk.jigsaw.ModuleFile.*;
 import static org.openjdk.jigsaw.SignedModule.SignerParameters;
 import org.openjdk.internal.joptsimple.OptionException;
 import org.openjdk.internal.joptsimple.OptionParser;
@@ -243,8 +242,8 @@ public class Signer {
 
                 // Transfer header and module-info from module file
                 // to signed module file.
-                long remainderStart = ModuleFileFormat.FILE_HEADER_LENGTH
-                                      + ModuleFileFormat.SECTION_HEADER_LENGTH
+                long remainderStart = ModuleFileHeader.LENGTH
+                                      + SectionHeader.LENGTH
                                       + moduleInfoBytes.length;
                 FileChannel source = mraf.getChannel();
                 FileChannel dest = raf.getChannel();
@@ -430,10 +429,12 @@ public class Signer {
             byte[] hash = md.digest();
 
             // Write out the Signature Section
-            new SectionHeader(FileConstants.ModuleFile.SectionType.SIGNATURE,
-                              FileConstants.ModuleFile.Compressor.NONE,
-                              signature.length + 6,
-                              (short)0, hash).write(out);
+            SectionHeader header =
+                    new SectionHeader(FileConstants.ModuleFile.SectionType.SIGNATURE,
+                                      FileConstants.ModuleFile.Compressor.NONE,
+                                      signature.length + 6,
+                                      (short)0, hash);
+            header.write(out);
             out.write(signatureHeader);
             out.write(signature);
         }

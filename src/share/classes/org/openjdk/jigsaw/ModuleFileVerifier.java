@@ -30,7 +30,7 @@ import java.security.*;
 import java.security.cert.*;
 import java.util.Set;
 
-import static org.openjdk.jigsaw.FileConstants.*;
+import static org.openjdk.jigsaw.FileConstants.ModuleFile.SignatureType;
 
 /**
  * Validate the digital signature of a module file.
@@ -43,7 +43,7 @@ public interface ModuleFileVerifier {
      *
      * @see FileConstants.ModuleFile.SignatureType
      */
-    public ModuleFile.SignatureType getSignatureType();
+    public SignatureType getSignatureType();
 
     /**
      * Verifies the module file signature and performs certificate path

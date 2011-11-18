@@ -55,8 +55,9 @@ public final class Manifest {
         return module;
     }
 
+    // list of directories, each of which contains 
+    // classes and resources
     private List<File> classes = new ArrayList<File>();
-    private List<File> resources = new ArrayList<File>();
 
     /* ## Eventually
     private List<File> libs = new ArrayList<File>();
@@ -93,32 +94,13 @@ public final class Manifest {
     }
 
     /**
-     * <p> The module-classes directories to be scanned for the requested
+     * <p> The module-classes-resources directories to be scanned for the requested
      * modules. </p>
+     * <p> The resource files will be copied, without change, into
+     * the installed module. </p>
      */
     public List<File> classes() {
         return classes;
-    }
-
-
-    /**
-     * <p> Add a resource directory to this manifest. </p>
-     *
-     * <p> The content of this directory will be copied, without change, into
-     * the installed module. </p>
-     */
-    public Manifest addResources(File f) {
-        if (!f.isDirectory())
-            throw new IllegalArgumentException(f + ": Not a directory");
-        resources.add(f);
-        return this;
-    }
-
-    /**
-     * <p> The resource directories whose contents will be installed </p>
-     */
-    public List<File> resources() {
-        return resources;
     }
 
     public static Manifest create(String mn) {
@@ -128,9 +110,4 @@ public final class Manifest {
     public static Manifest create(String mn, File classes) {
         return new Manifest(mn).addClasses(classes);
     }
-
-    public static Manifest create(String mn, File classes, File resources) {
-        return new Manifest(mn).addClasses(classes).addResources(resources);
-    }
-
 }

@@ -30,11 +30,11 @@ alias jmod=$BIN/jmod
 
 sh ${TESTSRC:-.}/tester.sh $0
 
-mkdir -p z.res/foo
-echo '<hello/>' >z.res/foo/x.xml
+mkdir -p z.test/modules/x/foo
+echo '<hello/>' >z.test/modules/x/foo/x.xml
 
 $BIN/jmod create -L z.lib
-$BIN/jmod preinstall -L z.lib z.test/modules -r z.res z.pre x y
+$BIN/jmod preinstall -L z.lib z.test/modules z.pre x y
 cp -r z.pre/* z.lib
 # Need to truncate \r and \n on windows
 ms=`$BIN/jmod list -L z.lib | grep -v jdk@ | sort | tr -s '\r' '\n' | tr -s '\n' ' '`

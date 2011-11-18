@@ -54,7 +54,7 @@ importCert ca
 importCert tsca
 
 # Import the signer's private key and cert
-$BIN/javac -source 7 -d  . ${TESTSRC}/ImportPrivateKey.java
+$BIN/javac -source 8 -d  . ${TESTSRC}/ImportPrivateKey.java
 importPrivateKey signer RSA
 # Import the TSA's private key and cert
 importPrivateKey tsa DSA
@@ -84,7 +84,7 @@ public class GetProperty {
 EOF
 
 rm -rf z.modules && mkdir z.modules
-$BIN/javac -source 7 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
+$BIN/javac -source 8 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 # Check timestamping support
 $BIN/javac -d . ${TESTSRC}/TimestampTest.java

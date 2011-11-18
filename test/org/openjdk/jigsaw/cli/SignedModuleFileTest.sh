@@ -24,7 +24,7 @@
 # questions.
 
 # @test
-# @run shell ModuleFormatTest01.sh
+# @run shell SignedModuleFileTest.sh
 # @summary Unit test for jpkg command
 
 set -e
@@ -39,10 +39,11 @@ $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
   -noprompt -storepass test123 -alias ca-cert
 
 # Import the signer's private key and cert
-$BIN/javac -source 7 -d . ${TESTSRC}/ImportPrivateKey.java
+$BIN/javac -source 8 -d . ${TESTSRC}/ImportPrivateKey.java
 $BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer \
           signer-prikey.pem RSA signer-cert.pem
 
-$BIN/javac -source 7 -d . ${TESTSRC}/ModuleFormatTest01.java
+$BIN/javac -source 8 -d . ${TESTSRC}/ModuleFileTest.java
 $BIN/java -Dorg.openjdk.system.security.cacerts=keystore.jks \
-          -Dtest.src=${TESTSRC} ModuleFormatTest01 < ${TESTSRC}/keystore.pw
+          -Dtest.src=${TESTSRC} ModuleFileTest "test signed module file" \
+          < ${TESTSRC}/keystore.pw

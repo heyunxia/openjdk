@@ -68,8 +68,7 @@ public class Modularizer {
         long classBytes = 0;
         long resourceBytes = 0;
         final Module module;
-        final File classDir;  // destination for classes
-        final File resDir;    // destination for resources
+        final File classDir;  // destination for classes and resources
         final File mdir;
 
         /**
@@ -81,11 +80,7 @@ public class Modularizer {
         ModuleContent(Module m, File dir) throws IOException {
             this.module = m;
             this.mdir = dir;
-            // ## classes & resource files should be put in the
-            // ## same directory when jpkg tool is modified to
-            // ## support that
             this.classDir = new File(dir, "classes");
-            this.resDir = new File(dir, "resources");
         }
 
         /**
@@ -106,11 +101,6 @@ public class Modularizer {
         void copy(boolean update) throws IOException {
             if (!classDir.exists()) {
                 Files.mkdirs(classDir);
-                // override all files
-                update = false;
-            }
-            if (!resDir.exists()) {
-                Files.mkdirs(resDir);
                 // override all files
                 update = false;
             }
@@ -137,7 +127,7 @@ public class Modularizer {
                 @Override
                 public Void visitResource(ResourceFile r, File dir) {
                     String pathname = r.getPathname();
-                    Filter filter = copyAll ? null : new Filter(resDir, pathname);
+                    Filter filter = copyAll ? null : new Filter(classDir, pathname);
                     try {
                         long bytes = writeResource(r, filter);
                         if (bytes > 0) {
@@ -201,7 +191,7 @@ public class Modularizer {
          */
         long writeResource(ResourceFile res, Filter filter) throws IOException {
             String pathname = res.getPathname();
-            Copier visitor = new Copier(resDir, filter);
+            Copier visitor = new Copier(classDir, filter);
             if (lastVisitedClassPath != null) {
                 ClassPathEntry cp = lastVisitedClassPath.accept(visitor, pathname);
                 if (cp != null) {

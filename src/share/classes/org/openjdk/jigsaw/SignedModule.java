@@ -52,7 +52,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
-import static org.openjdk.jigsaw.FileConstants.*;
+import org.openjdk.jigsaw.FileConstants.ModuleFile.SignatureType;
 import sun.security.pkcs.PKCS7;
 import sun.security.pkcs.SignerInfo;
 import sun.security.validator.KeyStores;
@@ -94,9 +94,9 @@ public final class SignedModule {
 
     public final static class PKCS7Signer implements ModuleFileSigner {
 
-        public ModuleFile.SignatureType getSignatureType()
+        public SignatureType getSignatureType()
         {
-            return ModuleFile.SignatureType.PKCS7;
+            return SignatureType.PKCS7;
         }
 
         public byte[] generateSignature(byte[] toBeSigned,
@@ -179,7 +179,7 @@ public final class SignedModule {
         private final List<byte[]> calculatedHashes;
         private final List<byte[]> expectedHashes;
 
-        public PKCS7Verifier(ModuleFileFormat.Reader reader)
+        public PKCS7Verifier(ModuleFile.Reader reader)
             throws SignatureException
         {
             try {
@@ -217,8 +217,8 @@ public final class SignedModule {
             return hashes;
         }
 
-        public ModuleFile.SignatureType getSignatureType() {
-            return ModuleFile.SignatureType.PKCS7;
+        public SignatureType getSignatureType() {
+            return SignatureType.PKCS7;
         }
 
         // ## Need to improve exception handling

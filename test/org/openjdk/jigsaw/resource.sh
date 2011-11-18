@@ -34,26 +34,26 @@ mk() {
   echo "$2" >$1
 }
 
-mk z.res.x/foo/x 'Hello!'
-mk z.res.x/inf/a 'A one,'
+mk z.test/modules/x/foo/x 'Hello!'
+mk z.test/modules/x/inf/a 'A one,'
 
-mk z.res.y/bar/y 'Bonjour!'
-mk z.res.y/inf/a 'and a two,'
+mk z.test/modules/y/bar/y 'Bonjour!'
+mk z.test/modules/y/inf/a 'and a two,'
 
-mk z.res.z/baz/z 'Hola!'
-mk z.res.z/inf/a 'and a three!'
+mk z.test/modules/z/baz/z 'Hola!'
+mk z.test/modules/z/inf/a 'and a three!'
 
 echo; echo "Direct install"
 $BIN/jmod create -L z.lib
-$BIN/jmod install -L z.lib z.test/modules -r z.res.z z
-$BIN/jmod install -L z.lib z.test/modules -r z.res.y y
-$BIN/jmod install -L z.lib z.test/modules -r z.res.x x
+$BIN/jmod install -L z.lib z.test/modules z
+$BIN/jmod install -L z.lib z.test/modules y
+$BIN/jmod install -L z.lib z.test/modules x
 $BIN/java -ea -L z.lib -m x
 
 echo; echo "Module-file install"
-$BIN/jpkg -m z.test/modules/z -r z.res.z jmod z
-$BIN/jpkg -m z.test/modules/y -r z.res.y jmod y
-$BIN/jpkg -m z.test/modules/x -r z.res.x jmod x
+$BIN/jpkg -m z.test/modules/z jmod z
+$BIN/jpkg -m z.test/modules/y jmod y
+$BIN/jpkg -m z.test/modules/x jmod x
 rm -rf z.lib
 $BIN/jmod create -L z.lib
 $BIN/jmod install -L z.lib x@1.jmod y@1.jmod z@1.jmod

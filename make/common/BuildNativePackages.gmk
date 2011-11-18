@@ -56,10 +56,7 @@ jmod-pkgs: $(JMOD_PKGS)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
            $(CD)  $(ABS_MODULEPATH_DIR)/$$m && \
-              (if [ -d resources ] ; then \
-                   RES="-r resources" ; \
-               fi ; \
-               if [ -d bin ] ; then \
+              (if [ -d bin ] ; then \
                    NATCMD="-natcmd bin" ; \
                fi ; \
                if [ -d lib ] ; then \
@@ -69,7 +66,7 @@ jmod-pkgs: $(JMOD_PKGS)
                    CONFIG="-config etc" ; \
                fi ; \
                $(HOST_JPKG_CMD) -v -m classes \
-   	          $$RES $$NATCMD $$NATLIB $$CONFIG $(SIGNER_ARGS) \
+   	          $$NATCMD $$NATLIB $$CONFIG $(SIGNER_ARGS) \
                   -d $(JMOD_PKGS) jmod $$m $(SIGNER_PW)) || exit 1 ; \
 	done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
@@ -89,13 +86,12 @@ deb-pkgs: $(DEB_PKGS)
 	       fi ; \
 	   done ; \
            (ISZ=$$(expr $$(du -s $(MODULEPATH_DIR)/$$m | cut -f1)); \
-            RES="$$(if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then $(ECHO) "-r $(MODULEPATH_DIR)/$$m/resources" ; fi)"; \
             $(HOST_JPKG_CMD) -v -m $(MODULEPATH_DIR)/$$m/classes \
-	         -i $(JIGSAW_IMAGE)/$$m $$RES \
+	         -i $(JIGSAW_IMAGE)/$$m \
                  --java-home /usr/local/jigsaw \
                  -L /usr/local/jigsaw/lib/modules \
                  -n 'Jigsaw Team' -e 'jigsaw-dev@openjdk.java.net' \
-                 -s "Jigsaw JDK 7 $$m module" --installed-size $$ISZ \
+                 -s "Jigsaw JDK 8 $$m module" --installed-size $$ISZ \
                  -d $(DEB_PKGS) deb $$m) ; \
 	done
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."

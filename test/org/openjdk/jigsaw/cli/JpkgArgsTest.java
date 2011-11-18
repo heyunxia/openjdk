@@ -24,7 +24,7 @@
 /*
  * @test
  * @bug 6948144
- * @summary jpkg throws NPE if resource directory does not exist
+ * @summary jpkg throws NPE if input directory does not exist
  */
 
 import java.io.*;
@@ -66,17 +66,16 @@ public class JpkgArgsTest {
         compile(files);
     }
 
-    private void testIfFileArgExists(boolean res, boolean natlib,
+    private void testIfFileArgExists(boolean natlib,
                                      boolean natcmd, boolean config)
         throws Exception {
         setUp("NPE if file argument does not exist: "
-              + (res? " -r " : "")
               + (natlib? " --natlib " : "")
               + (natcmd? " --natcmd " : "")
               + (config? " --config" : ""));
 
         try {
-            compress(res, natlib, natcmd, config);
+            compress(natlib, natcmd, config);
         }
         // The bug resulted in a NPE being thrown
         catch (NullPointerException e) {
@@ -90,23 +89,21 @@ public class JpkgArgsTest {
         }
     }
 
-    private void testIfFileArgIsNotADirectory(boolean res, boolean natlib,
+    private void testIfFileArgIsNotADirectory(boolean natlib,
                                               boolean natcmd, boolean config)
         throws Exception {
         setUp("NPE if file argument is not a directory: "
-              + (res? " -r " : "")
               + (natlib? " --natlib " : "")
               + (natcmd? " --natcmd " : "")
               + (config? " --config" : ""));
 
         // Create files rather then directories to get the exception
-        resourceDir.createNewFile();
         natlibDir.createNewFile();
         natcmdDir.createNewFile();
         configDir.createNewFile();
 
         try {
-            compress(res, natlib, natcmd, config);
+            compress(natlib, natcmd, config);
         }
         // The bug resulted in a NPE being thrown
         catch (NullPointerException e) {
@@ -120,24 +117,22 @@ public class JpkgArgsTest {
         }
     }
 
-    private void testIfFileArgIsNotReadable(boolean res, boolean natlib,
+    private void testIfFileArgIsNotReadable(boolean natlib,
                                             boolean natcmd, boolean config)
         throws Exception {
         setUp("NPE if file argument is not readable: "
-              + (res? " -r " : "")
               + (natlib? " --natlib " : "")
               + (natcmd? " --natcmd " : "")
               + (config? " --config" : ""));
 
         // Create directories and mark then non-readable to get the exception
-        if (! (resourceDir.mkdir() && resourceDir.setReadable(false) &&
-               natlibDir.mkdir() && natlibDir.setReadable(false) &&
+        if (! (natlibDir.mkdir() && natlibDir.setReadable(false) &&
                natcmdDir.mkdir() && natcmdDir.setReadable(false) &&
                configDir.mkdir() && configDir.setReadable(false)))
             throw new Exception("Can't set up test");
 
         try {
-            compress(res, natlib, natcmd, config);
+            compress(natlib, natcmd, config);
         }
         // The bug resulted in a NPE being thrown
         catch (NullPointerException e) {
@@ -150,37 +145,35 @@ public class JpkgArgsTest {
             // yay! test passed.
         }
         finally {
-            resourceDir.setReadable(true);
             natlibDir.setReadable(true);
             natcmdDir.setReadable(true);
             configDir.setReadable(true);
         }
     }
 
-    private void testIfFileArgIsEmpty(boolean res, boolean natlib,
+    private void testIfFileArgIsEmpty(boolean natlib,
                                       boolean natcmd, boolean config)
         throws Exception {
         setUp("IOException if file argument is an empty directory: "
-              + (res? " -r " : "")
               + (natlib? " --natlib " : "")
               + (natcmd? " --natcmd " : "")
               + (config? " --config" : ""));
 
         // Create empty directories for jpkg to ignore
-        if (! (resourceDir.mkdir() && natlibDir.mkdir() &&
-               natcmdDir.mkdir() && configDir.mkdir()))
+        if (! (natlibDir.mkdir() && natcmdDir.mkdir() && configDir.mkdir()))
             throw new Exception("Can't set up test");
 
-        compress(res, natlib, natcmd, config);
+        compress(natlib, natcmd, config);
     }
 
     private void testIfModulePathArgIsNotADirectory()
         throws Exception {
         setUp("Check if module path argument is not a directory");
 
-        resourceDir.createNewFile();
+        File aFile = new File("tmp", "aFile");
+        aFile.createNewFile();
         try {
-            String [] args = {"-m", resourceDir.toString(), "jmod", "hello"};
+            String [] args = {"-m", aFile.toString(), "jmod", "hello"};
             Packager.run(args);
         }
         // The bug resulted in a NPE being thrown
@@ -193,6 +186,9 @@ public class JpkgArgsTest {
         catch (Exception e) {
             // yay! test passed.
             return;
+        }
+        finally {
+            aFile.delete();
         }
         throw new Exception("Should have caught an exception");
     }
@@ -223,11 +219,12 @@ public class JpkgArgsTest {
         throws Exception {
         setUp("Check if module path argument is not readable");
 
-        if (! (resourceDir.mkdir() && resourceDir.setReadable(false)))
+        File dir = new File("tmp", "notReadableDir");
+        if (! (dir.mkdir() && dir.setReadable(false)))
             throw new Exception("Can't set up test");
 
         try {
-            String [] args = {"-m", resourceDir.toString(), "jmod", "hello"};
+            String [] args = {"-m", dir.toString(), "jmod", "hello"};
             Packager.run(args);
         }
         // The bug resulted in a NPE being thrown
@@ -242,21 +239,20 @@ public class JpkgArgsTest {
             return;
         }
         finally {
-            resourceDir.setReadable(true);
+            dir.setReadable(true);
+            dir.delete();
         }
         throw new Exception("Should have caught an exception");
     }
 
     private void testAbsolutePathArg()
         throws Exception {
-        setUp("Check if absolute resource path argument is accepted");
+        setUp("Check if absolute module path argument is accepted");
 
+        File testfile = new File(classesDir, "test");
         try {
-            resourceDir.mkdir();
-            File testfile = new File(resourceDir, "test");
             testfile.createNewFile();
             String [] args = {"-m", classesDir.getAbsolutePath(),
-                              "-r", resourceDir.getAbsolutePath(),
                               "jmod", "hello"};
             Packager.run(args);
         }
@@ -264,6 +260,9 @@ public class JpkgArgsTest {
         catch (Exception e) {
             // Rethrow the exception if it ever occurs again.
             throw (Exception) new Exception().initCause(e);
+        }
+        finally {
+            testfile.delete();
         }
     }
 
@@ -283,13 +282,10 @@ public class JpkgArgsTest {
                 bloop = b;
                 for (boolean cloop = c = false; !cloop; c = true) {
                     cloop = c;
-                    for (boolean dloop = d = false; !dloop; d = true) {
-                        dloop = d;
-                        testIfFileArgExists(a, b, c, d);
-                        testIfFileArgIsNotADirectory(a, b, c, d);
-                        testIfFileArgIsNotReadable(a, b, c, d);
-                        testIfFileArgIsEmpty(a, b, c, d);
-                    }
+                    testIfFileArgExists(a, b, c);
+                    testIfFileArgIsNotADirectory(a, b, c);
+                    testIfFileArgIsNotReadable(a, b, c);
+                    testIfFileArgIsEmpty(a, b, c);
                 }
             }
         }
@@ -302,21 +298,17 @@ public class JpkgArgsTest {
         compress(false);
     }
 
-    private void compress(boolean haveResources) throws Exception {
-        compress(haveResources, false);
-    }
-
-    private void compress(boolean haveResources, boolean haveNatLibs)
+    private void compress(boolean haveNatLibs)
         throws Exception {
-        compress(haveResources, haveNatLibs, false);
+        compress(haveNatLibs, false);
     }
 
-    private void compress(boolean haveResources, boolean haveNatLibs,
+    private void compress(boolean haveNatLibs,
                           boolean haveNatCmds) throws Exception {
-        compress(haveResources, haveNatLibs, haveNatCmds, false);
+        compress(haveNatLibs, haveNatCmds, false);
     }
 
-    private void compress(boolean haveResources, boolean haveNatLibs,
+    private void compress(boolean haveNatLibs,
                           boolean haveNatCmds, boolean haveConfig)
         throws Exception {
         List<String> args = new ArrayList<String>();
@@ -324,10 +316,6 @@ public class JpkgArgsTest {
         args.add(classesDir.getAbsolutePath());
         args.add("-d");
         args.add(moduleDir.getAbsolutePath());
-        if (haveResources) {
-            args.add("-r");
-            args.add(resourceDir.toString());
-        }
         if (haveNatLibs) {
             args.add("--natlib");
             args.add(natlibDir.toString());
@@ -350,7 +338,7 @@ public class JpkgArgsTest {
      */
     private void compile(List<File> files) {
         List<String> options = new ArrayList<String>();
-        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath()));
+        options.addAll(Arrays.asList("-source", "8", "-d", classesDir.getPath()));
         for (File f: files)
             options.add(f.getPath());
 
@@ -436,7 +424,6 @@ public class JpkgArgsTest {
     private File srcDir = new File("tmp", "src");
     private File classesDir = new File("tmp", "classes");
     private File moduleDir = new File("tmp", "modules");
-    private File resourceDir = new File(srcDir, "resources");
     private File natlibDir = new File(srcDir, "natlib");
     private File natcmdDir = new File(srcDir, "natcmd");
     private File configDir = new File(srcDir, "config");

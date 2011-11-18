@@ -539,7 +539,8 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/LoaderPool.java \
     org/openjdk/jigsaw/LocatableCatalog.java \
     org/openjdk/jigsaw/Manifest.java \
-    org/openjdk/jigsaw/ModuleFileFormat.java \
+    org/openjdk/jigsaw/ModuleFile.java \
+    org/openjdk/jigsaw/ModuleFileWriter.java \
     org/openjdk/jigsaw/PathContext.java \
     org/openjdk/jigsaw/PathLinker.java \
     org/openjdk/jigsaw/SignedModule.java \
