@@ -746,12 +746,11 @@ public abstract class Symbol implements Element {
                     Directive.filter(directives, Directive.Kind.VIEW,
                         ViewDeclaration.class);
             if (defaultViewDirectives.nonEmpty())
-                views.prepend(new ViewDeclaration(defaultViewDirectives));
+                views = views.prepend(new ViewDeclaration(defaultViewDirectives));
             return views;
         }
 
         public boolean hasExtendedMetadata() {
-            System.err.println("hasData: " + Boolean.valueOf((extendedMetadata != null) && !extendedMetadata.isEmpty()));
             return (extendedMetadata != null) && !extendedMetadata.isEmpty();
         }
 

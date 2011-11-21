@@ -126,6 +126,11 @@ public class ModuleProvides_attribute extends Attribute {
     }
 
     public static class Export {
+        public static final int TYPE                    = 0x1;
+        public static final int TYPE_AND_MEMBERS        = 0x2;
+        public static final int PACKAGE                 = 0x4;
+        public static final int PACKAGE_AND_SUBPACKAGES = 0x8;
+
         static final int length = 6;
 
         public final int export_index;
