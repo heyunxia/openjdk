@@ -557,15 +557,25 @@ public interface Tree {
 
         MODULE(ModuleTree.class),
 
-        MODULE_CLASS(ModuleClassTree.class),
+        ENTRYPOINT_DIRECTIVE(EntrypointDirectiveTree.class),
 
-        MODULE_EXPORT(ModuleExportTree.class),
+        EXPORT_DIRECTIVE(ExportDirectiveTree.class),
 
         MODULE_ID(ModuleIdTree.class),
 
-        MODULE_PERMITS(ModulePermitsTree.class),
+        MODULE_ID_QUERY(ModuleIdQueryTree.class),
 
-        MODULE_REQUIRES(ModuleRequiresTree.class),
+        PERMITS_DIRECTIVE(PermitsDirectiveTree.class),
+
+        PROVIDES_MODULE_DIRECTIVE(ProvidesModuleDirectiveTree.class),
+
+        PROVIDES_SERVICE_DIRECTIVE(ProvidesServiceDirectiveTree.class),
+
+        REQUIRES_MODULE_DIRECTIVE(RequiresModuleDirectiveTree.class),
+
+        REQUIRES_SERVICE_DIRECTIVE(RequiresServiceDirectiveTree.class),
+
+        VIEW_DECLARATION(ViewDeclarationTree.class),
 
         PACKAGE(PackageTree.class),
 

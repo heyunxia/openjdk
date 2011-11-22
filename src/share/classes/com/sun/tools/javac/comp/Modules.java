@@ -26,7 +26,6 @@
 
 package com.sun.tools.javac.comp;
 
-import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -54,10 +53,13 @@ import javax.tools.StandardLocation;
 
 import static javax.tools.StandardLocation.*;
 
+import com.sun.source.tree.RequiresFlag;
+
+import com.sun.tools.javac.code.Directive;
 import com.sun.tools.javac.code.Directive.PermitsDirective;
 import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
-import com.sun.tools.javac.code.Directive.RequiresFlag;
 import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.ModuleId;
 import com.sun.tools.javac.code.ModuleIdQuery;
 import com.sun.tools.javac.code.Scope;
@@ -73,12 +75,16 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
-import com.sun.tools.javac.tree.JCTree.JCModuleClass;
+import com.sun.tools.javac.tree.JCTree.JCEntrypointDirective;
 import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
-import com.sun.tools.javac.tree.JCTree.JCModuleExport;
+import com.sun.tools.javac.tree.JCTree.JCExportDirective;
 import com.sun.tools.javac.tree.JCTree.JCModuleId;
-import com.sun.tools.javac.tree.JCTree.JCModulePermits;
-import com.sun.tools.javac.tree.JCTree.JCModuleRequires;
+import com.sun.tools.javac.tree.JCTree.JCModuleIdQuery;
+import com.sun.tools.javac.tree.JCTree.JCPermitsDirective;
+import com.sun.tools.javac.tree.JCTree.JCProvidesModuleDirective;
+import com.sun.tools.javac.tree.JCTree.JCProvidesServiceDirective;
+import com.sun.tools.javac.tree.JCTree.JCRequiresModuleDirective;
+import com.sun.tools.javac.tree.JCTree.JCRequiresServiceDirective;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
@@ -225,20 +231,17 @@ public class Modules extends JCTree.Visitor {
 
         sym.version = tree.getId().version;
         sym.directives = ListBuffer.lb();
-        for (List<JCModuleId> l = tree.provides; l.nonEmpty(); l = l.tail) {
-            JCModuleId moduleId = l.head;
-            ModuleId mid = new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version);
-            ProvidesModuleDirective d = new ProvidesModuleDirective(mid);
-            sym.directives.add(d);
-        }
-
         currSym = sym;
         Env<ModuleContext> menv = env.dup(tree, new ModuleContext(tree));
         moduleEnvs.put(sym, menv);
         Env<ModuleContext> prev = env;
         env = menv;
         try {
-            acceptAll(tree.metadata);
+            ModuleResolver mr = getModuleResolver();
+            if (mr.isPlatformName(sym.name))
+                env.info.seenPlatformRequires = true;
+
+            acceptAll(tree.directives);
 
             if (!env.info.seenPlatformRequires) {
                 DEBUG("Modules.visitModuleDef seenPlatformRequires:" + env.info.seenPlatformRequires);
@@ -284,53 +287,71 @@ public class Modules extends JCTree.Visitor {
     }
 
     @Override
-    public void visitModuleClass(JCModuleClass tree) {
+    public void visitEntrypoint(JCEntrypointDirective tree) {
 //        ModuleSymbol sym = currSym;
 //        Name className = TreeInfo.fullName(tree.qualId);
 //        // JIGSAW TODO check conflicts (at most one class)
 //        sym.className = reader.enterClass(className);
-//        sym.classFlags = tree.flags;
+//        sym.classFlags = tree.flags;C
     }
 
     @Override
-    public void visitModuleExport(JCModuleExport tree) {
+    public void visitExports(JCExportDirective tree) {
     }
 
     @Override
-    public void visitModulePermits(JCModulePermits tree) {
+    public void visitPermits(JCPermitsDirective tree) {
         ModuleSymbol sym = currSym;
-        for (List<JCExpression> l = tree.moduleNames; l.nonEmpty(); l = l.tail) {
-            JCTree qualId = l.head;
-            Name moduleName = TreeInfo.fullName(qualId);
-            // JIGSAW TODO check duplicates
-            // TODO: should have context for view
-            PermitsDirective d = new PermitsDirective(moduleName);
-            sym.directives.add(d);
-        }
+        JCTree qualId = tree.moduleName;
+        Name moduleName = TreeInfo.fullName(qualId);
+        // JIGSAW TODO check duplicates
+        // TODO: should have context for view
+        PermitsDirective d = new PermitsDirective(moduleName);
+        sym.directives.add(d);
     }
 
     @Override
-    public void visitModuleRequires(JCModuleRequires tree) {
+    public void visitProvidesModule(JCProvidesModuleDirective tree) {
         ModuleSymbol sym = currSym;
-        for (List<JCModuleId> l = tree.moduleIds; l.nonEmpty(); l = l.tail) {
-            JCModuleId moduleId = l.head;
-            ModuleIdQuery mq = new ModuleIdQuery(TreeInfo.fullName(moduleId.qualId), moduleId.version);
-            // JIGSAW TODO check duplicates
-            Set<RequiresFlag> flags = EnumSet.noneOf(RequiresFlag.class);
-            for (Name f: tree.flags) {
-                if (f == names._public)
-                    flags.add(RequiresFlag.PUBLIC);
-                else if (f == names.local)
-                    flags.add(RequiresFlag.LOCAL);
-                else if (f == names.optional)
-                    flags.add(RequiresFlag.OPTIONAL);
+        JCModuleId moduleId = tree.moduleId;
+        ProvidesModuleDirective d = new ProvidesModuleDirective(
+                new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version));
+        sym.directives.add(d);
+    }
+
+    @Override
+    public void visitProvidesService(JCProvidesServiceDirective tree) {
+    }
+
+    @Override
+    public void visitRequiresModule(JCRequiresModuleDirective tree) {
+        ModuleSymbol sym = currSym;
+        JCModuleIdQuery moduleIdQuery = tree.moduleIdQuery;
+        ModuleIdQuery mq = new ModuleIdQuery(TreeInfo.fullName(moduleIdQuery.qualId), moduleIdQuery.versionQuery);
+        // JIGSAW TODO check duplicates
+        Set<Directive.RequiresFlag> flags = EnumSet.noneOf(Directive.RequiresFlag.class);
+        for (RequiresFlag f: tree.flags) {
+            switch (f) {
+                case PUBLIC:
+                    flags.add(Directive.RequiresFlag.PUBLIC);
+                    break;
+                case OPTIONAL:
+                    flags.add(Directive.RequiresFlag.OPTIONAL);
+                    break;
+                case LOCAL:
+                    flags.add(Directive.RequiresFlag.LOCAL);
+                    break;
             }
-            RequiresModuleDirective d = new RequiresModuleDirective(mq, flags);
-            sym.directives.add(d);
-            ModuleResolver mr = getModuleResolver();
-            if (mr.isPlatformName(mq.name))
-                env.info.seenPlatformRequires = true;
         }
+        RequiresModuleDirective d = new RequiresModuleDirective(mq, flags);
+        sym.directives.add(d);
+        ModuleResolver mr = getModuleResolver();
+        if (mr.isPlatformName(mq.name))
+            env.info.seenPlatformRequires = true;
+    }
+
+    @Override
+    public void visitRequiresService(JCRequiresServiceDirective tree) {
     }
 
     @Override
@@ -662,23 +683,36 @@ public class Modules extends JCTree.Visitor {
         @Override
         public void visitModuleDef(JCModuleDecl tree) {
             search(tree.id);
-            search(tree.provides);
-            search(tree.metadata);
+            search(tree.directives);
         }
 
         @Override
-        public void visitModuleExport(JCModuleExport tree) {
+        public void visitExports(JCExportDirective tree) {
         }
 
         @Override
-        public void visitModuleRequires(JCModuleRequires tree) {
-            search(tree.moduleIds);
+        public void visitPermits(JCPermitsDirective tree) {
+            if (equal(TreeInfo.fullName(tree.moduleName), mid.name) && mid.version == null)
+                result = tree;
+        }
+
+        @Override
+        public void visitRequiresModule(JCRequiresModuleDirective tree) {
+            search(tree.moduleIdQuery);
         }
 
         @Override
         public void visitModuleId(JCModuleId tree) {
             DEBUG("Modules.treeFinder.visitModuleId " + tree + " " + mid);
             if (equal(TreeInfo.fullName(tree.qualId), mid.name) && equal(tree.version, mid.version))
+                result = tree;
+            DEBUG("Modules.treeFinder.visitModuleId result " + result);
+        }
+
+        @Override
+        public void visitModuleIdQuery(JCModuleIdQuery tree) {
+            DEBUG("Modules.treeFinder.visitModuleId " + tree + " " + mid);
+            if (equal(TreeInfo.fullName(tree.qualId), mid.name) && equal(tree.versionQuery, mid.version))
                 result = tree;
             DEBUG("Modules.treeFinder.visitModuleId result " + result);
         }

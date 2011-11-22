@@ -63,35 +63,50 @@ public class TreeScanner extends Visitor {
  * Visitor methods
  ****************************************************************************/
 
+    @Override
     public void visitTopLevel(JCCompilationUnit tree) {
         scan(tree.defs);
     }
 
+    @Override
     public void visitModuleDef(JCModuleDecl tree) {
-        scan(tree.annots);
         scan(tree.id);
-        scan(tree.provides);
-        scan(tree.metadata);
+        scan(tree.directives);
     }
 
+    @Override
     public void visitModuleId(JCModuleId tree) {
         scan(tree.qualId);
     }
 
-    public void visitModuleClass(JCModuleClass tree) {
+    @Override
+    public void visitModuleIdQuery(JCModuleIdQuery tree) {
         scan(tree.qualId);
     }
 
-    public void visitModuleExport(JCModuleExport tree) {
+    @Override
+    public void visitEntrypoint(JCEntrypointDirective tree) {
+        scan(tree.qualId);
+    }
+
+    @Override
+    public void visitExports(JCExportDirective tree) {
         scan(tree.qualid);
     }
 
-    public void visitModulePermits(JCModulePermits tree) {
-        scan(tree.moduleNames);
+    @Override
+    public void visitPermits(JCPermitsDirective tree) {
+        scan(tree.moduleName);
     }
 
-    public void visitModuleRequires(JCModuleRequires tree) {
-        scan(tree.moduleIds);
+    @Override
+    public void visitRequiresModule(JCRequiresModuleDirective tree) {
+        scan(tree.moduleIdQuery);
+    }
+
+    @Override
+    public void visitRequiresService(JCRequiresServiceDirective tree) {
+        scan(tree.serviceName);
     }
 
     public void visitPackageDef(JCPackageDecl tree) {

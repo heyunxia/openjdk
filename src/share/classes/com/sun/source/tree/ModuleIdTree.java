@@ -31,6 +31,6 @@ import javax.lang.model.element.Name;
  *
  */
 public interface ModuleIdTree extends Tree {
-    Tree getModuleName();
-    Name getModuleVersion();
+    Tree getName();
+    Name getVersion();
 }

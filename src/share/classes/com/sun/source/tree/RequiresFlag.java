@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,10 +25,11 @@
 
 package com.sun.source.tree;
 
-import java.util.List;
-import javax.lang.model.element.Name;
-
-public interface ModuleExportTree extends Tree {
-    List<? extends Name> getFlags();
-    Tree getExportName();
+/**
+ *
+ */
+public enum RequiresFlag {
+    OPTIONAL,
+    LOCAL,
+    PUBLIC
 }

@@ -526,11 +526,6 @@ public class MemberEnter extends JCTree.Visitor implements Completer {
         /*temp*/if (tree.modle != null)/*temp*/ // JIGSAW TEMP: tree.modle SHOULD ALWAYS BE SET
             tree.modle.complete();
 
-        // process module annotations
-        if (md != null) {
-            annotateLater(md.annots, env, md.sym);
-        }
-
         // process package annotations
         if (pd != null)
             annotateLater(pd.annots, env, pd.sym);

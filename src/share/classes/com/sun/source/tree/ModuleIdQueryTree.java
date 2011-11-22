@@ -25,14 +25,12 @@
 
 package com.sun.source.tree;
 
-import java.util.List;
-
+import javax.lang.model.element.Name;
 
 /**
  *
  */
-public interface ModuleTree extends Tree {
-    ModuleIdTree getId();
-    List<? extends ModuleDirectiveTree> getDirectives();
-    CharSequence getExtendedMetadata();
+public interface ModuleIdQueryTree extends Tree {
+    Tree getName();
+    Name getVersionQuery();
 }

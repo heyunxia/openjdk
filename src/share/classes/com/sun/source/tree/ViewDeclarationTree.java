@@ -27,12 +27,10 @@ package com.sun.source.tree;
 
 import java.util.List;
 
-
 /**
  *
  */
-public interface ModuleTree extends Tree {
-    ModuleIdTree getId();
+public interface ViewDeclarationTree extends Tree {
+    ExpressionTree getName();
     List<? extends ModuleDirectiveTree> getDirectives();
-    CharSequence getExtendedMetadata();
 }

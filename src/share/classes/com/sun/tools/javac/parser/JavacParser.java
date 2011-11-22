@@ -25,6 +25,7 @@
 
 package com.sun.tools.javac.parser;
 
+import com.sun.source.tree.RequiresFlag;
 import java.util.*;
 
 import com.sun.tools.javac.code.*;
@@ -2428,19 +2429,13 @@ public class JavacParser implements Parser {
         }
         S.nextToken();
         JCModuleId mid = moduleId();
-        List<JCModuleId> provides = null;
-        List<JCModuleMetadata> metadataList = null;
+        List<JCModuleDirective> directives = null;
 
-        if (S.token() == IDENTIFIER && S.name() == names.provides) {
-            S.nextToken();
-            provides = moduleIdList();
-        } else
-            provides = List.nil();
         accept(LBRACE);
-        metadataList = moduleMetadataList();
+        directives = moduleMetadataList();
         accept(RBRACE);
 
-        JCModuleDecl result = toP(F.at(pos).Module(annots, mid, provides, metadataList));
+        JCModuleDecl result = toP(F.at(pos).Module(mid, directives, null));
         attach(result, dc);
         return result;
     }
@@ -2451,8 +2446,8 @@ public class JavacParser implements Parser {
      * ModuleRequires = REQUIRES Identifier* ModuleId {',' ModuleId}
      * ModulePermits  = PERMITS  QualifiedIdentifier {',' QualifiedIdentifier}
      */
-    List<JCModuleMetadata> moduleMetadataList() {
-        ListBuffer<JCModuleMetadata> defs = new ListBuffer<JCModuleMetadata>();
+    List<JCModuleDirective> moduleMetadataList() {
+        ListBuffer<JCModuleDirective> defs = new ListBuffer<JCModuleDirective>();
 
         while (S.token() == IDENTIFIER || S.token() == CLASS) {
             int pos = S.pos();
@@ -2475,7 +2470,7 @@ public class JavacParser implements Parser {
                 } else {
                     JCExpression qualId = qualident(qualIdHead);
                     accept(SEMI);
-                    defs.append(toP(F.at(pos).ModuleClass(flags.toList(), qualId)));
+                    defs.append(toP(F.at(pos).Entrypoint(qualId)));
                 }
             } else if (S.name() == names.export) {
                 S.nextToken();
@@ -2494,10 +2489,10 @@ public class JavacParser implements Parser {
                     }
                 } while (S.token() == DOT);
                 accept(SEMI);
-                defs.append(toP(F.at(pos).ModuleExport(null, exportId)));
+                defs.append(toP(F.at(pos).Exports(exportId)));
             } else if (S.name() == names.requires) {
-                ListBuffer<Name> flags = new ListBuffer<Name>();
-                List<JCModuleId> moduleIds;
+                ListBuffer<RequiresFlag> flags = new ListBuffer<RequiresFlag>();
+                JCModuleIdQuery moduleIdQuery;
                 S.nextToken();
                 JCExpression moduleIdHead = null;
                 while (S.token() == IDENTIFIER ||
@@ -2509,20 +2504,20 @@ public class JavacParser implements Parser {
                         moduleIdHead = toP(F.at(id_pos).Ident(id));
                         break;
                     }
-                    flags.append(id);
+                    flags.append(RequiresFlag.valueOf(id.toString().toUpperCase()));
                 }
                 if (moduleIdHead == null) {
                     log.error(pos, "module.id.expected");
                 } else {
-                    moduleIds = moduleIdList(moduleIdHead);
+                    moduleIdQuery = moduleIdQuery(moduleIdHead);
                     accept(SEMI);
-                    defs.append(toP(F.at(pos).ModuleRequires(flags.toList(), moduleIds)));
+                    defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleIdQuery)));
                 }
             } else if (S.name() == names.permits) {
                 S.nextToken();
-                List<JCExpression> qualIds = qualidentList();
+                JCExpression qualId = qualident();
                 accept(SEMI);
-                defs.append(toP(F.at(pos).ModulePermits(qualIds)));
+                defs.append(toP(F.at(pos).Permits(qualId)));
             } else
                 break;
         }
@@ -2572,6 +2567,25 @@ public class JavacParser implements Parser {
             S.nextToken();
         }
         return toP(F.at(pos).ModuleId(qualId, version));
+    }
+
+    JCModuleIdQuery moduleIdQuery() {
+        return moduleIdQuery(toP(F.at(S.pos()).Ident(ident())));
+    }
+
+    JCModuleIdQuery moduleIdQuery(JCExpression head) {
+        int pos = S.pos();
+        JCTree qualId = qualident(head);
+        Name version = null;
+        if (S.token() == MONKEYS_AT) {
+            S.nextToken();
+            if (S.token() == MODULEVERSIONLITERAL || S.token() == STRINGLITERAL) {
+                version = names.fromString(S.stringVal());
+            } else
+               log.error(pos, "modules.version.literal.expected");
+            S.nextToken();
+        }
+        return toP(F.at(pos).ModuleIdQuery(qualId, version));
     }
 
     /** ImportDeclaration = IMPORT [ STATIC ] Ident { "." Ident } [ "." "*" ] ";"

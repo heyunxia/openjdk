@@ -457,7 +457,10 @@ public class AttributeWriter extends BasicWriter
                 println("#" + e.export_index + ", " + "0x" + e.export_flags + ", #" + e.source_index
                         + "\t// exports " + (isPackage ? "(package) " : "")
                         + name + (needsAsterisk ? ".*" : "")
-                        + " (from " + constantWriter.stringValue(e.source_index) + ")");
+                        + " (from "
+                        +  (e.source_index == 0 ? "unknown"
+                            : constantWriter.stringValue(e.source_index))
+                        + ")");
             }
             indent(-1);
             println(v.permit_length + "\t// permits ");

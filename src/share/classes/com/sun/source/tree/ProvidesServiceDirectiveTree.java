@@ -25,8 +25,12 @@
 
 package com.sun.source.tree;
 
-import java.util.List;
-
-public interface ModulePermitsTree extends Tree {
-    List<? extends ExpressionTree> getModuleNames();
+/*
+ *
+ */
+public interface ProvidesServiceDirectiveTree extends ModuleDirectiveTree {
+    ExpressionTree getServiceName();
+    ExpressionTree getImplementationName();
 }
+
+

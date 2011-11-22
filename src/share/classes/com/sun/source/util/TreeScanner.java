@@ -379,31 +379,53 @@ public class TreeScanner<R,P> implements TreeVisitor<R,P> {
     }
 
     public R visitModule(ModuleTree node, P p) {
-        R r = scan(node.getAnnotations(), p);
-        r = scanAndReduce(node.getId(), p, r);
-        r = scanAndReduce(node.getProvides(), p, r);
-        r = scanAndReduce(node.getMetadataList(), p, r);
+        R r = scan(node.getId(), p);
+        r = scanAndReduce(node.getDirectives(), p, r);
         return r;
     }
 
-    public R visitModuleClass(ModuleClassTree node, P p) {
+    public R visitView(ViewDeclarationTree node, P p) {
+        R r = scan(node.getName(), p);
+        r = scanAndReduce(node.getDirectives(), p, r);
+        return r;
+    }
+
+    public R visitEntrypoint(EntrypointDirectiveTree node, P p) {
         return scan(node.getClassName(), p);
     }
 
-    public R visitModuleExport(ModuleExportTree node, P p) {
+    public R visitExport(ExportDirectiveTree node, P p) {
         return scan(node.getExportName(), p);
     }
 
     public R visitModuleId(ModuleIdTree node, P p) {
+        return scan(node.getName(), p);
+    }
+
+    public R visitModuleIdQuery(ModuleIdQueryTree node, P p) {
+        return scan(node.getName(), p);
+    }
+
+    public R visitPermits(PermitsDirectiveTree node, P p) {
         return scan(node.getModuleName(), p);
     }
 
-    public R visitModulePermits(ModulePermitsTree node, P p) {
-        return scan(node.getModuleNames(), p);
+    public R visitProvidesModule(ProvidesModuleDirectiveTree node, P p) {
+        return scan(node.getModuleId(), p);
     }
 
-    public R visitModuleRequires(ModuleRequiresTree node, P p) {
-        return scan(node.getModuleIds(), p);
+    public R visitProvidesService(ProvidesServiceDirectiveTree node, P p) {
+        R r = scan(node.getServiceName(), p);
+        r = scanAndReduce(node.getImplementationName(), p, r);
+        return r;
+    }
+
+    public R visitRequiresModule(RequiresModuleDirectiveTree node, P p) {
+        return scan(node.getModuleIdQuery(), p);
+    }
+
+    public R visitRequiresService(RequiresServiceDirectiveTree node, P p) {
+        return scan(node.getServiceName(), p);
     }
 
     public R visitPackage(PackageTree node, P p) {

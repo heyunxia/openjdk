@@ -3059,11 +3059,15 @@ public class Attr extends JCTree.Visitor {
         result = tree.type = syms.errType;
     }
 
+    @Override
     public void visitModuleDef(JCModuleDecl tree) {
-        attribStats(tree.getMetadataList(), env);
+        System.err.println("Attr.visitModuleDef " + tree);
+        attribStats(tree.getDirectives(), env);
     }
 
-    public void visitModuleExport(JCModuleExport tree) {
+    @Override
+    public void visitExports(JCExportDirective tree) {
+        System.err.println("Attr.visitExport " + tree);
         JCTree exp = tree.qualid;
         if (exp.getTag() != JCTree.SELECT) {
             log.error(exp.pos(), "invalid.export");
@@ -3096,7 +3100,6 @@ public class Attr extends JCTree.Visitor {
 //
 //        ModuleSymbol msym = env.toplevel.modle;
 //        msym.exports.add(new Symbol.ModuleExport(csym, List.<Name>nil()));
-
         boolean asterisk = (name == names.asterisk);
         TypeSymbol tsym = attribTree(asterisk ? s.selected : s, env,
                 PCK | TYP, Type.noType).tsym;
@@ -3104,19 +3107,35 @@ public class Attr extends JCTree.Visitor {
             EnumSet<ExportFlag> flags = EnumSet.of(ExportFlag.valueOf(tsym.kind, asterisk));
             ModuleId origin = (tsym.kind == TYP) ? ((ClassSymbol) tsym).modle.getModuleId() : null;
             ExportsDirective d = new ExportsDirective(tsym, flags, origin);
+            System.err.println("Attr.visitExport d:" + d);
             // need to add to correct view
             ModuleSymbol msym = env.toplevel.modle;
             msym.directives.add(d);
         }
     }
 
-    public void visitModuleRequires(JCModuleRequires tree) {
+    @Override
+    public void visitProvidesModule(JCProvidesModuleDirective tree) {
     }
 
-    public void visitModulePermits(JCModulePermits tree) {
+    @Override
+    public void visitProvidesService(JCProvidesServiceDirective tree) {
     }
 
-    public void visitModuleClass(JCModuleClass tree) {
+    @Override
+    public void visitRequiresModule(JCRequiresModuleDirective tree) {
+    }
+
+    @Override
+    public void visitRequiresService(JCRequiresServiceDirective tree) {
+    }
+
+    @Override
+    public void visitPermits(JCPermitsDirective tree) {
+    }
+
+    @Override
+    public void visitEntrypoint(JCEntrypointDirective tree) {
         ModuleSymbol msym = env.toplevel.modle;
         Type t = attribType(tree.qualId, env);
         if (t.tag == CLASS) {

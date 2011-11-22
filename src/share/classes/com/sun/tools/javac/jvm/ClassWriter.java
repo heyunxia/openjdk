@@ -72,11 +72,11 @@ public class ClassWriter extends ClassFile {
      */
     private boolean verbose;
 
-    /** Switch: scrable private names.
+    /** Switch: scramble private names.
      */
     private boolean scramble;
 
-    /** Switch: scrable private names.
+    /** Switch: scramble private names.
      */
     private boolean scrambleAll;
 
@@ -903,11 +903,14 @@ public class ClassWriter extends ClassFile {
             n++;
         }
 
+        System.err.println("ClassWriter.writeModuleAttribute sym:" + sym + " hasViews:" + sym.hasViews());
         if (sym.hasViews()) {
             int alenIdx = writeAttr(names.ModuleProvides);
             List<ViewDeclaration> views = sym.getViews();
+                System.err.println("ClassWriter.writeModuleAttribute #view:" + views.size());
             databuf.appendChar(views.size());
             for (ViewDeclaration v: views) {
+                System.err.println("ClassWriter.writeModuleAttribute view:" + v);
                 // name
                 databuf.appendChar(v.isDefault() ? 0 : pool.put(v.name));
                 // entrypoint, if any
@@ -929,15 +932,19 @@ public class ClassWriter extends ClassFile {
                 List<ExportsDirective> exports = v.getExports();
                 databuf.appendChar(exports.size());
                 for (ExportsDirective e: exports) {
-                    databuf.appendChar(pool.put(e.sym.flatName()));  // CHECK YTHIS: ensure this is the binary name
+                    databuf.appendChar(pool.put(e.sym.flatName()));  // CHECK THIS: ensure this is the binary name
                     databuf.appendChar(ExportFlag.value(e.flags));
-                    databuf.appendChar(pool.put(e.origin));
+                    databuf.appendChar(e.origin == null ? 0 : pool.put(e.origin));
                 }
                 // permits
                 List<PermitsDirective> permits = v.getPermits();
+                System.err.println("ClassWriter.writeModuleAttribute permits:" + permits);
+                System.err.println("ClassWriter.writeModuleAttribute permits:" + permits.size());
                 databuf.appendChar(permits.size());
-                for (PermitsDirective p: permits)
+                for (PermitsDirective p: permits) {
+                    System.err.println("ClassWriter.writeModuleAttribute permits:" + p.moduleId);
                     databuf.appendChar(pool.put(p.moduleId));
+                }
             }
             endAttr(alenIdx);
             n++;

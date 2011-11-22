@@ -402,45 +402,88 @@ public class TreeCopier<P> implements TreeVisitor<JCTree,P> {
         return M.at(t.pos).Wildcard(kind, inner);
     }
 
+    @Override
     public JCTree visitModule(ModuleTree node, P p) {
         JCModuleDecl t = (JCModuleDecl) node;
-        List<JCAnnotation> annots = copy(t.annots, p);
         JCModuleId moduleId = copy(t.id);
-        List<JCModuleId> provides = copy(t.provides);
-        List<JCModuleMetadata> metadataList = copy(t.metadata, p);
-        return M.at(t.pos).Module(annots, moduleId, provides, metadataList);
+        List<JCModuleDirective> directives = copy(t.directives);
+        return M.at(t.pos).Module(moduleId, directives, t.metadata);
     }
 
-    public JCModuleClass visitModuleClass(ModuleClassTree node, P p) {
-        JCModuleClass t = (JCModuleClass) node;
-        JCTree qualId = copy(t.qualId, p);
-        return M.at(t.pos).ModuleClass(t.flags, qualId);
+    @Override
+    public JCTree visitView(ViewDeclarationTree node, P p) {
+        JCViewDecl t = (JCViewDecl) node;
+        JCExpression name = copy(t.name);
+        List<JCModuleDirective> directives = copy(t.directives);
+        return M.at(t.pos).View(name, directives);
     }
 
-    public JCModuleExport visitModuleExport(ModuleExportTree node, P p) {
-        JCModuleExport t = (JCModuleExport) node;
-        JCExpression qualId = (JCExpression) copy(t.qualid, p);
-        return M.at(t.pos).ModuleExport(t.flags, qualId);
+    @Override
+    public JCEntrypointDirective visitEntrypoint(EntrypointDirectiveTree node, P p) {
+        JCEntrypointDirective t = (JCEntrypointDirective) node;
+        JCExpression qualId = copy(t.qualId, p);
+        return M.at(t.pos).Entrypoint(qualId);
     }
 
-    public JCTree visitModuleId(ModuleIdTree node, P p) {
+    @Override
+    public JCExportDirective visitExport(ExportDirectiveTree node, P p) {
+        JCExportDirective t = (JCExportDirective) node;
+        JCExpression qualId = copy(t.qualid, p);
+        return M.at(t.pos).Exports(qualId);
+    }
+
+    @Override
+    public JCModuleId visitModuleId(ModuleIdTree node, P p) {
         JCModuleId t = (JCModuleId) node;
         JCTree qualId = copy(t.qualId, p);
         Name version = t.version;
         return M.at(t.pos).ModuleId(qualId, version);
     }
 
-    public JCModulePermits visitModulePermits(ModulePermitsTree node, P p) {
-        JCModulePermits t = (JCModulePermits) node;
-        List<JCExpression> moduleNames = copy(t.moduleNames, p);
-        return M.at(t.pos).ModulePermits(moduleNames);
+    @Override
+    public JCModuleIdQuery visitModuleIdQuery(ModuleIdQueryTree node, P p) {
+        JCModuleIdQuery t = (JCModuleIdQuery) node;
+        JCTree qualId = copy(t.qualId, p);
+        Name versionQuery = t.versionQuery;
+        return M.at(t.pos).ModuleIdQuery(qualId, versionQuery);
     }
 
-    public JCModuleRequires visitModuleRequires(ModuleRequiresTree node, P p) {
-        JCModuleRequires t = (JCModuleRequires) node;
-        List<Name> flags = t.flags;
-        List<JCModuleId> moduleIds = copy(t.moduleIds, p);
-        return M.at(t.pos).ModuleRequires(flags, moduleIds);
+    @Override
+    public JCPermitsDirective visitPermits(PermitsDirectiveTree node, P p) {
+        JCPermitsDirective t = (JCPermitsDirective) node;
+        JCExpression moduleName = copy(t.moduleName, p);
+        return M.at(t.pos).Permits(moduleName);
+    }
+
+    @Override
+    public JCProvidesModuleDirective visitProvidesModule(ProvidesModuleDirectiveTree node, P p) {
+        JCProvidesModuleDirective t = (JCProvidesModuleDirective) node;
+        JCModuleId moduleId = copy(t.moduleId, p);
+        return M.at(t.pos).ProvidesModule(moduleId);
+    }
+
+    @Override
+    public JCProvidesServiceDirective visitProvidesService(ProvidesServiceDirectiveTree node, P p) {
+        JCProvidesServiceDirective t = (JCProvidesServiceDirective) node;
+        JCExpression serviceName = copy(t.serviceName, p);
+        JCExpression implName = copy(t.implName, p);
+        return M.at(t.pos).ProvidesService(serviceName, implName);
+    }
+
+    @Override
+    public JCRequiresModuleDirective visitRequiresModule(RequiresModuleDirectiveTree node, P p) {
+        JCRequiresModuleDirective t = (JCRequiresModuleDirective) node;
+        List<RequiresFlag> flags = t.flags;
+        JCModuleIdQuery moduleIdQuery = copy(t.moduleIdQuery, p);
+        return M.at(t.pos).RequiresModule(flags, moduleIdQuery);
+    }
+
+    @Override
+    public JCRequiresServiceDirective visitRequiresService(RequiresServiceDirectiveTree node, P p) {
+        JCRequiresServiceDirective t = (JCRequiresServiceDirective) node;
+        List<RequiresFlag> flags = t.flags;
+        JCExpression serviceName = copy(t.serviceName, p);
+        return M.at(t.pos).RequiresService(flags, serviceName);
     }
 
     public JCTree visitPackage(PackageTree node, P p) {

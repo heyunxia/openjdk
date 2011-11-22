@@ -2242,7 +2242,7 @@ public class Lower extends TreeTranslator {
         c.attributes_field = msym.attributes_field;
         c.flags_field |= SYNTHETIC;
         msym.attributes_field = List.nil();
-        createInfoClass(tree.annots, tree.sym.module_info);
+        createInfoClass(List.<JCAnnotation>nil(), tree.sym.module_info);
     }
 
     private void createInfoClass(List<JCAnnotation> annots, ClassSymbol c) {

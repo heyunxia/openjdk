@@ -25,12 +25,13 @@
 
 package com.sun.tools.javac.tree;
 
+import com.sun.source.tree.RequiresFlag;
+
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-
 import com.sun.tools.javac.tree.JCTree.*;
 
 import static com.sun.tools.javac.code.Flags.*;
@@ -125,7 +126,6 @@ public class TreeMaker implements JCTree.Factory {
                 || node instanceof JCImport
                 || node instanceof JCPackageDecl
                 || node instanceof JCModuleDecl
-                || node instanceof JCModuleMetadata
                 || node instanceof JCSkip
                 || node instanceof JCErroneous
                 || (node instanceof JCExpressionStatement
@@ -476,39 +476,81 @@ public class TreeMaker implements JCTree.Factory {
         return Modifiers(flags, List.<JCAnnotation>nil());
     }
 
-    public JCModuleDecl Module(List<JCAnnotation> annots, JCModuleId moduleId,
-            List<JCModuleId> provides, List<JCModuleMetadata> metadata) {
-        JCModuleDecl tree = new JCModuleDecl(annots, moduleId, provides, metadata);
+    @Override
+    public JCModuleDecl Module(JCModuleId moduleId,
+            List<JCModuleDirective> directives, Name metadata) {
+        JCModuleDecl tree = new JCModuleDecl(moduleId, directives, metadata);
         tree.pos = pos;
         return tree;
     }
 
-    public JCModuleClass ModuleClass(List<Name> flags, JCTree qualId) {
-        JCModuleClass tree = new JCModuleClass(flags, qualId);
+    @Override
+    public JCViewDecl View(JCExpression name,
+            List<JCModuleDirective> directives) {
+        JCViewDecl tree = new JCViewDecl(name, directives);
         tree.pos = pos;
         return tree;
     }
 
-    public JCModuleExport ModuleExport(List<Name> flags, JCExpression qualId) {
-        JCModuleExport tree = new JCModuleExport(flags, qualId);
+    @Override
+    public JCEntrypointDirective Entrypoint(JCExpression qualId) {
+        JCEntrypointDirective tree = new JCEntrypointDirective(qualId);
         tree.pos = pos;
         return tree;
     }
 
+    @Override
+    public JCExportDirective Exports(JCExpression qualId) {
+        JCExportDirective tree = new JCExportDirective(qualId);
+        tree.pos = pos;
+        return tree;
+    }
+
+    @Override
     public JCModuleId ModuleId(JCTree qualId, Name version) {
         JCModuleId tree = new JCModuleId(qualId, version);
         tree.pos = pos;
         return tree;
     }
 
-    public JCModulePermits ModulePermits(List<JCExpression> qualIds) {
-        JCModulePermits tree = new JCModulePermits(qualIds);
+    @Override
+    public JCModuleIdQuery ModuleIdQuery(JCTree qualId, Name versionQuery) {
+        JCModuleIdQuery tree = new JCModuleIdQuery(qualId, versionQuery);
         tree.pos = pos;
         return tree;
     }
 
-    public JCModuleRequires ModuleRequires(List<Name> flags, List<JCModuleId> moduleIds) {
-        JCModuleRequires tree = new JCModuleRequires(flags, moduleIds);
+    @Override
+    public JCPermitsDirective Permits(JCExpression qualId) {
+        JCPermitsDirective tree = new JCPermitsDirective(qualId);
+        tree.pos = pos;
+        return tree;
+    }
+
+    @Override
+    public JCProvidesModuleDirective ProvidesModule(JCModuleId moduleId) {
+        JCProvidesModuleDirective tree = new JCProvidesModuleDirective(moduleId);
+        tree.pos = pos;
+        return tree;
+    }
+
+    @Override
+    public JCProvidesServiceDirective ProvidesService(JCExpression service, JCExpression impl) {
+        JCProvidesServiceDirective tree = new JCProvidesServiceDirective(service, impl);
+        tree.pos = pos;
+        return tree;
+    }
+
+    @Override
+    public JCRequiresModuleDirective RequiresModule(List<RequiresFlag> flags, JCModuleIdQuery moduleIdQuery) {
+        JCRequiresModuleDirective tree = new JCRequiresModuleDirective(flags, moduleIdQuery);
+        tree.pos = pos;
+        return tree;
+    }
+
+    @Override
+    public JCRequiresServiceDirective RequiresService(List<RequiresFlag> flags, JCExpression serviceName) {
+        JCRequiresServiceDirective tree = new JCRequiresServiceDirective(flags, serviceName);
         tree.pos = pos;
         return tree;
     }

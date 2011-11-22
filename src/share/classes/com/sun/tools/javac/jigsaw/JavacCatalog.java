@@ -30,7 +30,9 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.module.Dependence;
 import java.lang.module.ModuleId;
+import java.lang.module.ModuleIdQuery;
 import java.lang.module.ModuleInfo;
+import java.lang.module.ServiceDependence;
 import java.lang.module.Version;
 import java.lang.module.VersionQuery;
 import java.util.Collection;
@@ -50,12 +52,13 @@ import org.openjdk.jigsaw.SimpleLibrary;
 
 import com.sun.tools.javac.code.Directive.PermitsDirective;
 import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
+import com.sun.tools.javac.code.Directive.RequiresFlag;
+import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.jvm.ClassFile;
 import com.sun.tools.javac.util.Name;
-import java.lang.module.ModuleIdQuery;
 
 /*
  * Implementation of a Jigsaw catalog providing access to the modules
@@ -189,36 +192,44 @@ public class JavacCatalog  extends Catalog {
         return jigsaw.parseModuleId(mid); // FIXME -- throws IllegalArgumentException
     }
 
-    ModuleIdQuery getModuleIdQuery(com.sun.tools.javac.code.ModuleId midq) {
-        return getModuleIdQuery(midq.name, midq.version); // FIXME -- throws IllegalArgumentException
+    ModuleIdQuery getModuleIdQuery(com.sun.tools.javac.code.ModuleIdQuery midq) {
+        return getModuleIdQuery(midq.name, midq.versionQuery); // FIXME -- throws IllegalArgumentException
+    }
+    
+    ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleIdQuery midq) {
+        return getModuleIdQuery(midq.getName(), midq.getVersionQuery());
     }
 
     ModuleIdQuery getModuleIdQuery(Name n, Name vq) {
         String midq = (vq == null) ? n.toString() : (n + "@" + vq);
         return jigsaw.parseModuleIdQuery(midq); // FIXME -- throws IllegalArgumentException
     }
+    
+    ModuleIdQuery getModuleIdQuery(CharSequence n, CharSequence vq) {
+        String q = (vq == null || vq.length() == 0) ? String.valueOf(n) : (n + "@" + vq);
+        return jigsaw.parseModuleIdQuery(q);
+    }
 
-    Dependence.Modifier getModifier(Name n) {
-        String s = n.toString();  // FIXME: use names, but that requires Context
-        if (s.equals("local"))
-            return Dependence.Modifier.LOCAL;
-        if (s.equals("optional"))
-            return Dependence.Modifier.OPTIONAL;
-        if (s.equals("public"))
-            return Dependence.Modifier.PUBLIC;
-        if (s.equals("synthetic"))
-            return Dependence.Modifier.SYNTHETIC;
-        throw new IllegalArgumentException(s);  // FIXME -- throws IllegalArgumentException
+    Dependence.Modifier getModifier(RequiresFlag f) {
+        switch (f) {
+            case LOCAL:
+                return Dependence.Modifier.LOCAL;
+            case OPTIONAL:
+                return Dependence.Modifier.OPTIONAL;
+            case PUBLIC:
+                return Dependence.Modifier.PUBLIC;
+			default:
+                throw new IllegalArgumentException(f.toString());  // FIXME -- throws IllegalArgumentException
+        }
     }
 
     class JavacModuleInfo implements ModuleInfo {
         ModuleSymbol msym;
 
         ModuleId id;
-        Set<String> permits;
-        Set<ModuleId> provides;
         Set<Dependence> requires;
-        String mainClass;
+        ModuleInfo.View view;
+
 
         JavacModuleInfo(ModuleSymbol msym) {
             msym.getClass(); // null check
@@ -228,74 +239,122 @@ public class JavacCatalog  extends Catalog {
 
             id = getModuleId(msym); // FIXME -- throws IllegalArgumentException
 
+            String mainClass = null;
             {   // needs to be updated for multiple views
                 ViewDeclaration v = msym.getDefaultView();
                 if (v.hasEntrypoint())
                     mainClass = new String(ClassFile.externalize(v.getEntrypoint().flatname));
             }
 
-            permits = new LinkedHashSet<String>();
+            Set<String> permits = new LinkedHashSet<String>();
             for (PermitsDirective d: msym.getDefaultView().getPermits()) {
                 permits.add(d.moduleId.name.toString()); // FIXME: validate name?
             }
-            permits = Collections.unmodifiableSet(permits);
+            
+            Set<String> exports  = new LinkedHashSet<String>();
+            Set<ModuleInfo.Service> services  = new LinkedHashSet<ModuleInfo.Service>();
 
-            provides = new LinkedHashSet<ModuleId>();
+            Set<ModuleId> provides = new LinkedHashSet<ModuleId>();
             for (ViewDeclaration v: msym.getViews()) {
                 for (ProvidesModuleDirective d: v.getAliases()) {
                     provides.add(getModuleId(d.moduleId));
                 }
             }
-            provides = Collections.unmodifiableSet(provides);
+            
+            view = new JavacModuleView(id.name(),
+                                       exports,
+                                       provides,
+                                       services,
+                                       permits,
+                                       mainClass);
 
             requires = new LinkedHashSet<Dependence>();
-            for (Symbol.ModuleRequires r: msym.requires.values()) {
+            for (RequiresModuleDirective r: msym.getRequiredModules()) {
                 DEBUG("JavacModuleInfo: require " + r);
-                ModuleIdQuery q = getModuleIdQuery(r.moduleId);
+                ModuleIdQuery q = getModuleIdQuery(r.moduleQuery);
                 EnumSet<Dependence.Modifier> mods = EnumSet.noneOf(Dependence.Modifier.class);
-                for (Name n: r.flags) {
-                    mods.add(getModifier(n));  // FIXME -- throws IllegalArgumentException
+                for (com.sun.tools.javac.code.Directive.RequiresFlag f: r.flags) {
+                    mods.add(getModifier(f));  // FIXME -- throws IllegalArgumentException
                 }
                 requires.add(new Dependence(mods, q));
             }
-            DEBUG("JavacModuleInfo: msym: " + msym + "[id:" + id + " permits:" + permits + " provides:" + provides + " requires:" + requires + " mainClass:" + mainClass + "]");
+            DEBUG("JavacModuleInfo: msym: " + msym + "[id:" + id + " views:" + view + " requires:" + requires + "]");
         }
 
         @Override
         public ModuleId id() {
             return id;
         }
-
-        @Override
-        public String mainClass() {
-            return mainClass;
-        }
-
-        @Override
-        public Set<String> permits() {
-            return permits;
-        }
-
-        @Override
-        public Set<ModuleId> provides() {
-            return provides;
-        }
-
+        
+         
         @Override
         public Set<Dependence> requires() {
             return requires;
         }
-
-	// no access to annotations for now
-        @Override
-        public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-            throw new UnsupportedOperationException();
+        public Set<ServiceDependence> requiresServices() {
+            return Collections.emptySet();
         }
 
-	// no access to annotations for now
-        @Override
-        public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
-            throw new UnsupportedOperationException();
+        public View defaultView() {
+            return view;
+        }
+
+        public Set<View> views() {
+            return Collections.singleton(view);
+        }
+
+        class JavacModuleView implements ModuleInfo.View {
+
+            private String name;
+            private Set<String> exports;
+            private Set<ModuleId> provides;
+            private Set<ModuleInfo.Service> services;
+            private Set<String> permits;
+            private String mainClass;
+
+            JavacModuleView(String name,
+                    Set<String> exports,
+                    Set<ModuleId> provides,
+                    Set<ModuleInfo.Service> services,
+                    Set<String> permits,
+                    String mainClass) {
+                this.name = name;
+                this.exports = exports;
+                this.provides = provides;
+                this.services = services;
+                this.permits = permits;
+                this.mainClass = mainClass;
+                DEBUG("JavacModuleView: [name:" + name + 
+                      " permits:" + permits + " provides:" + provides +
+                      " requires service:" + services + " mainClass:" + mainClass + "]");
+            }
+
+            @Override
+            public String mainClass() {
+                return mainClass;
+            }
+
+            @Override
+            public Set<String> permits() {
+                return permits;
+            }
+
+            @Override
+            public Set<ModuleId> provides() {
+                return provides;
+            }
+
+            public String name() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+
+            public Set<String> exports() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+
+            public Set<Service> providesServices() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
         }
     }
 }

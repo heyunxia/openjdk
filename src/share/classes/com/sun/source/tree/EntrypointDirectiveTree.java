@@ -25,10 +25,6 @@
 
 package com.sun.source.tree;
 
-import java.util.List;
-import javax.lang.model.element.Name;
-
-public interface ModuleRequiresTree extends Tree {
-    List<? extends Name> getFlags();
-    List<? extends ModuleIdTree> getModuleIds();
+public interface EntrypointDirectiveTree extends ModuleDirectiveTree {
+    ExpressionTree getClassName();
 }

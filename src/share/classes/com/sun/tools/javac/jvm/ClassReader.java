@@ -42,7 +42,6 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.SourceVersion;
@@ -1224,7 +1223,7 @@ public class ClassReader implements Completer {
                 }
             },
 
-            new AttributeReader(names.ModuleProvides, V51, CLASS_ATTRIBUTE) {
+            new AttributeReader(names.ModuleProvides, V52, CLASS_ATTRIBUTE) {
                 @Override
                 boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
@@ -1291,7 +1290,7 @@ public class ClassReader implements Completer {
                 }
             },
 
-            new AttributeReader(names.ModuleRequires, V51, CLASS_ATTRIBUTE) {
+            new AttributeReader(names.ModuleRequires, V52, CLASS_ATTRIBUTE) {
                 @Override
                 boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;

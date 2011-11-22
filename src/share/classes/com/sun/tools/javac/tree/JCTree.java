@@ -320,13 +320,18 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
     public static final int MOD_ASG = DIV_ASG + 1;           // %=
 
     public static final int MODULE = MOD_ASG + 1;
-    public static final int MODULE_CLASS = MODULE + 1;
-    public static final int MODULE_EXPORT = MODULE_CLASS + 1;
-    public static final int MODULE_ID = MODULE_EXPORT + 1;
-    public static final int MODULE_PERMITS = MODULE_ID + 1;
-    public static final int MODULE_REQUIRES = MODULE_PERMITS + 1;
+    public static final int MODULE_ID = MODULE + 1;
+    public static final int MODULE_ID_QUERY = MODULE_ID + 1;
+    public static final int VIEW_DECLARATION = MODULE_ID_QUERY + 1;
+    public static final int ENTRYPOINT_DIRECTIVE = VIEW_DECLARATION + 1;
+    public static final int EXPORT_DIRECTIVE = ENTRYPOINT_DIRECTIVE + 1;
+    public static final int PERMITS_DIRECTIVE = MODULE_ID_QUERY + 1;
+    public static final int PROVIDES_MODULE_DIRECTIVE = PERMITS_DIRECTIVE + 1;
+    public static final int PROVIDES_SERVICE_DIRECTIVE = PROVIDES_MODULE_DIRECTIVE + 1;
+    public static final int REQUIRES_MODULE_DIRECTIVE = PROVIDES_SERVICE_DIRECTIVE + 1;
+    public static final int REQUIRES_SERVICE_DIRECTIVE = REQUIRES_MODULE_DIRECTIVE + 1;
 
-    public static final int PACKAGE = MODULE_REQUIRES + 1;
+    public static final int PACKAGE = REQUIRES_SERVICE_DIRECTIVE + 1;
 
     /** A synthetic let expression, of type LetExpr.
      */
@@ -2069,54 +2074,7 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         }
     }
 
-    public static class JCModuleDecl extends JCTree implements com.sun.source.tree.ModuleTree {
-        public List<JCAnnotation> annots;
-        public JCModuleId id;
-        public List<JCModuleId> provides;
-        public List<JCModuleMetadata> metadata;
-        public ModuleSymbol sym;
-        protected JCModuleDecl(List<JCAnnotation> annots, JCModuleId id,
-                List<JCModuleId> provides, List<JCModuleMetadata> metadata) {
-            this.annots = annots;
-            this.id = id;
-            this.provides = provides;
-            this.metadata = metadata;
-        }
-        @Override
-        public void accept(Visitor v) { v.visitModuleDef(this); }
-
-        public Kind getKind() {
-            return Kind.MODULE;
-        }
-
-        public List<JCAnnotation> getAnnotations() {
-            return annots;
-        }
-
-        public JCModuleId getId() {
-            return id;
-        }
-
-        public List<JCModuleId> getProvides() {
-            return provides;
-        }
-
-        public List<JCModuleMetadata> getMetadataList() {
-            return metadata;
-        }
-
-        @Override
-        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
-            return v.visitModule(this, d);
-        }
-
-        @Override
-        public int getTag() {
-            return MODULE;
-        }
-    }
-
-    public static class JCModuleId extends JCTree implements com.sun.source.tree.ModuleIdTree {
+    public static class JCModuleId extends JCTree implements ModuleIdTree {
         public JCTree qualId;
         public Name version;
         protected JCModuleId(JCTree qualId, Name version) {
@@ -2127,15 +2085,18 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         @Override
         public void accept(Visitor v) { v.visitModuleId(this); }
 
+        @Override
         public Kind getKind() {
             return Kind.MODULE_ID;
         }
 
-        public JCTree getModuleName() {
+        @Override
+        public JCTree getName() {
             return qualId;
         }
 
-        public Name getModuleVersion() {
+        @Override
+        public Name getVersion() {
             return version;
         }
 
@@ -2150,141 +2111,372 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         }
     }
 
-    public static abstract class JCModuleMetadata extends JCTree {
-
-    }
-
-    public static class JCModuleClass extends JCModuleMetadata implements com.sun.source.tree.ModuleClassTree {
+    public static class JCModuleIdQuery extends JCTree implements ModuleIdQueryTree {
         public JCTree qualId;
-        public List<Name> flags;
-        protected JCModuleClass(List<Name> flags, JCTree qualId) {
+        public Name versionQuery;
+        protected JCModuleIdQuery(JCTree qualId, Name versionQuery) {
             this.qualId = qualId;
-            this.flags = flags;
+            this.versionQuery = versionQuery;
         }
 
         @Override
-        public void accept(Visitor v) { v.visitModuleClass(this); }
+        public void accept(Visitor v) { v.visitModuleIdQuery(this); }
 
+        @Override
         public Kind getKind() {
-            return Kind.MODULE_CLASS;
+            return Kind.MODULE_ID_QUERY;
         }
 
-        public JCTree getClassName() {
+        @Override
+        public JCTree getName() {
             return qualId;
         }
 
-        public List<Name> getFlags() {
-            return flags;
+        @Override
+        public Name getVersionQuery() {
+            return versionQuery;
         }
 
         @Override
         public <R, D> R accept(TreeVisitor<R, D> v, D d) {
-            return v.visitModuleClass(this, d);
+            return v.visitModuleIdQuery(this, d);
         }
 
         @Override
         public int getTag() {
-            return MODULE_CLASS;
+            return MODULE_ID;
         }
     }
 
-    public static class JCModuleExport extends JCModuleMetadata implements com.sun.source.tree.ModuleExportTree {
-        public JCTree qualid;
-        public List<Name> flags;
-        protected JCModuleExport(List<Name> flags, JCTree qualId) {
-            this.qualid = qualId;
-            this.flags = flags;
+    public static class JCModuleDecl extends JCTree implements ModuleTree {
+        public JCModuleId id;
+        public List<JCModuleDirective> directives;
+        public Name metadata;
+        public ModuleSymbol sym;
+
+        protected JCModuleDecl(JCModuleId id,
+                List<JCModuleDirective> directives, Name metadata) {
+            this.id = id;
+            this.directives = directives;
+            this.metadata = metadata;
         }
 
         @Override
-        public void accept(Visitor v) { v.visitModuleExport(this); }
+        public void accept(Visitor v) { v.visitModuleDef(this); }
 
+        @Override
         public Kind getKind() {
-            return Kind.MODULE_EXPORT;
+            return Kind.MODULE;
         }
 
-        public JCTree getExportName() {
+        @Override
+        public JCModuleId getId() {
+            return id;
+        }
+
+        @Override
+        public List<JCModuleDirective> getDirectives() {
+            return directives;
+        }
+
+        @Override
+        public Name getExtendedMetadata() {
+            return metadata;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitModule(this, d);
+        }
+
+        @Override
+        public int getTag() {
+            return MODULE;
+        }
+    }
+
+    public static abstract class JCModuleDirective extends JCTree implements ModuleDirectiveTree {
+    }
+
+    public static class JCViewDecl extends JCModuleDirective implements ViewDeclarationTree {
+        public JCExpression name;
+        public List<JCModuleDirective> directives;
+
+        protected JCViewDecl(JCExpression name, List<JCModuleDirective> directives) {
+            this.name = name;
+            this.directives = directives;
+        }
+
+        @Override
+        public void accept(Visitor v) { v.visitView(this); }
+
+        @Override
+        public Kind getKind() {
+            return Kind.VIEW_DECLARATION;
+        }
+
+        @Override
+        public JCExpression getName() {
+            return name;
+        }
+
+        @Override
+        public List<JCModuleDirective> getDirectives() {
+            return directives;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitView(this, d);
+        }
+
+        @Override
+        public int getTag() {
+            return VIEW_DECLARATION;
+        }
+    }
+
+    public static class JCEntrypointDirective extends JCModuleDirective
+            implements EntrypointDirectiveTree {
+        public JCExpression qualId;
+        protected JCEntrypointDirective(JCExpression qualId) {
+            this.qualId = qualId;
+        }
+
+        @Override
+        public void accept(Visitor v) { v.visitEntrypoint(this); }
+
+        @Override
+        public Kind getKind() {
+            return Kind.ENTRYPOINT_DIRECTIVE;
+        }
+
+        @Override
+        public JCExpression getClassName() {
+            return qualId;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitEntrypoint(this, d);
+        }
+
+        @Override
+        public int getTag() {
+            return ENTRYPOINT_DIRECTIVE;
+        }
+    }
+
+    public static class JCExportDirective extends JCModuleDirective
+            implements ExportDirectiveTree {
+        public JCExpression qualid;
+
+        protected JCExportDirective(JCExpression qualId) {
+            this.qualid = qualId;
+        }
+
+        @Override
+        public void accept(Visitor v) { v.visitExports(this); }
+
+        @Override
+        public Kind getKind() {
+            return Kind.EXPORT_DIRECTIVE;
+        }
+
+        @Override
+        public JCExpression getExportName() {
             return qualid;
         }
 
-        public List<Name> getFlags() {
-            return flags;
-        }
-
         @Override
         public <R, D> R accept(TreeVisitor<R, D> v, D d) {
-            return v.visitModuleExport(this, d);
+            return v.visitExport(this, d);
         }
 
         @Override
         public int getTag() {
-            return MODULE_EXPORT;
+            return EXPORT_DIRECTIVE;
         }
     }
 
-    public static class JCModulePermits extends JCModuleMetadata
-            implements com.sun.source.tree.ModulePermitsTree {
-        public List<JCExpression> moduleNames;
+    public static class JCPermitsDirective extends JCModuleDirective
+            implements PermitsDirectiveTree {
+        public JCExpression moduleName;
 
-        protected JCModulePermits(List<JCExpression> moduleNames) {
-            this.moduleNames = moduleNames;
+        protected JCPermitsDirective(JCExpression moduleName) {
+            this.moduleName = moduleName;
         }
 
         @Override
-        public void accept(Visitor v) { v.visitModulePermits(this); }
+        public void accept(Visitor v) { v.visitPermits(this); }
 
+        @Override
         public Kind getKind() {
-            return Kind.MODULE_PERMITS;
+            return Kind.PERMITS_DIRECTIVE;
         }
 
         @Override
         public <R, D> R accept(TreeVisitor<R, D> v, D d) {
-            return v.visitModulePermits(this, d);
+            return v.visitPermits(this, d);
         }
 
-        public List<JCExpression> getModuleNames() {
-            return moduleNames;
+        @Override
+        public JCExpression getModuleName() {
+            return moduleName;
         }
 
         @Override
         public int getTag() {
-            return MODULE_PERMITS;
+            return PERMITS_DIRECTIVE;
         }
     }
 
-    public static class JCModuleRequires extends JCModuleMetadata
-            implements com.sun.source.tree.ModuleRequiresTree {
-        public List<Name> flags;
-        public List<JCModuleId> moduleIds;
+    public static class JCRequiresModuleDirective extends JCModuleDirective
+            implements RequiresModuleDirectiveTree {
+        public List<RequiresFlag> flags;
+        public JCModuleIdQuery moduleIdQuery;
 
-        protected JCModuleRequires(List<Name> flags, List<JCModuleId> moduleIds) {
+        protected JCRequiresModuleDirective(List<RequiresFlag> flags, JCModuleIdQuery moduleIdQuery) {
             this.flags = flags;
-            this.moduleIds = moduleIds;
+            this.moduleIdQuery = moduleIdQuery;
         }
 
         @Override
-        public void accept(Visitor v) { v.visitModuleRequires(this); }
+        public void accept(Visitor v) { v.visitRequiresModule(this); }
 
+        @Override
         public Kind getKind() {
-            return Kind.MODULE_REQUIRES;
+            return Kind.REQUIRES_MODULE_DIRECTIVE;
         }
 
         @Override
         public <R, D> R accept(TreeVisitor<R, D> v, D d) {
-            return v.visitModuleRequires(this, d);
+            return v.visitRequiresModule(this, d);
         }
 
-        public List<Name> getFlags() {
+        @Override
+        public List<RequiresFlag> getFlags() {
             return flags;
         }
 
-        public List<JCModuleId> getModuleIds() {
-            return moduleIds;
+        @Override
+        public JCModuleIdQuery getModuleIdQuery() {
+            return moduleIdQuery;
         }
 
         @Override
         public int getTag() {
-            return MODULE_REQUIRES;
+            return REQUIRES_MODULE_DIRECTIVE;
+        }
+    }
+
+    public static class JCRequiresServiceDirective extends JCModuleDirective
+            implements RequiresServiceDirectiveTree {
+        public List<RequiresFlag> flags;
+        public JCExpression serviceName;
+
+        protected JCRequiresServiceDirective(List<RequiresFlag> flags, JCExpression serviceName) {
+            this.flags = flags;
+            this.serviceName = serviceName;
+        }
+
+        @Override
+        public void accept(Visitor v) { v.visitRequiresService(this); }
+
+        @Override
+        public Kind getKind() {
+            return Kind.REQUIRES_SERVICE_DIRECTIVE;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitRequiresService(this, d);
+        }
+
+        @Override
+        public List<RequiresFlag> getFlags() {
+            return flags;
+        }
+
+        @Override
+        public JCExpression getServiceName() {
+            return serviceName;
+        }
+
+        @Override
+        public int getTag() {
+            return REQUIRES_SERVICE_DIRECTIVE;
+        }
+    }
+
+    public static class JCProvidesModuleDirective extends JCModuleDirective
+            implements ProvidesModuleDirectiveTree {
+        public JCModuleId moduleId;
+
+        protected JCProvidesModuleDirective(JCModuleId moduleId) {
+            this.moduleId = moduleId;
+        }
+
+        @Override
+        public void accept(Visitor v) { v.visitProvidesModule(this); }
+
+        @Override
+        public Kind getKind() {
+            return Kind.PROVIDES_MODULE_DIRECTIVE;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitProvidesModule(this, d);
+        }
+
+        @Override
+        public JCModuleId getModuleId() {
+            return moduleId;
+        }
+
+        @Override
+        public int getTag() {
+            return PROVIDES_MODULE_DIRECTIVE;
+        }
+    }
+
+    public static class JCProvidesServiceDirective extends JCModuleDirective
+            implements ProvidesServiceDirectiveTree {
+        public JCExpression serviceName;
+        public JCExpression implName;
+
+        protected JCProvidesServiceDirective(JCExpression serviceName, JCExpression implName) {
+            this.serviceName = serviceName;
+            this.implName = implName;
+        }
+
+        @Override
+        public void accept(Visitor v) { v.visitProvidesService(this); }
+
+        @Override
+        public Kind getKind() {
+            return Kind.PROVIDES_SERVICE_DIRECTIVE;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitProvidesService(this, d);
+        }
+
+        @Override
+        public JCExpression getServiceName() {
+            return serviceName;
+        }
+
+        @Override
+        public JCExpression getImplementationName() {
+            return implName;
+        }
+
+        @Override
+        public int getTag() {
+            return PROVIDES_SERVICE_DIRECTIVE;
         }
     }
 
@@ -2454,10 +2646,17 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         JCAnnotation Annotation(JCTree annotationType, List<JCExpression> args);
         JCModifiers Modifiers(long flags, List<JCAnnotation> annotations);
         JCErroneous Erroneous(List<? extends JCTree> errs);
+        JCModuleDecl Module(JCModuleId moduleId, List<JCModuleDirective> directives, Name metadata);
+        JCViewDecl View(JCExpression name, List<JCModuleDirective> directives);
         JCModuleId ModuleId(JCTree qualId, Name version);
-        JCModuleMetadata ModuleClass(List<Name> flags, JCTree qualId);
-        JCModuleMetadata ModulePermits(List<JCExpression> qualIds);
-        JCModuleMetadata ModuleRequires(List<Name> flags, List<JCModuleId> moduleIds);
+        JCModuleIdQuery ModuleIdQuery(JCTree qualId, Name versionQuery);
+        JCEntrypointDirective Entrypoint(JCExpression qualId);
+        JCExportDirective Exports(JCExpression qualId);
+        JCPermitsDirective Permits(JCExpression qualId);
+        JCProvidesModuleDirective ProvidesModule(JCModuleId moduleId);
+        JCProvidesServiceDirective ProvidesService(JCExpression serviceName, JCExpression implementationName);
+        JCRequiresModuleDirective RequiresModule(List<RequiresFlag> flags, JCModuleIdQuery moduleIdQuery);
+        JCRequiresServiceDirective RequiresService(List<RequiresFlag> flags, JCExpression serviceName);
         LetExpr LetExpr(List<JCVariableDecl> defs, JCTree expr);
     }
 
@@ -2514,11 +2713,16 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         public void visitModifiers(JCModifiers that)         { visitTree(that); }
         public void visitErroneous(JCErroneous that)         { visitTree(that); }
         public void visitModuleDef(JCModuleDecl that)        { visitTree(that); }
-        public void visitModuleClass(JCModuleClass that)     { visitTree(that); }
-        public void visitModuleExport(JCModuleExport that)   { visitTree(that); }
+        public void visitEntrypoint(JCEntrypointDirective that) { visitTree(that); }
+        public void visitExports(JCExportDirective that)   { visitTree(that); }
         public void visitModuleId(JCModuleId that)           { visitTree(that); }
-        public void visitModulePermits(JCModulePermits that) { visitTree(that); }
-        public void visitModuleRequires(JCModuleRequires that) { visitTree(that); }
+        public void visitModuleIdQuery(JCModuleIdQuery that) { visitTree(that); }
+        public void visitPermits(JCPermitsDirective that) { visitTree(that); }
+        public void visitProvidesModule(JCProvidesModuleDirective that) { visitTree(that); }
+        public void visitProvidesService(JCProvidesServiceDirective that) { visitTree(that); }
+        public void visitRequiresModule(JCRequiresModuleDirective that) { visitTree(that); }
+        public void visitRequiresService(JCRequiresServiceDirective that) { visitTree(that); }
+        public void visitView(JCViewDecl that) { visitTree(that); }
         public void visitPackageDef(JCPackageDecl that)      { visitTree(that); }
         public void visitLetExpr(LetExpr that)               { visitTree(that); }
 
