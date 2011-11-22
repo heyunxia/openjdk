@@ -101,7 +101,23 @@ public class ModuleProvides_attribute extends Attribute {
             for (int i = 0; i < permit_table.length; i++)
                 permit_table[i] = cr.readUnsignedShort();
         }
-
+        
+        public View(int view_name_index, int entrypoint_index,
+                    int[] alias_table, Service[] service_table,
+                    Export[] export_table, int[] permit_table)
+        {
+            this.view_name_index = view_name_index;
+            this.entrypoint_index = entrypoint_index;
+            this.alias_length = alias_table.length;
+            this.alias_table = alias_table;
+            this.export_length = export_table.length;
+            this.export_table = export_table;
+            this.permit_length = permit_table.length;
+            this.permit_table = permit_table;
+            this.service_length = service_table.length;
+            this.service_table = service_table;
+        }
+        
         int length() {
             return  2   // view_name_index
                     + 2 // entrypoint_index
@@ -141,6 +157,12 @@ public class ModuleProvides_attribute extends Attribute {
             export_index = cr.readUnsignedShort();
             export_flags = cr.readUnsignedShort();
             source_index = cr.readUnsignedShort();
+        }
+        
+        public Export(int index, int flags, int source_index) {
+            this.export_index = index;
+            this.export_flags = flags;
+            this.source_index = source_index;
         }
     }
 }
