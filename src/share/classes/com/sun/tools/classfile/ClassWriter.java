@@ -530,6 +530,11 @@ public class ClassWriter {
                 out.writeShort(e.index);
                 out.writeShort(e.flags);
             }
+            out.writeShort(attr.service_table.length);
+            for (ModuleRequires_attribute.Entry e: attr.service_table) {
+                out.writeShort(e.index);
+                out.writeShort(e.flags);
+            }
             return null;
         }
 
