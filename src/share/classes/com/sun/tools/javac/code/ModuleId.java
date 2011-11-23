@@ -66,7 +66,14 @@ public class ModuleId implements javax.lang.model.element.ModuleElement.ModuleId
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof ModuleId && name == ((ModuleId) other).name && version.equals(((ModuleId) other).version);
+        if (!(other instanceof ModuleId))
+            return false;
+
+        ModuleId m = (ModuleId) other;
+        if (name != m.name)
+            return false;
+
+        return (version == null ? m.version == null : version.equals(m.version));
     }
 
     @Override

@@ -26,6 +26,7 @@
 
 package com.sun.tools.javac.comp;
 
+import com.sun.tools.javac.tree.JCTree.JCViewDecl;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -137,6 +138,9 @@ public class Modules extends JCTree.Visitor {
     /** The symbol currently being analyzed. */
     ModuleSymbol currSym;
 
+    /** The view currently being analyzed. */
+    ViewDeclaration currView;
+
     static class ModuleContext {
         ModuleContext(JCModuleDecl decl) {
             this.decl = decl;
@@ -188,8 +192,6 @@ public class Modules extends JCTree.Visitor {
         for (List<T> l = trees; l.nonEmpty(); l = l.tail)
             l.head.accept(this);
     }
-
-
 
     @Override
     public void visitModuleDef(JCModuleDecl tree) {
@@ -305,9 +307,11 @@ public class Modules extends JCTree.Visitor {
         JCTree qualId = tree.moduleName;
         Name moduleName = TreeInfo.fullName(qualId);
         // JIGSAW TODO check duplicates
-        // TODO: should have context for view
         PermitsDirective d = new PermitsDirective(moduleName);
-        sym.directives.add(d);
+        if (currView == null)
+            sym.directives.add(d);
+        else
+            currView.directives.add(d);
     }
 
     @Override
@@ -316,7 +320,10 @@ public class Modules extends JCTree.Visitor {
         JCModuleId moduleId = tree.moduleId;
         ProvidesModuleDirective d = new ProvidesModuleDirective(
                 new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version));
-        sym.directives.add(d);
+        if (currView == null)
+            sym.directives.add(d);
+        else
+            currView.directives.add(d);
     }
 
     @Override
@@ -352,6 +359,21 @@ public class Modules extends JCTree.Visitor {
 
     @Override
     public void visitRequiresService(JCRequiresServiceDirective tree) {
+    }
+
+    @Override
+    public void visitView(JCViewDecl tree) {
+        if (currView == null) {
+            currView = new ViewDeclaration(TreeInfo.fullName(tree.name));
+            try {
+                acceptAll(tree.directives);
+            } finally {
+                currSym.directives.add(currView);
+                currView = null;
+            }
+        } else {
+            log.error(tree, "nested.view.not.allowed");
+        }
     }
 
     @Override

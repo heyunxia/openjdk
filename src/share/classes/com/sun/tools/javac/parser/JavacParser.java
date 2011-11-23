@@ -2015,7 +2015,7 @@ public class JavacParser implements Parser {
         return buf.toList();
     }
 
-    enum ModuleModifierKind { DISALLOWED, LOOKAHEAD, ALLOWED };
+    public enum ModuleModifierKind { DISALLOWED, LOOKAHEAD, ALLOWED };
 
     /** ModifiersOpt = { Modifier }
      *  Modifier = PUBLIC | PROTECTED | PRIVATE | STATIC | ABSTRACT | FINAL
@@ -2421,6 +2421,7 @@ public class JavacParser implements Parser {
         int pos = S.pos();
         if (!allowModules)
             log.error(pos, "modules.not.supported.in.source", source.name);
+        // FIXME: unimpl annots
         List<JCAnnotation> annots = List.nil();
         if (mods != null) {
             checkNoMods(mods.flags);
@@ -2432,7 +2433,7 @@ public class JavacParser implements Parser {
         List<JCModuleDirective> directives = null;
 
         accept(LBRACE);
-        directives = moduleMetadataList();
+        directives = moduleDirectiveList();
         accept(RBRACE);
 
         JCModuleDecl result = toP(F.at(pos).Module(mid, directives, null));
@@ -2446,33 +2447,18 @@ public class JavacParser implements Parser {
      * ModuleRequires = REQUIRES Identifier* ModuleId {',' ModuleId}
      * ModulePermits  = PERMITS  QualifiedIdentifier {',' QualifiedIdentifier}
      */
-    List<JCModuleDirective> moduleMetadataList() {
+    List<JCModuleDirective> moduleDirectiveList() {
         ListBuffer<JCModuleDirective> defs = new ListBuffer<JCModuleDirective>();
 
         while (S.token() == IDENTIFIER || S.token() == CLASS) {
             int pos = S.pos();
             if (S.token() == CLASS) {
                 S.nextToken();
-                ListBuffer<Name> flags = new ListBuffer<Name>();
-                JCExpression qualIdHead = null;
-                while (S.token() == IDENTIFIER) {
-                    int id_pos = S.pos();
-                    Name id = S.name();
-                    S.nextToken();
-                    if (S.token() == DOT || S.token() == SEMI) {
-                        qualIdHead = toP(F.at(id_pos).Ident(id));
-                        break;
-                    }
-                    flags.append(id);
-                }
-                if (qualIdHead == null) {
-                    log.error(pos, "class.id.expected");
-                } else {
-                    JCExpression qualId = qualident(qualIdHead);
-                    accept(SEMI);
-                    defs.append(toP(F.at(pos).Entrypoint(qualId)));
-                }
-            } else if (S.name() == names.export) {
+                JCExpression qualId = qualident();
+                accept(SEMI);
+                defs.append(toP(F.at(pos).Entrypoint(qualId)));
+            } else if (S.name() == names.exports) {
+                // FIXME, unimpl .**?
                 S.nextToken();
                 JCExpression exportId = toP(F.at(S.pos()).Ident(ident()));
                 do {
@@ -2492,32 +2478,67 @@ public class JavacParser implements Parser {
                 defs.append(toP(F.at(pos).Exports(exportId)));
             } else if (S.name() == names.requires) {
                 ListBuffer<RequiresFlag> flags = new ListBuffer<RequiresFlag>();
-                JCModuleIdQuery moduleIdQuery;
                 S.nextToken();
-                JCExpression moduleIdHead = null;
-                while (S.token() == IDENTIFIER ||
-                        S.token().name != null && Character.isLetter(S.token().name.charAt(0))) {
-                    int id_pos = S.pos();
-                    Name id = S.name();
+                if (S.token() == IDENTIFIER && S.name() == names.service) {
                     S.nextToken();
-                    if (S.token() == DOT || S.token() == MONKEYS_AT || S.token() == COMMA || S.token() == SEMI) {
-                        moduleIdHead = toP(F.at(id_pos).Ident(id));
-                        break;
+                    if (S.token() == IDENTIFIER && S.name() == names.optional) {
+                        flags.add(RequiresFlag.OPTIONAL);
+                        S.nextToken();
                     }
-                    flags.append(RequiresFlag.valueOf(id.toString().toUpperCase()));
-                }
-                if (moduleIdHead == null) {
-                    log.error(pos, "module.id.expected");
-                } else {
-                    moduleIdQuery = moduleIdQuery(moduleIdHead);
+                    JCExpression qualId = qualident();
                     accept(SEMI);
-                    defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleIdQuery)));
+                    defs.append(toP(F.at(pos).RequiresService(flags.toList(), qualId)));
+                } else {
+                    JCExpression moduleIdHead = null;
+                    while (S.token() == IDENTIFIER ||
+                            S.token().name != null && Character.isLetter(S.token().name.charAt(0))) {
+                        int id_pos = S.pos();
+                        Name id = S.name();
+                        S.nextToken();
+                        if (S.token() == DOT || S.token() == MONKEYS_AT || S.token() == SEMI) {
+                            moduleIdHead = toP(F.at(id_pos).Ident(id));
+                            break;
+                        }
+                        flags.append(RequiresFlag.valueOf(id.toString().toUpperCase()));
+                    }
+                    if (moduleIdHead == null) {
+                        log.error(pos, "module.id.expected");
+                    } else {
+                        JCModuleIdQuery moduleIdQuery = moduleIdQuery(moduleIdHead);
+                        accept(SEMI);
+                        defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleIdQuery)));
+                    }
                 }
             } else if (S.name() == names.permits) {
                 S.nextToken();
                 JCExpression qualId = qualident();
                 accept(SEMI);
                 defs.append(toP(F.at(pos).Permits(qualId)));
+            } else if (S.name() == names.provides) {
+                S.nextToken();
+                if (S.token() == IDENTIFIER && S.name() == names.service) {
+                    S.nextToken();
+                    JCExpression serviceName = qualident();
+                    if (S.token() == IDENTIFIER && S.name() == names.with) {
+                        S.nextToken();
+                        JCExpression implName = qualident();
+                        accept(SEMI);
+                        defs.append(toP(F.at(pos).ProvidesService(serviceName, implName)));
+                    } else {
+                        log.error("with.expected");
+                    }
+                } else {
+                    JCModuleId moduleId = moduleId();
+                    accept(SEMI);
+                    defs.append(toP(F.at(pos).ProvidesModule(moduleId)));
+                }
+            } else if (S.name() == names.view) {
+                S.nextToken();
+                JCExpression qualId = qualident();
+                accept(LBRACE);
+                List<JCModuleDirective> directives = moduleDirectiveList();
+                accept(RBRACE);
+                defs.append(toP(F.at(pos).View(qualId, directives)));
             } else
                 break;
         }

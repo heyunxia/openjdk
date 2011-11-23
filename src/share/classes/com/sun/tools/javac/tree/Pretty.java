@@ -519,6 +519,18 @@ public class Pretty extends JCTree.Visitor {
         }
     }
 
+    @Override
+    public void visitView(JCViewDecl tree) {
+        try {
+            print("module ");
+            printExpr(tree.name);
+            printBlock(tree.directives);
+            println();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     public void visitPackageDef(JCPackageDecl tree) {
         try {
             printAnnotations(tree.annots);

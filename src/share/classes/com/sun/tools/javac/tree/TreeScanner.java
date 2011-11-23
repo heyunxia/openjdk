@@ -100,6 +100,17 @@ public class TreeScanner extends Visitor {
     }
 
     @Override
+    public void visitProvidesModule(JCProvidesModuleDirective tree) {
+        scan(tree.moduleId);
+    }
+
+    @Override
+    public void visitProvidesService(JCProvidesServiceDirective tree) {
+        scan(tree.serviceName);
+        scan(tree.implName);
+    }
+
+    @Override
     public void visitRequiresModule(JCRequiresModuleDirective tree) {
         scan(tree.moduleIdQuery);
     }
@@ -107,6 +118,11 @@ public class TreeScanner extends Visitor {
     @Override
     public void visitRequiresService(JCRequiresServiceDirective tree) {
         scan(tree.serviceName);
+    }
+
+    @Override
+    public void visitView(JCViewDecl tree) {
+        scan(tree.directives);
     }
 
     public void visitPackageDef(JCPackageDecl tree) {

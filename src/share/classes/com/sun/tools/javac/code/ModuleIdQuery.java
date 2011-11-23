@@ -58,7 +58,15 @@ public class ModuleIdQuery implements javax.lang.model.element.ModuleElement.Mod
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof ModuleId && name == ((ModuleId) other).name && versionQuery.equals(((ModuleId) other).version);
+        if (!(other instanceof ModuleIdQuery))
+            return false;
+
+        ModuleIdQuery m = (ModuleIdQuery) other;
+        if (name != m.name)
+            return false;
+
+        return (versionQuery == null) ? (m.versionQuery == null)
+                : versionQuery.equals(m.versionQuery);
     }
 
     @Override

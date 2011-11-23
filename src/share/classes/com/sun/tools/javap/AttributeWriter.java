@@ -437,7 +437,7 @@ public class AttributeWriter extends BasicWriter
             for (int si = 0; si < v.service_length; si++) {
                 ModuleProvides_attribute.Service s = v.service_table[si];
                 println("#" + s.service_index + ", " + "#" + s.impl_index
-                        +"\t// provides service" + constantWriter.stringValue(s.service_index)
+                        +"\t// provides service " + constantWriter.stringValue(s.service_index)
                         + " with " + constantWriter.stringValue(s.impl_index));
             }
             indent(-1);

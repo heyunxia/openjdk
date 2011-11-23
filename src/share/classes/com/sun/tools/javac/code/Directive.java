@@ -143,6 +143,11 @@ public abstract class Directive {
         public Kind getKind() {
             return Kind.REQUIRES_MODULE;
         }
+
+        @Override
+        public String toString() {
+            return "RequiresModule[" + flags + "," + moduleQuery + "]";
+        }
     }
 
     /**
@@ -161,6 +166,11 @@ public abstract class Directive {
         public Kind getKind() {
             return Kind.REQUIRES_SERVICE;
         }
+
+        @Override
+        public String toString() {
+            return "RequiresService[" + flags + "," + sym + "]";
+        }
     }
 
     /**
@@ -176,6 +186,11 @@ public abstract class Directive {
         @Override
         public Kind getKind() {
             return Kind.PROVIDES_MODULE;
+        }
+
+        @Override
+        public String toString() {
+            return "ProvidesModule[" + moduleId + "]";
         }
     }
 
@@ -194,6 +209,11 @@ public abstract class Directive {
         @Override
         public Kind getKind() {
             return Kind.PROVIDES_SERVICE;
+        }
+
+        @Override
+        public String toString() {
+            return "ProvidesService[" + service + "," + impl + "]";
         }
     }
 
@@ -215,6 +235,11 @@ public abstract class Directive {
         public Kind getKind() {
             return Kind.EXPORTS;
         }
+
+        @Override
+        public String toString() {
+            return "Exports[" + flags + "," + sym + "," + origin + "]";
+        }
     }
 
     /**
@@ -235,6 +260,11 @@ public abstract class Directive {
         public Kind getKind() {
             return Kind.PERMITS;
         }
+
+        @Override
+        public String toString() {
+            return "Permits[" + moduleId + "]";
+        }
     }
 
     /**
@@ -250,6 +280,11 @@ public abstract class Directive {
         @Override
         public Kind getKind() {
             return Kind.ENTRYPOINT;
+        }
+
+        @Override
+        public String toString() {
+            return "Entrypoint[" + sym + "]";
         }
     }
 
@@ -307,6 +342,11 @@ public abstract class Directive {
         @Override
         public Kind getKind() {
             return Kind.VIEW;
+        }
+
+        @Override
+        public String toString() {
+            return "View[" + directives + "]";
         }
     }
 }

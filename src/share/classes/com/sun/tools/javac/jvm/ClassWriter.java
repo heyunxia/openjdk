@@ -64,8 +64,6 @@ public class ClassWriter extends ClassFile {
     protected static final Context.Key<ClassWriter> classWriterKey =
         new Context.Key<ClassWriter>();
 
-    private final Symtab syms;
-
     private final Options options;
 
     /** Switch: verbose output.
@@ -172,7 +170,6 @@ public class ClassWriter extends ClassFile {
 
         log = Log.instance(context);
         names = Names.instance(context);
-        syms = Symtab.instance(context);
         options = Options.instance(context);
         target = Target.instance(context);
         source = Source.instance(context);
@@ -903,14 +900,11 @@ public class ClassWriter extends ClassFile {
             n++;
         }
 
-        System.err.println("ClassWriter.writeModuleAttribute sym:" + sym + " hasViews:" + sym.hasViews());
         if (sym.hasViews()) {
             int alenIdx = writeAttr(names.ModuleProvides);
             List<ViewDeclaration> views = sym.getViews();
-                System.err.println("ClassWriter.writeModuleAttribute #view:" + views.size());
             databuf.appendChar(views.size());
             for (ViewDeclaration v: views) {
-                System.err.println("ClassWriter.writeModuleAttribute view:" + v);
                 // name
                 databuf.appendChar(v.isDefault() ? 0 : pool.put(v.name));
                 // entrypoint, if any
@@ -938,11 +932,8 @@ public class ClassWriter extends ClassFile {
                 }
                 // permits
                 List<PermitsDirective> permits = v.getPermits();
-                System.err.println("ClassWriter.writeModuleAttribute permits:" + permits);
-                System.err.println("ClassWriter.writeModuleAttribute permits:" + permits.size());
                 databuf.appendChar(permits.size());
                 for (PermitsDirective p: permits) {
-                    System.err.println("ClassWriter.writeModuleAttribute permits:" + p.moduleId);
                     databuf.appendChar(pool.put(p.moduleId));
                 }
             }

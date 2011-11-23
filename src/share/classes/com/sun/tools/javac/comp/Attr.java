@@ -25,6 +25,9 @@
 
 package com.sun.tools.javac.comp;
 
+import com.sun.source.tree.RequiresFlag;
+import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
+import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
 import java.util.*;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
@@ -41,6 +44,7 @@ import com.sun.tools.javac.jvm.Target;
 import com.sun.tools.javac.code.Directive.EntrypointDirective;
 import com.sun.tools.javac.code.Directive.ExportsDirective;
 import com.sun.tools.javac.code.Directive.ExportFlag;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.tree.JCTree.*;
@@ -3061,13 +3065,11 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitModuleDef(JCModuleDecl tree) {
-        System.err.println("Attr.visitModuleDef " + tree);
         attribStats(tree.getDirectives(), env);
     }
 
     @Override
     public void visitExports(JCExportDirective tree) {
-        System.err.println("Attr.visitExport " + tree);
         JCTree exp = tree.qualid;
         if (exp.getTag() != JCTree.SELECT) {
             log.error(exp.pos(), "invalid.export");
@@ -3107,10 +3109,13 @@ public class Attr extends JCTree.Visitor {
             EnumSet<ExportFlag> flags = EnumSet.of(ExportFlag.valueOf(tsym.kind, asterisk));
             ModuleId origin = (tsym.kind == TYP) ? ((ClassSymbol) tsym).modle.getModuleId() : null;
             ExportsDirective d = new ExportsDirective(tsym, flags, origin);
-            System.err.println("Attr.visitExport d:" + d);
-            // need to add to correct view
-            ModuleSymbol msym = env.toplevel.modle;
-            msym.directives.add(d);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
         }
     }
 
@@ -3120,6 +3125,19 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitProvidesService(JCProvidesServiceDirective tree) {
+        Symbol srvc = attribTree(tree.serviceName, env, TYP, Type.noType).tsym;
+        TypeSymbol impl = attribTree(tree.implName, env, TYP, Type.noType).tsym;
+        if (srvc.kind != ERR && impl.kind != ERR) {
+            ProvidesServiceDirective d =
+                    new ProvidesServiceDirective((ClassSymbol) srvc, (ClassSymbol) impl);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
+        }
     }
 
     @Override
@@ -3128,6 +3146,26 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitRequiresService(JCRequiresServiceDirective tree) {
+        Type t = attribType(tree.serviceName, env);
+        if (t.tag == CLASS) {
+            // FIXME: should check for duplicates
+            Set<Directive.RequiresFlag> flags = EnumSet.noneOf(Directive.RequiresFlag.class);
+            for (RequiresFlag f: tree.flags) {
+                switch (f) {
+                    case OPTIONAL:
+                        flags.add(Directive.RequiresFlag.OPTIONAL);
+                        break;
+                }
+            }
+            RequiresServiceDirective d = new RequiresServiceDirective((ClassSymbol) tree.serviceName.type.tsym, flags);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
+        }
     }
 
     @Override
@@ -3136,13 +3174,32 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitEntrypoint(JCEntrypointDirective tree) {
-        ModuleSymbol msym = env.toplevel.modle;
         Type t = attribType(tree.qualId, env);
         if (t.tag == CLASS) {
             // FIXME: should check for duplicates
             EntrypointDirective d = new EntrypointDirective((ClassSymbol) tree.qualId.type.tsym);
-            // get and use a View from the env?
-            msym.directives.add(d);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
+        }
+    }
+
+    @Override
+    public void visitView(JCViewDecl tree) {
+        ModuleSymbol msym = env.toplevel.modle;
+        Name name = TreeInfo.fullName(tree.name);
+        for (Directive d: msym.directives) {
+            if (d.getKind() == Directive.Kind.VIEW
+                    && ((ViewDeclaration) d).name == name) {
+                Assert.checkNull(env.info.enclView);
+                env.info.enclView = (ViewDeclaration) d;
+                attribStats(tree.directives, env);
+                env.info.enclView = null;
+            }
         }
     }
 
