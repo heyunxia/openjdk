@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE  = security-kerberos
 PACKAGE = sun.security.krb5
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk
@@ -71,7 +72,7 @@ endif # PLATFORM
 
 build:
 ifeq ($(PLATFORM),windows)
-	$(call make-launcher, kinit, sun.security.krb5.internal.tools.Kinit, , )
-	$(call make-launcher, klist, sun.security.krb5.internal.tools.Klist, , )
-	$(call make-launcher, ktab, sun.security.krb5.internal.tools.Ktab, , )
+	$(call make-launcher, kinit, sun.security.krb5.internal.tools.Kinit, , , $(KERBEROS_TOOLS_MODULE))
+	$(call make-launcher, klist, sun.security.krb5.internal.tools.Klist, , , $(KERBEROS_TOOLS_MODULE))
+	$(call make-launcher, ktab, sun.security.krb5.internal.tools.Ktab, , , $(KERBEROS_TOOLS_MODULE))
 endif

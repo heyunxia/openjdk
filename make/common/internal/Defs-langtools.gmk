@@ -42,3 +42,16 @@ IMPORT_TOOLS_PACKAGES +=            \
       com/sun/tools/javah           \
       com/sun/tools/javap
 
+#
+# Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
+#
+IMPORT_RT_MODULES += \
+     $(COMPILER_MODULE)
+
+IMPORT_TOOLS_MODULES += \
+     $(JAVAC_MODULE) \
+     $(JAVAP_MODULE) \
+     $(JAVAH_MODULE) \
+     $(JAVADOC_MODULE) \
+     $(APT_MODULE) \
+     $(MIRROR_MODULE)

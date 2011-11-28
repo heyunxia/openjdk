@@ -45,6 +45,7 @@ public class SharedSecrets {
     private static final Unsafe unsafe = Unsafe.getUnsafe();
     private static JavaUtilJarAccess javaUtilJarAccess;
     private static JavaLangAccess javaLangAccess;
+    private static JavaLangModuleAccess javaLangModuleAccess;
     private static JavaIOAccess javaIOAccess;
     private static JavaNetAccess javaNetAccess;
     private static JavaNioAccess javaNioAccess;
@@ -71,6 +72,14 @@ public class SharedSecrets {
 
     public static JavaLangAccess getJavaLangAccess() {
         return javaLangAccess;
+    }
+
+    public static void setJavaLangModuleAccess(JavaLangModuleAccess jlma) {
+        javaLangModuleAccess = jlma;
+    }
+
+    public static JavaLangModuleAccess getJavaLangModuleAccess() {
+        return javaLangModuleAccess;
     }
 
     public static void setJavaNetAccess(JavaNetAccess jna) {

@@ -32,10 +32,12 @@ THIS_JDK_VERSION := $(JDK_MAJOR_VERSION).$(JDK_MINOR_VERSION).$(JDK_MICRO_VERSIO
 #
 # Perform release engineering tasks.
 #
-# images    An image is what the product looks like when it is
-#           installed.
+# legacy-images    An image is what the product looks like when it is
+#                  installed.
 #
 
+JDK_IMAGE_DIR=$(JDK_LEGACY_IMAGE_DIR)
+JRE_IMAGE_DIR=$(JRE_LEGACY_IMAGE_DIR)
 IMAGE_BINDIR = bin
 
 # The compiler should not issue a "Proprietary" warning when compiling
@@ -217,7 +219,7 @@ ifeq ($(PLATFORM), solaris)
   endif
 endif
 
-images images-clobber \
+legacy-images images-clobber \
 initial-image-jre initial-image-jdk \
 initial-image-jre-sol64 initial-image-jdk-sol64 \
 trim-image-jre trim-image-jdk \
@@ -228,7 +230,7 @@ sec-files sec-files-win jgss-files ::
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 
 # Order is important here, trim jre after jdk image is created
-images:: sanity-images post-sanity-images  \
+legacy-images:: sanity-images post-sanity-images  \
 	 $(INITIAL_IMAGE_JRE) $(INITIAL_IMAGE_JDK) \
 	 trim-image-jre trim-image-jdk \
          identify-image-jre identify-image-jdk \
@@ -417,7 +419,10 @@ JGSS_FILES_DIRS = \
 
 # The following get removed from the SDK image.
 NOTJDKTOOLS = \
-	java_vm
+	java_vm \
+	jmod \
+	jpkg \
+	jsign
 
 # The following get removed from the JRE after the bulk-copy of BINDIR...
 NOTJRETOOLS = \
@@ -451,7 +456,10 @@ NOTJRETOOLS = \
 	wsimport$(EXE_SUFFIX) \
         schemagen$(EXE_SUFFIX) \
 	jsadebugd$(EXE_SUFFIX) \
-	jhat$(EXE_SUFFIX)
+	jhat$(EXE_SUFFIX) \
+	jmod$(EXE_SUFFIX) \
+	jpkg$(EXE_SUFFIX) \
+	jsign$(EXE_SUFFIX)
 
 # The following get removed from the JRE after the bulk-copy of LIBDIR...
 NOTJRELIBS = tools.jar \
@@ -736,7 +744,7 @@ initial-image-jre:: initial-image-jre-setup \
 	@# CTE plugin security change require new empty directory lib/applet
 	$(MKDIR) -p $(JRE_IMAGE_DIR)/lib/applet
 	@# Copy in lib directory
-	$(CD) $(OUTPUTDIR) && $(FIND) lib -depth | $(CPIO) -pdum $(JRE_IMAGE_DIR)
+	$(CD) $(OUTPUTDIR) && $(FIND) lib -depth | $(EGREP) -v modules | $(CPIO) -pdum $(JRE_IMAGE_DIR)
   ifeq ($(USING_CYGWIN),true)
 	  $(RM) -rf $(JRE_IMAGE_DIR)/[A-Za-z]:
 	  $(RM) -rf $(OUTPUTDIR)/[A-Za-z]:
@@ -1293,11 +1301,11 @@ endif
 	$(RM) -r $(JDK_IMAGE_DIR)
 	$(RM) -r $(JRE_IMAGE_DIR)
 
-images images-clobber::
+legacy-images images-clobber::
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 	@$(java-vm-cleanup)
 
-.PHONY: images image-jre image-jdk \
+.PHONY: legacy-images image-jre image-jdk \
 	initial-image-jre initial-image-jdk \
 	initial-image-jre-sol64 initial-image-jdk-sol64 \
         initial-image-jdk-setup \

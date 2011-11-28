@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = awt
 PACKAGE = sun.awt
 LIBRARY = awt
 PRODUCT = sun
@@ -404,6 +405,7 @@ $(LIBDIR)/%.bfc: $(FONTCONFIGS_SRC)/$(FONTCONFIGS_SRC_PREFIX)%.properties \
     $(COMPILEFONTCONFIG_JARFILE)
 	$(prep-target)
 	$(BOOT_JAVA_CMD) -jar $(COMPILEFONTCONFIG_JARFILE) $(COMPILEFONTCONFIG_FLAGS) $< $@
+	$(install-module-file)
 	$(call chmod-file, 444)
 	@$(java-vm-cleanup)
 

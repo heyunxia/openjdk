@@ -25,6 +25,9 @@
 
 package java.lang;
 
+import java.lang.annotation.Annotation;
+import java.lang.module.ModuleClassLoader;
+import java.lang.module.ModuleNotPresentException;
 import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Member;
@@ -32,6 +35,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Module;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.InvocationTargetException;
@@ -48,6 +52,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
+import org.openjdk.jigsaw.BootLoader;
 import sun.misc.Unsafe;
 import sun.reflect.ConstantPool;
 import sun.reflect.Reflection;
@@ -59,7 +64,6 @@ import sun.reflect.generics.repository.MethodRepository;
 import sun.reflect.generics.repository.ConstructorRepository;
 import sun.reflect.generics.scope.ClassScope;
 import sun.security.util.SecurityConstants;
-import java.lang.annotation.Annotation;
 import sun.reflect.annotation.*;
 
 /**
@@ -107,11 +111,12 @@ import sun.reflect.annotation.*;
  * @see     java.lang.ClassLoader#defineClass(byte[], int, int)
  * @since   JDK1.0
  */
-public final
-    class Class<T> implements java.io.Serializable,
-                              java.lang.reflect.GenericDeclaration,
-                              java.lang.reflect.Type,
-                              java.lang.reflect.AnnotatedElement {
+public final class Class<T>
+    implements java.io.Serializable,
+               java.lang.reflect.GenericDeclaration,
+               java.lang.reflect.Type,
+               java.lang.reflect.AnnotatedElement
+{
     private static final int ANNOTATION= 0x00002000;
     private static final int ENUM      = 0x00004000;
     private static final int SYNTHETIC = 0x00001000;
@@ -600,8 +605,15 @@ public final
      */
     public ClassLoader getClassLoader() {
         ClassLoader cl = getClassLoader0();
-        if (cl == null)
+        if (cl == null) {
+            // ## Should return the boot loader when running in module mode
+            // ## but this would impact many places in the JDK that checks
+            // ## for null class loader for bootclasspath.  Also need to 
+            // ## carefully deal with bootstrapping.  BootLoader is not 
+            // ## created until a system class is loaded by the libs (not VM).
+            //
             return null;
+        }
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = ClassLoader.getCallerClassLoader();
@@ -614,7 +626,6 @@ public final
 
     // Package-private to allow ClassLoader access
     native ClassLoader getClassLoader0();
-
 
     /**
      * Returns an array of {@code TypeVariable} objects that represent the
@@ -3110,4 +3121,91 @@ public final
     AnnotationType getAnnotationType() {
         return annotationType;
     }
+
+    // -- Modules --
+
+    private Module module;
+
+    // Invoked by java.lang.module.ModuleClassLoader
+    // via sun.misc.JavaLangAccess
+    synchronized void setModule(Module m) {
+        module = m;
+    }
+
+    /**
+     * Return the {@linkplain java.lang.reflect.Module module} that defined
+     * this class.
+     *
+     * @return  The {@linkplain java.lang.reflect.Module module} that defined
+     *          this class, or {@code null} if this class is a member of the
+     *          unnamed module
+     */
+    public synchronized Module getModule() {
+        // For platform classes defined directly by the VM bootstrap
+        // class loader, this module will be null and thus
+        // initialize the module field the first time this method is called.
+        //
+        // ##  Should the VM define the Module when loading a Class?
+        // 
+        if (module == null) {
+            try {
+                module = BootLoader.getLoader().findModule(this);
+            } catch (java.io.IOException x) {
+                // ## if Module has not been defined, possibly run into
+                // ## I/O error when reading module-info.
+                throw new AssertionError(x);
+            }
+        }
+
+        return module;
+    }
+
+    /**
+     * Tests if a {@linkplain java.lang.reflect.Module module} 
+     * of the given name is present in the class loader's context.
+     *
+     * @param mn a module's name
+     * @return {@code true} if the module of the given name is present;
+     *         {@code false} otherwise.
+     * @throws UnsupportedOperationException if this class
+     *         is loaded by a legacy class loader
+     *
+     * @since 1.8
+     */
+    public boolean isModulePresent(String mn) {
+        ClassLoader cl = getClassLoader();
+        if (cl != null && !(cl instanceof ModuleClassLoader))
+            throw new UnsupportedOperationException("Not supported in legacy class loader");
+
+        ModuleClassLoader mcl = (ModuleClassLoader)cl;
+        if (cl == null)
+            mcl = BootLoader.getLoader();
+
+        // ## Remove the following when legacy mode support is implemented
+        if (mcl == null) {
+            // if not full JRE, ClassNotFoundException will be thrown
+            return true;
+        }
+
+        return mcl.isModulePresent(mn);
+    }
+
+    /**
+     * Checks if a {@linkplain java.lang.reflect.Module module} 
+     * of the given name is present in the class loader's context.
+     *
+     * @param mn a module's name
+     * @throws ModuleNotPresentException if the module of the given name
+     *         is not present in its class loader's context.
+     * @throws UnsupportedOperationException if the caller's class
+     *         is loaded by a legacy class loader
+     *
+     * @since 1.8
+     */
+    public void requireModulePresent(String mn) {
+        if (!isModulePresent(mn)) {
+            throw new ModuleNotPresentException("module " + mn + " not present");
+        }
+    }
+
 }

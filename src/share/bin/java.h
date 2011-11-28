@@ -93,6 +93,8 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         const char* dotversion,                 /* dot version defined */
         const char* pname,                      /* program name */
         const char* lname,                      /* launcher name */
+        const char* mname,                      /* module name */
+        const char* mversion,                   /* module version */
         jboolean javaargs,                      /* JAVA_ARGS */
         jboolean cpwildcard,                    /* classpath wildcard */
         jboolean javaw,                         /* windows-only javaw */
@@ -154,7 +156,11 @@ int ContinueInNewThread0(int (JNICALL *continuation)(void *),
 /* sun.java.launcher.* platform properties. */
 void SetJavaLauncherPlatformProps(void);
 void SetJavaCommandLineProp(char* what, int argc, char** argv);
+void SetJavaMainProp(char *javamain);
 void SetJavaLauncherProp(void);
+void SetModuleProp(char *module);
+void SetModuleLibraryProp(char *mlpath);
+void SetModuleBootProp(char *bpath);
 
 /*
  * Functions defined in java.c and used in java_md.c.

@@ -239,6 +239,7 @@ classes : $(CLASSES_INIT) .delete.classlist .compile.classlist
 	  $(ECHO) "# Running javac:"; \
 	  $(ECHO) $(JAVAC_CMD) -sourcepath "$(SOURCEPATH)" -d $(CLASSDESTDIR) @$<.filtered; \
 	  $(JAVAC_CMD) -sourcepath "$(SOURCEPATH)" -d $(CLASSDESTDIR) @$<.filtered; \
+          $(TouchModule); \
 	fi
 	@$(java-vm-cleanup)
 
@@ -331,7 +332,7 @@ build: classheaders
 default: all
 
 .PHONY: all build clean clobber \
-        .delete.classlist classes .compile.classlist classes.clean \
+        .delete.classlist classes .compile.classlist classes.clean packages.clean \
 	 classheaders classheaders.clean \
 	 batch_compile
 

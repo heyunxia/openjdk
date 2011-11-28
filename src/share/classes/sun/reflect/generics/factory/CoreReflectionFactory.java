@@ -29,6 +29,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.GenericDeclaration;
 import java.lang.reflect.Method;
+import java.lang.reflect.Module;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
@@ -47,10 +48,15 @@ import sun.reflect.generics.tree.FieldTypeSignature;
 public class CoreReflectionFactory implements GenericsFactory {
     private GenericDeclaration decl;
     private Scope scope;
+    private Module module;
 
     private CoreReflectionFactory(GenericDeclaration d, Scope s) {
         decl = d;
         scope = s;
+    }
+
+    private CoreReflectionFactory(Module m) {
+        module = m;
     }
 
     private GenericDeclaration getDecl(){ return decl;}
@@ -59,6 +65,8 @@ public class CoreReflectionFactory implements GenericsFactory {
 
 
     private ClassLoader getDeclsLoader() {
+        if (module != null) return module.getClassLoader();
+
         if (decl instanceof Class) {return ((Class) decl).getClassLoader();}
         if (decl instanceof Method) {
             return ((Method) decl).getDeclaringClass().getClassLoader();
@@ -87,6 +95,10 @@ public class CoreReflectionFactory implements GenericsFactory {
      */
     public static CoreReflectionFactory make(GenericDeclaration d, Scope s) {
         return new CoreReflectionFactory(d, s);
+    }
+
+    public static CoreReflectionFactory make(Module m) {
+        return new CoreReflectionFactory(m);
     }
 
     public TypeVariable<?> makeTypeVariable(String name,

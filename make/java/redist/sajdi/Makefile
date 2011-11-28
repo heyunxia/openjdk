@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE   = sajdi
 PRODUCT  = java
 include $(BUILDDIR)/common/Defs.gmk
 
@@ -58,7 +59,7 @@ ifeq ($(INCLUDE_SA), true)
   endif
   ifneq ($(OBJCOPY),)
     # the import JDK may not contain .debuginfo files
-    ifneq ($(wildcard $(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/$(SA_DEBUGINFO_NAME)),)
+    ifneq ($(wildcard $(HOTSPOT_ARCH_VM_SUBDIR)/$(SA_DEBUGINFO_NAME)),)
       IMPORT_LIST += $(LIB_LOCATION)/$(SA_DEBUGINFO_NAME)
     endif
   endif
