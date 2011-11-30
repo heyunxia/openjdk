@@ -778,7 +778,7 @@ public final class SimpleLibrary
                         addToIndex(ClassInfo.read(f), ix);
                 }
             });
-        } else {
+        } else if (cd.isFile()) {
             FileInputStream fis = new FileInputStream(cd);
             ZipInputStream zis = new ZipInputStream(fis);
             ZipEntry ze;
