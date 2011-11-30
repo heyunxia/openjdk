@@ -96,7 +96,7 @@ public class TSRequest {
     }
 
     public byte[] getHashedMessage() {
-        return (byte[])hashValue.clone();
+        return hashValue.clone();
     }
 
     /**

@@ -883,7 +883,7 @@ public class PKCS7 {
             throw new IOException("Digest algorithm not SHA-1 in "
                                   + "timestamp token");
         }
-        if (!messageDigest.isEqual(tst.getHashedMessage(),
+        if (!MessageDigest.isEqual(tst.getHashedMessage(),
                                    tsQuery.getHashedMessage())) {
             throw new IOException("Digest octets changed in timestamp token");
         }

@@ -302,10 +302,6 @@ module sun.auth {
 module sun.tls {
     requires local jdk.boot;   // ensure loaded by bootstrap class loader
     include security-jsse;
-
-    // ## split sun.security.pkcs and sun.security.util package between jdk.boot
-    // ## they are used by keytool only. See 6953295
-    include security-misc;
 }
 
 module jdk.deploy {
@@ -392,10 +388,12 @@ module jdk.tools.base {
     requires jdk.javah;
     requires jdk.javap;
 
+    include tools.jar;
+    include tools.jarsigner;
     include tools.jpkg;
     include tools.jrepo;
     include tools.jsign;
-    include tools.jar;
+    include tools.keytool;
     include tools.pack200;
 
     class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
@@ -409,9 +407,6 @@ module jdk.tools.jre {
 
     // JRE tools
     include tools.policytool;
-
-    // ## 6890876 adds dependency to LDAP (jndi.provider)
-    // include tools.keytool;
 
     class sun.launcher.LauncherHelper;   // module entry point to invoke the tool
 }
@@ -432,8 +427,6 @@ module jdk.tools {
 
     include tools.appletviewer;
     include tools.extcheck;
-    include tools.jarsigner;
-    include tools.keytool;   // ## see 6890876
     include tools.jconsole;
     include tools.jdb;
     include tools.jdb.gui;

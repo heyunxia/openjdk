@@ -31,6 +31,8 @@ BUILDDIR = ../../../../..
 MODULE  = security-xmldsig
 PACKAGE = com.sun.org.apache.xml
 PRODUCT = xml
+JAVAC_MAX_WARNINGS = true
+JAVAC_WARNINGS_FATAL = true
 include $(BUILDDIR)/common/Defs.gmk
 
 #

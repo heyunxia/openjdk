@@ -79,7 +79,3 @@ endif # linux
 #
 include $(BUILDDIR)/common/Library.gmk
 
-#
-# JVMDI implementation lives in the VM.
-#
-OTHER_LDLIBS = $(JVMLIB)

@@ -144,7 +144,7 @@ public final class TimestampedSigner extends ContentSigner {
      * <tt>accessLocation</tt> field should contain an HTTP or HTTPS URL.
      *
      * @param tsaCertificate An X.509 certificate for the TSA.
-     * @return An HTTP URI or null if none was found.
+     * @return An HTTP or HTTPS URI or null if none was found.
      */
     public static URI getTimestampingURI(X509Certificate tsaCertificate) {
 

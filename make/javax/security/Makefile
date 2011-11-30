@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -23,11 +23,27 @@
 # questions.
 #
 
-# Define library interface.
+#
+# Makefile for building javax (security classes)
+#
 
-SUNWprivate_1.1 {
-	global:
-	    Java_sun_rmi_server_MarshalInputStream_latestUserDefinedLoader;
-	local:
-	    *;
-};
+BUILDDIR = ../..
+JAVAC_MAX_WARNINGS = true 
+JAVAC_WARNINGS_FATAL = true 
+
+include $(BUILDDIR)/common/Defs.gmk
+
+#
+# Files to compile
+#
+AUTO_FILES_JAVA_DIRS =       \
+    javax/security/auth      \
+    javax/security/cert      \
+    javax/security/sasl      \
+    javax/smartcardio
+
+#
+# Rules
+#
+include $(BUILDDIR)/common/Classes.gmk
+

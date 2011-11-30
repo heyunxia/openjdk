@@ -317,12 +317,14 @@ public class TSResponse {
      */
     private void parse(byte[] tsReply) throws IOException {
         // Decode TimeStampResp
+
         DerValue derValue = new DerValue(tsReply);
         if (derValue.tag != DerValue.tag_Sequence) {
             throw new IOException("Bad encoding for timestamp response");
         }
 
         // Parse status
+
         DerValue statusInfo = derValue.data.getDerValue();
         this.status = statusInfo.data.getInteger();
         if (debug != null) {
