@@ -156,18 +156,15 @@ public class FpkgTask extends MatchingTask {
         try {
             File tmpModuleDir = new File(tmpDir, name);
             File tmpClassesDir = new File(tmpModuleDir, "classes");
-            File tmpResourcesDir = new File(tmpModuleDir, "resources");
 
             tmpClassesDir.mkdirs();
-            tmpResourcesDir.mkdirs();
             destDir.mkdirs();
             FileUtils fu = FileUtils.getFileUtils();
             fu.copyFile(importModuleInfo, new File(tmpClassesDir, "module-info.class"));
-            copyFiles(tmpClassesDir, tmpResourcesDir);
+            copyFiles(tmpClassesDir);
 
             List<String> opts = new ArrayList<String>();
             add(opts, "--module-dir", tmpClassesDir.getPath());
-            add(opts, "--resources", tmpResourcesDir.getPath());
             add(opts, "--dest-dir", destDir.getPath());
             add(opts, type);
             add(opts, name);
@@ -222,11 +219,11 @@ public class FpkgTask extends MatchingTask {
         return true;
     }
 
-    void copyFiles(File classesDir, File resourcesDir) throws IOException {
+    void copyFiles(File classesDir) throws IOException {
         FileUtils fu = FileUtils.getFileUtils();
         DirectoryScanner s = getDirectoryScanner(dir);
         for (String path: s.getIncludedFiles()) {
-            File toDir = (path.endsWith(".class") ? classesDir : resourcesDir);
+            File toDir = classesDir;
             fu.copyFile(new File(dir, path), new File(toDir, path));
         }
     }
