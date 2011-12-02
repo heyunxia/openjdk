@@ -63,14 +63,31 @@ EOF
 rm -rf z.modules && mkdir z.modules
 $BIN/javac -source 8 -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
-rm -rf z.lib
 JAVA_MODULES=z.lib
 export JAVA_MODULES
-$BIN/jmod create
-$BIN/jmod id
-$BIN/jmod install z.modules com.foo.bar
-$BIN/jmod install z.modules com.foo.byz
-$BIN/jmod list
-$BIN/jmod list -v
-$BIN/jmod dump-class com.foo.bar@1.2.3_01-4a com.foo.bar.Main z
-cmp z z.modules/com.foo.bar/com/foo/bar/Main.class
+
+testjmod() {
+  createargs=$1
+  installargs=$2
+  rm -rf $JAVA_MODULES
+  $BIN/jmod create $createargs
+  $BIN/jmod id
+  $BIN/jmod install $installargs z.modules com.foo.bar
+  $BIN/jmod install $installargs z.modules com.foo.byz
+  $BIN/jmod list
+  $BIN/jmod list -v
+  $BIN/jmod dump-class com.foo.bar@1.2.3_01-4a com.foo.bar.Main z
+  if [ "$installargs" = "" ]; then
+    cmp z z.modules/com.foo.bar/com/foo/bar/Main.class 
+  fi
+}
+
+# Test combinations of compressed/uncompressed module library and
+# debug attributes stripped/not stripped during installation
+# debug attributes stripped.
+testjmod
+testjmod -z
+testjmod --enable-compression
+testjmod "" -G
+testjmod "" --strip-debug
+testjmod -z -G

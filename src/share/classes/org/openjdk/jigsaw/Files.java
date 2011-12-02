@@ -159,7 +159,7 @@ public final class Files {
         copyTree(src, dst, null);
     }
 
-    private static void storeTree(File src, JarOutputStream dst,
+    private static void storeTree(File src, JarOutputStream dst, boolean deflate,
                                   Filter<File> filter, String dstPath)
         throws IOException
     {
@@ -170,24 +170,25 @@ public final class Files {
             if (filter != null && !filter.accept(sf))
                 continue;
             String dp = (dstPath == null) ? sls[i] : dstPath + "/" + sls[i];
-            if (sf.isDirectory())
-                storeTree(sf, dst, filter, dp);
-            else
-                copy(sf, newOutputStream(dst, dp));
+            if (sf.isDirectory()) {
+                storeTree(sf, dst, deflate, filter, dp);
+            } else {
+                copy(sf, newOutputStream(dst, deflate, dp));
+            }
         }
     }
 
-    public static void storeTree(File src, JarOutputStream dst,
-                                  Filter<File> filter)
+    public static void storeTree(File src, JarOutputStream dst, boolean deflate,
+                                 Filter<File> filter)
         throws IOException
     {
-        storeTree(src, dst, filter, null);
+        storeTree(src, dst, deflate, filter, null);
     }
 
-    public static void storeTree(File src, JarOutputStream dst)
+    public static void storeTree(File src, JarOutputStream dst, boolean deflate)
         throws IOException
     {
-        storeTree(src, dst, null, null);
+        storeTree(src, dst, deflate, null, null);
     }
 
     public static interface Visitor<T> {
@@ -276,9 +277,11 @@ public final class Files {
         ByteArrayOutputStream baos;
         CheckedOutputStream cos;
         JarOutputStream jos;
+        boolean deflate;
         String path;
 
         private JarEntryOutputStream(JarOutputStream jos,
+                                     boolean deflate,
                                      CRC32 crc,
                                      ByteArrayOutputStream baos,
                                      CheckedOutputStream cos,
@@ -286,6 +289,7 @@ public final class Files {
         {
             super(cos);
             this.jos = jos;
+            this.deflate = deflate;
             this.crc = crc;
             this.baos = baos;
             this.cos = cos;
@@ -295,10 +299,14 @@ public final class Files {
         public void close() throws IOException {
             cos.close();
             JarEntry je = new JarEntry(path);
-            je.setMethod(JarEntry.STORED);
-            je.setCrc(crc.getValue());
-            je.setSize(baos.size());
-            je.setCompressedSize(baos.size());
+            if (deflate) {
+                je.setMethod(JarEntry.DEFLATED);
+            } else {
+                je.setMethod(JarEntry.STORED);
+                je.setCrc(crc.getValue());
+                je.setSize(baos.size());
+                je.setCompressedSize(baos.size());
+            }
             jos.putNextEntry(je);
             baos.writeTo(jos);
             jos.closeEntry();
@@ -307,13 +315,18 @@ public final class Files {
     }
 
     public static JarEntryOutputStream
-        newOutputStream(JarOutputStream jos, String path)
+        newOutputStream(JarOutputStream jos, boolean deflate, String path)
     {
         // Gee, dac, that zip API sure is broken, isn't it?
         CRC32 crc = new CRC32();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         CheckedOutputStream cos = new CheckedOutputStream(baos, crc);
-        return new JarEntryOutputStream(jos, crc, baos, cos, path);
+        return new JarEntryOutputStream(jos, deflate, crc, baos, cos, path);
     }
 
+    public static JarEntryOutputStream
+        newOutputStream(JarOutputStream jos, String path)
+    {
+        return newOutputStream(jos, false, path);
+    }
 }

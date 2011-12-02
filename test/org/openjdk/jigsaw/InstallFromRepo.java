@@ -47,8 +47,8 @@ public class InstallFromRepo {
     static void test(int port) throws Exception {
 
         URI u = URI.create("http://localhost:" + port);
-        Library lib = SimpleLibrary.open(LIB, true,
-                                         Library.systemLibraryPath());
+        Library lib = SimpleLibrary.create(LIB,
+                                           Library.systemLibraryPath());
         RemoteRepositoryList rrl = lib.repositoryList();
         rrl.add(u, 0);
 

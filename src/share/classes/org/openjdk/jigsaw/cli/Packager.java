@@ -34,6 +34,7 @@ import static java.lang.System.out;
 import static java.lang.System.err;
 
 import org.openjdk.jigsaw.*;
+import org.openjdk.jigsaw.SimpleLibrary.StorageOption;
 import org.openjdk.internal.joptsimple.*;
 
 /* Interface:
@@ -182,7 +183,7 @@ public class Packager {
                 }
             }
             finishArgs();
-        }       
+        }
     }
 
     static private ModuleInfo getModuleInfo(Manifest mf)
@@ -237,15 +238,15 @@ public class Packager {
             try {
 
                 createModuleLibraryWorkDir();
-
+                Set<StorageOption> opts = Collections.emptySet();
                 if (BOOT_MODULE.equals(manifest.module())) {
                     // Create a module library to the boot module package
-                    SimpleLibrary.open(tmp_module_dst, true, null).installFromManifests(Collections.singleton(manifest));
+                    SimpleLibrary.create(tmp_module_dst, opts).installFromManifests(Collections.singleton(manifest));
                 } else {
                     // We need to create a throwaway SimpleLibrary to work with it,
                     // As there is no static preInstall method
                     File scratchlib_dst = new File(tmp_dst, "scratchlib");
-                    SimpleLibrary.open(scratchlib_dst, true, null).preInstall(manifest, tmp_module_dst);
+                    SimpleLibrary.create(scratchlib_dst, opts).preInstall(manifest, tmp_module_dst);
                     Files.deleteTree(scratchlib_dst);
                 }
             } catch (IOException | ConfigurationException x) {
@@ -814,7 +815,7 @@ public class Packager {
         else if (cmd == Jmod.class)
             (new Jmod()).run(null, opts);
     }
-   
+
     /**
      * Helper method to check if a path exists before using it further.
      *

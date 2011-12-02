@@ -167,7 +167,7 @@ include $(BUILDDIR)/common/Classes.gmk
 # javac depends on the jigsaw module library to exist
 module-info-classes:
 	if [ ! -d $(JIGSAW_MODULE_LIB) ] ; then \
-	   $(HOST_JMOD_CMD) create -N -L $(JIGSAW_MODULE_LIB) ; \
+	   $(HOST_JMOD_CMD) create -N $(JMOD_CREATE_ARGS) -L $(JIGSAW_MODULE_LIB) ; \
 	fi
 	$(MAKE) classes || exit 1
 
@@ -227,7 +227,7 @@ define install-module
   $(RM) -r $(JIGSAW_MODULE_LIB)/$$m ; \
   $(ECHO) "Installing module $$m" ; \
   $(CD) $(MODULEPATH_DIR) && \
-  $(HOST_JMOD_CMD) install $$m/classes $$m -L $(JIGSAW_MODULE_LIB) || exit 1 ; 
+  $(HOST_JMOD_CMD) install $$m/classes $$m -L $(JIGSAW_MODULE_LIB) $(JMOD_INSTALL_ARGS) || exit 1 ; 
 endef
 
 #

@@ -60,6 +60,7 @@ public final class ModuleFile {
 
         private DataInputStream stream;
         private File destination;
+        private boolean deflate;
         private HashType hashtype;
 
         private static class CountingInputStream extends FilterInputStream {
@@ -179,12 +180,12 @@ public final class ModuleFile {
 
         public void readRest() throws IOException {
             extract = false;
-            readRest(null);
+            readRest(null, false);
         }
 
-        public void readRest(File dst) throws IOException {
-
-            destination = dst;
+        public void readRest(File dst, boolean deflate) throws IOException {
+            this.destination = dst;
+            this.deflate = deflate;
             try {
                 if (extract)
                     Files.store(moduleInfoBytes, computeRealPath("info"));
@@ -279,7 +280,7 @@ public final class ModuleFile {
 
         public void readModule(File dst) throws IOException {
             readStart();
-            readRest(dst);
+            readRest(dst, false);
         }
 
         private void readSignatureSection(DataInputStream stream,
@@ -508,6 +509,10 @@ public final class ModuleFile {
                     public void close() throws IOException {}
                 };
             Pack200.Unpacker unpacker = Pack200.newUnpacker();
+            if (deflate) {
+                Map<String,String> p = unpacker.properties();
+                p.put(Pack200.Unpacker.DEFLATE_HINT, Pack200.Unpacker.TRUE);
+            }
             unpacker.unpack(gis, contentStream());
         }
 

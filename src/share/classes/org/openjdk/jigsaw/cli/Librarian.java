@@ -38,6 +38,7 @@ import static java.lang.System.out;
 import static java.lang.System.err;
 
 import org.openjdk.jigsaw.*;
+import org.openjdk.jigsaw.SimpleLibrary.StorageOption;
 import org.openjdk.internal.joptsimple.*;
 
 
@@ -128,7 +129,7 @@ public class Librarian {
                     Path path = classes.toPath();
                     Files.deleteIfExists(path);
                     Files.createDirectory(path);
-                    reader.readRest(classes);
+                    reader.readRest(classes, false);
                 }
                 catch (IOException x) {
                     // Try to cleanup if an exception is thrown
@@ -154,6 +155,7 @@ public class Librarian {
             String key = takeArg();
             File kf = new File(key);
             boolean verifySignature = !opts.has("noverify");
+            boolean strip = opts.has("G");
 
             // Old form: install <classes-dir> <module-name> ...
             //
@@ -164,7 +166,7 @@ public class Librarian {
                     mfs.add(Manifest.create(takeArg(), kf));
                 finishArgs();
                 try {
-                    lib.installFromManifests(mfs);
+                    lib.installFromManifests(mfs, strip);
                 } catch (ConfigurationException x) {
                     throw new Command.Exception(x);
                 } catch (IOException x) {
@@ -183,7 +185,7 @@ public class Librarian {
                     fs.add(new File(takeArg()));
                 finishArgs();
                 try {
-                    lib.install(fs, verifySignature);
+                    lib.install(fs, verifySignature, strip);
                 } catch (ConfigurationException x) {
                     throw new Command.Exception(x);
                 } catch (IOException x) {
@@ -228,7 +230,7 @@ public class Librarian {
                 }
                 if (dry)
                     return;
-                lib.install(res, verifySignature);
+                lib.install(res, verifySignature, strip);
             } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
             } catch (IOException x) {
@@ -505,7 +507,6 @@ public class Librarian {
     }
 
     private void exec(String[] args) throws OptionException, Command.Exception {
-
         parser = new OptionParser();
 
         // ## Need subcommand-specific option parsing
@@ -530,6 +531,8 @@ public class Librarian {
                           "Show this help message");
         parser.acceptsAll(Arrays.asList("p", "parent"),
                           "Apply operation to parent library, if any");
+        parser.acceptsAll(Arrays.asList("z", "enable-compression"),
+                          "Enable compression of module contents");
         repoIndex
             = (parser.acceptsAll(Arrays.asList("i"),
                                  "Repository-list index")
@@ -545,6 +548,8 @@ public class Librarian {
         parser.acceptsAll(Arrays.asList("noverify"),
                           "Do not verify module signatures. "
                           + "Treat as unsigned.");
+        parser.acceptsAll(Arrays.asList("G", "strip-debug"),
+                          "Strip debug attributes during installation");
         
         if (args.length == 0)
             usage();
@@ -580,7 +585,14 @@ public class Librarian {
         }
         SimpleLibrary lib = null;
         try {
-            lib = SimpleLibrary.open(lp, verb.equals("create"), pp);
+            if (verb.equals("create")) {
+                Set<StorageOption> createOpts = new HashSet<>();
+                if (opts.has("z"))
+                    createOpts.add(StorageOption.DEFLATED);
+                lib = SimpleLibrary.create(lp, pp, createOpts);
+            } else {
+                lib = SimpleLibrary.open(lp);
+            }
         } catch (FileNotFoundException x) {
             String msg = null;
             File f = new File(x.getMessage());

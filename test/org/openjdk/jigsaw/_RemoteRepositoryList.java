@@ -33,6 +33,7 @@ import java.nio.*;
 import java.nio.channels.*;
 import java.nio.file.*;
 import org.openjdk.jigsaw.*;
+import org.openjdk.jigsaw.SimpleLibrary.StorageOption;
 
 import static java.lang.System.out;
 import static java.nio.file.StandardOpenOption.*;
@@ -126,7 +127,8 @@ public class _RemoteRepositoryList {
     static void testAddRemove(int port) throws Exception {
 
         File LIB = new File("z.lib.addrem");
-        Library lib = SimpleLibrary.open(LIB, true);
+        Set<StorageOption> opts = Collections.emptySet();
+        Library lib = SimpleLibrary.create(LIB, opts);
         RemoteRepositoryList rl = lib.repositoryList();
         assert rl.repositories().isEmpty();
 
@@ -172,7 +174,8 @@ public class _RemoteRepositoryList {
         File LIB = new File("z.lib.fetch");
         URI u = URI.create("http://localhost:" + port);
 
-        Library lib = SimpleLibrary.open(LIB, true);
+        Set<StorageOption> opts = Collections.emptySet();
+        Library lib = SimpleLibrary.create(LIB, opts);
         RemoteRepositoryList rl = lib.repositoryList();
         rl.add(u, 0);
 

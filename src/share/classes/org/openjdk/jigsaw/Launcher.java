@@ -44,7 +44,7 @@ public final class Launcher {
         throws IOException
     {
 
-        Library lb = SimpleLibrary.open(libPath, false);
+        Library lb = SimpleLibrary.open(libPath);
         ModuleId mid = lb.findLatestModuleId(midq);
         if (mid == null)
             throw new Error(midq + ": No installed module"

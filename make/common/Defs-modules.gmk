@@ -136,3 +136,13 @@ endef
 define TouchModule
 $(ECHO) $(MODULE) >> $(MODULES_UPDATE_MARKER)
 endef
+
+# 
+# Minimize module library footprint. For now this applies to
+# both the JRE and JDK images that the build generates.
+#
+ifeq ($(MINIMIZE_MLIB_FOOTPRINT),true)
+    JMOD_CREATE_ARGS += -z
+    JMOD_INSTALL_ARGS += -G
+endif
+

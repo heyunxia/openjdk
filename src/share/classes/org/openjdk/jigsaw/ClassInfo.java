@@ -28,6 +28,7 @@ package org.openjdk.jigsaw;
 import java.io.*;
 import java.nio.*;
 import java.nio.channels.*;
+import java.util.Arrays;
 
 import static java.lang.System.out;
 
@@ -321,19 +322,42 @@ public class ClassInfo {
         load(bb, f.getPath());
     }
 
+    private static byte[] readAllBytes(InputStream in, int initialSize)
+        throws IOException
+    {
+        int capacity = (initialSize > 0) ? initialSize : 8192;
+        byte[] buf = new byte[capacity];
+        int nread = 0;
+        int rem = buf.length;
+        int n;
+        // read to EOF which may read more or less than initialSize
+        while ((n = in.read(buf, nread, rem)) > 0) {
+            nread += n;
+            rem -= n;
+            assert rem >= 0;
+            if (rem == 0) {
+                // need larger buffer
+                int newCapacity = capacity << 1;
+                if (newCapacity < 0) {
+                    if (capacity == Integer.MAX_VALUE)
+                        throw new OutOfMemoryError("Required array size too large");
+                    newCapacity = Integer.MAX_VALUE;
+                }
+                rem = newCapacity - capacity;
+                buf = Arrays.copyOf(buf, newCapacity);
+                capacity = newCapacity;
+            }
+        }
+        return (capacity == nread) ? buf : Arrays.copyOf(buf, nread);
+    }
+
     private void load(InputStream in, int size, String path)
         throws IOException
     {
-        assert size >= 0 : "oops: " + size;
-        byte[] buf = new byte[size];
-        int i = 0, n;
-        try {
-            while ((n = in.read(buf, i, size - i)) > 0)
-                i += n;
-        } finally {
-            in.close();
+        try (InputStream source = in) {
+            byte[] buf = readAllBytes(in, size);
+            load(ByteBuffer.wrap(buf, 0, buf.length), path);
         }
-        load(ByteBuffer.wrap(buf, 0, i), path);
     }
 
     // -- Entry points --

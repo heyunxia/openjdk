@@ -138,7 +138,7 @@ define create-module-library
 image=$(strip $1); \
 mlib=$(MODULE_IMAGES_DIR)/$$image/lib/modules; \
 $(ECHO) "Creating module library $$mlib" ; \
-$(HOST_JMOD_CMD) create -N -L $$mlib
+$(HOST_JMOD_CMD) create -N $(JMOD_CREATE_ARGS) -L $$mlib
 endef
 
 # Copy module content to the module image
@@ -188,9 +188,9 @@ if [ "x$$mid" = "x" ] ; then \
    $(ECHO) "Installing module $$m in $$image" ; \
    $(CD) $(ABS_MODULEPATH_DIR) && \
    if [ -d $$m/resources ] ; then \
-      $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources -L $$mlib $$m || exit 1; \
+      $(HOST_JMOD_CMD) install $$m/classes -r $$m/resources -L $$mlib $(JMOD_INSTALL_ARGS) $$m || exit 1; \
    else \
-      $(HOST_JMOD_CMD) install $$m/classes -L $$mlib $$m || exit 1; \
+      $(HOST_JMOD_CMD) install $$m/classes -L $$mlib $(JMOD_INSTALL_ARGS) $$m || exit 1; \
    fi ; \
    $(call copy-module-content,$1,$2) ; \
 else \

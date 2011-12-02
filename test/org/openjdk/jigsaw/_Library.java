@@ -67,7 +67,7 @@ public class _Library {
         // Create
         File jhlib = new File(System.getProperty("java.home"),
                               "lib/modules");
-        Library lib = SimpleLibrary.open(libPath, true, jhlib);
+        Library lib = SimpleLibrary.create(libPath, jhlib);
         out.format("%s%n", lib);
 
         // Check
@@ -232,7 +232,7 @@ public class _Library {
 
         // Delegation
         File lib2path = new File("z.lib2");
-        Library lib2 = SimpleLibrary.open(lib2path, true, libPath);
+        Library lib2 = SimpleLibrary.create(lib2path, libPath);
         lib2 = SimpleLibrary.open(lib2path);
         eq(lib2.findModuleIds("com.foo.bar"), Arrays.asList(foomid));
         eq(lib2.findModuleIds("net.baz.aar"), Arrays.asList(bazmid));

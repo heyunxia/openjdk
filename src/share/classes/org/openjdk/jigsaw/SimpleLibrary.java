@@ -134,33 +134,51 @@ public final class SimpleLibrary
 
     }
 
+    /**
+     * Defines the storage options that SimpleLibrary supports.
+     */
+    public static enum StorageOption {
+        DEFLATED,
+    }
+
     private static final class Header
         extends MetaData
     {
-
-        private static String FILE
+        private static final String FILE
             = FileConstants.META_PREFIX + "jigsaw-library";
 
-        private static int MAJOR_VERSION = 0;
-        private static int MINOR_VERSION = 1;
+        private static final int MAJOR_VERSION = 0;
+        private static final int MINOR_VERSION = 1;
+
+        private static final int DEFLATED = 1 << 0;
 
         private File parent;
-        public File parent() { return parent; }
+        private Set<StorageOption> opts;
 
-        private Header(File root, File p) {
+        public File parent() { return parent; }
+        public boolean isDeflated() {
+           return opts.contains(StorageOption.DEFLATED);
+        }
+
+        private Header(File root, File p, Set<StorageOption> opts) {
             super(MAJOR_VERSION, MINOR_VERSION,
                   FileConstants.Type.LIBRARY_HEADER,
                   new File(root, FILE));
             this.parent = p;
+            this.opts = new HashSet<>(opts);
         }
 
         private Header(File root) {
-            this(root, null);
+            this(root, null, Collections.<StorageOption>emptySet());
         }
 
         protected void storeRest(DataOutputStream out)
             throws IOException
         {
+            int flags = 0;
+            if (isDeflated())
+                flags |= DEFLATED;
+            out.writeShort(flags);
             out.writeByte((parent != null) ? 1 : 0);
             if (parent != null)
                 out.writeUTF(parent.toString());
@@ -169,6 +187,10 @@ public final class SimpleLibrary
         protected void loadRest(DataInputStream in)
             throws IOException
         {
+            opts = new HashSet<StorageOption>();
+            int flags = in.readShort();
+            if ((flags & DEFLATED) == DEFLATED)
+                opts.add(StorageOption.DEFLATED);
             int b = in.readByte();
             if (b != 0)
                 parent = new File(in.readUTF());
@@ -195,6 +217,7 @@ public final class SimpleLibrary
     public int majorVersion() { return hd.majorVersion; }
     public int minorVersion() { return hd.minorVersion; }
     public SimpleLibrary parent() { return parent; }
+    public boolean isDeflated() { return hd.isDeflated(); }
 
     private URI location = null;
     public URI location() {
@@ -210,7 +233,7 @@ public final class SimpleLibrary
                 + ", v" + hd.majorVersion + "." + hd.minorVersion + "]");
     }
 
-    private SimpleLibrary(File path, boolean create, File parentPath)
+    private SimpleLibrary(File path, boolean create, File parentPath, Set<StorageOption> opts)
         throws IOException
     {
         root = path;
@@ -233,27 +256,33 @@ public final class SimpleLibrary
         }
         if (!root.mkdirs())
             throw new IOException(root + ": Cannot create library directory");
-        hd = new Header(canonicalRoot, this.parentPath);
+        hd = new Header(canonicalRoot, this.parentPath, opts);
         hd.store();
     }
 
-    public static SimpleLibrary open(File path, boolean create, File parent)
+    public static SimpleLibrary create(File path, File parent, Set<StorageOption> opts)
         throws IOException
     {
-        return new SimpleLibrary(path, create, parent);
+        return new SimpleLibrary(path, true, parent, opts);
     }
 
-    public static SimpleLibrary open(File path, boolean create)
+    public static SimpleLibrary create(File path, File parent)
+        throws IOException 
+    {
+	return new SimpleLibrary(path, true, parent, Collections.<StorageOption>emptySet());
+    }
+
+    public static SimpleLibrary create(File path, Set<StorageOption> opts)
         throws IOException
     {
         // ## Should default parent to $JAVA_HOME/lib/modules
-        return new SimpleLibrary(path, create, null);
+        return new SimpleLibrary(path, true, null, opts);
     }
 
     public static SimpleLibrary open(File path)
         throws IOException
     {
-        return new SimpleLibrary(path, false, null);
+        return new SimpleLibrary(path, false, null, Collections.<StorageOption>emptySet());
     }
 
     private static final JigsawModuleSystem jms
@@ -795,7 +824,35 @@ public final class SimpleLibrary
         ix.store();
     }
 
-    private void install(Manifest mf, File dst)
+    /**
+     * Strip the debug attributes from the classes in a given module
+     * directory.
+     */
+    private void strip(File md) throws IOException {
+        File classes = new File(md, "classes"); 
+        if (classes.isFile()) {
+            File pf = new File(md, "classes.pack");
+            try (JarFile jf = new JarFile(classes);
+                FileOutputStream out = new FileOutputStream(pf)) 
+            {
+                Pack200.Packer packer = Pack200.newPacker();
+                Map<String,String> p = packer.properties();
+                p.put("com.sun.java.util.jar.pack.strip.debug", Pack200.Packer.TRUE);
+                packer.pack(jf, out);
+            }
+
+            try (OutputStream out = new FileOutputStream(classes);
+                 JarOutputStream jos = new JarOutputStream(out))
+            {
+	        Pack200.Unpacker unpacker = Pack200.newUnpacker();
+                unpacker.unpack(pf, jos);
+            } finally {
+                pf.delete();
+           }
+        }
+    }
+
+    private void install(Manifest mf, File dst, boolean strip)
         throws IOException
     {
         if (mf.classes().size() > 1)
@@ -855,7 +912,6 @@ public final class SimpleLibrary
                     }});
             ix.store();
         } else {
-
             FileOutputStream fos
                 = new FileOutputStream(new File(mdst, "classes"));
             JarOutputStream jos
@@ -864,7 +920,7 @@ public final class SimpleLibrary
 
                 // Copy class files and build index
                 final Index ix = new Index(mdst);
-                Files.storeTree(src, jos, new Files.Filter<File>() {
+                Files.storeTree(src, jos, isDeflated(), new Files.Filter<File>() {
                         public boolean accept(File f) throws IOException {
                             if (f.isDirectory())
                                 return true;
@@ -878,28 +934,36 @@ public final class SimpleLibrary
             } finally {
                 jos.close();
             }
-
+            if (strip)
+                strip(mdst);
         }
 
     }
 
-    private void install(Collection<Manifest> mfs, File dst)
+    private void install(Collection<Manifest> mfs, File dst, boolean strip)
         throws IOException
     {
         for (Manifest mf : mfs)
-            install(mf, dst);
+            install(mf, dst, strip);
     }
 
-    public void installFromManifests(Collection<Manifest> mfs)
+    public void installFromManifests(Collection<Manifest> mfs, boolean strip)
         throws ConfigurationException, IOException
     {
-        install(mfs, root);
+        install(mfs, root, strip);
         configure(null);
+    }
+
+    @Override
+    public void installFromManifests(Collection<Manifest> mfs)
+	throws ConfigurationException, IOException
+    {
+	installFromManifests(mfs, false);
     }
 
     private ModuleFileVerifier.Parameters mfvParams;
 
-    private ModuleId install(InputStream is, boolean verifySignature)
+    private ModuleId install(InputStream is, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
         BufferedInputStream bin = new BufferedInputStream(is);
@@ -934,11 +998,14 @@ public final class SimpleLibrary
                 new Signers(md, signers).store();
 
                 // Read and verify the rest of the hashes
-                mr.readRest(md);
+                mr.readRest(md, isDeflated());
                 mfv.verifyHashesRest(mfvParams);
             } else {
-                mr.readRest(md);
+                mr.readRest(md, isDeflated());
             }
+ 
+            if (strip) 
+                strip(md);
             reIndex(mid);         // ## Could do this while reading module file
             return mid;
 
@@ -955,7 +1022,7 @@ public final class SimpleLibrary
         }
     }
 
-    private ModuleId installFromJarFile(File mf, boolean verifySignature)
+    private ModuleId installFromJarFile(File mf, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
         File md = null;
@@ -973,7 +1040,7 @@ public final class SimpleLibrary
 
             boolean signed = false;
 
-            // copy the jar file to the module library in STORED compression
+            // copy the jar file to the module library
             File classesDir = new File(md, "classes");
             try (FileOutputStream fos = new FileOutputStream(classesDir);
                  BufferedOutputStream bos = new BufferedOutputStream(fos);
@@ -1010,6 +1077,8 @@ public final class SimpleLibrary
                 throw new SignatureException(ce);
             }
 
+            if (strip)
+                strip(md);
             reIndex(mid);
             return mid;
         } catch (IOException | SignatureException x) {
@@ -1085,9 +1154,8 @@ public final class SimpleLibrary
         throws IOException, SignatureException
     {
         JarEntry entry = new JarEntry(je.getName());
-        entry.setMethod(ZipOutputStream.STORED);
+        entry.setMethod(isDeflated() ? ZipEntry.DEFLATED : ZipEntry.STORED);
         entry.setTime(je.getTime());
-        entry.setCrc(je.getCrc());
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             int size = 0;
             byte[] bs = new byte[1024];
@@ -1097,8 +1165,11 @@ public final class SimpleLibrary
                 baos.write(bs, 0, cc);
                 size += cc;
             }
-            entry.setSize(size);
-            entry.setCompressedSize(size);
+            if (!isDeflated()) {
+                entry.setSize(size);
+                entry.setCrc(je.getCrc());
+                entry.setCompressedSize(size);
+            }
             jos.putNextEntry(entry);
             if (baos.size() > 0)
                 baos.writeTo(jos);
@@ -1108,17 +1179,21 @@ public final class SimpleLibrary
         }
     }
 
-    private ModuleId install(File mf, boolean verifySignature)
+    private ModuleId install(File mf, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
+        ModuleId mid;
         if (mf.getName().endsWith(".jar"))
-            return installFromJarFile(mf, verifySignature);
-        else
-            return install(new FileInputStream(mf), verifySignature);
-
+            mid = installFromJarFile(mf, verifySignature, strip);
+        else {
+            try (FileInputStream in = new FileInputStream(mf)) {
+                mid = install(in, verifySignature, strip);
+            }
+        }
+        return mid;
     }
 
-    public void install(Collection<File> mfs, boolean verifySignature)
+    public void install(Collection<File> mfs, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
         List<ModuleId> mids = new ArrayList<>();
@@ -1126,7 +1201,7 @@ public final class SimpleLibrary
         Throwable ox = null;
         try {
             for (File mf : mfs)
-                mids.add(install(mf, verifySignature));
+                mids.add(install(mf, verifySignature, strip));
             configure(mids);
             complete = true;
         } catch (IOException|ConfigurationException x) {
@@ -1146,6 +1221,13 @@ public final class SimpleLibrary
         }
     }
 
+    @Override
+    public void install(Collection<File> mfs, boolean verifySignature)
+        throws ConfigurationException, IOException, SignatureException
+    {
+	install(mfs, verifySignature, false);
+    }
+
     // Public entry point, since the Resolver itself is package-private
     //
     public Resolution resolve(Collection<ModuleIdQuery> midqs)
@@ -1154,10 +1236,9 @@ public final class SimpleLibrary
         return Resolver.run(this, midqs);
     }
 
-    public void install(Resolution res, boolean verifySignature)
+    public void install(Resolution res, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
-
         // ## Handle case of installing multiple root modules
         assert res.rootQueries.size() == 1;
         ModuleIdQuery midq = res.rootQueries.iterator().next();
@@ -1177,7 +1258,7 @@ public final class SimpleLibrary
             assert u != null;
             RemoteRepository rr = repositoryList().firstRepository();
             assert rr != null;
-            install(rr.fetch(mid), verifySignature);
+            install(rr.fetch(mid), verifySignature, strip);
             res.locationForName.put(mid.name(), location());
             // ## If something goes wrong, delete all our modules
         }
@@ -1187,7 +1268,13 @@ public final class SimpleLibrary
         Configuration<Context> cf
             = Configurator.configure(this, res);
         new StoredConfiguration(moduleDir(root.id()), cf).store();
+    }
 
+    @Override
+    public void install(Resolution res, boolean verifySignature)
+        throws ConfigurationException, IOException, SignatureException
+    {
+	install(res, verifySignature, false);
     }
 
     /**
@@ -1211,7 +1298,7 @@ public final class SimpleLibrary
         throws IOException
     {
         Files.mkdirs(dst, "module destination");
-        install(mfs, dst);
+        install(mfs, dst, false);
     }
 
     public void preInstall(Manifest mf, File dst)
