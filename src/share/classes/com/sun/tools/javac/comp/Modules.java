@@ -171,7 +171,7 @@ public class Modules extends JCTree.Visitor {
         names = Names.instance(context);
         syms = Symtab.instance(context);
         Options options = Options.instance(context);
-        debug = new Debug("modules", options, log.noticeWriter);
+        debug = new Debug("modules", options, log);
 
         // module system features enabled unless -XDnomodules is set
         enabled = (options.get("nomodules") == null);
@@ -216,6 +216,7 @@ public class Modules extends JCTree.Visitor {
             sym.name = sym.fullname = TreeInfo.fullName(tree.id.qualId);
             sym.module_info.fullname = ClassSymbol.formFullName(sym.module_info.name, sym);
             sym.module_info.flatname = ClassSymbol.formFlatName(sym.module_info.name, sym);
+            sym.extendedMetadata = tree.metadata;
             sym.module_info.sourcefile = currTopLevel.sourcefile;
             sym.module_info.members_field = new Scope(sym.module_info);
             sym.completer = null;

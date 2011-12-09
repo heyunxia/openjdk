@@ -25,7 +25,6 @@
 
 package com.sun.tools.javac.file;
 
-import java.util.Comparator;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -41,9 +40,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -63,12 +62,9 @@ import javax.tools.StandardLocation;
 
 import static javax.tools.StandardLocation.*;
 
-import com.sun.tools.javac.file.Paths.Path;
-import com.sun.tools.javac.file.Paths.PathEntry;
-import com.sun.tools.javac.file.Paths.PathLocation;
+import com.sun.tools.javac.file.Locations.Path;
 import com.sun.tools.javac.file.RelativePath.RelativeFile;
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
-import com.sun.tools.javac.main.OptionName;
 import com.sun.tools.javac.util.BaseFileManager;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
@@ -96,31 +92,13 @@ public class JavacFileManager
             return buffer.toString().toCharArray();
     }
 
-    /** Encapsulates knowledge of paths
-     */
-    private Paths paths;
-
     private FSInfo fsInfo;
 
     private boolean contextUseOptimizedZip;
     private ZipFileIndexCache zipFileIndexCache;
 
-    private final File uninited = new File("U N I N I T E D");
-
     private final Set<JavaFileObject.Kind> sourceOrClass =
         EnumSet.of(JavaFileObject.Kind.SOURCE, JavaFileObject.Kind.CLASS);
-
-    /** The standard output directory, primarily used for classes.
-     *  Initialized by the "-d" option.
-     *  If classOutDir = null, files are written into same directory as the sources
-     *  they were generated from.
-     */
-    private File classOutDir = uninited;
-
-    /** The output directory, used when generating sources while processing annotations.
-     *  Initialized by the "-s" option.
-     */
-    private File sourceOutDir = uninited;
 
     protected boolean mmappedIO;
     protected boolean ignoreSymbolFile;
@@ -167,13 +145,6 @@ public class JavacFileManager
     @Override
     public void setContext(Context context) {
         super.setContext(context);
-        if (paths == null) {
-            paths = Paths.instance(context);
-        } else {
-            // Reuse the Paths object as it stores the locations that
-            // have been set with setLocation, etc.
-            paths.setContext(context);
-        }
 
         fsInfo = FSInfo.instance(context);
 
@@ -192,7 +163,7 @@ public class JavacFileManager
 
     @Override
     public boolean isDefaultBootClassPath() {
-        return paths.isDefaultBootClassPath();
+        return locations.isDefaultBootClassPath();
     }
 
     public JavaFileObject getFileForInput(String name) {
@@ -432,6 +403,7 @@ public class JavacFileManager
 
     private ModuleMode moduleMode;
 
+    @Override // javax.tools.ModuleFileManager
     public ModuleMode getModuleMode() {
         if (moduleMode == null) {
             if (options.get(MODULEPATH) != null && options.get(CLASSPATH) == null)
@@ -442,6 +414,7 @@ public class JavacFileManager
         return moduleMode;
     }
 
+    @Override // javax.tools.ModuleFileManager
     public Location getModuleLocation(Location locn, JavaFileObject fo, String pkgName)
             throws InvalidLocationException, InvalidFileObjectException {
         if (getModuleMode() == ModuleMode.SINGLE)
@@ -463,19 +436,20 @@ public class JavacFileManager
     private Map<Location,Iterable<Location>> moduleLocations =
             new LinkedHashMap<Location,Iterable<Location>>();
 
+    @Override // javax.tools.ModuleFileManager
     public Iterable<Location> getModuleLocations(Location locn) {
         //System.err.println("JavacFileManager.getModuleLocations " + getModuleMode() + " " + locn);
 
         Iterable<Location> result = moduleLocations.get(locn);
         if (result == null) {
-            Iterable<PathEntry> pathEntries = getEntriesForLocation(locn);
-            if (pathEntries == null)
+            Iterable<File> files = locations.getLocation(locn);
+            if (files == null)
                 result = List.<Location>nil();
             else {
                 Set<Location> locns = new LinkedHashSet<Location>();
-                for (PathEntry pe: pathEntries) {
-                    if (pe.file.isDirectory()) {
-                        for (File f: pe.file.listFiles()) {
+                for (File file: files) {
+                    if (file.isDirectory()) {
+                        for (File f: file.listFiles()) {
                             String tag = null;
                             if (f.isDirectory())
                                 tag = f.getName();
@@ -483,6 +457,7 @@ public class JavacFileManager
 //                                String name = f.getName();
 //                                tag = name.substring(0, name.lastIndexOf("."));
 //                            }
+                            // FIXME: check if tag has already been seen
                             if (tag != null)
                                 locns.add(getModuleLocation(locn, tag));
                         }
@@ -500,67 +475,29 @@ public class JavacFileManager
         return result;
     }
 
-
     private Map<String, Location> locationCache = new HashMap<String,Location>();
 
-    public Location join(Iterable<? extends Location> locations)
+    @Override // javax.tools.ModuleFileManager
+    public Location join(Iterable<? extends Location> list)
             throws IllegalArgumentException {
         StringBuilder sb = new StringBuilder("{");
         String sep = "";
-        for (Location l: locations) {
-            if (l instanceof StandardLocation || l instanceof PathLocation || l instanceof ExtendedLocation) {
-                sb.append(sep);
-                sb.append(l.getName());
-                sep = ",";
-            } else
+        for (Location l: list) {
+            if (!locations.isSupportedLocation(l))
                 throw new IllegalArgumentException(l.toString());
+            sb.append(sep);
+            sb.append(l.getName());
+            sep = ",";
         }
         sb.append("}");
         String name = sb.toString();
 
+        // ugly, rethink this (using name for key)
         Location result = locationCache.get(name);
         if (result == null) {
-            ListBuffer<Location> mergeList = new ListBuffer<Location>();
-            Path currPath = null;
-            for (Location l: locations) {
-                if (l instanceof StandardLocation) {
-                    if (hasLocation(l)) {
-                        Set<JavaFileObject.Kind> kinds = allKinds;
-                        switch ((StandardLocation) l) {
-                            case CLASS_PATH:
-                                kinds = (hasLocation(SOURCE_PATH) ? noSourceKind : allKinds);
-                                break;
-                            case SOURCE_OUTPUT:
-                            case SOURCE_PATH:
-                                kinds = noClassKind;
-                                break;
-                            case ANNOTATION_PROCESSOR_PATH:
-                            case PLATFORM_CLASS_PATH:
-                            case CLASS_OUTPUT:
-                                kinds = noSourceKind;
-                                break;
-                        }
-                        if (currPath == null)
-                            currPath = paths.new Path();
-                        currPath.addAll(getEntriesForLocation(l), kinds);
-                    }
-                } else if (l instanceof PathLocation) {
-                    if (currPath == null)
-                        currPath = paths.new Path();
-                    currPath.addAll(((PathLocation) l).path);
-                } else if (l instanceof ExtendedLocation) {
-                    if (currPath != null) {
-                        mergeList.add(new PathLocation(currPath));
-                        currPath = null;
-                    }
-                    mergeList.add(l);
-                }
-            }
-            if (currPath != null) {
-                mergeList.add(new PathLocation(currPath));
-                currPath = null;
-            }
-            result = (mergeList.size() == 1) ? mergeList.first() : new CompositeLocation(mergeList, this);
+            // FIXME, could flatten list, and/or use a LinkedHashSet to
+            // canonicalize list
+            result = new CompositeLocation(list, this);
             locationCache.put(name, result);
         }
 
@@ -576,27 +513,23 @@ public class JavacFileManager
         String name = location.getName() + "[" + tag + "]";
         Location result = locationCache.get(name);
         if (result == null) {
-            Iterable<? extends PathEntry> pathEntries;
-            if (location instanceof StandardLocation)
-                pathEntries = getEntriesForLocation(location);
-            else if (location instanceof PathLocation)
-                pathEntries = ((PathLocation) location).path;
-            else
+            Iterable<? extends File> files = locations.getLocation(location);
+            if (files == null)
                 throw new IllegalArgumentException(location.getName());
-            Path p = paths.new Path();
-            if (pathEntries != null) {
-                for (PathEntry e: pathEntries) {
-                    File dir = new File(e.file, tag);
+            Path p = locations.new Path();
+            if (files != null) {
+                for (File file: files) {
+                    File dir = new File(file, tag);
                     if (dir.exists() && dir.isDirectory() || location.isOutputLocation())
-                        p.add(paths.new PathEntry(dir, e.kinds));
+                        p.addFile(dir);
                     else {
-                        File jar = new File(e.file, tag + ".jar");
+                        File jar = new File(file, tag + ".jar");
                         if (jar.exists() && jar.isFile())
-                            p.add(paths.new PathEntry(dir, e.kinds));
+                            p.addFile(jar);
                     }
                 }
             }
-            result = new PathLocation(p, name);
+            result = locations.createLocation(p, name, locations.getOrigin(location));
             locationCache.put(name, result);
         }
         return result;
@@ -616,33 +549,23 @@ public class JavacFileManager
             return List.of(l);
         }
 
-        Path ppPrepend = first ? paths.getPlatformPathPrepend() : null;
-        Path ppBase = paths.getPlatformPathBase();
-        Path ppAppend = last ? paths.getPlatformPathAppend() : null;
+        Path ppPrepend = first ? locations.getPlatformPathPrepend() : null;
+        Path ppBase = locations.getPlatformPathBase();
+        Path ppAppend = last ? locations.getPlatformPathAppend() : null;
 
         ListBuffer<Location> results = new ListBuffer<Location>();
         if (ppPrepend != null)
-            results.add(new PathLocation(ppPrepend));
+            results.add(locations.createLocation(ppPrepend, StandardLocation.PLATFORM_CLASS_PATH));
         if (ppBase != null) {
             if (first)
-                results.add(new PathLocation(ppBase));
+                results.add(locations.createLocation(ppBase, StandardLocation.PLATFORM_CLASS_PATH));
         } else
             results.add(l);
         if (ppAppend != null)
-            results.add(new PathLocation(ppAppend));
+            results.add(locations.createLocation(ppAppend, StandardLocation.PLATFORM_CLASS_PATH));
         //System.out.println("JFM:augmentPlatformLocation: " + l + " " + first + " " + last + " " + results);
         return results.toList();
     }
-
-    private static Set<JavaFileObject.Kind> allKinds, noSourceKind, noClassKind;
-    static {
-        allKinds = EnumSet.allOf(JavaFileObject.Kind.class);
-        noSourceKind = EnumSet.allOf(JavaFileObject.Kind.class);
-        noSourceKind.remove(JavaFileObject.Kind.SOURCE);
-        noClassKind = EnumSet.allOf(JavaFileObject.Kind.class);
-        noClassKind.remove(JavaFileObject.Kind.CLASS);
-    }
-
 
     /**
      * An archive provides a flat directory structure of a ZipFile by
@@ -720,7 +643,7 @@ public class JavacFileManager
      */
     private Archive openArchive(File zipFileName, boolean useOptimizedZip) throws IOException {
         File origZipFileName = zipFileName;
-        if (!ignoreSymbolFile && paths.isDefaultBootClassPathRtJar(zipFileName)) {
+        if (!ignoreSymbolFile && locations.isDefaultBootClassPathRtJar(zipFileName)) {
             File file = zipFileName.getParentFile().getParentFile(); // ${java.home}
             if (new File(file.getName()).equals(new File("jre")))
                 file = file.getParentFile();
@@ -807,6 +730,7 @@ public class JavacFileManager
 
     /** Flush any output resources.
      */
+    @Override // javax.tools.JavaFileManager
     public void flush() {
         contentCache.clear();
     }
@@ -814,6 +738,7 @@ public class JavacFileManager
     /**
      * Close the JavaFileManager, releasing resources.
      */
+    @Override // javax.tools.JavaFileManager
     public void close() {
         for (Iterator<Archive> i = archives.values().iterator(); i.hasNext(); ) {
             Archive a = i.next();
@@ -834,6 +759,7 @@ public class JavacFileManager
         return defaultEncodingName;
     }
 
+    @Override // javax.tools.JavaFileManager
     public ClassLoader getClassLoader(Location location) {
         nullCheck(location);
         Iterable<? extends File> path = getLocation(location);
@@ -851,6 +777,7 @@ public class JavacFileManager
         return getClassLoader(lb.toArray(new URL[lb.size()]));
     }
 
+    @Override // javax.tools.JavaFileManager
     public Iterable<JavaFileObject> list(Location location,
                                          String packageName,
                                          Set<JavaFileObject.Kind> kinds,
@@ -858,6 +785,7 @@ public class JavacFileManager
         throws IOException
     {
         // validatePackageName(packageName);
+        nullCheck(location);
         nullCheck(packageName);
         nullCheck(kinds);
 
@@ -865,21 +793,20 @@ public class JavacFileManager
             return ((ExtendedLocation) location).list(packageName, kinds, recurse);
         }
 
-        Iterable<? extends PathEntry> entries = getEntriesForLocation(location);
-        if (entries == null)
+        Iterable<? extends File> files = locations.getLocation(location);
+        if (files == null)
             return List.nil();
         RelativeDirectory subdirectory = RelativeDirectory.forPackage(packageName);
         ListBuffer<JavaFileObject> results = new ListBuffer<JavaFileObject>();
 
-        for (PathEntry e: entries) {
-            Set<JavaFileObject.Kind> s = EnumSet.copyOf(kinds);
-            s.retainAll(e.kinds);
-            if (!s.isEmpty())
-                listContainer(e.file, subdirectory, s, recurse, results);
+        for (File file: files) {
+            listContainer(file, subdirectory, kinds, recurse, results);
         }
+
         return results.toList();
     }
 
+    @Override // javax.tools.JavaFileManager
     public String inferBinaryName(Location location, JavaFileObject file) {
         file.getClass(); // null check
         location.getClass(); // null check
@@ -900,6 +827,7 @@ public class JavacFileManager
             return null; // FIXME -- seems OK per spec but need to check
     }
 
+    @Override // javax.tools.JavaFileManager
     public boolean isSameFile(FileObject a, FileObject b) {
         nullCheck(a);
         nullCheck(b);
@@ -910,17 +838,20 @@ public class JavacFileManager
         return a.equals(b);
     }
 
+    @Override // javax.tools.JavaFileManager
     public boolean hasLocation(Location location) {
-        return getLocation(location) != null;
+        return (location instanceof ExtendedLocation || (getLocation(location) != null));
     }
 
+    @Override // javax.tools.JavaFileManager
     public JavaFileObject getJavaFileForInput(Location location,
                                               String className,
                                               JavaFileObject.Kind kind)
         throws IOException
     {
         nullCheck(location);
-        // validateClassName(className);
+        // validateClassName(className);g518
+
         nullCheck(className);
         nullCheck(kind);
         if (!sourceOrClass.contains(kind))
@@ -928,6 +859,7 @@ public class JavacFileManager
         return getFileForInput(location, RelativeFile.forClass(className, kind), kind);
     }
 
+    @Override // javax.tools.JavaFileManager
     public FileObject getFileForInput(Location location,
                                       String packageName,
                                       String relativeName)
@@ -955,24 +887,30 @@ public class JavacFileManager
 
     private JavaFileObject getFileForInput(Location location, RelativeFile name,
                 JavaFileObject.Kind kind) throws IOException {
-        Iterable<? extends PathEntry> entries = getEntriesForLocation(location);
-        if (entries == null)
+        if (location instanceof CompositeLocation) {
+            for (Location l: ((CompositeLocation) location).locations) {
+                JavaFileObject fo = getFileForInput(l, name, kind);
+                if (fo != null)
+                    return fo;
+            }
+            return null;
+        }
+
+        Iterable<? extends File> files = locations.getLocation(location);
+        if (files == null)
             return null;
 
-        for (PathEntry e: entries) {
-            if (kind != null && !e.kinds.contains(kind))
-                continue;
-            File dir = e.file;
-            Archive a = archives.get(dir);
+        for (File file: files) {
+            Archive a = archives.get(file);
             if (a == null) {
-                if (fsInfo.isDirectory(dir)) {
-                    File f = name.getFile(dir);
+                if (fsInfo.isDirectory(file)) {
+                    File f = name.getFile(file);
                     if (f.exists())
                         return new RegularFileObject(this, f);
                     continue;
                 }
                 // Not a directory, create the archive
-                a = openArchive(dir);
+                a = openArchive(file);
             }
             // Process the archive
             if (a.contains(name)) {
@@ -982,6 +920,7 @@ public class JavacFileManager
         return null;
     }
 
+    @Override // javax.tools.JavaFileManager
     public JavaFileObject getJavaFileForOutput(Location location,
                                                String className,
                                                JavaFileObject.Kind kind,
@@ -997,6 +936,7 @@ public class JavacFileManager
         return getFileForOutput(location, RelativeFile.forClass(className, kind), sibling);
     }
 
+    @Override // javax.tools.JavaFileManager
     public FileObject getFileForOutput(Location location,
                                        String packageName,
                                        String relativeName,
@@ -1014,6 +954,7 @@ public class JavacFileManager
         return getFileForOutput(location, name, sibling);
     }
 
+    // FIXME: compare against tl
     private JavaFileObject getFileForOutput(Location location,
                                             RelativeFile fileName,
                                             FileObject sibling)
@@ -1034,10 +975,10 @@ public class JavacFileManager
             dir = (getSourceOutDir() != null ? getSourceOutDir() : getClassOutDir());
         } else {
             dir = null;
-            Iterable<? extends PathEntry> path = getEntriesForLocation(location);
+            Iterable<? extends File> path = locations.getLocation(location);
             if (path != null) {
-                for (PathEntry e: path) {
-                    dir = e.file;
+                for (File e: path) {
+                    dir = e;
                     break;
                 }
             }
@@ -1049,6 +990,7 @@ public class JavacFileManager
 
     }
 
+    @Override // javax.tools.StandardJavaFileManager
     public Iterable<? extends JavaFileObject> getJavaFileObjectsFromFiles(
         Iterable<? extends File> files)
     {
@@ -1062,129 +1004,37 @@ public class JavacFileManager
         return result;
     }
 
+    @Override // javax.tools.StandardJavaFileManager
     public Iterable<? extends JavaFileObject> getJavaFileObjects(File... files) {
         return getJavaFileObjectsFromFiles(Arrays.asList(nullCheck(files)));
     }
 
+    @Override // javax.tools.StandardJavaFileManager
     public void setLocation(Location location,
                             Iterable<? extends File> path)
         throws IOException
     {
         nullCheck(location);
-        paths.lazy();
-
-        final File dir = location.isOutputLocation() ? getOutputDirectory(path) : null;
-
-        if (location == CLASS_OUTPUT)
-            classOutDir = getOutputLocation(dir, D);
-        else if (location == SOURCE_OUTPUT)
-            sourceOutDir = getOutputLocation(dir, S);
-        else
-            paths.setPathForLocation(location, path);
-    }
-    // where
-        private File getOutputDirectory(Iterable<? extends File> path) throws IOException {
-            if (path == null)
-                return null;
-            Iterator<? extends File> pathIter = path.iterator();
-            if (!pathIter.hasNext())
-                throw new IllegalArgumentException("empty path for directory");
-            File dir = pathIter.next();
-            if (pathIter.hasNext())
-                throw new IllegalArgumentException("path too long for directory");
-            if (!dir.exists())
-                throw new FileNotFoundException(dir + ": does not exist");
-            else if (!dir.isDirectory())
-                throw new IOException(dir + ": not a directory");
-            return dir;
-        }
-
-    private File getOutputLocation(File dir, OptionName defaultOptionName) {
-        if (dir != null)
-            return dir;
-        String arg = options.get(defaultOptionName);
-        if (arg == null)
-            return null;
-        return new File(arg);
+        locations.setLocation(location, path);
     }
 
+    @Override // javax.tools.StandardJavaFileManager
     public Iterable<File> getLocation(Location location) {
-        nullCheck(location);
-        paths.lazy();
-
-        if (location == CLASS_OUTPUT) {
-            File dir = getClassOutDir();
-            return (dir == null ? null : List.of(dir));
-        }
-
-        if (location == SOURCE_OUTPUT) {
-            File dir = getSourceOutDir();
-            return (dir == null ? null : List.of(dir));
-        }
-
-
-        final Iterable<? extends PathEntry> entries;
-        if (location instanceof PathLocation)
-            entries = ((PathLocation) location).path;
-        else
-            entries = paths.getPathForLocation(location);
-
-        if (entries == null)
-            return null;
-
-        // wrap the natural PathEntry iterator with one that just returns the file values
-        return new Iterable<File>() {
-            public Iterator<File> iterator() {
-                return new Iterator<File>() {
-                    public boolean hasNext() {
-                        return iter.hasNext();
-                    }
-
-                    public File next() {
-                        return iter.next().file;
-                    }
-
-                    public void remove() {
-                        iter.remove();
-                    }
-
-                    final Iterator<? extends PathEntry> iter = entries.iterator();
-                };
-            }
-        };
+        return locations.getLocation(location);
     }
 
-    Iterable<PathEntry> getEntriesForLocation(Location location) {
+    @Deprecated // remove uses of this method
+    Iterable<File> getEntriesForLocation(Location location) {
         nullCheck(location);
-
-        if (location instanceof PathLocation)
-            return ((PathLocation) location).path;
-
-        paths.lazy();
-
-        if (location == CLASS_OUTPUT) {
-            File dir = getClassOutDir();
-            return (dir == null ? null : List.of(paths.new PathEntry(dir)));
-        }
-
-        if (location == SOURCE_OUTPUT) {
-            File dir = getSourceOutDir();
-            return (dir == null ? null : List.of(paths.new PathEntry(dir)));
-        }
-
-        return paths.getPathForLocation(location);
+        return locations.getLocation(location);
     }
 
     private File getClassOutDir() {
-        if (classOutDir == uninited)
-            classOutDir = getOutputLocation(null, D);
-        return classOutDir;
+        return locations.getOutputLocation(CLASS_OUTPUT);
     }
 
     private File getSourceOutDir() {
-        if (sourceOutDir == uninited)
-            sourceOutDir = getOutputLocation(null, S);
-        return sourceOutDir;
+        return locations.getOutputLocation(SOURCE_OUTPUT);
     }
 
     /**

@@ -36,12 +36,31 @@ public interface ModuleFileManager extends JavaFileManager {
 
     enum ModuleMode { SINGLE, MULTIPLE };
 
+    /**
+     * Determine if the file manager is running in "single module mode"
+     * or "multiple module mode". This affects how files are written to
+     * the class output directory.
+     * Multiple module mode is active if a module path has been set,
+     * but not a class path.
+     */
     ModuleMode getModuleMode();
 
+    /**
+     * Get a location representing the "container" for a file object
+     * for a compilation unit in a given package.
+     */
     Location getModuleLocation(Location location, JavaFileObject fo, String packageName)
             throws IllegalArgumentException;
 
+    /**
+     * Get the set of "module locations" available on a "module path",
+     * where each "module location" is determined by the existence of
+     * a subdirectory on the path containing a module-info file.
+     */
     Iterable<? extends Location> getModuleLocations(Location location);
 
+    /**
+     * Join a set of locations into a "search path".
+     */
     Location join(Iterable<? extends Location> locations);
 }

@@ -25,14 +25,18 @@
 
 package com.sun.tools.javac.file;
 
-import com.sun.tools.javac.util.ListBuffer;
+import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Set;
 import javax.tools.ExtendedLocation;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
+import javax.tools.StandardJavaFileManager;
+
+import com.sun.tools.javac.util.ListBuffer;
 
 /**
  * A location composed of a list of component locations.
@@ -41,7 +45,7 @@ class CompositeLocation implements ExtendedLocation {
     final JavaFileManager fileManager;
     final Iterable<? extends Location> locations;
     final String name;
-    private static int count;
+    private static int count; // FIXME, move count/name to creator, or move CompositeLocation to Locations
 
     CompositeLocation(Iterable<? extends Location> locations, JavaFileManager fileManager) {
         this.locations = locations;
@@ -52,6 +56,7 @@ class CompositeLocation implements ExtendedLocation {
         name = "multiLocation#" + (count++) + names.toString();
     }
 
+    @Override // javax.tools.ExtendedLocation
     public Iterable<JavaFileObject> list(String packageName, Set<Kind> kinds, boolean recurse) throws IOException {
         ListBuffer<JavaFileObject> results = new ListBuffer<JavaFileObject>();
         for (Location l: locations) {
@@ -66,6 +71,7 @@ class CompositeLocation implements ExtendedLocation {
         return results.toList();
     }
 
+    @Override // javax.tools.ExtendedLocation
     public String inferBinaryName(JavaFileObject file) {
         for (Location l: locations) {
             String binaryName;
@@ -79,10 +85,12 @@ class CompositeLocation implements ExtendedLocation {
         return null;
     }
 
+    @Override // javax.tools.JavaFileManager.Location
     public String getName() {
         return name;
     }
 
+    @Override // javax.tools.JavaFileManager.Location
     public boolean isOutputLocation() {
         return false;
     }
@@ -90,5 +98,22 @@ class CompositeLocation implements ExtendedLocation {
     @Override
     public String toString() {
         return getName();
+    }
+
+    Collection<File> getLocation() {
+        if (!(fileManager instanceof StandardJavaFileManager))
+            throw new IllegalStateException();
+        StandardJavaFileManager fm = (StandardJavaFileManager) fileManager;
+        ListBuffer<File> files = new ListBuffer<File>();
+        for (Location l: locations) {
+            Iterable<? extends File> iter = fm.getLocation(l);
+            // FIXME: need a way to distinguish between empty locations and
+            // non-standard locations
+//            if (iter == null)
+//                throw new IllegalStateException();
+            if (iter != null)
+                for (File f: iter) files.add(f);
+        }
+        return files.toList();
     }
 }

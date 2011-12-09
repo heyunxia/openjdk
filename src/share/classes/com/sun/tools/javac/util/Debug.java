@@ -37,6 +37,10 @@ public class Debug {
     public final PrintWriter out;
     Set<String> opts;
 
+    public Debug(String name, Options options, Log log) {
+        this(name, options, log.noticeWriter);
+    }
+
     public Debug(String name, Options options, PrintWriter out) {
         if (out == null) out = new PrintWriter(System.err);
         this.out = new DebugPrinter(name, out);

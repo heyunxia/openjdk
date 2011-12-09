@@ -29,6 +29,8 @@ import com.sun.source.tree.RequiresFlag;
 import java.io.*;
 import java.util.*;
 
+import com.sun.source.tree.MemberReferenceTree.ReferenceMode;
+
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.code.*;
@@ -37,6 +39,8 @@ import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.tree.JCTree.*;
 
 import static com.sun.tools.javac.code.Flags.*;
+import static com.sun.tools.javac.code.Flags.ANNOTATION;
+import static com.sun.tools.javac.tree.JCTree.Tag.*;
 
 /** Prints out a tree as an indented Java source program.
  *
@@ -311,7 +315,7 @@ public class Pretty extends JCTree.Visitor {
 
     /** Is the given tree an enumerator definition? */
     boolean isEnumerator(JCTree t) {
-        return t.getTag() == JCTree.VARDEF && (((JCVariableDecl) t).mods.flags & ENUM) != 0;
+        return t.hasTag(VARDEF) && (((JCVariableDecl) t).mods.flags & ENUM) != 0;
     }
 
     /** Print unit consisting of package clause and import statements in toplevel,
@@ -328,7 +332,7 @@ public class Pretty extends JCTree.Visitor {
         boolean inImports = false;
         for (List<JCTree> l = tree.defs; l.nonEmpty(); l = l.tail) {
             switch (l.head.getTag()) {
-                case JCTree.IMPORT:
+                case IMPORT:
                     JCImport imp = (JCImport)l.head;
                     Name name = TreeInfo.name(imp.qualid);
                     if (name == name.table.names.asterisk ||
@@ -347,8 +351,8 @@ public class Pretty extends JCTree.Visitor {
                         break;
                     // fall-through
 
-                case JCTree.MODULE:
-                case JCTree.PACKAGE:
+                case MODULE:
+                case PACKAGE:
                     if (inImports) {
                         inImports = false;
                         println();
@@ -645,7 +649,7 @@ public class Pretty extends JCTree.Visitor {
                 print("/*public static final*/ ");
                 print(tree.name);
                 if (tree.init != null) {
-                    if (sourceOutput && tree.init.getTag() == JCTree.NEWCLASS) {
+                    if (sourceOutput && tree.init.hasTag(NEWCLASS)) {
                         print(" /*enum*/ ");
                         JCNewClass init = (JCNewClass) tree.init;
                         if (init.args != null && init.args.nonEmpty()) {
@@ -706,7 +710,7 @@ public class Pretty extends JCTree.Visitor {
             printStat(tree.body);
             align();
             print(" while ");
-            if (tree.cond.getTag() == JCTree.PARENS) {
+            if (tree.cond.hasTag(PARENS)) {
                 printExpr(tree.cond);
             } else {
                 print("(");
@@ -722,7 +726,7 @@ public class Pretty extends JCTree.Visitor {
     public void visitWhileLoop(JCWhileLoop tree) {
         try {
             print("while ");
-            if (tree.cond.getTag() == JCTree.PARENS) {
+            if (tree.cond.hasTag(PARENS)) {
                 printExpr(tree.cond);
             } else {
                 print("(");
@@ -740,7 +744,7 @@ public class Pretty extends JCTree.Visitor {
         try {
             print("for (");
             if (tree.init.nonEmpty()) {
-                if (tree.init.head.getTag() == JCTree.VARDEF) {
+                if (tree.init.head.hasTag(VARDEF)) {
                     printExpr(tree.init.head);
                     for (List<JCStatement> l = tree.init.tail; l.nonEmpty(); l = l.tail) {
                         JCVariableDecl vdef = (JCVariableDecl)l.head;
@@ -787,7 +791,7 @@ public class Pretty extends JCTree.Visitor {
     public void visitSwitch(JCSwitch tree) {
         try {
             print("switch ");
-            if (tree.selector.getTag() == JCTree.PARENS) {
+            if (tree.selector.hasTag(PARENS)) {
                 printExpr(tree.selector);
             } else {
                 print("(");
@@ -826,7 +830,7 @@ public class Pretty extends JCTree.Visitor {
     public void visitSynchronized(JCSynchronized tree) {
         try {
             print("synchronized ");
-            if (tree.lock.getTag() == JCTree.PARENS) {
+            if (tree.lock.hasTag(PARENS)) {
                 printExpr(tree.lock);
             } else {
                 print("(");
@@ -897,7 +901,7 @@ public class Pretty extends JCTree.Visitor {
     public void visitIf(JCIf tree) {
         try {
             print("if ");
-            if (tree.cond.getTag() == JCTree.PARENS) {
+            if (tree.cond.hasTag(PARENS)) {
                 printExpr(tree.cond);
             } else {
                 print("(");
@@ -984,7 +988,7 @@ public class Pretty extends JCTree.Visitor {
     public void visitApply(JCMethodInvocation tree) {
         try {
             if (!tree.typeargs.isEmpty()) {
-                if (tree.meth.getTag() == JCTree.SELECT) {
+                if (tree.meth.hasTag(SELECT)) {
                     JCFieldAccess left = (JCFieldAccess)tree.meth;
                     printExpr(left.selected);
                     print(".<");
@@ -1043,7 +1047,7 @@ public class Pretty extends JCTree.Visitor {
             if (tree.elemtype != null) {
                 print("new ");
                 JCTree elem = tree.elemtype;
-                if (elem.getTag() == JCTree.TYPEARRAY)
+                if (elem.hasTag(TYPEARRAY))
                     printBaseElementType((JCArrayTypeTree) elem);
                 else
                     printExpr(elem);
@@ -1061,6 +1065,17 @@ public class Pretty extends JCTree.Visitor {
                 printExprs(tree.elems);
                 print("}");
             }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void visitLambda(JCLambda tree) {
+        try {
+            print("(");
+            printExprs(tree.params);
+            print(")->");
+            printExpr(tree.body);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -1088,36 +1103,36 @@ public class Pretty extends JCTree.Visitor {
         }
     }
 
-    public String operatorName(int tag) {
+    public String operatorName(JCTree.Tag tag) {
         switch(tag) {
-            case JCTree.POS:     return "+";
-            case JCTree.NEG:     return "-";
-            case JCTree.NOT:     return "!";
-            case JCTree.COMPL:   return "~";
-            case JCTree.PREINC:  return "++";
-            case JCTree.PREDEC:  return "--";
-            case JCTree.POSTINC: return "++";
-            case JCTree.POSTDEC: return "--";
-            case JCTree.NULLCHK: return "<*nullchk*>";
-            case JCTree.OR:      return "||";
-            case JCTree.AND:     return "&&";
-            case JCTree.EQ:      return "==";
-            case JCTree.NE:      return "!=";
-            case JCTree.LT:      return "<";
-            case JCTree.GT:      return ">";
-            case JCTree.LE:      return "<=";
-            case JCTree.GE:      return ">=";
-            case JCTree.BITOR:   return "|";
-            case JCTree.BITXOR:  return "^";
-            case JCTree.BITAND:  return "&";
-            case JCTree.SL:      return "<<";
-            case JCTree.SR:      return ">>";
-            case JCTree.USR:     return ">>>";
-            case JCTree.PLUS:    return "+";
-            case JCTree.MINUS:   return "-";
-            case JCTree.MUL:     return "*";
-            case JCTree.DIV:     return "/";
-            case JCTree.MOD:     return "%";
+            case POS:     return "+";
+            case NEG:     return "-";
+            case NOT:     return "!";
+            case COMPL:   return "~";
+            case PREINC:  return "++";
+            case PREDEC:  return "--";
+            case POSTINC: return "++";
+            case POSTDEC: return "--";
+            case NULLCHK: return "<*nullchk*>";
+            case OR:      return "||";
+            case AND:     return "&&";
+            case EQ:      return "==";
+            case NE:      return "!=";
+            case LT:      return "<";
+            case GT:      return ">";
+            case LE:      return "<=";
+            case GE:      return ">=";
+            case BITOR:   return "|";
+            case BITXOR:  return "^";
+            case BITAND:  return "&";
+            case SL:      return "<<";
+            case SR:      return ">>";
+            case USR:     return ">>>";
+            case PLUS:    return "+";
+            case MINUS:   return "-";
+            case MUL:     return "*";
+            case DIV:     return "/";
+            case MOD:     return "%";
             default: throw new Error();
         }
     }
@@ -1126,7 +1141,7 @@ public class Pretty extends JCTree.Visitor {
         try {
             open(prec, TreeInfo.assignopPrec);
             printExpr(tree.lhs, TreeInfo.assignopPrec + 1);
-            print(" " + operatorName(tree.getTag() - JCTree.ASGOffset) + "= ");
+            print(" " + operatorName(tree.getTag().noAssignOp()) + "= ");
             printExpr(tree.rhs, TreeInfo.assignopPrec);
             close(prec, TreeInfo.assignopPrec);
         } catch (IOException e) {
@@ -1139,7 +1154,7 @@ public class Pretty extends JCTree.Visitor {
             int ownprec = TreeInfo.opPrec(tree.getTag());
             String opname = operatorName(tree.getTag());
             open(prec, ownprec);
-            if (tree.getTag() <= JCTree.PREDEC) {
+            if (!tree.getTag().isPostUnaryOp()) {
                 print(opname);
                 printExpr(tree.arg, ownprec);
             } else {
@@ -1206,6 +1221,21 @@ public class Pretty extends JCTree.Visitor {
         try {
             printExpr(tree.selected, TreeInfo.postfixPrec);
             print("." + tree.name);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void visitReference(JCMemberReference tree) {
+        try {
+            printExpr(tree.expr);
+            print("#");
+            if (tree.typeargs != null) {
+                print("<");
+                printExprs(tree.typeargs);
+                print(">");
+            }
+            print(tree.getMode() == ReferenceMode.INVOKE ? tree.name : "new");
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -1314,7 +1344,7 @@ public class Pretty extends JCTree.Visitor {
         while (true) {
             elem = tree.elemtype;
             print("[]");
-            if (elem.getTag() != JCTree.TYPEARRAY) break;
+            if (!elem.hasTag(TYPEARRAY)) break;
             tree = (JCArrayTypeTree) elem;
         }
     }

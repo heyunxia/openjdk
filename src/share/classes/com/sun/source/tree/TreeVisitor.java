@@ -90,6 +90,7 @@ public interface TreeVisitor<R,P> {
     R visitModuleIdQuery(ModuleIdQueryTree node, P p);
     R visitNewArray(NewArrayTree node, P p);
     R visitNewClass(NewClassTree node, P p);
+    R visitLambdaExpression(LambdaExpressionTree node, P p);
     R visitPackage(PackageTree node, P p);
     R visitParenthesized(ParenthesizedTree node, P p);
     R visitPermits(PermitsDirectiveTree node, P p);
@@ -100,6 +101,7 @@ public interface TreeVisitor<R,P> {
     R visitView(ViewDeclarationTree node, P p);
     R visitReturn(ReturnTree node, P p);
     R visitMemberSelect(MemberSelectTree node, P p);
+    R visitMemberReference(MemberReferenceTree node, P p);
     R visitEmptyStatement(EmptyStatementTree node, P p);
     R visitSwitch(SwitchTree node, P p);
     R visitSynchronized(SynchronizedTree node, P p);

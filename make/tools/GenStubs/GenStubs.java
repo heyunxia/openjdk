@@ -298,9 +298,9 @@ public class GenStubs {
             tree.accept(this);
             ListBuffer<JCTree> defs = new ListBuffer<JCTree>();
             for (JCTree def: tree.defs) {
-                if (def.getTag() == JCTree.IMPORT) {
+                if (def.hasTag(JCTree.Tag.IMPORT)) {
                     JCImport imp = (JCImport) def;
-                    if (imp.qualid.getTag() == JCTree.SELECT) {
+                    if (imp.qualid.hasTag(JCTree.Tag.SELECT)) {
                         JCFieldAccess qualid = (JCFieldAccess) imp.qualid;
                         if (!qualid.name.toString().equals("*")
                                 && !names.contains(qualid.name)) {

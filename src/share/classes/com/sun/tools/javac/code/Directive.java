@@ -25,7 +25,6 @@
 
 package com.sun.tools.javac.code;
 
-import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import java.util.EnumSet;
 import java.util.Set;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
