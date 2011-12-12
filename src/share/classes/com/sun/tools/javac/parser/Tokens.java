@@ -173,7 +173,7 @@ public class Tokens {
         DOUBLELITERAL(Tag.NUMERIC),
         CHARLITERAL(Tag.NUMERIC),
         STRINGLITERAL(Tag.STRING),
-        VERSIONLITERAL(Tag.STRING),
+        VERSIONLITERAL(Tag.NAMED),
         TRUE("true", Tag.NAMED),
         FALSE("false", Tag.NAMED),
         NULL("null", Tag.NAMED),
@@ -238,7 +238,8 @@ public class Tokens {
         }
 
         TokenKind(String name) {
-            this(name, Tag.DEFAULT);
+            // TEMP HACK
+            this(name, Character.isLetter(name.charAt(0)) ? Tag.NAMED : Tag.DEFAULT);
         }
 
         TokenKind(Tag tag) {

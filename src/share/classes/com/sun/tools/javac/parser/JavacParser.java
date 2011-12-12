@@ -25,10 +25,10 @@
 
 package com.sun.tools.javac.parser;
 
-import com.sun.source.tree.RequiresFlag;
 import java.util.*;
 
 import com.sun.source.tree.MemberReferenceTree.ReferenceMode;
+import com.sun.source.tree.RequiresFlag;
 
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.parser.Tokens.*;
@@ -119,7 +119,6 @@ public class JavacParser implements Parser {
         this.allowMethodReferences = source.allowMethodReferences() &&
                 fac.options.isSet("allowMethodReferences");
         this.allowModules = source.allowModules();
-        this.allowImportsBeforePackage = source.allowImportsBeforePackage();
         this.keepDocComments = keepDocComments;
         docComments = keepDocComments ? new HashMap<JCTree,String>() : null;
         this.keepLineMap = keepLineMap;
@@ -187,10 +186,6 @@ public class JavacParser implements Parser {
     /** Switch: should we recognize modules?
      */
     boolean allowModules;
-
-    /** Switch: should we recognize import before package?
-     */
-    boolean allowImportsBeforePackage;
 
     /** Switch: should we keep docComments?
      */
@@ -1739,7 +1734,7 @@ public class JavacParser implements Parser {
         JCClassDecl body = null;
         if (token.kind == LBRACE) {
             int pos = token.pos;
-            List<JCTree> defs = classOrInterfaceBody(names.empty, CLASS);
+            List<JCTree> defs = classOrInterfaceBody(names.empty, false);
             JCModifiers mods = F.at(Position.NOPOS).Modifiers(0);
             body = toP(F.at(pos).AnonymousClassDef(mods, defs));
         }
@@ -1827,7 +1822,7 @@ public class JavacParser implements Parser {
             case MONKEYS_AT:
             case FINAL: {
                 String dc = token.comment(CommentStyle.JAVADOC);
-                JCModifiers mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
+                JCModifiers mods = modifiersOpt();
                 if (token.kind == INTERFACE ||
                     token.kind == CLASS ||
                     allowEnums && token.kind == ENUM) {
@@ -1844,21 +1839,21 @@ public class JavacParser implements Parser {
             }
             case ABSTRACT: case STRICTFP: {
                 String dc = token.comment(CommentStyle.JAVADOC);
-                JCModifiers mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
+                JCModifiers mods = modifiersOpt();
                 stats.append(classOrInterfaceOrEnumDeclaration(mods, dc));
                 break;
             }
             case INTERFACE:
             case CLASS:
                 String dc = token.comment(CommentStyle.JAVADOC);
-                stats.append(classOrInterfaceOrEnumDeclaration(modifiersOpt(ModuleModifierKind.DISALLOWED), dc));
+                stats.append(classOrInterfaceOrEnumDeclaration(modifiersOpt(), dc));
                 break;
             case ENUM:
             case ASSERT:
                 if (allowEnums && token.kind == ENUM) {
                     error(token.pos, "local.enum");
                     dc = token.comment(CommentStyle.JAVADOC);
-                    stats.append(classOrInterfaceOrEnumDeclaration(modifiersOpt(ModuleModifierKind.DISALLOWED), dc));
+                    stats.append(classOrInterfaceOrEnumDeclaration(modifiersOpt(), dc));
                     break;
                 } else if (allowAsserts && token.kind == ASSERT) {
                     stats.append(parseStatement());
@@ -2186,7 +2181,7 @@ public class JavacParser implements Parser {
             JCExpression t = term(EXPR | TYPE);
             if ((lastmode & TYPE) != 0 &&
                 (token.kind == IDENTIFIER || token.kind == ASSERT || token.kind == ENUM))
-                return variableDeclarators(modifiersOpt(ModuleModifierKind.DISALLOWED), t, stats).toList();
+                return variableDeclarators(modifiersOpt(), t, stats).toList();
             else
                 return moreStatementExpressions(pos, t, stats).toList();
         }
@@ -2213,23 +2208,15 @@ public class JavacParser implements Parser {
         return buf.toList();
     }
 
-    public enum ModuleModifierKind { DISALLOWED, LOOKAHEAD, ALLOWED };
-
     /** ModifiersOpt = { Modifier }
      *  Modifier = PUBLIC | PROTECTED | PRIVATE | STATIC | ABSTRACT | FINAL
      *           | NATIVE | SYNCHRONIZED | TRANSIENT | VOLATILE | "@"
      *           | "@" Annotation
      */
-    JCModifiers modifiersOpt(ModuleModifierKind mmk) {
-        return modifiersOpt(mmk, null, null);
+    JCModifiers modifiersOpt() {
+        return modifiersOpt(null);
     }
-
-    JCModifiers modifiersOpt(ModuleModifierKind mmk, Name constrName) {
-        return modifiersOpt(mmk, null, constrName);
-    }
-
-    @SuppressWarnings("fallthrough")
-    protected JCModifiers modifiersOpt(ModuleModifierKind mmk, JCModifiers partial, Name constrName) {
+    protected JCModifiers modifiersOpt(JCModifiers partial) {
         long flags;
         ListBuffer<JCAnnotation> annotations = new ListBuffer<JCAnnotation>();
         int pos;
@@ -2500,7 +2487,7 @@ public class JavacParser implements Parser {
         } else {
             List<JCAnnotation> packageAnnotations = List.nil();
             if (token.kind == MONKEYS_AT)
-                mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
+            mods = modifiersOpt();
 
             if (token.kind == PACKAGE) {
                 seenPackage = true;
@@ -2654,8 +2641,7 @@ public class JavacParser implements Parser {
                     defs.append(toP(F.at(pos).RequiresService(flags.toList(), qualId)));
                 } else {
                     JCExpression moduleIdHead = null;
-                    while (token.kind == IDENTIFIER ||
-                            token.name() != null && Character.isLetter(token.name().charAt(0))) {
+                    while (token.kind.tag == Token.Tag.NAMED) {
                         int id_pos = token.pos;
                         Name id = token.name();
                         nextToken();
@@ -2746,7 +2732,7 @@ public class JavacParser implements Parser {
         if (token.kind == MONKEYS_AT) {
             nextToken();
             if (token.kind == VERSIONLITERAL) {
-                version = names.fromString(token.stringVal());
+                version = token.name();
             } else
                log.error(pos, "modules.version.literal.expected");
             nextToken();
@@ -2765,13 +2751,13 @@ public class JavacParser implements Parser {
         if (token.kind == MONKEYS_AT) {
             nextToken();
             if (token.kind == VERSIONLITERAL) { 
-                query = names.fromString(token.stringVal());
+                query = token.name();
                 nextToken();
             } else if (optag(token.kind) != Tag.NO_TAG) { // FIXME: close, but not close enough
                 Token op = token;
                 nextToken();
                 if (token.kind == VERSIONLITERAL) {
-                    query = names.fromString(op.kind.name + token.stringVal());
+                    query = names.fromString(op.kind.name + token.name());
                     nextToken();
                 } else {
                     log.error(token.pos, "modules.version.literal.expected");
@@ -2819,7 +2805,7 @@ public class JavacParser implements Parser {
             nextToken();
             return toP(F.at(pos).Skip());
         } else {
-            return classOrInterfaceOrEnumDeclaration(modifiersOpt(ModuleModifierKind.ALLOWED, mods, null), docComment);
+            return classOrInterfaceOrEnumDeclaration(modifiersOpt(mods), docComment);
         }
     }
 
@@ -2872,7 +2858,7 @@ public class JavacParser implements Parser {
      *  @param mods    The modifiers starting the class declaration
      *  @param dc       The documentation comment for the class, or null.
      */
-    JCClassDecl classDeclaration(JCModifiers mods, String dc) {
+    protected JCClassDecl classDeclaration(JCModifiers mods, String dc) {
         int pos = token.pos;
         accept(CLASS);
         Name name = ident();
@@ -2889,7 +2875,7 @@ public class JavacParser implements Parser {
             nextToken();
             implementing = typeList();
         }
-        List<JCTree> defs = classOrInterfaceBody(name, CLASS);
+        List<JCTree> defs = classOrInterfaceBody(name, false);
         JCClassDecl result = toP(F.at(pos).ClassDef(
             mods, name, typarams, extending, implementing, defs));
         attach(result, dc);
@@ -2901,7 +2887,7 @@ public class JavacParser implements Parser {
      *  @param mods    The modifiers starting the interface declaration
      *  @param dc       The documentation comment for the interface, or null.
      */
-    JCClassDecl interfaceDeclaration(JCModifiers mods, String dc) {
+    protected JCClassDecl interfaceDeclaration(JCModifiers mods, String dc) {
         int pos = token.pos;
         accept(INTERFACE);
         Name name = ident();
@@ -2913,7 +2899,7 @@ public class JavacParser implements Parser {
             nextToken();
             extending = typeList();
         }
-        List<JCTree> defs = classOrInterfaceBody(name, INTERFACE);
+        List<JCTree> defs = classOrInterfaceBody(name, true);
         JCClassDecl result = toP(F.at(pos).ClassDef(
             mods, name, typarams, null, extending, defs));
         attach(result, dc);
@@ -2924,7 +2910,7 @@ public class JavacParser implements Parser {
      *  @param mods    The modifiers starting the enum declaration
      *  @param dc       The documentation comment for the enum, or null.
      */
-    JCClassDecl enumDeclaration(JCModifiers mods, String dc) {
+    protected JCClassDecl enumDeclaration(JCModifiers mods, String dc) {
         int pos = token.pos;
         accept(ENUM);
         Name name = ident();
@@ -2969,7 +2955,7 @@ public class JavacParser implements Parser {
             nextToken();
             while (token.kind != RBRACE && token.kind != EOF) {
                 defs.appendList(classOrInterfaceBodyDeclaration(enumName,
-                                                                ENUM));
+                                                                false));
                 if (token.pos <= endPosTable.errorEndPos) {
                     // error recovery
                    skip(false, true, true, false);
@@ -3000,7 +2986,7 @@ public class JavacParser implements Parser {
         JCClassDecl body = null;
         if (token.kind == LBRACE) {
             JCModifiers mods1 = F.at(Position.NOPOS).Modifiers(Flags.ENUM | Flags.STATIC);
-            List<JCTree> defs = classOrInterfaceBody(names.empty, CLASS);
+            List<JCTree> defs = classOrInterfaceBody(names.empty, false);
             body = toP(F.at(identPos).AnonymousClassDef(mods1, defs));
         }
         if (args.isEmpty() && body == null)
@@ -3030,7 +3016,7 @@ public class JavacParser implements Parser {
     /** ClassBody     = "{" {ClassBodyDeclaration} "}"
      *  InterfaceBody = "{" {InterfaceBodyDeclaration} "}"
      */
-    List<JCTree> classOrInterfaceBody(Name className, TokenKind encl) {
+    List<JCTree> classOrInterfaceBody(Name className, boolean isInterface) {
         accept(LBRACE);
         if (token.pos <= endPosTable.errorEndPos) {
             // error recovery
@@ -3040,7 +3026,7 @@ public class JavacParser implements Parser {
         }
         ListBuffer<JCTree> defs = new ListBuffer<JCTree>();
         while (token.kind != RBRACE && token.kind != EOF) {
-            defs.appendList(classOrInterfaceBodyDeclaration(className, encl));
+            defs.appendList(classOrInterfaceBodyDeclaration(className, isInterface));
             if (token.pos <= endPosTable.errorEndPos) {
                // error recovery
                skip(false, true, true, false);
@@ -3067,15 +3053,14 @@ public class JavacParser implements Parser {
      *    | ModifiersOpt Type Ident
      *      ( ConstantDeclaratorsRest | InterfaceMethodDeclaratorRest ";" )
      */
-    protected List<JCTree> classOrInterfaceBodyDeclaration(Name className, TokenKind encl) {
+    protected List<JCTree> classOrInterfaceBodyDeclaration(Name className, boolean isInterface) {
         if (token.kind == SEMI) {
             nextToken();
             return List.<JCTree>nil();
         } else {
-            boolean isInterface = (encl == INTERFACE);
             String dc = token.comment(CommentStyle.JAVADOC);
             int pos = token.pos;
-            JCModifiers mods = modifiersOpt(ModuleModifierKind.LOOKAHEAD, (encl == CLASS ? className : null));
+            JCModifiers mods = modifiersOpt();
             if (token.kind == CLASS ||
                 token.kind == INTERFACE ||
                 allowEnums && token.kind == ENUM) {
@@ -3147,7 +3132,7 @@ public class JavacParser implements Parser {
      *  ConstructorDeclaratorRest =
      *      "(" FormalParameterListOpt ")" [THROWS TypeList] MethodBody
      */
-    JCTree methodDeclaratorRest(int pos,
+    protected JCTree methodDeclaratorRest(int pos,
                               JCModifiers mods,
                               JCExpression type,
                               Name name,
@@ -3279,7 +3264,7 @@ public class JavacParser implements Parser {
     }
 
     JCModifiers optFinal(long flags) {
-        JCModifiers mods = modifiersOpt(ModuleModifierKind.DISALLOWED);
+        JCModifiers mods = modifiersOpt();
         checkNoMods(mods.flags & ~(Flags.FINAL | Flags.DEPRECATED));
         mods.flags |= flags;
         return mods;

@@ -25,7 +25,6 @@
 
 package com.sun.tools.javac.jigsaw;
 
-import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import java.io.File;
 import java.io.IOException;
 import java.lang.module.ModuleId;
@@ -49,6 +48,7 @@ import org.openjdk.jigsaw.JigsawModuleSystem;
 import org.openjdk.jigsaw.PathContext;
 import org.openjdk.jigsaw.Platform;
 
+import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.main.OptionName;
@@ -86,7 +86,7 @@ public class JigsawModuleResolver implements ModuleResolver {
         catalog = new JavacCatalog(library);
 
         log = Log.instance(context);
-        debug = new Debug("jigsaw", options, log.noticeWriter);
+        debug = new Debug("jigsaw", options, log);
     }
 
     public Iterable<? extends ModuleElement> resolve(

@@ -540,16 +540,8 @@
         <build-bootstrap-classes includes="${javac.includes}"/>
     </target>
 
-    <target name="build-bootstrap-module-javac" depends="build-bootstrap-classes-javac,build-bootstrap-module-langtools"
-            if="boot.java.provides.modules">
-        <build-bootstrap-module module.name="${javac.module.name}"
-            includes="${javac.module.includes}"
-            excludes="${javac.module.excludes}"
-            />
-    </target>
-
     <target name="build-bootstrap-javac"
-            depends="build-bootstrap-classes-javac,build-bootstrap-module-javac,-def-build-bootstrap-jar,-def-build-bootstrap-tool">
+            depends="build-bootstrap-classes-javac,build-bootstrap-module-langtools,-def-build-bootstrap-jar,-def-build-bootstrap-tool">
         <build-bootstrap-jar     name="javac" includes="${javac.includes}"/>
         <build-bootstrap-tool    name="javac"/>
     </target>
@@ -558,15 +550,7 @@
         <build-classes includes="${javac.includes}"/>
     </target>
 
-    <target name="build-module-javac" depends="build-classes-javac,build-module-langtools,-def-build-module"
-            if="target.java.provides.modules">
-        <build-module module.name="${javac.module.name}"
-            includes="${javac.module.includes}"
-            excludes="${javac.module.excludes}"
-            />
-    </target>
-
-    <target name="build-javac" depends="build-classes-javac,build-module-javac">
+    <target name="build-javac" depends="build-classes-javac,build-module-langtools">
         <build-jar  name="javac" includes="${javac.includes}"/>
         <build-tool name="javac"/>
     </target>
@@ -587,17 +571,28 @@
 
     <!-- langtools module targets -->
 
-    <target name="build-bootstrap-module-langtools"
+    <target name="build-bootstrap-module-javax-tools"
             depends="build-bootstrap-classes-javac,-def-build-bootstrap-module"
+            if="boot.java.provides.modules">
+        <build-bootstrap-module module.name="${javax.tools.module.name}" includes="${javax.tools.module.includes}"/>
+    </target>
+
+    <target name="build-module-javax-tools" depends="build-classes-javac,-def-build-module"
+            if="target.java.provides.modules">
+        <build-module module.name="${javax.tools.module.name}" includes="${javax.tools.module.includes}"/>
+    </target>
+    
+    <target name="build-bootstrap-module-langtools"
+            depends="build-bootstrap-classes-javac,build-bootstrap-classes-javah,build-bootstrap-classes-javap,build-bootstrap-classes-javadoc,build-bootstrap-classes-doclets,build-bootstrap-module-javax-tools,-def-build-bootstrap-module"
             if="boot.java.provides.modules">
         <build-bootstrap-module module.name="${langtools.module.name}" includes="${langtools.module.includes}"/>
     </target>
 
-    <target name="build-module-langtools" depends="build-classes-javac,-def-build-module"
+    <target name="build-module-langtools"
+            depends="build-classes-javac,build-classes-javah,build-classes-javap,build-classes-javadoc,build-classes-doclets,build-module-javax-tools,-def-build-module"
             if="target.java.provides.modules">
         <build-module module.name="${langtools.module.name}" includes="${langtools.module.includes}"/>
     </target>
-
 
     <!--
     **** javadoc targets.
@@ -608,16 +603,8 @@
         <build-bootstrap-classes includes="${javadoc.includes}"/>
     </target>
 
-    <target name="build-bootstrap-module-javadoc"
-            depends="build-bootstrap-classes-javadoc,build-bootstrap-classes-doclets,build-bootstrap-module-javac"
-            if="boot.java.provides.modules">
-        <build-bootstrap-module module.name="${javadoc.module.name}"
-            includes="${javadoc.module.includes}"
-            />
-    </target>
-
     <target name="build-bootstrap-javadoc"
-            depends="build-bootstrap-classes-javadoc,build-bootstrap-module-javadoc,build-bootstrap-javac">
+            depends="build-bootstrap-classes-javadoc,build-bootstrap-javac,build-bootstrap-module-langtools">
         <build-bootstrap-jar     name="javadoc" includes="${javadoc.includes}"
                                  jarclasspath="javac.jar doclets.jar"/>
         <build-bootstrap-tool    name="javadoc"/>
@@ -627,12 +614,7 @@
         <build-classes includes="${javadoc.includes}"/>
     </target>
 
-    <target name="build-module-javadoc" depends="build-classes-javadoc,build-classes-doclets,build-module-javac"
-            if="target.java.provides.modules">
-        <build-module module.name="${javadoc.module.name}" includes="${javadoc.module.includes}"/>
-    </target>
-
-    <target name="build-javadoc" depends="build-javac,build-classes-javadoc,build-module-javadoc">
+    <target name="build-javadoc" depends="build-javac,build-classes-javadoc,build-module-langtools">
         <build-jar  name="javadoc" includes="${javadoc.includes}"
                     jarclasspath="javac.jar doclets.jar"/>
         <build-tool name="javadoc"/>
@@ -700,16 +682,8 @@
         <build-bootstrap-classes includes="${javah.includes}"/>
     </target>
 
-    <target name="build-bootstrap-module-javah"
-            depends="build-bootstrap-classes-javah,build-bootstrap-module-javac"
-            if="boot.java.provides.modules">
-        <build-bootstrap-module module.name="${javah.module.name}"
-            includes="${javah.module.includes}"
-            />
-    </target>
-
     <target name="build-bootstrap-javah"
-            depends="build-bootstrap-classes-javah,build-bootstrap-module-javah,build-bootstrap-javac">
+            depends="build-bootstrap-classes-javah,build-bootstrap-javac,build-bootstrap-module-langtools">
         <build-bootstrap-jar     name="javah" includes="${javah.includes}"
                                  jarclasspath="javac.jar"/>
         <build-bootstrap-tool    name="javah"/>
@@ -719,12 +693,7 @@
         <build-classes includes="${javah.includes}"/>
     </target>
 
-    <target name="build-module-javah" depends="build-classes-javah,build-module-javac"
-            if="target.java.provides.modules">
-        <build-module module.name="${javah.module.name}" includes="${javah.module.includes}"/>
-    </target>
-
-    <target name="build-javah" depends="build-javac,build-classes-javah,build-module-javah">
+    <target name="build-javah" depends="build-javac,build-classes-javah,build-module-langtools">
         <build-jar  name="javah" includes="${javah.includes}" jarclasspath="javac.jar"/>
         <build-tool name="javah"/>
     </target>
@@ -751,16 +720,8 @@
         <build-bootstrap-classes includes="${javap.includes}"/>
     </target>
 
-    <target name="build-bootstrap-module-javap"
-            depends="build-bootstrap-classes-javap,build-bootstrap-module-javac"
-            if="boot.java.provides.modules">
-        <build-bootstrap-module module.name="${javap.module.name}"
-            includes="${javap.module.includes}"
-            />
-    </target>
-
     <target name="build-bootstrap-javap"
-            depends="build-bootstrap-classes-javap,build-bootstrap-module-javap,build-bootstrap-javac">
+            depends="build-bootstrap-classes-javap,build-bootstrap-javac,build-bootstrap-module-langtools">
         <build-bootstrap-jar     name="javap" includes="${javap.includes}"
                                  jarclasspath="javac.jar"/>
         <build-bootstrap-tool    name="javap"/>
@@ -770,12 +731,7 @@
         <build-classes includes="${javap.includes}"/>
     </target>
 
-    <target name="build-module-javap" depends="build-classes-javap,build-module-javac"
-            if="target.java.provides.modules">
-        <build-module module.name="${javap.module.name}" includes="${javap.module.includes}"/>
-    </target>
-
-    <target name="build-javap" depends="build-javac,build-classes-javap,build-module-javap">
+    <target name="build-javap" depends="build-javac,build-classes-javap,build-module-langtools">
         <build-jar  name="javap" includes="${javap.includes}"
                     jarmainclass="com.sun.tools.javap.Main"
                     jarclasspath="javac.jar"/>
@@ -805,7 +761,7 @@
     </target>
 
     <target name="build-bootstrap-module-apt"
-            depends="build-bootstrap-classes-apt,build-bootstrap-module-javac,build-bootstrap-module-mirror"
+            depends="build-bootstrap-classes-apt,build-bootstrap-module-mirror,build-bootstrap-module-langtools"
             if="boot.java.provides.modules">
         <build-bootstrap-module module.name="${apt.module.name}"
             includes="${apt.module.includes}"
@@ -823,7 +779,7 @@
         <build-classes includes="${apt.includes}"/>
     </target>
 
-    <target name="build-module-apt" depends="build-classes-apt,build-module-javac,build-module-mirror"
+    <target name="build-module-apt" depends="build-classes-apt,build-module-mirror,build-module-langtools"
             if="target.java.provides.modules">
         <build-module module.name="${apt.module.name}" includes="${apt.module.includes}"/>
     </target>
