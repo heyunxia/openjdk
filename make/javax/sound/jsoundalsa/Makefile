@@ -66,7 +66,7 @@ FILES_export = \
 	$(MIDIFILES_export) \
 	$(PORTFILES_export)
 
-LDFLAGS += -lasound
+OTHER_LDLIBS += -lasound
 
 CPPFLAGS += \
 	-DUSE_DAUDIO=TRUE \
