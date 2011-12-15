@@ -446,10 +446,10 @@ public class AttributeWriter extends BasicWriter
             for (int ei = 0; ei < v.export_length; ei++) {
                 ModuleProvides_attribute.Export e = v.export_table[ei];
                 String name = constantWriter.stringValue(e.export_index);
-                int needsAsteriskMask = 
+                int needsAsteriskMask =
                         ModuleProvides_attribute.Export.TYPE_AND_MEMBERS
                         | ModuleProvides_attribute.Export.PACKAGE_AND_SUBPACKAGES;
-                int isPackageMask = 
+                int isPackageMask =
                         ModuleProvides_attribute.Export.PACKAGE
                         | ModuleProvides_attribute.Export.PACKAGE_AND_SUBPACKAGES;
                 boolean needsAsterisk = ((e.export_flags & needsAsteriskMask) != 0);
@@ -491,8 +491,6 @@ public class AttributeWriter extends BasicWriter
         indent(+1);
         for (ModuleRequires_attribute.Entry e: entries) {
             print("#" + e.index + "," + String.format("%x", e.flags)+ "\t// requires");
-            if (service)
-                print(" service");
             if ((e.flags & ModuleRequires_attribute.MR_OPTIONAL) != 0)
                 print(" optional");
             if ((e.flags & ModuleRequires_attribute.MR_LOCAL) != 0)
@@ -501,6 +499,8 @@ public class AttributeWriter extends BasicWriter
                 print(" public");
             if ((e.flags & ModuleRequires_attribute.MR_SYNTHETIC) != 0)
                 print(" (synthetic)");
+            if (service)
+                print(" service");
             println(" " + constantWriter.stringValue(e.index));
         }
         indent(-1);

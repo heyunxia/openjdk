@@ -2578,7 +2578,7 @@ public class JavacParser implements Parser {
             setErrorEndPos(token.pos);
             reportSyntaxError(S.prevToken().endPos, "expected", RBRACE);
         }
-        
+
         // The extended metadata is all of the textual content that follows the
         // module declaration.
         UnicodeReader reader = S.getReader();
@@ -2630,34 +2630,27 @@ public class JavacParser implements Parser {
             } else if (token.name() == names.requires) {
                 ListBuffer<RequiresFlag> flags = new ListBuffer<RequiresFlag>();
                 nextToken();
+                if (token.kind == IDENTIFIER && token.name() == names.optional) {
+                    flags.add(RequiresFlag.OPTIONAL);
+                    nextToken();
+                }
                 if (token.kind == IDENTIFIER && token.name() == names.service) {
                     nextToken();
-                    if (token.kind == IDENTIFIER && token.name() == names.optional) {
-                        flags.add(RequiresFlag.OPTIONAL);
-                        S.nextToken();
-                    }
                     JCExpression qualId = qualident();
                     accept(SEMI);
                     defs.append(toP(F.at(pos).RequiresService(flags.toList(), qualId)));
                 } else {
-                    JCExpression moduleIdHead = null;
-                    while (token.kind.tag == Token.Tag.NAMED) {
-                        int id_pos = token.pos;
-                        Name id = token.name();
+                    while ((token.kind == PUBLIC)
+                            || (token.kind == IDENTIFIER && token.name() == names.local)) {
+                        RequiresFlag flag = (token.kind == PUBLIC)
+                                ? RequiresFlag.PUBLIC : RequiresFlag.LOCAL;
+                        // FIXME: check duplicates
+                        flags.append(flag);
                         nextToken();
-                        if (token.kind == DOT || token.kind == MONKEYS_AT || token.kind == SEMI) {
-                            moduleIdHead = toP(F.at(id_pos).Ident(id));
-                            break;
-                        }
-                        flags.append(RequiresFlag.valueOf(id.toString().toUpperCase()));
                     }
-                    if (moduleIdHead == null) {
-                        log.error(pos, "module.id.expected");
-                    } else {
-                        JCModuleIdQuery moduleIdQuery = moduleIdQuery(moduleIdHead);
-                        accept(SEMI);
-                        defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleIdQuery)));
-                    }
+                    JCModuleIdQuery moduleIdQuery = moduleIdQuery();
+                    accept(SEMI);
+                    defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleIdQuery)));
                 }
             } else if (token.name() == names.permits) {
                 nextToken();
@@ -2750,7 +2743,7 @@ public class JavacParser implements Parser {
         Name query = null;
         if (token.kind == MONKEYS_AT) {
             nextToken();
-            if (token.kind == VERSIONLITERAL) { 
+            if (token.kind == VERSIONLITERAL) {
                 query = token.name();
                 nextToken();
             } else if (optag(token.kind) != Tag.NO_TAG) { // FIXME: close, but not close enough
