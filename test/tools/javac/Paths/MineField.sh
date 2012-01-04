@@ -51,6 +51,18 @@
 #   previous -Xbootclasspath/p: or -Xbootclasspath/a: command line flags.
 #----------------------------------------------------------------
 
+#----------------------------------------------------------------
+#
+# JDK 7: Modules: java.endorsed.dirs java.ext.dirs -endorseddirs -extdirs
+#
+# Endorsed directories and extension directories are currently not supported
+# by javac or by java.
+# Bootclasspath options are supported by javac, and by java in legacy mode.
+# Endorsed and extension directories are internally similar to -Xbootclasspath/p:
+# and -Xbootclasspath/a: and could be treated the same way if necessary.
+#
+#----------------------------------------------------------------
+
 . ${TESTSRC-.}/Util.sh
 
 set -u

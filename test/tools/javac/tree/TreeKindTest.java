@@ -108,6 +108,26 @@ public class TreeKindTest{
                 ok = ok & verify(k, i, i == ClassTree.class);
                 break;
 
+            case MODULE:
+                ok = ok & verify(k, i, i == ModuleTree.class);
+                break;
+
+            case MODULE_CLASS:
+                ok = ok & verify(k, i, i == ModuleClassTree.class);
+                break;
+
+            case MODULE_PERMITS:
+                ok = ok & verify(k, i, i == ModulePermitsTree.class);
+                break;
+
+            case MODULE_REQUIRES:
+                ok = ok & verify(k, i, i == ModuleRequiresTree.class);
+                break;
+
+            case PACKAGE:
+                ok = ok & verify(k, i, i == PackageTree.class);
+                break;
+
             case OTHER:
                 ok = ok & verify(k, i, i == null);
                 break;

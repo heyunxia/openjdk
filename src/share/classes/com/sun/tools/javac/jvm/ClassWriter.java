@@ -29,17 +29,20 @@ import java.io.*;
 import java.util.Set;
 import java.util.HashSet;
 
-import javax.tools.JavaFileManager;
 import javax.tools.FileObject;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.code.Attribute.RetentionPolicy;
+import com.sun.tools.javac.code.Directive.*;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.file.BaseFileObject;
 import com.sun.tools.javac.util.*;
 
+import javax.tools.JavaFileManager.Location;
+import javax.tools.ModuleFileManager;
 import static com.sun.tools.javac.code.BoundKind.*;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
@@ -61,19 +64,17 @@ public class ClassWriter extends ClassFile {
     protected static final Context.Key<ClassWriter> classWriterKey =
         new Context.Key<ClassWriter>();
 
-    private final Symtab syms;
-
     private final Options options;
 
     /** Switch: verbose output.
      */
     private boolean verbose;
 
-    /** Switch: scrable private names.
+    /** Switch: scramble private names.
      */
     private boolean scramble;
 
-    /** Switch: scrable private names.
+    /** Switch: scramble private names.
      */
     private boolean scrambleAll;
 
@@ -169,7 +170,6 @@ public class ClassWriter extends ClassFile {
 
         log = Log.instance(context);
         names = Names.instance(context);
-        syms = Symtab.instance(context);
         options = Options.instance(context);
         target = Target.instance(context);
         source = Source.instance(context);
@@ -531,6 +531,21 @@ public class ClassWriter extends ClassFile {
                 if (type.tag == CLASS) enterInner((ClassSymbol)type.tsym);
                 poolbuf.appendByte(CONSTANT_Class);
                 poolbuf.appendChar(pool.put(xClassName(type)));
+            } else if (value instanceof ModuleSymbol) {
+                ModuleSymbol sym = (ModuleSymbol) value;
+                poolbuf.appendByte(CONSTANT_ModuleId);
+                poolbuf.appendChar(pool.put(names.fromUtf(externalize(sym.flatName()))));
+                poolbuf.appendChar(sym.version == null ? 0 : pool.put(sym.version));
+            } else if (value instanceof ModuleId) {
+                ModuleId mid = (ModuleId)value;
+                poolbuf.appendByte(CONSTANT_ModuleId);
+                poolbuf.appendChar(pool.put(mid.name));
+                poolbuf.appendChar(mid.version == null ? 0 : pool.put(mid.version));
+            } else if (value instanceof ModuleIdQuery) {
+                ModuleIdQuery mid = (ModuleIdQuery)value;
+                poolbuf.appendByte(CONSTANT_ModuleId);
+                poolbuf.appendChar(pool.put(mid.name));
+                poolbuf.appendChar(mid.versionQuery == null ? 0 : pool.put(mid.versionQuery));
             } else {
                 Assert.error("writePool " + value);
             }
@@ -846,6 +861,97 @@ public class ClassWriter extends ClassFile {
         }
     }
 /**********************************************************************
+ * Writing module attributes
+ **********************************************************************/
+
+    /** Write the Module attribute if needed.
+     *  Returns the number of attributes written (0 or 1).
+     */
+    int writeModuleAttribute(ClassSymbol c) {
+        if (c.modle == null)
+            return 0;
+
+        int alenIdx = writeAttr(names.Module);
+        databuf.appendChar(pool.put(c.modle));
+        endAttr(alenIdx);
+        return 1;
+    }
+
+    int writeModuleMetadata(ModuleSymbol sym) {
+        int n = 0;
+
+        if (sym.hasRequires()) {
+            int alenIdx = writeAttr(names.ModuleRequires);
+                // modules
+                List<RequiresModuleDirective> modules = sym.getRequiredModules();
+                databuf.appendChar(modules.size());
+                for (RequiresModuleDirective m: modules) {
+                    databuf.appendChar(pool.put(m.moduleQuery));
+                    databuf.appendChar(RequiresFlag.value(m.flags));
+                }
+                // services
+                List<RequiresServiceDirective> services = sym.getRequiredServices();
+                databuf.appendChar(services.size());
+                for (RequiresServiceDirective s: services) {
+                    databuf.appendChar(pool.put(s.sym));
+                    databuf.appendChar(RequiresFlag.value(s.flags));
+                }
+            endAttr(alenIdx);
+            n++;
+        }
+
+        if (sym.hasViews()) {
+            int alenIdx = writeAttr(names.ModuleProvides);
+            List<ViewDeclaration> views = sym.getViews();
+            databuf.appendChar(views.size());
+            for (ViewDeclaration v: views) {
+                // name
+                databuf.appendChar(v.isDefault() ? 0 : pool.put(v.name));
+                // entrypoint, if any
+                ClassSymbol esym = v.getEntrypoint();
+                databuf.appendChar(esym == null ? 0 : pool.put(esym));
+                // aliases
+                List<ProvidesModuleDirective> aliases = v.getAliases();
+                databuf.appendChar(aliases.size());
+                for (ProvidesModuleDirective a: aliases)
+                    databuf.appendChar(pool.put(a.moduleId));
+                // services
+                List<ProvidesServiceDirective> services = v.getServices();
+                databuf.appendChar(services.size());
+                for (ProvidesServiceDirective s: services) {
+                    databuf.appendChar(pool.put(s.service));
+                    databuf.appendChar(pool.put(s.impl));
+                }
+                // exports
+                List<ExportsDirective> exports = v.getExports();
+                databuf.appendChar(exports.size());
+                for (ExportsDirective e: exports) {
+                    databuf.appendChar(pool.put(e.sym.flatName()));  // CHECK THIS: ensure this is the binary name
+                    databuf.appendChar(ExportFlag.value(e.flags));
+                    databuf.appendChar(e.origin == null ? 0 : pool.put(e.origin));
+                }
+                // permits
+                List<PermitsDirective> permits = v.getPermits();
+                databuf.appendChar(permits.size());
+                for (PermitsDirective p: permits) {
+                    databuf.appendChar(pool.put(p.moduleId));
+                }
+            }
+            endAttr(alenIdx);
+            n++;
+        }
+
+        if (sym.hasExtendedMetadata()) {
+            int alenIdx = writeAttr(names.ModuleData);
+            databuf.appendChar(pool.put(sym.extendedMetadata));
+            endAttr(alenIdx);
+            n++;
+        }
+
+        return n;
+    }
+
+/**********************************************************************
  * Writing Objects
  **********************************************************************/
 
@@ -864,6 +970,7 @@ public class ClassWriter extends ClassFile {
         if (c.type.tag != CLASS) return; // arrays
         if (pool != null && // pool might be null if called from xClassName
             c.owner.enclClass() != null &&
+            c.owner.kind != MDL &&
             (innerClasses == null || !innerClasses.contains(c))) {
 //          log.errWriter.println("enter inner " + c);//DEBUG
             enterInner(c.owner.enclClass());
@@ -1441,9 +1548,25 @@ public class ClassWriter extends ClassFile {
     public JavaFileObject writeClass(ClassSymbol c)
         throws IOException, PoolOverflow, StringOverflow
     {
+        String name = (c.owner.kind == MDL ? c.name : c.flatname).toString();
+
+        Location outLocn;
+        if (fileManager instanceof ModuleFileManager && fileManager.hasLocation(CLASS_OUTPUT)) {
+            ModuleFileManager mfm = (ModuleFileManager) fileManager;
+            String pkgName = c.owner.kind == MDL ? "" : c.packge().fullname.toString();
+            try {
+                outLocn = mfm.getModuleLocation(CLASS_OUTPUT, c.sourcefile, pkgName);
+            } catch (IllegalArgumentException e) {
+                throw new AssertionError();
+            }
+        } else
+            // Note: when CLASS_OUTPUT is not set, getJavaFileForOutput will
+            // default to writing the output in the same directory as the sourcefile
+            outLocn = CLASS_OUTPUT;
+
         JavaFileObject outFile
-            = fileManager.getJavaFileForOutput(CLASS_OUTPUT,
-                                               c.flatname.toString(),
+            = fileManager.getJavaFileForOutput(outLocn,
+                                               name,
                                                JavaFileObject.Kind.CLASS,
                                                c.sourcefile);
         OutputStream out = outFile.openOutputStream();
@@ -1569,6 +1692,10 @@ public class ClassWriter extends ClassFile {
         acount += writeFlagAttrs(c.flags());
         acount += writeJavaAnnotations(c.getAnnotationMirrors());
         acount += writeEnclosingMethodAttribute(c);
+        if (c.owner.kind == MDL) {
+            acount += writeModuleAttribute(c);
+            acount += writeModuleMetadata(c.modle);
+        }
 
         poolbuf.appendInt(JAVA_MAGIC);
         poolbuf.appendChar(target.minorVersion);

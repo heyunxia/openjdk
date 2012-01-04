@@ -25,6 +25,9 @@
 
 package com.sun.tools.javac.comp;
 
+import com.sun.source.tree.RequiresFlag;
+import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
+import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
 import java.util.*;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
@@ -38,6 +41,10 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.util.List;
 
 import com.sun.tools.javac.jvm.Target;
+import com.sun.tools.javac.code.Directive.EntrypointDirective;
+import com.sun.tools.javac.code.Directive.ExportsDirective;
+import com.sun.tools.javac.code.Directive.ExportFlag;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.tree.JCTree.*;
@@ -54,6 +61,7 @@ import static com.sun.tools.javac.code.Flags.BLOCK;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.Kinds.ERRONEOUS;
 import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.TypeTags.PACKAGE;
 import static com.sun.tools.javac.code.TypeTags.WILDCARD;
 import static com.sun.tools.javac.tree.JCTree.Tag.*;
 
@@ -729,6 +737,9 @@ public class Attr extends JCTree.Visitor {
             }
             chk.checkOverride(tree, m);
 
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), m);
+
             // Create a new environment with local scope
             // for attributing the method.
             Env<AttrContext> localEnv = memberEnter.methodEnv(tree, env);
@@ -866,6 +877,8 @@ public class Attr extends JCTree.Visitor {
 
         try {
             chk.checkDeprecatedAnnotation(tree.pos(), v);
+            // Module modifier may not be used in unnamed module
+            chk.checkModuleModifier(tree.pos(), v);
 
             if (tree.init != null) {
                 if ((v.flags_field & FINAL) != 0 && !tree.init.hasTag(NEWCLASS)) {
@@ -3066,6 +3079,123 @@ public class Attr extends JCTree.Visitor {
         result = tree.type = syms.errType;
     }
 
+    @Override
+    public void visitModuleDef(JCModuleDecl tree) {
+        attribStats(tree.getDirectives(), env);
+    }
+
+    @Override
+    public void visitExports(JCExportDirective tree) {
+        JCExpression expr = tree.qualid;
+        boolean asterisk = false;
+        if (expr.hasTag(Tag.SELECT)) {
+            JCFieldAccess fa = (JCFieldAccess) expr;
+            if (fa.name == names.asterisk) {
+                asterisk = true;
+                expr = fa.selected;
+            }
+        }
+
+        TypeSymbol tsym = attribTree(expr, env,
+                PCK | TYP, Type.noType).tsym;
+        if (tsym.kind != ERR) {
+            EnumSet<ExportFlag> flags = EnumSet.of(ExportFlag.valueOf(tsym.kind, asterisk));
+            ModuleId origin = (tsym.kind == TYP) ? ((ClassSymbol) tsym).modle.getModuleId() : null;
+            ExportsDirective d = new ExportsDirective(tsym, flags, origin);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
+        }
+    }
+
+    @Override
+    public void visitProvidesModule(JCProvidesModuleDirective tree) {
+    }
+
+    @Override
+    public void visitProvidesService(JCProvidesServiceDirective tree) {
+        Symbol srvc = attribTree(tree.serviceName, env, TYP, Type.noType).tsym;
+        TypeSymbol impl = attribTree(tree.implName, env, TYP, Type.noType).tsym;
+        if (srvc.kind != ERR && impl.kind != ERR) {
+            ProvidesServiceDirective d =
+                    new ProvidesServiceDirective((ClassSymbol) srvc, (ClassSymbol) impl);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
+        }
+    }
+
+    @Override
+    public void visitRequiresModule(JCRequiresModuleDirective tree) {
+    }
+
+    @Override
+    public void visitRequiresService(JCRequiresServiceDirective tree) {
+        Type t = attribType(tree.serviceName, env);
+        if (t.tag == CLASS) {
+            // FIXME: should check for duplicates
+            Set<Directive.RequiresFlag> flags = EnumSet.noneOf(Directive.RequiresFlag.class);
+            for (RequiresFlag f: tree.flags) {
+                switch (f) {
+                    case OPTIONAL:
+                        flags.add(Directive.RequiresFlag.OPTIONAL);
+                        break;
+                }
+            }
+            RequiresServiceDirective d = new RequiresServiceDirective((ClassSymbol) tree.serviceName.type.tsym, flags);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
+        }
+    }
+
+    @Override
+    public void visitPermits(JCPermitsDirective tree) {
+    }
+
+    @Override
+    public void visitEntrypoint(JCEntrypointDirective tree) {
+        Type t = attribType(tree.qualId, env);
+        if (t.tag == CLASS) {
+            // FIXME: should check for duplicates
+            EntrypointDirective d = new EntrypointDirective((ClassSymbol) tree.qualId.type.tsym);
+            ViewDeclaration enclView = env.info.enclView;
+            if (enclView == null) {
+                ModuleSymbol msym = env.toplevel.modle;
+                msym.directives.add(d);
+            } else {
+                enclView.directives.add(d);
+            }
+        }
+    }
+
+    @Override
+    public void visitView(JCViewDecl tree) {
+        ModuleSymbol msym = env.toplevel.modle;
+        Name name = TreeInfo.fullName(tree.name);
+        for (Directive d: msym.directives) {
+            if (d.getKind() == Directive.Kind.VIEW
+                    && ((ViewDeclaration) d).name == name) {
+                Assert.checkNull(env.info.enclView);
+                env.info.enclView = (ViewDeclaration) d;
+                attribStats(tree.directives, env);
+                env.info.enclView = null;
+            }
+        }
+    }
+
     public void visitErroneous(JCErroneous tree) {
         if (tree.errs != null)
             for (JCTree err : tree.errs)
@@ -3079,14 +3209,17 @@ public class Attr extends JCTree.Visitor {
         throw new AssertionError();
     }
 
-    /**
-     * Attribute an env for either a top level tree or class declaration.
-     */
     public void attrib(Env<AttrContext> env) {
-        if (env.tree.hasTag(TOPLEVEL))
-            attribTopLevel(env);
-        else
-            attribClass(env.tree.pos(), env.enclClass.sym);
+        switch (env.tree.getTag()) {
+            case MODULE:
+                attribModule(env.tree.pos(), ((JCModuleDecl)env.tree).sym);
+                break;
+            case TOPLEVEL:
+                attribTopLevel(env);
+                break;
+            default:
+                attribClass(env.tree.pos(), env.enclClass.sym);
+        }
     }
 
     /**
@@ -3097,10 +3230,27 @@ public class Attr extends JCTree.Visitor {
         JCCompilationUnit toplevel = env.toplevel;
         try {
             annotate.flush();
-            chk.validateAnnotations(toplevel.packageAnnotations, toplevel.packge);
+            chk.validateAnnotations(toplevel.getPackageAnnotations(), toplevel.packge);
         } catch (CompletionFailure ex) {
             chk.completionError(toplevel.pos(), ex);
         }
+    }
+
+    public void attribModule(DiagnosticPosition pos, ModuleSymbol m) {
+        try {
+            annotate.flush();
+            attribModule(m);
+        } catch (CompletionFailure ex) {
+            chk.completionError(pos, ex);
+        }
+
+    }
+
+    void attribModule(ModuleSymbol m) {
+        // Get environment current at the point of module definition.
+        Env<AttrContext> env = enter.typeEnvs.get(m);
+        //System.err.println("Attr.attribModule: " + env + " " + env.tree);
+        attribStat(env.tree, env);
     }
 
     /** Main method: attribute class definition associated with given class symbol.
@@ -3207,6 +3357,9 @@ public class Attr extends JCTree.Visitor {
             chk.validate(tree.extending, env);
             chk.validate(tree.implementing, env);
         }
+
+        // Module modifier may not be used in unnamed module
+        chk.checkModuleModifier(tree.pos(), c);
 
         // If this is a non-abstract class, check that it has no abstract
         // methods or unimplemented methods of an implemented interface.

@@ -44,16 +44,25 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipFile;
 
 import javax.lang.model.SourceVersion;
+import javax.tools.ExtendedLocation;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
+import javax.tools.ModuleFileManager;
 import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
 
+import static javax.tools.StandardLocation.*;
+
+import com.sun.tools.javac.file.Locations.Path;
 import com.sun.tools.javac.file.RelativePath.RelativeFile;
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
 import com.sun.tools.javac.util.BaseFileManager;
@@ -61,7 +70,7 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 
-import static javax.tools.StandardLocation.*;
+import static com.sun.tools.javac.main.Option.*;
 
 /**
  * This class provides access to the source, class and other files
@@ -72,7 +81,9 @@ import static javax.tools.StandardLocation.*;
  * This code and its internal interfaces are subject to change or
  * deletion without notice.</b>
  */
-public class JavacFileManager extends BaseFileManager implements StandardJavaFileManager {
+public class JavacFileManager
+        extends BaseFileManager
+        implements StandardJavaFileManager, ModuleFileManager {
 
     public static char[] toArray(CharBuffer buffer) {
         if (buffer.hasArray())
@@ -390,6 +401,172 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return j < 0;
     }
 
+    private ModuleMode moduleMode;
+
+    @Override // javax.tools.ModuleFileManager
+    public ModuleMode getModuleMode() {
+        if (moduleMode == null) {
+            if (options.get(MODULEPATH) != null && options.get(CLASSPATH) == null)
+                moduleMode = ModuleMode.MULTIPLE;
+            else
+                moduleMode = ModuleMode.SINGLE;
+        }
+        return moduleMode;
+    }
+
+    @Override // javax.tools.ModuleFileManager
+    public Location getModuleLocation(Location locn, JavaFileObject fo, String pkgName)
+            throws InvalidLocationException, InvalidFileObjectException {
+        if (getModuleMode() == ModuleMode.SINGLE)
+            return locn;
+        else {
+            fo.getClass(); // null check
+            if (!(fo instanceof BaseFileObject))
+                throw new IllegalArgumentException();
+
+            if (!hasLocation(locn))
+                throw new InvalidLocationException();
+            String tag = ((BaseFileObject) fo).inferModuleTag(pkgName);
+            if (tag == null)
+                throw new InvalidFileObjectException();
+            return getModuleLocation(locn, tag);
+        }
+    }
+
+    private Map<Location,Iterable<Location>> moduleLocations =
+            new LinkedHashMap<Location,Iterable<Location>>();
+
+    @Override // javax.tools.ModuleFileManager
+    public Iterable<Location> getModuleLocations(Location locn) {
+        //System.err.println("JavacFileManager.getModuleLocations " + getModuleMode() + " " + locn);
+
+        Iterable<Location> result = moduleLocations.get(locn);
+        if (result == null) {
+            Iterable<File> files = locations.getLocation(locn);
+            if (files == null)
+                result = List.<Location>nil();
+            else {
+                Set<Location> locns = new LinkedHashSet<Location>();
+                for (File file: files) {
+                    if (file.isDirectory()) {
+                        for (File f: file.listFiles()) {
+                            String tag = null;
+                            if (f.isDirectory())
+                                tag = f.getName();
+//                            else if (isArchive(f)) {
+//                                String name = f.getName();
+//                                tag = name.substring(0, name.lastIndexOf("."));
+//                            }
+                            // FIXME: check if tag has already been seen
+                            if (tag != null)
+                                locns.add(getModuleLocation(locn, tag));
+                        }
+                    } else {
+                        // ignore archive files for now, these would be "module archive
+                        // files", containing multiple modules in a new but obvious way
+                    }
+
+                }
+                result = locns;
+            }
+        }
+
+//        System.err.println("JavacFileManager.getModuleLocations.result " + result);
+        return result;
+    }
+
+    private Map<String, Location> locationCache = new HashMap<String,Location>();
+
+    @Override // javax.tools.ModuleFileManager
+    public Location join(Iterable<? extends Location> list)
+            throws IllegalArgumentException {
+        StringBuilder sb = new StringBuilder("{");
+        String sep = "";
+        for (Location l: list) {
+            if (!locations.isSupportedLocation(l))
+                throw new IllegalArgumentException(l.toString());
+            sb.append(sep);
+            sb.append(l.getName());
+            sep = ",";
+        }
+        sb.append("}");
+        String name = sb.toString();
+
+        // ugly, rethink this (using name for key)
+        Location result = locationCache.get(name);
+        if (result == null) {
+            // FIXME, could flatten list, and/or use a LinkedHashSet to
+            // canonicalize list
+            result = new CompositeLocation(list, this);
+            locationCache.put(name, result);
+        }
+
+//        System.err.println("JavacFileManager.join: " + toString(locations) + " = " + result);
+        return result;
+    }
+
+    // Get a location for all the containers named "tag" on given location
+    // Containers may be either directories or archive files.
+    private Location getModuleLocation(Location location, String tag) {
+        // TODO: should reject bad use when location is already a module location
+        // TODO: should honor location.isOutput()
+        String name = location.getName() + "[" + tag + "]";
+        Location result = locationCache.get(name);
+        if (result == null) {
+            Iterable<? extends File> files = locations.getLocation(location);
+            if (files == null)
+                throw new IllegalArgumentException(location.getName());
+            Path p = locations.new Path();
+            if (files != null) {
+                for (File file: files) {
+                    File dir = new File(file, tag);
+                    if (dir.exists() && dir.isDirectory() || location.isOutputLocation())
+                        p.addFile(dir);
+                    else {
+                        File jar = new File(file, tag + ".jar");
+                        if (jar.exists() && jar.isFile())
+                            p.addFile(jar);
+                    }
+                }
+            }
+            result = locations.createLocation(p, name, locations.getOrigin(location));
+            locationCache.put(name, result);
+        }
+        return result;
+    }
+
+    /**
+     * Update a location based on the bootclasspath options.
+     * @param l the default platform location if no bootclasspath options are given
+     * @param first whether or not this is the first platform location
+     * @param last whether or not this is the last platform location
+     * @return a list of locations based on the default location and on the
+     *  values of any bootclasspath options.
+     */
+    public List<Location> augmentPlatformLocation(Location l, boolean first, boolean last) {
+        if (l == StandardLocation.PLATFORM_CLASS_PATH) {
+            assert (first && last);
+            return List.of(l);
+        }
+
+        Path ppPrepend = first ? locations.getPlatformPathPrepend() : null;
+        Path ppBase = locations.getPlatformPathBase();
+        Path ppAppend = last ? locations.getPlatformPathAppend() : null;
+
+        ListBuffer<Location> results = new ListBuffer<Location>();
+        if (ppPrepend != null)
+            results.add(locations.createLocation(ppPrepend, StandardLocation.PLATFORM_CLASS_PATH));
+        if (ppBase != null) {
+            if (first)
+                results.add(locations.createLocation(ppBase, StandardLocation.PLATFORM_CLASS_PATH));
+        } else
+            results.add(l);
+        if (ppAppend != null)
+            results.add(locations.createLocation(ppAppend, StandardLocation.PLATFORM_CLASS_PATH));
+        //System.out.println("JFM:augmentPlatformLocation: " + l + " " + first + " " + last + " " + results);
+        return results.toList();
+    }
+
     /**
      * An archive provides a flat directory structure of a ZipFile by
      * mapping directory names to lists of files (basenames).
@@ -553,6 +730,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
 
     /** Flush any output resources.
      */
+    @Override // javax.tools.JavaFileManager
     public void flush() {
         contentCache.clear();
     }
@@ -560,6 +738,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
     /**
      * Close the JavaFileManager, releasing resources.
      */
+    @Override // javax.tools.JavaFileManager
     public void close() {
         for (Iterator<Archive> i = archives.values().iterator(); i.hasNext(); ) {
             Archive a = i.next();
@@ -580,6 +759,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return defaultEncodingName;
     }
 
+    @Override // javax.tools.JavaFileManager
     public ClassLoader getClassLoader(Location location) {
         nullCheck(location);
         Iterable<? extends File> path = getLocation(location);
@@ -597,6 +777,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return getClassLoader(lb.toArray(new URL[lb.size()]));
     }
 
+    @Override // javax.tools.JavaFileManager
     public Iterable<JavaFileObject> list(Location location,
                                          String packageName,
                                          Set<JavaFileObject.Kind> kinds,
@@ -604,23 +785,35 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         throws IOException
     {
         // validatePackageName(packageName);
+        nullCheck(location);
         nullCheck(packageName);
         nullCheck(kinds);
 
-        Iterable<? extends File> path = getLocation(location);
-        if (path == null)
+        if (location instanceof ExtendedLocation) {
+            return ((ExtendedLocation) location).list(packageName, kinds, recurse);
+        }
+
+        Iterable<? extends File> files = locations.getLocation(location);
+        if (files == null)
             return List.nil();
         RelativeDirectory subdirectory = RelativeDirectory.forPackage(packageName);
         ListBuffer<JavaFileObject> results = new ListBuffer<JavaFileObject>();
 
-        for (File directory : path)
-            listContainer(directory, subdirectory, kinds, recurse, results);
+        for (File file: files) {
+            listContainer(file, subdirectory, kinds, recurse, results);
+        }
+
         return results.toList();
     }
 
+    @Override // javax.tools.JavaFileManager
     public String inferBinaryName(Location location, JavaFileObject file) {
         file.getClass(); // null check
         location.getClass(); // null check
+
+        if (location instanceof ExtendedLocation)
+            return ((ExtendedLocation) location).inferBinaryName(file);
+
         // Need to match the path semantics of list(location, ...)
         Iterable<? extends File> path = getLocation(location);
         if (path == null) {
@@ -630,9 +823,11 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         if (file instanceof BaseFileObject) {
             return ((BaseFileObject) file).inferBinaryName(path);
         } else
-            throw new IllegalArgumentException(file.getClass().getName());
+//            throw new IllegalArgumentException(file.getClass().getName() + ":" + file.toString());
+            return null; // FIXME -- seems OK per spec but need to check
     }
 
+    @Override // javax.tools.JavaFileManager
     public boolean isSameFile(FileObject a, FileObject b) {
         nullCheck(a);
         nullCheck(b);
@@ -643,24 +838,28 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return a.equals(b);
     }
 
+    @Override // javax.tools.JavaFileManager
     public boolean hasLocation(Location location) {
-        return getLocation(location) != null;
+        return (location instanceof ExtendedLocation || (getLocation(location) != null));
     }
 
+    @Override // javax.tools.JavaFileManager
     public JavaFileObject getJavaFileForInput(Location location,
                                               String className,
                                               JavaFileObject.Kind kind)
         throws IOException
     {
         nullCheck(location);
-        // validateClassName(className);
+        // validateClassName(className);g518
+
         nullCheck(className);
         nullCheck(kind);
         if (!sourceOrClass.contains(kind))
             throw new IllegalArgumentException("Invalid kind: " + kind);
-        return getFileForInput(location, RelativeFile.forClass(className, kind));
+        return getFileForInput(location, RelativeFile.forClass(className, kind), kind);
     }
 
+    @Override // javax.tools.JavaFileManager
     public FileObject getFileForInput(Location location,
                                       String packageName,
                                       String relativeName)
@@ -674,25 +873,44 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         RelativeFile name = packageName.length() == 0
             ? new RelativeFile(relativeName)
             : new RelativeFile(RelativeDirectory.forPackage(packageName), relativeName);
-        return getFileForInput(location, name);
+        return getFileForInput(location, name, getKindForName(name.path));
     }
 
-    private JavaFileObject getFileForInput(Location location, RelativeFile name) throws IOException {
-        Iterable<? extends File> path = getLocation(location);
-        if (path == null)
+    private JavaFileObject.Kind getKindForName(String name) {
+        for (JavaFileObject.Kind k: JavaFileObject.Kind.values()) {
+            if (k != JavaFileObject.Kind.OTHER && name.endsWith(k.extension)) {
+                return k;
+            }
+        }
+        return JavaFileObject.Kind.OTHER;
+    }
+
+    private JavaFileObject getFileForInput(Location location, RelativeFile name,
+                JavaFileObject.Kind kind) throws IOException {
+        if (location instanceof CompositeLocation) {
+            for (Location l: ((CompositeLocation) location).locations) {
+                JavaFileObject fo = getFileForInput(l, name, kind);
+                if (fo != null)
+                    return fo;
+            }
+            return null;
+        }
+
+        Iterable<? extends File> files = locations.getLocation(location);
+        if (files == null)
             return null;
 
-        for (File dir: path) {
-            Archive a = archives.get(dir);
+        for (File file: files) {
+            Archive a = archives.get(file);
             if (a == null) {
-                if (fsInfo.isDirectory(dir)) {
-                    File f = name.getFile(dir);
+                if (fsInfo.isDirectory(file)) {
+                    File f = name.getFile(file);
                     if (f.exists())
                         return new RegularFileObject(this, f);
                     continue;
                 }
                 // Not a directory, create the archive
-                a = openArchive(dir);
+                a = openArchive(file);
             }
             // Process the archive
             if (a.contains(name)) {
@@ -702,6 +920,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return null;
     }
 
+    @Override // javax.tools.JavaFileManager
     public JavaFileObject getJavaFileForOutput(Location location,
                                                String className,
                                                JavaFileObject.Kind kind,
@@ -717,6 +936,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return getFileForOutput(location, RelativeFile.forClass(className, kind), sibling);
     }
 
+    @Override // javax.tools.JavaFileManager
     public FileObject getFileForOutput(Location location,
                                        String packageName,
                                        String relativeName,
@@ -734,6 +954,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return getFileForOutput(location, name, sibling);
     }
 
+    // FIXME: compare against tl
     private JavaFileObject getFileForOutput(Location location,
                                             RelativeFile fileName,
                                             FileObject sibling)
@@ -753,12 +974,15 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         } else if (location == SOURCE_OUTPUT) {
             dir = (getSourceOutDir() != null ? getSourceOutDir() : getClassOutDir());
         } else {
-            Iterable<? extends File> path = locations.getLocation(location);
             dir = null;
-            for (File f: path) {
-                dir = f;
-                break;
+            Iterable<? extends File> path = locations.getLocation(location);
+            if (path != null) {
+                for (File e: path) {
+                    dir = e;
+                    break;
+                }
             }
+            //System.err.println("JavacFileManager.getFileForOutput location:" + location + " path:" + toString(path) + " dir:" + dir);
         }
 
         File file = fileName.getFile(dir); // null-safe
@@ -766,6 +990,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
 
     }
 
+    @Override // javax.tools.StandardJavaFileManager
     public Iterable<? extends JavaFileObject> getJavaFileObjectsFromFiles(
         Iterable<? extends File> files)
     {
@@ -779,10 +1004,12 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return result;
     }
 
+    @Override // javax.tools.StandardJavaFileManager
     public Iterable<? extends JavaFileObject> getJavaFileObjects(File... files) {
         return getJavaFileObjectsFromFiles(Arrays.asList(nullCheck(files)));
     }
 
+    @Override // javax.tools.StandardJavaFileManager
     public void setLocation(Location location,
                             Iterable<? extends File> path)
         throws IOException
@@ -791,7 +1018,13 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         locations.setLocation(location, path);
     }
 
-    public Iterable<? extends File> getLocation(Location location) {
+    @Override // javax.tools.StandardJavaFileManager
+    public Iterable<File> getLocation(Location location) {
+        return locations.getLocation(location);
+    }
+
+    @Deprecated // remove uses of this method
+    Iterable<File> getEntriesForLocation(Location location) {
         nullCheck(location);
         return locations.getLocation(location);
     }

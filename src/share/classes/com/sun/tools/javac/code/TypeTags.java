@@ -90,9 +90,14 @@ public class TypeTags {
      */
     public static final int PACKAGE = METHOD+1;
 
+    /** The tag of all module "types".
+     */
+    public static final int MODULE = PACKAGE+1;
+
+
     /** The tag of all (source-level) type variables.
      */
-    public static final int TYPEVAR = PACKAGE+1;
+    public static final int TYPEVAR = MODULE+1;
 
     /** The tag of all type arguments.
      */

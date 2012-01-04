@@ -27,6 +27,7 @@ package com.sun.tools.javac.comp;
 
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.code.*;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 
 /** Contains information specific to the attribute and enter
  *  passes, to be used in place of the generic field in environments.
@@ -62,7 +63,7 @@ public class AttrContext {
      */
     List<Type> tvars = List.nil();
 
-    /** A record of the lint/SuppressWarnings currently in effect
+    /** A record of the lint/SuppressWarnings currently in effect.
      */
     Lint lint;
 
@@ -70,6 +71,9 @@ public class AttrContext {
      * useful for detecting self-references in variable initializers
      */
     Symbol enclVar = null;
+
+    /** The enclosing view, in a module-info file. */
+    ViewDeclaration enclView;
 
     /** Duplicate this context, replacing scope field and copying all others.
      */
