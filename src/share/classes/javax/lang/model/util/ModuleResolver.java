@@ -57,7 +57,7 @@ public interface ModuleResolver {
     Iterable<? extends ModuleElement> getVisibleModules(ModuleElement module)
         throws IllegalStateException;
 
-    boolean isPlatformName(CharSequence name);
+    boolean isBaseModuleName(CharSequence name);
 
-    String getDefaultPlatformModule(); // should use a "platform" enum
+    String getDefaultBaseModule(); // should use a "platform" enum
 }

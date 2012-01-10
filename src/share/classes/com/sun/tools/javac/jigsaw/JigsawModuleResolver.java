@@ -51,6 +51,7 @@ import org.openjdk.jigsaw.Platform;
 import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.jvm.Target;
 import com.sun.tools.javac.main.Option;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Debug;
@@ -72,6 +73,7 @@ public class JigsawModuleResolver implements ModuleResolver {
     Symtab syms;
     Debug debug;
     Log log;
+    String defaultBaseModule;
 
     public JigsawModuleResolver(Context context) throws IOException/*FIXME*/ {
         jigsaw = JigsawModuleSystem.instance();
@@ -87,6 +89,14 @@ public class JigsawModuleResolver implements ModuleResolver {
 
         log = Log.instance(context);
         debug = new Debug("jigsaw", options, log);
+
+        String s = options.get("jigsaw.defaultBaseModule");
+        if (s == null) {
+            Target target = Target.instance(context);
+            defaultBaseModule = "java.base@" + target.toString().replaceAll("^1.", "");
+        } else {
+            defaultBaseModule = s;
+        };
     }
 
     public Iterable<? extends ModuleElement> resolve(
@@ -181,12 +191,14 @@ public class JigsawModuleResolver implements ModuleResolver {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    public boolean isPlatformName(CharSequence name) {
-        return Platform.isPlatformModuleName(name.toString());
+    public boolean isBaseModuleName(CharSequence name) {
+        int at = defaultBaseModule.indexOf("@");
+        String baseModuleName = (at == -1) ? defaultBaseModule : defaultBaseModule.substring(0, at);
+        return baseModuleName.contentEquals(name);
     }
 
-    public String getDefaultPlatformModule() {
-        return Platform.defaultPlatformModule().toString();
+    public String getDefaultBaseModule() {
+        return defaultBaseModule;
     }
 
 

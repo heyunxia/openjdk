@@ -67,6 +67,7 @@ public class Names {
     public final Name _super;
     public final Name _default;
     public final Name _class;
+    public final Name java_base;
     public final Name java_lang;
     public final Name java_lang_Object;
     public final Name java_lang_Class;
@@ -199,6 +200,7 @@ public class Names {
         _default = fromString("default");
 
         _class = fromString("class");
+        java_base = fromString("java.base");
         java_lang = fromString("java.lang");
         java_lang_Object = fromString("java.lang.Object");
         java_lang_Class = fromString("java.lang.Class");
