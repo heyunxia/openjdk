@@ -459,6 +459,7 @@ public class ClassReader implements Completer {
             case CONSTANT_Float:
             case CONSTANT_InvokeDynamic:
             case CONSTANT_ModuleId:
+            case CONSTANT_ModuleQuery:
                 bp = bp + 4;
                 break;
             case CONSTANT_Long:
@@ -538,6 +539,11 @@ public class ClassReader implements Completer {
             break;
         case CONSTANT_ModuleId:
             poolObj[i] = new ModuleId(
+                readInternalName(getChar(index + 1)),
+                readName(getChar(index + 3)));
+            break;
+        case CONSTANT_ModuleQuery:
+            poolObj[i] = new ModuleIdQuery(
                 readInternalName(getChar(index + 1)),
                 readName(getChar(index + 3)));
             break;

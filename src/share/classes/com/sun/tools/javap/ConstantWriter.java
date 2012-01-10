@@ -115,6 +115,13 @@ public class ConstantWriter extends BasicWriter {
                 return 1;
             }
 
+            public Integer visitModuleQuery(CONSTANT_ModuleQuery_info info, Void p) {
+                print("#" + info.name_index + ":#" + info.version_index);
+                tab();
+                println("//  " + stringValue(info));
+                return 1;
+            }
+
             public Integer visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
                 print("#" + info.name_index + ":#" + info.type_index);
                 tab();
@@ -338,6 +345,29 @@ public class ConstantWriter extends BasicWriter {
         }
 
         String getCheckedVersion(CONSTANT_ModuleId_info info) {
+            try {
+                return info.getVersion();
+            } catch (ConstantPoolException e) {
+                return report(e);
+            }
+        }
+
+        public String visitModuleQuery(CONSTANT_ModuleQuery_info info, Void p) {
+            if (info.version_index == 0)
+                return getCheckedName(info);
+            else
+                return getCheckedName(info) + "@" + getCheckedVersion(info);
+        }
+
+        String getCheckedName(CONSTANT_ModuleQuery_info info) {
+            try {
+                return checkName(info.getName());
+            } catch (ConstantPoolException e) {
+                return report(e);
+            }
+        }
+
+        String getCheckedVersion(CONSTANT_ModuleQuery_info info) {
             try {
                 return info.getVersion();
             } catch (ConstantPoolException e) {

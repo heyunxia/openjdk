@@ -543,7 +543,7 @@ public class ClassWriter extends ClassFile {
                 poolbuf.appendChar(mid.version == null ? 0 : pool.put(mid.version));
             } else if (value instanceof ModuleIdQuery) {
                 ModuleIdQuery mid = (ModuleIdQuery)value;
-                poolbuf.appendByte(CONSTANT_ModuleId);
+                poolbuf.appendByte(CONSTANT_ModuleQuery);
                 poolbuf.appendChar(pool.put(mid.name));
                 poolbuf.appendChar(mid.versionQuery == null ? 0 : pool.put(mid.versionQuery));
             } else {

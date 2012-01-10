@@ -284,6 +284,12 @@ public class ClassWriter {
             return 1;
         }
 
+        public Integer visitModuleQuery(CONSTANT_ModuleQuery_info info, ClassOutputStream out) {
+            out.writeShort(info.name_index);
+            out.writeShort(info.version_index);
+            return 1;
+        }
+
         public Integer visitNameAndType(CONSTANT_NameAndType_info info, ClassOutputStream out) {
             out.writeShort(info.name_index);
             out.writeShort(info.type_index);
