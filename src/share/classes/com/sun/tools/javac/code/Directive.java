@@ -113,6 +113,8 @@ public abstract class Directive {
 
     public abstract Kind getKind();
 
+    abstract <R, P> R accept(Visitor<R, P> visitor, P data);
+
     static <T extends Directive> List<T> filter(ListBuffer<Directive> directives, Kind kind, Class<T> clazz) {
         ListBuffer<T> list = ListBuffer.lb();
         for (Directive d: directives) {
@@ -147,6 +149,11 @@ public abstract class Directive {
         public String toString() {
             return "RequiresModule[" + flags + "," + moduleQuery + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitRequiresModule(this, data);
+        }
     }
 
     /**
@@ -170,6 +177,11 @@ public abstract class Directive {
         public String toString() {
             return "RequiresService[" + flags + "," + sym + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitRequiresService(this, data);
+        }
     }
 
     /**
@@ -190,6 +202,11 @@ public abstract class Directive {
         @Override
         public String toString() {
             return "ProvidesModule[" + moduleId + "]";
+        }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitProvidesModule(this, data);
         }
     }
 
@@ -213,6 +230,11 @@ public abstract class Directive {
         @Override
         public String toString() {
             return "ProvidesService[" + service + "," + impl + "]";
+        }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitProvidesService(this, data);
         }
     }
 
@@ -239,6 +261,11 @@ public abstract class Directive {
         public String toString() {
             return "Exports[" + flags + "," + sym + "," + origin + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitExports(this, data);
+        }
     }
 
     /**
@@ -264,6 +291,11 @@ public abstract class Directive {
         public String toString() {
             return "Permits[" + moduleId + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitPermits(this, data);
+        }
     }
 
     /**
@@ -284,6 +316,11 @@ public abstract class Directive {
         @Override
         public String toString() {
             return "Entrypoint[" + sym + "]";
+        }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitEntrypoint(this, data);
         }
     }
 
@@ -347,5 +384,21 @@ public abstract class Directive {
         public String toString() {
             return "View[" + directives + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitView(this, data);
+        }
+    }
+
+    public static interface Visitor<R, P> {
+        R visitRequiresModule(RequiresModuleDirective d, P p);
+        R visitRequiresService(RequiresServiceDirective d, P p);
+        R visitProvidesModule(ProvidesModuleDirective d, P p);
+        R visitProvidesService(ProvidesServiceDirective d, P p);
+        R visitExports(ExportsDirective d, P p);
+        R visitPermits(PermitsDirective d, P p);
+        R visitEntrypoint(EntrypointDirective d, P p);
+        R visitView(ViewDeclaration d, P p);
     }
 }

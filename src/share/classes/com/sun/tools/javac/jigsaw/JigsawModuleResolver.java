@@ -73,7 +73,6 @@ public class JigsawModuleResolver implements ModuleResolver {
     Symtab syms;
     Debug debug;
     Log log;
-    String defaultBaseModule;
 
     public JigsawModuleResolver(Context context) throws IOException/*FIXME*/ {
         jigsaw = JigsawModuleSystem.instance();
@@ -89,14 +88,6 @@ public class JigsawModuleResolver implements ModuleResolver {
 
         log = Log.instance(context);
         debug = new Debug("jigsaw", options, log);
-
-        String s = options.get("jigsaw.defaultBaseModule");
-        if (s == null) {
-            Target target = Target.instance(context);
-            defaultBaseModule = "java.base@" + target.toString().replaceAll("^1.", "");
-        } else {
-            defaultBaseModule = s;
-        };
     }
 
     public Iterable<? extends ModuleElement> resolve(
@@ -190,17 +181,6 @@ public class JigsawModuleResolver implements ModuleResolver {
             throws IllegalStateException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
-
-    public boolean isBaseModuleName(CharSequence name) {
-        int at = defaultBaseModule.indexOf("@");
-        String baseModuleName = (at == -1) ? defaultBaseModule : defaultBaseModule.substring(0, at);
-        return baseModuleName.contentEquals(name);
-    }
-
-    public String getDefaultBaseModule() {
-        return defaultBaseModule;
-    }
-
 
     private ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleId mid) {
         return getModuleIdQuery(mid.getName(), mid.getVersion());

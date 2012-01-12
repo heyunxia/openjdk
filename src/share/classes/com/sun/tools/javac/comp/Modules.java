@@ -71,6 +71,7 @@ import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.jvm.ClassReader;
+import com.sun.tools.javac.jvm.Target;
 import com.sun.tools.javac.main.Option;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -119,6 +120,9 @@ public class Modules extends JCTree.Visitor {
 
     ModuleMode mode;
 
+    ModuleId baseModule;
+    ModuleIdQuery baseModuleQuery;
+
     /**
      * The set of module locations for entered trees.
      * In single module compilation mode, it is a composite of class path and
@@ -144,9 +148,11 @@ public class Modules extends JCTree.Visitor {
     static class ModuleContext {
         ModuleContext(JCModuleDecl decl) {
             this.decl = decl;
+            requiresBaseModule = true;
         }
         final JCModuleDecl decl;
-        boolean seenRequiresBaseModule;
+        boolean requiresBaseModule;
+        boolean isPlatformModule;
     }
 
     Env<ModuleContext> env;
@@ -186,6 +192,12 @@ public class Modules extends JCTree.Visitor {
             mode = moduleFileManager.getModuleMode();
         } else
             mode = ModuleMode.SINGLE;
+
+        Target target = Target.instance(context);
+        Name v = names.fromString(target.name.replaceAll("^1.", ""));
+        baseModule = new ModuleId(names.java_base, v);
+        Name q = names.fromString(">=" + v);
+        baseModuleQuery = new ModuleIdQuery(names.java_base, q);
     }
 
     <T extends JCTree> void acceptAll(List<T> trees) {
@@ -240,16 +252,14 @@ public class Modules extends JCTree.Visitor {
         Env<ModuleContext> prev = env;
         env = menv;
         try {
-            ModuleResolver mr = getModuleResolver();
-            if (mr.isBaseModuleName(sym.name))
-                env.info.seenRequiresBaseModule = true;
+            if (isBaseModuleName(sym.name))
+                env.info.requiresBaseModule = false;
 
             acceptAll(tree.directives);
 
-            if (!env.info.seenRequiresBaseModule) {
-                DEBUG("Modules.visitModuleDef seenPlatformRequires:" + env.info.seenRequiresBaseModule);
-                ModuleId mid = getDefaultBaseModule();
-                sym.directives.add(new RequiresModuleDirective(mid.toQuery()));
+            DEBUG("Modules.visitModuleDef requiresBaseModule:" + env.info.requiresBaseModule);
+            if (env.info.requiresBaseModule) {
+                sym.directives.add(new RequiresModuleDirective(baseModuleQuery));
             }
         } finally {
             currSym = null;
@@ -321,6 +331,8 @@ public class Modules extends JCTree.Visitor {
         JCModuleId moduleId = tree.moduleId;
         ProvidesModuleDirective d = new ProvidesModuleDirective(
                 new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version));
+        if (isBaseModuleName(d.moduleId.name))
+            env.info.requiresBaseModule = false;
         if (currView == null)
             sym.directives.add(d);
         else
@@ -353,9 +365,8 @@ public class Modules extends JCTree.Visitor {
         }
         RequiresModuleDirective d = new RequiresModuleDirective(mq, flags);
         sym.directives.add(d);
-        ModuleResolver mr = getModuleResolver();
-        if (mr.isBaseModuleName(mq.name))
-            env.info.seenRequiresBaseModule = true;
+        if (isBaseModuleName(mq.name))
+            env.info.requiresBaseModule = false;
     }
 
     @Override
@@ -366,6 +377,8 @@ public class Modules extends JCTree.Visitor {
     public void visitView(JCViewDecl tree) {
         if (currView == null) {
             currView = new ViewDeclaration(TreeInfo.fullName(tree.name));
+            if (isBaseModuleName(currView.name))
+                env.info.requiresBaseModule = false;
             try {
                 acceptAll(tree.directives);
             } finally {
@@ -408,8 +421,7 @@ public class Modules extends JCTree.Visitor {
             if (classFile == null) {
                 sym.name = sym.fullname = names.empty; // unnamed module
                 DEBUG("Modules.readModule: (" + sym.hashCode() + ") no module info found for " + locn );
-                ModuleIdQuery mq = getDefaultBaseModule().toQuery();
-                RequiresModuleDirective d = new RequiresModuleDirective(mq);
+                RequiresModuleDirective d = new RequiresModuleDirective(baseModuleQuery);
                 sym.directives = ListBuffer.lb();
                 sym.directives.add(d);
                 return;
@@ -435,24 +447,6 @@ public class Modules extends JCTree.Visitor {
             return null;
         }
     }
-
-    ModuleId getDefaultBaseModule() {
-        if (defaultBaseModule == null) {
-            ModuleResolver mr = getModuleResolver();
-            String def = mr.getDefaultBaseModule();
-            int at = def.indexOf("@");
-            if (at == -1)
-                defaultBaseModule = new ModuleId(names.fromString(def), null);
-            else {
-                Name name = names.fromString(def.substring(0, at).trim());
-                Name version = names.fromString(def.substring(at + 1).trim());
-                defaultBaseModule = new ModuleId(name, version);
-            }
-        }
-        return defaultBaseModule;
-    }
-    // where
-    private ModuleId defaultBaseModule;
 
     private boolean resolve(List<JCCompilationUnit> trees) {
         if (moduleFileManagerUnavailable)
@@ -539,8 +533,8 @@ public class Modules extends JCTree.Visitor {
         ModuleSymbol firstPlatformModule = null;
         ModuleSymbol lastPlatformModule = null;
         for (ModuleSymbol msym: msyms) {
-            DEBUG("Modules.resolve: " + msym.fullname + " " + mr.isBaseModuleName(msym.fullname));
-            if (mr.isBaseModuleName(msym.fullname)) {
+            DEBUG("Modules.resolve: " + msym.fullname + " " + isPlatformModule(msym));
+            if (isPlatformModule(msym)) {
                 if (firstPlatformModule == null)
                     firstPlatformModule = msym;
                 lastPlatformModule = msym;
@@ -551,7 +545,7 @@ public class Modules extends JCTree.Visitor {
         for (ModuleSymbol msym: msyms) {
             DEBUG("Modules.resolve: msym: " + msym);
             DEBUG("Modules.resolve: msym.location: " + msym.location);
-            if (jfm != null && mr.isBaseModuleName(msym.fullname)) {
+            if (jfm != null && isPlatformModule(msym)) {
                 locns.addAll(jfm.augmentPlatformLocation(msym.location,
                         msym == firstPlatformModule,
                         msym == lastPlatformModule));
@@ -563,6 +557,43 @@ public class Modules extends JCTree.Visitor {
         reader.setPathLocation(merged);
 
         return true;
+    }
+
+    boolean isBaseModuleName(Name name) {
+        System.err.println("isBaseModuleName: " + name + " " + name.equals(baseModule.name));
+        return name.equals(baseModule.name);
+    }
+
+    boolean isPlatformModule(ModuleSymbol msym) {
+        boolean b = isPlatformModule0(msym);
+        System.err.println("isPlatformModule: " + msym + " " + b);
+        return b;
+    }
+
+    boolean isPlatformModule0(ModuleSymbol msym) {
+        return isPlatformModuleName(msym.name) || definesPlatformModule(msym.directives.toList());
+    }
+
+    boolean isPlatformModuleName(Name name) {
+        System.err.println("isPlatformModuleName: " + name + " " + name.toString().startsWith("java."));
+        return name.toString().startsWith("java.");
+    }
+
+    boolean definesPlatformModule(List<Directive> directives) {
+        for (Directive d: directives) {
+            switch (d.getKind()) {
+                case PROVIDES_MODULE:
+                    if (isPlatformModuleName(((ProvidesModuleDirective) d).moduleId.name))
+                        return true;
+                    break;
+                case VIEW:
+                    ViewDeclaration v = (ViewDeclaration) d;
+                    if (isPlatformModuleName(v.name) || definesPlatformModule(v.directives.toList()))
+                        return true;
+                    break;
+            }
+        }
+        return false;
     }
 
     protected ModuleResolver getModuleResolver() {
@@ -1041,7 +1072,7 @@ public class Modules extends JCTree.Visitor {
             }
 
             // Add entry for default platform module if needed
-            ModuleId p = Modules.this.getDefaultBaseModule();
+            ModuleId p = baseModule;
             Map<Name,ModuleSymbol> versions = table.get(p.name);
             ModuleSymbol psym = (versions == null) ? null : versions.get(p.version);
             if (psym == null) {
@@ -1078,7 +1109,10 @@ public class Modules extends JCTree.Visitor {
                     throw new ModuleException("mdl.no.unique.version.available", mid);
                 return versions.values().iterator().next();
             } else {
-                ModuleSymbol sym = versions.get(mid.versionQuery);
+                Name q = mid.versionQuery;
+                Name ge = names.fromString(">=");
+                if (q.startsWith(ge)) q = q.subName(2, q.length());
+                ModuleSymbol sym = versions.get(q);
                 if (sym == null)
                     throw new ModuleException("mdl.required.version.not.available", mid);
                 return sym;
@@ -1086,15 +1120,6 @@ public class Modules extends JCTree.Visitor {
         }
         // where
         private Map<Name, Map<Name, ModuleSymbol>> moduleTable;
-
-        public boolean isBaseModuleName(CharSequence name) {
-            String n = name.toString();
-            return n.equals("java.base");  // for now
-        }
-
-        public String getDefaultBaseModule() {
-            return "java.base@8"; // for now
-        }
 
         private class ModuleException extends Exception {
             private static final long serialVersionUID = 0;

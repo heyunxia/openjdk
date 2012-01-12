@@ -604,8 +604,7 @@ public class ClassReader implements Completer {
     /** Read module id query.
      */
     ModuleIdQuery readModuleIdQuery(int i) {
-        ModuleId id = (ModuleId) (readPool(i));
-        return id.toQuery();
+        return (ModuleIdQuery) (readPool(i));
     }
 
     /** Read exports_flags.
