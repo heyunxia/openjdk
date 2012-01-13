@@ -28,12 +28,11 @@ package com.sun.tools.javac.code;
 import java.util.EnumSet;
 import java.util.Set;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.code.Symbol.TypeSymbol;
+import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 
-import static com.sun.tools.javac.code.Kinds.*;
 
 /**
  *  Root class for the directives that may appear in module compilation units.
@@ -59,7 +58,9 @@ public abstract class Directive {
     public enum RequiresFlag {
         OPTIONAL(0x0001),
         LOCAL(0x0002),
-        PUBLIC(0x0004);
+        REEXPORT(0x0004),
+        SYNTHETIC(0x1000),
+        SYNTHESIZED(0x10000);
 
         // overkill? move to ClassWriter?
         public static int value(Set<RequiresFlag> s) {
@@ -71,41 +72,6 @@ public abstract class Directive {
         
         RequiresFlag(int value) {
             this.value = value;
-        }
-        
-        public final int value;
-    }
-
-    /** Flags for an ExportsDirective.
-     * These are mutually exclusive; only one may be used in an ExportsDirective.
-     */
-    public enum ExportFlag {
-        TYPE(0x0001),
-        TYPE_AND_MEMBERS(0x0002),
-        PACKAGE(0x0004),
-        PACKAGE_AND_SUBPACKAGES(0x0008);
-
-        ExportFlag(int value) {
-            this.value = value;
-        }
-
-        // overkill? move to ClassWriter?
-        public static int value(Set<ExportFlag> s) {
-            int v = 0;
-            for (ExportFlag f: s)
-                v |= f.value;
-            return v;
-        }
-
-        public static ExportFlag valueOf(int kind, boolean asterisk) {
-            switch (kind) {
-                case PCK:
-                    return asterisk ? PACKAGE_AND_SUBPACKAGES : PACKAGE;
-                case TYP:
-                    return asterisk ? TYPE_AND_MEMBERS : TYPE;
-                default:
-                    throw new IllegalArgumentException();
-            }
         }
         
         public final int value;
@@ -239,17 +205,13 @@ public abstract class Directive {
     }
 
     /**
-     * 'exports' PackageOrTypeName ['.' '*'] ';'
+     * 'exports' Package ';'
      */
     public static class ExportsDirective extends Directive {
-        public final TypeSymbol sym;
-        public final Set<ExportFlag> flags;
-        public final ModuleId origin;
+        public final PackageSymbol sym;
 
-        public ExportsDirective(TypeSymbol sym, Set<ExportFlag> flags, ModuleId origin) {
+        public ExportsDirective(PackageSymbol sym) {
             this.sym = sym;
-            this.flags = flags;
-            this.origin = origin;
         }
 
         @Override
@@ -259,7 +221,7 @@ public abstract class Directive {
 
         @Override
         public String toString() {
-            return "Exports[" + flags + "," + sym + "," + origin + "]";
+            return "Exports[" + sym + "]";
         }
 
         @Override

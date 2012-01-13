@@ -28,7 +28,6 @@ package com.sun.tools.javac.jvm;
 import com.sun.tools.javac.code.Directive.PermitsDirective;
 import com.sun.tools.javac.code.Directive.EntrypointDirective;
 import com.sun.tools.javac.code.Directive.ViewDeclaration;
-import com.sun.tools.javac.code.Directive.ExportFlag;
 import com.sun.tools.javac.code.Directive.ExportsDirective;
 import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
 import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
@@ -605,17 +604,6 @@ public class ClassReader implements Completer {
      */
     ModuleIdQuery readModuleIdQuery(int i) {
         return (ModuleIdQuery) (readPool(i));
-    }
-
-    /** Read exports_flags.
-     */
-    Set<ExportFlag> readExportFlags(int flags) {
-        Set<ExportFlag> set = EnumSet.noneOf(ExportFlag.class);
-        for (ExportFlag f: ExportFlag.values()) {
-            if ((flags & f.value) != 0)
-                set.add(f);
-        }
-        return set;
     }
 
     /** Read requires_flags.
@@ -1271,16 +1259,8 @@ public class ClassReader implements Completer {
                             int numExports = nextChar();
                             for (int i = 0; i < numExports; i++) {
                                 Name export = readName(nextChar());
-                                Set<ExportFlag> flags = readExportFlags(nextChar());
-                                ModuleId origin = readModuleId(nextChar());
-                                TypeSymbol tsym;
-                                if (flags.contains(ExportFlag.PACKAGE) || flags.contains(ExportFlag.PACKAGE_AND_SUBPACKAGES))
-                                    tsym = enterPackage(export);
-                                else if (flags.contains(ExportFlag.TYPE) || flags.contains(ExportFlag.TYPE_AND_MEMBERS))
-                                    tsym = enterClass(export);
-                                else
-                                    continue;
-                                ExportsDirective d = new ExportsDirective(tsym, flags, origin);
+                                PackageSymbol psym = enterPackage(export);
+                                ExportsDirective d = new ExportsDirective(psym);
                                 directives.add(d);
                             }
 
@@ -1306,14 +1286,14 @@ public class ClassReader implements Completer {
                         int numModules = nextChar();
                         for (int r = 0; r < numModules; r++) {
                             ModuleIdQuery q = readModuleIdQuery(nextChar());
-                            Set<RequiresFlag> flags = readRequiresFlags(nextChar());
+                            Set<RequiresFlag> flags = readRequiresFlags(nextInt());
                             RequiresModuleDirective d = new RequiresModuleDirective(q, flags);
                             msym.directives.add(d);
                         }
                         int numServices = nextChar();
                         for (int r = 0; r < numServices; r++) {
                             ClassSymbol csym = readClassSymbol(nextChar());
-                            Set<RequiresFlag> flags = readRequiresFlags(nextChar());
+                            Set<RequiresFlag> flags = readRequiresFlags(nextInt());
                             RequiresServiceDirective d = new RequiresServiceDirective(csym, flags);
                             msym.directives.add(d);
                         }

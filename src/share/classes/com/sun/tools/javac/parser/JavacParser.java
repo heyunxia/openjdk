@@ -2655,7 +2655,7 @@ public class JavacParser implements Parser {
                     while ((token.kind == PUBLIC)
                             || (token.kind == IDENTIFIER && token.name() == names.local)) {
                         RequiresFlag flag = (token.kind == PUBLIC)
-                                ? RequiresFlag.PUBLIC : RequiresFlag.LOCAL;
+                                ? RequiresFlag.REEXPORT : RequiresFlag.LOCAL;
                         // FIXME: check duplicates
                         flags.append(flag);
                         nextToken();

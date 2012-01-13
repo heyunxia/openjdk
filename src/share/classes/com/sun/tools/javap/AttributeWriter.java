@@ -444,23 +444,8 @@ public class AttributeWriter extends BasicWriter
             println(v.export_length + "\t// exports ");
             indent(+1);
             for (int ei = 0; ei < v.export_length; ei++) {
-                ModuleProvides_attribute.Export e = v.export_table[ei];
-                String name = constantWriter.stringValue(e.export_index);
-                int needsAsteriskMask =
-                        ModuleProvides_attribute.Export.TYPE_AND_MEMBERS
-                        | ModuleProvides_attribute.Export.PACKAGE_AND_SUBPACKAGES;
-                int isPackageMask =
-                        ModuleProvides_attribute.Export.PACKAGE
-                        | ModuleProvides_attribute.Export.PACKAGE_AND_SUBPACKAGES;
-                boolean needsAsterisk = ((e.export_flags & needsAsteriskMask) != 0);
-                boolean isPackage = ((e.export_flags & isPackageMask) != 0);
-                println("#" + e.export_index + ", " + "0x" + e.export_flags + ", #" + e.source_index
-                        + "\t// exports " + (isPackage ? "(package) " : "")
-                        + name + (needsAsterisk ? ".*" : "")
-                        + " (from "
-                        +  (e.source_index == 0 ? "unknown"
-                            : constantWriter.stringValue(e.source_index))
-                        + ")");
+                int e = v.export_table[ei];
+                println("#" + e + "\t// exports " + constantWriter.stringValue(e) + ")");
             }
             indent(-1);
             println(v.permit_length + "\t// permits ");
@@ -491,14 +476,16 @@ public class AttributeWriter extends BasicWriter
         indent(+1);
         for (ModuleRequires_attribute.Entry e: entries) {
             print("#" + e.index + "," + String.format("%x", e.flags)+ "\t// requires");
-            if ((e.flags & ModuleRequires_attribute.MR_OPTIONAL) != 0)
+            if ((e.flags & ModuleRequires_attribute.ACC_OPTIONAL) != 0)
                 print(" optional");
-            if ((e.flags & ModuleRequires_attribute.MR_LOCAL) != 0)
+            if ((e.flags & ModuleRequires_attribute.ACC_LOCAL) != 0)
                 print(" local");
-            if ((e.flags & ModuleRequires_attribute.MR_PUBLIC) != 0)
+            if ((e.flags & ModuleRequires_attribute.ACC_REEXPORT) != 0)
                 print(" public");
-            if ((e.flags & ModuleRequires_attribute.MR_SYNTHETIC) != 0)
-                print(" (synthetic)");
+            if ((e.flags & ModuleRequires_attribute.ACC_SYNTHETIC) != 0)
+                print(" synthetic");
+            if ((e.flags & ModuleRequires_attribute.ACC_SYNTHESIZED) != 0)
+                print(" synthesized");
             if (service)
                 print(" service");
             println(" " + constantWriter.stringValue(e.index));

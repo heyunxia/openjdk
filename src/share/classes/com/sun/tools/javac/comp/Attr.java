@@ -43,7 +43,6 @@ import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.jvm.Target;
 import com.sun.tools.javac.code.Directive.EntrypointDirective;
 import com.sun.tools.javac.code.Directive.ExportsDirective;
-import com.sun.tools.javac.code.Directive.ExportFlag;
 import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Symbol.*;
@@ -3086,22 +3085,9 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitExports(JCExportDirective tree) {
-        JCExpression expr = tree.qualid;
-        boolean asterisk = false;
-        if (expr.hasTag(Tag.SELECT)) {
-            JCFieldAccess fa = (JCFieldAccess) expr;
-            if (fa.name == names.asterisk) {
-                asterisk = true;
-                expr = fa.selected;
-            }
-        }
-
-        TypeSymbol tsym = attribTree(expr, env,
-                PCK | TYP, Type.noType).tsym;
-        if (tsym.kind != ERR) {
-            EnumSet<ExportFlag> flags = EnumSet.of(ExportFlag.valueOf(tsym.kind, asterisk));
-            ModuleId origin = (tsym.kind == TYP) ? ((ClassSymbol) tsym).modle.getModuleId() : null;
-            ExportsDirective d = new ExportsDirective(tsym, flags, origin);
+        TypeSymbol tsym = attribTree(tree.qualid, env, PCK, Type.noType).tsym;
+        if (tsym.kind == PCK) {
+            ExportsDirective d = new ExportsDirective((PackageSymbol) tsym);
             ViewDeclaration enclView = env.info.enclView;
             if (enclView == null) {
                 ModuleSymbol msym = env.toplevel.modle;

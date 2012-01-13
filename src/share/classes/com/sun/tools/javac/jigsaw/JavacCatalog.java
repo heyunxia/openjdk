@@ -236,7 +236,7 @@ public class JavacCatalog  extends Catalog {
                 return Dependence.Modifier.LOCAL;
             case OPTIONAL:
                 return Dependence.Modifier.OPTIONAL;
-            case PUBLIC:
+            case REEXPORT:
                 return Dependence.Modifier.PUBLIC;
 			default:
                 throw new IllegalArgumentException(f.toString());  // FIXME -- throws IllegalArgumentException

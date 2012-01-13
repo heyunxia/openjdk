@@ -887,14 +887,14 @@ public class ClassWriter extends ClassFile {
                 databuf.appendChar(modules.size());
                 for (RequiresModuleDirective m: modules) {
                     databuf.appendChar(pool.put(m.moduleQuery));
-                    databuf.appendChar(RequiresFlag.value(m.flags));
+                    databuf.appendInt(RequiresFlag.value(m.flags));
                 }
                 // services
                 List<RequiresServiceDirective> services = sym.getRequiredServices();
                 databuf.appendChar(services.size());
                 for (RequiresServiceDirective s: services) {
                     databuf.appendChar(pool.put(s.sym));
-                    databuf.appendChar(RequiresFlag.value(s.flags));
+                    databuf.appendInt(RequiresFlag.value(s.flags));
                 }
             endAttr(alenIdx);
             n++;
@@ -906,7 +906,7 @@ public class ClassWriter extends ClassFile {
             databuf.appendChar(views.size());
             for (ViewDeclaration v: views) {
                 // name
-                databuf.appendChar(v.isDefault() ? 0 : pool.put(v.name));
+                databuf.appendChar(v.isDefault() ? 0 : pool.put(names.fromUtf(externalize(v.name))));
                 // entrypoint, if any
                 ClassSymbol esym = v.getEntrypoint();
                 databuf.appendChar(esym == null ? 0 : pool.put(esym));
@@ -926,9 +926,7 @@ public class ClassWriter extends ClassFile {
                 List<ExportsDirective> exports = v.getExports();
                 databuf.appendChar(exports.size());
                 for (ExportsDirective e: exports) {
-                    databuf.appendChar(pool.put(e.sym.flatName()));  // CHECK THIS: ensure this is the binary name
-                    databuf.appendChar(ExportFlag.value(e.flags));
-                    databuf.appendChar(e.origin == null ? 0 : pool.put(e.origin));
+                    databuf.appendChar(pool.put(names.fromUtf(externalize(e.sym.flatName()))));
                 }
                 // permits
                 List<PermitsDirective> permits = v.getPermits();

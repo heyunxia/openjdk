@@ -352,8 +352,8 @@ public class Modules extends JCTree.Visitor {
         Set<Directive.RequiresFlag> flags = EnumSet.noneOf(Directive.RequiresFlag.class);
         for (RequiresFlag f: tree.flags) {
             switch (f) {
-                case PUBLIC:
-                    flags.add(Directive.RequiresFlag.PUBLIC);
+                case REEXPORT:
+                    flags.add(Directive.RequiresFlag.REEXPORT);
                     break;
                 case OPTIONAL:
                     flags.add(Directive.RequiresFlag.OPTIONAL);
@@ -421,7 +421,8 @@ public class Modules extends JCTree.Visitor {
             if (classFile == null) {
                 sym.name = sym.fullname = names.empty; // unnamed module
                 DEBUG("Modules.readModule: (" + sym.hashCode() + ") no module info found for " + locn );
-                RequiresModuleDirective d = new RequiresModuleDirective(baseModuleQuery);
+                RequiresModuleDirective d = new RequiresModuleDirective(baseModuleQuery,
+                        EnumSet.of(Directive.RequiresFlag.SYNTHESIZED));
                 sym.directives = ListBuffer.lb();
                 sym.directives.add(d);
                 return;
@@ -560,22 +561,14 @@ public class Modules extends JCTree.Visitor {
     }
 
     boolean isBaseModuleName(Name name) {
-        System.err.println("isBaseModuleName: " + name + " " + name.equals(baseModule.name));
         return name.equals(baseModule.name);
     }
 
     boolean isPlatformModule(ModuleSymbol msym) {
-        boolean b = isPlatformModule0(msym);
-        System.err.println("isPlatformModule: " + msym + " " + b);
-        return b;
-    }
-
-    boolean isPlatformModule0(ModuleSymbol msym) {
         return isPlatformModuleName(msym.name) || definesPlatformModule(msym.directives.toList());
     }
 
     boolean isPlatformModuleName(Name name) {
-        System.err.println("isPlatformModuleName: " + name + " " + name.toString().startsWith("java."));
         return name.toString().startsWith("java.");
     }
 
