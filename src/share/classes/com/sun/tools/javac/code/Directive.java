@@ -363,4 +363,134 @@ public abstract class Directive {
         R visitEntrypoint(EntrypointDirective d, P p);
         R visitView(ViewDeclaration d, P p);
     }
+
+    public static class SimpleVisitor<R, P> implements Visitor<R, P> {
+        protected final R DEFAULT_VALUE;
+
+        protected SimpleVisitor() {
+            DEFAULT_VALUE = null;
+        }
+
+        protected SimpleVisitor(R defaultValue) {
+            DEFAULT_VALUE = defaultValue;
+        }
+
+        protected R defaultAction(Directive d, P p) {
+            return DEFAULT_VALUE;
+        }
+
+        public final R visit(Directive d, P p) {
+            return (d == null) ? null : d.accept(this, p);
+        }
+
+        public final R visit(Iterable<? extends Directive> ds, P p) {
+            R r = null;
+            if (ds != null)
+                for (Directive d : ds)
+                    r = visit(d, p);
+            return r;
+        }
+
+        public R visitRequiresModule(RequiresModuleDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitRequiresService(RequiresServiceDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitProvidesModule(ProvidesModuleDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitProvidesService(ProvidesServiceDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitExports(ExportsDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitPermits(PermitsDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitEntrypoint(EntrypointDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitView(ViewDeclaration d, P p) {
+            return defaultAction(d, p);
+        }
+    }
+
+    public static class Scanner<R, P> implements Visitor<R, P> {
+
+
+        /** Scan a single node.
+         */
+        public R scan(Directive d, P p) {
+            return (d == null) ? null : d.accept(this, p);
+        }
+
+        private R scanAndReduce(Directive d, P p, R r) {
+            return reduce(scan(d, p), r);
+        }
+
+        /** Scan a list of nodes.
+         */
+        public R scan(Iterable<? extends Directive> ds, P p) {
+            R r = null;
+            if (ds != null) {
+                boolean first = true;
+                for (Directive d : ds) {
+                    r = (first ? scan(d, p) : scanAndReduce(d, p, r));
+                    first = false;
+                }
+            }
+            return r;
+        }
+
+        /**
+         * Reduces two results into a combined result.
+         * The default implementation is to return the first parameter.
+         * The general contract of the method is that it may take any action whatsoever.
+         */
+        public R reduce(R r1, R r2) {
+            return r1;
+        }
+
+        public R visitRequiresModule(RequiresModuleDirective d, P p) {
+            return null;
+        }
+
+        public R visitRequiresService(RequiresServiceDirective d, P p) {
+            return null;
+        }
+
+        public R visitProvidesModule(ProvidesModuleDirective d, P p) {
+            return null;
+        }
+
+        public R visitProvidesService(ProvidesServiceDirective d, P p) {
+            return null;
+        }
+
+        public R visitExports(ExportsDirective d, P p) {
+            return null;
+        }
+
+        public R visitPermits(PermitsDirective d, P p) {
+            return null;
+        }
+
+        public R visitEntrypoint(EntrypointDirective d, P p) {
+            return null;
+        }
+
+        public R visitView(ViewDeclaration d, P p) {
+            return scan(d.directives, p);
+        }
+
+    }
 }

@@ -923,10 +923,10 @@ public class ClassWriter extends ClassFile {
                     databuf.appendChar(pool.put(s.impl));
                 }
                 // exports
-                List<ExportsDirective> exports = v.getExports();
+                Set<PackageSymbol> exports = sym.getExports(v);
                 databuf.appendChar(exports.size());
-                for (ExportsDirective e: exports) {
-                    databuf.appendChar(pool.put(names.fromUtf(externalize(e.sym.flatName()))));
+                for (PackageSymbol e: exports) {
+                    databuf.appendChar(pool.put(names.fromUtf(externalize(e.flatName()))));
                 }
                 // permits
                 List<PermitsDirective> permits = v.getPermits();

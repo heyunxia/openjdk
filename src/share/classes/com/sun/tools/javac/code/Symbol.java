@@ -25,6 +25,7 @@
 
 package com.sun.tools.javac.code;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -752,6 +753,25 @@ public abstract class Symbol implements Element {
 
         public boolean hasExtendedMetadata() {
             return (extendedMetadata != null) && !extendedMetadata.isEmpty();
+        }
+
+        public Set<PackageSymbol> getExports(final ViewDeclaration viewDecl) {
+            final Set<PackageSymbol> exports = new LinkedHashSet<PackageSymbol>();
+            Directive.Scanner<Void,Void> s = new Directive.Scanner<Void,Void>() {
+                @Override
+                public Void visitExports(Directive.ExportsDirective d, Void p) {
+                    exports.add(d.sym);
+                    return null;
+                }
+                @Override
+                public Void visitView(Directive.ViewDeclaration d, Void p) {
+                    if (d == viewDecl)
+                        scan(d.directives, null);
+                    return null;
+                }
+            };
+            s.scan(directives, null);
+            return exports;
         }
 
         @Override

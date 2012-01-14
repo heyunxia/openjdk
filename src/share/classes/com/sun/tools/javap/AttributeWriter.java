@@ -445,7 +445,7 @@ public class AttributeWriter extends BasicWriter
             indent(+1);
             for (int ei = 0; ei < v.export_length; ei++) {
                 int e = v.export_table[ei];
-                println("#" + e + "\t// exports " + constantWriter.stringValue(e) + ")");
+                println("#" + e + "\t// exports " + constantWriter.stringValue(e));
             }
             indent(-1);
             println(v.permit_length + "\t// permits ");
