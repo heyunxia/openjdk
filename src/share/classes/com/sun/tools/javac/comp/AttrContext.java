@@ -27,7 +27,6 @@ package com.sun.tools.javac.comp;
 
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.code.*;
-import com.sun.tools.javac.code.Directive.ViewDeclaration;
 
 /** Contains information specific to the attribute and enter
  *  passes, to be used in place of the generic field in environments.
@@ -72,8 +71,8 @@ public class AttrContext {
      */
     Symbol enclVar = null;
 
-    /** The enclosing view, in a module-info file. */
-    ViewDeclaration enclView;
+    /** The collection of module directives being constructed. */
+    ListBuffer<Directive> directives;
 
     /** Duplicate this context, replacing scope field and copying all others.
      */

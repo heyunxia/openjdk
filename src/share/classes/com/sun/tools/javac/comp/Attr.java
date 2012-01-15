@@ -96,6 +96,7 @@ public class Attr extends JCTree.Visitor {
     final JCDiagnostic.Factory diags;
     final Annotate annotate;
     final DeferredLintHandler deferredLintHandler;
+    final Modules modules;
 
     public static Attr instance(Context context) {
         Attr instance = context.get(attrKey);
@@ -122,6 +123,7 @@ public class Attr extends JCTree.Visitor {
         diags = JCDiagnostic.Factory.instance(context);
         annotate = Annotate.instance(context);
         deferredLintHandler = DeferredLintHandler.instance(context);
+        modules = Modules.instance(context);
 
         Options options = Options.instance(context);
 
@@ -3080,7 +3082,10 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitModuleDef(JCModuleDecl tree) {
+        env.info.directives = new ListBuffer<Directive>();
         attribStats(tree.getDirectives(), env);
+        env.toplevel.modle.directives = merge(env.info.directives,
+                env.toplevel.modle.directives);
     }
 
     @Override
@@ -3088,18 +3093,15 @@ public class Attr extends JCTree.Visitor {
         TypeSymbol tsym = attribTree(tree.qualid, env, PCK, Type.noType).tsym;
         if (tsym.kind == PCK) {
             ExportsDirective d = new ExportsDirective((PackageSymbol) tsym);
-            ViewDeclaration enclView = env.info.enclView;
-            if (enclView == null) {
-                ModuleSymbol msym = env.toplevel.modle;
-                msym.directives.add(d);
-            } else {
-                enclView.directives.add(d);
-            }
+            env.info.directives.add(d);
         }
     }
 
     @Override
     public void visitProvidesModule(JCProvidesModuleDirective tree) {
+        Directive d = modules.getDirective(tree);
+        if (d != null)
+            env.info.directives.add(d);
     }
 
     @Override
@@ -3109,18 +3111,15 @@ public class Attr extends JCTree.Visitor {
         if (srvc.kind != ERR && impl.kind != ERR) {
             ProvidesServiceDirective d =
                     new ProvidesServiceDirective((ClassSymbol) srvc, (ClassSymbol) impl);
-            ViewDeclaration enclView = env.info.enclView;
-            if (enclView == null) {
-                ModuleSymbol msym = env.toplevel.modle;
-                msym.directives.add(d);
-            } else {
-                enclView.directives.add(d);
-            }
+            env.info.directives.add(d);
         }
     }
 
     @Override
     public void visitRequiresModule(JCRequiresModuleDirective tree) {
+        Directive d = modules.getDirective(tree);
+        if (d != null)
+            env.info.directives.add(d);
     }
 
     @Override
@@ -3137,18 +3136,15 @@ public class Attr extends JCTree.Visitor {
                 }
             }
             RequiresServiceDirective d = new RequiresServiceDirective((ClassSymbol) tree.serviceName.type.tsym, flags);
-            ViewDeclaration enclView = env.info.enclView;
-            if (enclView == null) {
-                ModuleSymbol msym = env.toplevel.modle;
-                msym.directives.add(d);
-            } else {
-                enclView.directives.add(d);
-            }
+            env.info.directives.add(d);
         }
     }
 
     @Override
     public void visitPermits(JCPermitsDirective tree) {
+        Directive d = modules.getDirective(tree);
+        if (d != null)
+            env.info.directives.add(d);
     }
 
     @Override
@@ -3157,13 +3153,7 @@ public class Attr extends JCTree.Visitor {
         if (t.tag == CLASS) {
             // FIXME: should check for duplicates
             EntrypointDirective d = new EntrypointDirective((ClassSymbol) tree.qualId.type.tsym);
-            ViewDeclaration enclView = env.info.enclView;
-            if (enclView == null) {
-                ModuleSymbol msym = env.toplevel.modle;
-                msym.directives.add(d);
-            } else {
-                enclView.directives.add(d);
-            }
+            env.info.directives.add(d);
         }
     }
 
@@ -3171,14 +3161,16 @@ public class Attr extends JCTree.Visitor {
     public void visitView(JCViewDecl tree) {
         ModuleSymbol msym = env.toplevel.modle;
         Name name = TreeInfo.fullName(tree.name);
-        for (Directive d: msym.directives) {
-            if (d.getKind() == Directive.Kind.VIEW
-                    && ((ViewDeclaration) d).name == name) {
-                Assert.checkNull(env.info.enclView);
-                env.info.enclView = (ViewDeclaration) d;
-                attribStats(tree.directives, env);
-                env.info.enclView = null;
-            }
+        ListBuffer<Directive> prev = env.info.directives;
+        env.info.directives = new ListBuffer<Directive>();
+        try {
+            attribStats(tree.directives, env);
+        } finally {
+            ViewDeclaration orig = (ViewDeclaration) modules.getDirective(tree);
+            ViewDeclaration d = new ViewDeclaration(name, 
+                    merge(env.info.directives, orig.directives));
+            env.info.directives = prev;
+            env.info.directives.add(d);
         }
     }
 
@@ -3193,6 +3185,19 @@ public class Attr extends JCTree.Visitor {
      */
     public void visitTree(JCTree tree) {
         throw new AssertionError();
+    }
+
+    private List<Directive> merge(ListBuffer<Directive> primary, List<Directive> secondary) {
+        Set<Directive> set = new LinkedHashSet<Directive>();
+        set.addAll(primary);
+        for (Directive d: secondary) {
+            if (d.getKind() != Directive.Kind.VIEW)
+                set.add(d);
+        }
+        ListBuffer<Directive> results = new ListBuffer<Directive>();
+        for (Directive d: set)
+            results.add(d);
+        return results.toList();
     }
 
     public void attrib(Env<AttrContext> env) {

@@ -81,7 +81,7 @@ public abstract class Directive {
 
     abstract <R, P> R accept(Visitor<R, P> visitor, P data);
 
-    static <T extends Directive> List<T> filter(ListBuffer<Directive> directives, Kind kind, Class<T> clazz) {
+    static <T extends Directive> List<T> filter(List<Directive> directives, Kind kind, Class<T> clazz) {
         ListBuffer<T> list = ListBuffer.lb();
         for (Directive d: directives) {
             if (d.getKind() == kind)
@@ -291,14 +291,14 @@ public abstract class Directive {
      */
     public static class ViewDeclaration extends Directive {
         public final Name name;
-        public final ListBuffer<Directive> directives;
-        
-        public ViewDeclaration(Name name) {
+        public final List<Directive> directives;
+
+        public ViewDeclaration(Name name, List<Directive> directives) {
             this.name = name;
-            this.directives = ListBuffer.lb();
+            this.directives = directives;
         }
 
-        public ViewDeclaration(ListBuffer<Directive> directives) {
+        public ViewDeclaration(List<Directive> directives) {
             this.name = null;
             this.directives = directives;
         }

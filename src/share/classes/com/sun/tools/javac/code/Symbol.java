@@ -26,7 +26,6 @@
 package com.sun.tools.javac.code;
 
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.lang.model.element.*;
@@ -655,9 +654,9 @@ public abstract class Symbol implements Element {
         public Name version;
 
         /** All directives, in natural order. */
-        public ListBuffer<Directive> directives;
+        public List<Directive> directives;
 
-        /** An uninterpreted string associated with the module. */
+        /** An uninterpreted sequence of characters associated with the module. */
         public Name extendedMetadata;
 
         public ClassSymbol module_info;
@@ -728,7 +727,7 @@ public abstract class Symbol implements Element {
                         defaultViewDirectives.add(d);
                 }
             }
-            return new ViewDeclaration(defaultViewDirectives);
+            return new ViewDeclaration(defaultViewDirectives.toList());
         }
 
         public List<ViewDeclaration> getViews() {
@@ -747,7 +746,7 @@ public abstract class Symbol implements Element {
                     Directive.filter(directives, Directive.Kind.VIEW,
                         ViewDeclaration.class);
             if (defaultViewDirectives.nonEmpty())
-                views = views.prepend(new ViewDeclaration(defaultViewDirectives));
+                views = views.prepend(new ViewDeclaration(defaultViewDirectives.toList()));
             return views;
         }
 

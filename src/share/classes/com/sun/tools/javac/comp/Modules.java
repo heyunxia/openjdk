@@ -26,14 +26,16 @@
 
 package com.sun.tools.javac.comp;
 
-import com.sun.tools.javac.tree.JCTree.JCViewDecl;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -41,6 +43,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.WeakHashMap;
 
 import javax.lang.model.element.ModuleElement;
 import javax.lang.model.util.ModuleResolver;
@@ -87,6 +90,7 @@ import com.sun.tools.javac.tree.JCTree.JCProvidesModuleDirective;
 import com.sun.tools.javac.tree.JCTree.JCProvidesServiceDirective;
 import com.sun.tools.javac.tree.JCTree.JCRequiresModuleDirective;
 import com.sun.tools.javac.tree.JCTree.JCRequiresServiceDirective;
+import com.sun.tools.javac.tree.JCTree.JCViewDecl;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
@@ -99,7 +103,6 @@ import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Options;
 
-import java.util.EnumSet;
 import static com.sun.tools.javac.main.Option.*;
 
 /**
@@ -117,6 +120,8 @@ public class Modules extends JCTree.Visitor {
     Symtab syms;
     Debug debug;
     boolean enabled;
+    Map<JCTree.JCModuleDirective, Reference<Directive>> directiveMap =
+            new WeakHashMap<JCTree.JCModuleDirective, Reference<Directive>>();
 
     ModuleMode mode;
 
@@ -141,9 +146,12 @@ public class Modules extends JCTree.Visitor {
 
     /** The symbol currently being analyzed. */
     ModuleSymbol currSym;
-
+    
     /** The view currently being analyzed. */
-    ViewDeclaration currView;
+    JCTree.JCViewDecl currView;
+
+    /** The current set of directives being built. */
+    ListBuffer<Directive> currDirectives;
 
     static class ModuleContext {
         ModuleContext(JCModuleDecl decl) {
@@ -205,6 +213,11 @@ public class Modules extends JCTree.Visitor {
             l.head.accept(this);
     }
 
+    public Directive getDirective(JCTree.JCModuleDirective tree) {
+        Reference<Directive> r = directiveMap.get(tree);
+        return (r == null) ? null : r.get();
+    }
+
     @Override
     public void visitModuleDef(JCModuleDecl tree) {
         DEBUG("Modules.visitModuleDef " + tree.id);
@@ -245,8 +258,8 @@ public class Modules extends JCTree.Visitor {
         tree.sym = sym;
 
         sym.version = tree.getId().version;
-        sym.directives = ListBuffer.lb();
         currSym = sym;
+        currDirectives = new ListBuffer<Directive>();
         Env<ModuleContext> menv = env.dup(tree, new ModuleContext(tree));
         moduleEnvs.put(sym, menv);
         Env<ModuleContext> prev = env;
@@ -259,9 +272,11 @@ public class Modules extends JCTree.Visitor {
 
             DEBUG("Modules.visitModuleDef requiresBaseModule:" + env.info.requiresBaseModule);
             if (env.info.requiresBaseModule) {
-                sym.directives.add(new RequiresModuleDirective(baseModuleQuery));
+                currDirectives.add(new RequiresModuleDirective(baseModuleQuery,
+                        EnumSet.of(Directive.RequiresFlag.SYNTHESIZED)));
             }
         } finally {
+            sym.directives = currDirectives.toList();
             currSym = null;
             env = prev;
         }
@@ -314,29 +329,23 @@ public class Modules extends JCTree.Visitor {
 
     @Override
     public void visitPermits(JCPermitsDirective tree) {
-        ModuleSymbol sym = currSym;
         JCTree qualId = tree.moduleName;
         Name moduleName = TreeInfo.fullName(qualId);
         // JIGSAW TODO check duplicates
         PermitsDirective d = new PermitsDirective(moduleName);
-        if (currView == null)
-            sym.directives.add(d);
-        else
-            currView.directives.add(d);
+        directiveMap.put(tree, new WeakReference<Directive>(d));
+        currDirectives.add(d);
     }
 
     @Override
     public void visitProvidesModule(JCProvidesModuleDirective tree) {
-        ModuleSymbol sym = currSym;
         JCModuleId moduleId = tree.moduleId;
         ProvidesModuleDirective d = new ProvidesModuleDirective(
                 new ModuleId(TreeInfo.fullName(moduleId.qualId), moduleId.version));
+        directiveMap.put(tree, new WeakReference<Directive>(d));
+        currDirectives.add(d);
         if (isBaseModuleName(d.moduleId.name))
             env.info.requiresBaseModule = false;
-        if (currView == null)
-            sym.directives.add(d);
-        else
-            currView.directives.add(d);
     }
 
     @Override
@@ -345,7 +354,6 @@ public class Modules extends JCTree.Visitor {
 
     @Override
     public void visitRequiresModule(JCRequiresModuleDirective tree) {
-        ModuleSymbol sym = currSym;
         JCModuleIdQuery moduleIdQuery = tree.moduleIdQuery;
         ModuleIdQuery mq = new ModuleIdQuery(TreeInfo.fullName(moduleIdQuery.qualId), moduleIdQuery.versionQuery);
         // JIGSAW TODO check duplicates
@@ -364,7 +372,8 @@ public class Modules extends JCTree.Visitor {
             }
         }
         RequiresModuleDirective d = new RequiresModuleDirective(mq, flags);
-        sym.directives.add(d);
+        directiveMap.put(tree, new WeakReference<Directive>(d));
+        currDirectives.add(d);
         if (isBaseModuleName(mq.name))
             env.info.requiresBaseModule = false;
     }
@@ -376,14 +385,18 @@ public class Modules extends JCTree.Visitor {
     @Override
     public void visitView(JCViewDecl tree) {
         if (currView == null) {
-            currView = new ViewDeclaration(TreeInfo.fullName(tree.name));
-            if (isBaseModuleName(currView.name))
-                env.info.requiresBaseModule = false;
+            ListBuffer<Directive> prev = currDirectives;
+            currDirectives = new ListBuffer<Directive>();
             try {
                 acceptAll(tree.directives);
             } finally {
-                currSym.directives.add(currView);
-                currView = null;
+                ViewDeclaration v = new ViewDeclaration(TreeInfo.fullName(tree.name),
+                        currDirectives.toList());
+                if (isBaseModuleName(v.name))
+                    env.info.requiresBaseModule = false;
+                directiveMap.put(tree, new WeakReference<Directive>(v));
+                currDirectives = prev;
+                currDirectives.add(v);
             }
         } else {
             log.error(tree, "nested.view.not.allowed");
@@ -423,8 +436,7 @@ public class Modules extends JCTree.Visitor {
                 DEBUG("Modules.readModule: (" + sym.hashCode() + ") no module info found for " + locn );
                 RequiresModuleDirective d = new RequiresModuleDirective(baseModuleQuery,
                         EnumSet.of(Directive.RequiresFlag.SYNTHESIZED));
-                sym.directives = ListBuffer.lb();
-                sym.directives.add(d);
+                sym.directives = List.<Directive>of(d);
                 return;
             }
             file = classFile;
@@ -565,7 +577,7 @@ public class Modules extends JCTree.Visitor {
     }
 
     boolean isPlatformModule(ModuleSymbol msym) {
-        return isPlatformModuleName(msym.name) || definesPlatformModule(msym.directives.toList());
+        return isPlatformModuleName(msym.name) || definesPlatformModule(msym.directives);
     }
 
     boolean isPlatformModuleName(Name name) {
@@ -581,7 +593,7 @@ public class Modules extends JCTree.Visitor {
                     break;
                 case VIEW:
                     ViewDeclaration v = (ViewDeclaration) d;
-                    if (isPlatformModuleName(v.name) || definesPlatformModule(v.directives.toList()))
+                    if (isPlatformModuleName(v.name) || definesPlatformModule(v.directives))
                         return true;
                     break;
             }
@@ -1074,7 +1086,7 @@ public class Modules extends JCTree.Visitor {
                 psym = new ModuleSymbol(p.name, syms.rootModule);
                 psym.location = StandardLocation.PLATFORM_CLASS_PATH;
                 versions.put(p.version, psym);
-                psym.directives = ListBuffer.lb();
+                psym.directives = List.nil();
             }
 
             return table;

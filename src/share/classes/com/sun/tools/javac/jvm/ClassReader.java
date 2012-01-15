@@ -25,14 +25,6 @@
 
 package com.sun.tools.javac.jvm;
 
-import com.sun.tools.javac.code.Directive.PermitsDirective;
-import com.sun.tools.javac.code.Directive.EntrypointDirective;
-import com.sun.tools.javac.code.Directive.ViewDeclaration;
-import com.sun.tools.javac.code.Directive.ExportsDirective;
-import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
-import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
-import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
-import com.sun.tools.javac.code.Directive.RequiresFlag;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -54,6 +46,14 @@ import static javax.tools.StandardLocation.*;
 import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
+import com.sun.tools.javac.code.Directive.PermitsDirective;
+import com.sun.tools.javac.code.Directive.EntrypointDirective;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
+import com.sun.tools.javac.code.Directive.ExportsDirective;
+import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
+import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
+import com.sun.tools.javac.code.Directive.RequiresFlag;
+import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
 import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.code.Symbol.*;
@@ -1224,28 +1224,24 @@ public class ClassReader implements Completer {
                 void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP && sym.owner.kind == MDL) {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        ListBuffer<Directive> directives = new ListBuffer<Directive>();
                         int numViews = nextChar();
                         for (int v = 0; v < numViews; v++) {
                             Name viewName = readName(nextChar());
-                            ListBuffer<Directive> directives;
-                            if (viewName == null) {
-                                directives = msym.directives;
-                            } else {
-                                ViewDeclaration vdecl = new ViewDeclaration(viewName);
-                                directives = vdecl.directives;
-                            }
+                            ListBuffer<Directive> viewDirectives =
+                                (viewName == null) ? directives : new ListBuffer<Directive>();
 
                             ClassSymbol entrypoint = readClassSymbol(nextChar());
                             if (entrypoint != null) {
                                 EntrypointDirective d = new EntrypointDirective(entrypoint);
-                                directives.add(d);
+                                viewDirectives.add(d);
                             }
 
                             int numAliases = nextChar();
                             for (int i = 0; i < numAliases; i++) {
                                 ModuleId id = readModuleId(nextChar());
                                 ProvidesModuleDirective d = new ProvidesModuleDirective(id);
-                                directives.add(d);
+                                viewDirectives.add(d);
                             }
 
                             int numServices = nextChar();
@@ -1253,7 +1249,7 @@ public class ClassReader implements Completer {
                                 ClassSymbol svcSym = readClassSymbol(nextChar());
                                 ClassSymbol implSym = readClassSymbol(nextChar());
                                 ProvidesServiceDirective d = new ProvidesServiceDirective(svcSym, implSym);
-                                directives.add(d);
+                                viewDirectives.add(d);
                             }
 
                             int numExports = nextChar();
@@ -1261,16 +1257,24 @@ public class ClassReader implements Completer {
                                 Name export = readName(nextChar());
                                 PackageSymbol psym = enterPackage(export);
                                 ExportsDirective d = new ExportsDirective(psym);
-                                directives.add(d);
+                                viewDirectives.add(d);
                             }
 
                             int numPermits = nextChar();
                             for (int i = 0; i < numPermits; i++) {
                                 ModuleId id = readModuleId(nextChar());
                                 PermitsDirective d = new PermitsDirective(id);
-                                directives.add(d);
+                                viewDirectives.add(d);
+                            }
+
+                            if (viewName == null) {
+                                msym.directives = viewDirectives.toList();
+                            } else {
+                                ViewDeclaration vdecl = new ViewDeclaration(viewName, viewDirectives.toList());
+                                directives.add(vdecl);
                             }
                         }
+                        msym.directives = directives.toList();
                     }
                 }
             },
@@ -2324,10 +2328,10 @@ public class ClassReader implements Completer {
         } else if (sym.kind == MDL) {
             //System.err.println("ClassReader.complete module " + sym + " " + sym.name);
             ModuleSymbol msym = (ModuleSymbol) sym;
-            msym.directives = new ListBuffer<Directive>();
             msym.module_info.members_field = new Scope(sym); // or Scope.empty?
             fillIn(msym.module_info);
             assert msym.name != null;
+            assert msym.directives != null;
             //System.err.println("ClassReader.completed module " + sym + " " + sym.name);
         }
         if (!filling && !suppressFlush)
