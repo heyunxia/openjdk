@@ -139,6 +139,11 @@ public class ModuleProvides_attribute extends Attribute {
             service_index = cr.readUnsignedShort();
             impl_index = cr.readUnsignedShort();
         }
+
+	public Service(int service_index, int impl_index) {
+	    this.service_index = service_index;
+	    this.impl_index = impl_index;
+	}
     }
 
     public static class Export {
