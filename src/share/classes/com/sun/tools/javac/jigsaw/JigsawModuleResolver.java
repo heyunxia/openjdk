@@ -186,7 +186,7 @@ public class JigsawModuleResolver implements ModuleResolver {
         return getModuleIdQuery(mid.getName(), mid.getVersion());
     }
 
-    private ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleIdQuery midq) {
+    private ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleQuery midq) {
         return getModuleIdQuery(midq.getName(), midq.getVersionQuery());
     }
 

@@ -94,14 +94,14 @@ public abstract class Directive {
      * 'requires' ['optional'] {'local' | 'public'} ModuleNameAndVersionQuery ';'
      */
     public static class RequiresModuleDirective extends Directive {
-        public final ModuleIdQuery moduleQuery;
+        public final ModuleQuery moduleQuery;
         public final Set<RequiresFlag> flags;
 
-        public RequiresModuleDirective(ModuleIdQuery moduleQuery) {
+        public RequiresModuleDirective(ModuleQuery moduleQuery) {
             this(moduleQuery, EnumSet.noneOf(RequiresFlag.class));
         }
 
-        public RequiresModuleDirective(ModuleIdQuery moduleQuery, Set<RequiresFlag> flags) {
+        public RequiresModuleDirective(ModuleQuery moduleQuery, Set<RequiresFlag> flags) {
             this.moduleQuery = moduleQuery;
             this.flags = flags;
         }

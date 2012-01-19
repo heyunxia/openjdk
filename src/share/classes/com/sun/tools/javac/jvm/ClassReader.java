@@ -542,7 +542,7 @@ public class ClassReader implements Completer {
                 readName(getChar(index + 3)));
             break;
         case CONSTANT_ModuleQuery:
-            poolObj[i] = new ModuleIdQuery(
+            poolObj[i] = new ModuleQuery(
                 readInternalName(getChar(index + 1)),
                 readName(getChar(index + 3)));
             break;
@@ -602,8 +602,8 @@ public class ClassReader implements Completer {
 
     /** Read module id query.
      */
-    ModuleIdQuery readModuleIdQuery(int i) {
-        return (ModuleIdQuery) (readPool(i));
+    ModuleQuery readModuleQuery(int i) {
+        return (ModuleQuery) (readPool(i));
     }
 
     /** Read requires_flags.
@@ -1289,7 +1289,7 @@ public class ClassReader implements Completer {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
                         int numModules = nextChar();
                         for (int r = 0; r < numModules; r++) {
-                            ModuleIdQuery q = readModuleIdQuery(nextChar());
+                            ModuleQuery q = readModuleQuery(nextChar());
                             Set<RequiresFlag> flags = readRequiresFlags(nextInt());
                             RequiresModuleDirective d = new RequiresModuleDirective(q, flags);
                             msym.directives.add(d);

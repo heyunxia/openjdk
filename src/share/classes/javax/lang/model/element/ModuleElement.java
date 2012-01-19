@@ -35,7 +35,7 @@ public interface ModuleElement extends Element {
     }
 
     // consider using java.lang.module.ModuleIdQuery
-    interface ModuleIdQuery {
+    interface ModuleQuery {
         CharSequence getName();
         CharSequence getVersionQuery();
     }

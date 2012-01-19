@@ -39,11 +39,11 @@ import com.sun.tools.javac.util.Name;
  *  This code and its internal interfaces are subject to change or
  *  deletion without notice.</b>
  */
-public class ModuleIdQuery implements javax.lang.model.element.ModuleElement.ModuleIdQuery, Formattable {
+public class ModuleQuery implements javax.lang.model.element.ModuleElement.ModuleQuery, Formattable {
     public final Name name;
     public final Name versionQuery;
 
-    public ModuleIdQuery(Name name, Name version) {
+    public ModuleQuery(Name name, Name version) {
         this.name = name;
         this.versionQuery = version;
     }
@@ -58,10 +58,10 @@ public class ModuleIdQuery implements javax.lang.model.element.ModuleElement.Mod
 
     @Override
     public boolean equals(Object other) {
-        if (!(other instanceof ModuleIdQuery))
+        if (!(other instanceof ModuleQuery))
             return false;
 
-        ModuleIdQuery m = (ModuleIdQuery) other;
+        ModuleQuery m = (ModuleQuery) other;
         if (name != m.name)
             return false;
 

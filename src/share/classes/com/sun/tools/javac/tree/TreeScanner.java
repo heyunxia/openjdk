@@ -80,7 +80,7 @@ public class TreeScanner extends Visitor {
     }
 
     @Override
-    public void visitModuleIdQuery(JCModuleIdQuery tree) {
+    public void visitModuleQuery(JCModuleQuery tree) {
         scan(tree.qualId);
     }
 
@@ -112,7 +112,7 @@ public class TreeScanner extends Visitor {
 
     @Override
     public void visitRequiresModule(JCRequiresModuleDirective tree) {
-        scan(tree.moduleIdQuery);
+        scan(tree.moduleQuery);
     }
 
     @Override

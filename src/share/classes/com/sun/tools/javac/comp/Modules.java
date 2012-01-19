@@ -65,7 +65,7 @@ import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
 import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.ModuleId;
-import com.sun.tools.javac.code.ModuleIdQuery;
+import com.sun.tools.javac.code.ModuleQuery;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -84,7 +84,7 @@ import com.sun.tools.javac.tree.JCTree.JCEntrypointDirective;
 import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
 import com.sun.tools.javac.tree.JCTree.JCExportDirective;
 import com.sun.tools.javac.tree.JCTree.JCModuleId;
-import com.sun.tools.javac.tree.JCTree.JCModuleIdQuery;
+import com.sun.tools.javac.tree.JCTree.JCModuleQuery;
 import com.sun.tools.javac.tree.JCTree.JCPermitsDirective;
 import com.sun.tools.javac.tree.JCTree.JCProvidesModuleDirective;
 import com.sun.tools.javac.tree.JCTree.JCProvidesServiceDirective;
@@ -126,7 +126,7 @@ public class Modules extends JCTree.Visitor {
     ModuleMode mode;
 
     ModuleId baseModule;
-    ModuleIdQuery baseModuleQuery;
+    ModuleQuery baseModuleQuery;
 
     /**
      * The set of module locations for entered trees.
@@ -205,7 +205,7 @@ public class Modules extends JCTree.Visitor {
         Name v = names.fromString(target.name.replaceAll("^1.", ""));
         baseModule = new ModuleId(names.java_base, v);
         Name q = names.fromString(">=" + v);
-        baseModuleQuery = new ModuleIdQuery(names.java_base, q);
+        baseModuleQuery = new ModuleQuery(names.java_base, q);
     }
 
     <T extends JCTree> void acceptAll(List<T> trees) {
@@ -354,8 +354,8 @@ public class Modules extends JCTree.Visitor {
 
     @Override
     public void visitRequiresModule(JCRequiresModuleDirective tree) {
-        JCModuleIdQuery moduleIdQuery = tree.moduleIdQuery;
-        ModuleIdQuery mq = new ModuleIdQuery(TreeInfo.fullName(moduleIdQuery.qualId), moduleIdQuery.versionQuery);
+        JCModuleQuery moduleQuery = tree.moduleQuery;
+        ModuleQuery mq = new ModuleQuery(TreeInfo.fullName(moduleQuery.qualId), moduleQuery.versionQuery);
         // JIGSAW TODO check duplicates
         Set<Directive.RequiresFlag> flags = EnumSet.noneOf(Directive.RequiresFlag.class);
         for (RequiresFlag f: tree.flags) {
@@ -677,7 +677,7 @@ public class Modules extends JCTree.Visitor {
             public void report(ModuleSymbol msym, ModuleId mid, String key, Object... args) {
                 error(msym, mid, key, args);
             }
-            public void report(ModuleSymbol msym, ModuleIdQuery mq, String key, Object... args) {
+            public void report(ModuleSymbol msym, ModuleQuery mq, String key, Object... args) {
                 error(msym, mq, key, args);
             }
         });
@@ -692,7 +692,7 @@ public class Modules extends JCTree.Visitor {
         return rt_jar.exists();
     }
 
-    private void error(ModuleSymbol msym, ModuleIdQuery mq, String key, Object... args) {
+    private void error(ModuleSymbol msym, ModuleQuery mq, String key, Object... args) {
         error(msym, new ModuleId(mq.name, mq.versionQuery), key, args);
     }
 
@@ -757,7 +757,7 @@ public class Modules extends JCTree.Visitor {
 
         @Override
         public void visitRequiresModule(JCRequiresModuleDirective tree) {
-            search(tree.moduleIdQuery);
+            search(tree.moduleQuery);
         }
 
         @Override
@@ -769,7 +769,7 @@ public class Modules extends JCTree.Visitor {
         }
 
         @Override
-        public void visitModuleIdQuery(JCModuleIdQuery tree) {
+        public void visitModuleQuery(JCModuleQuery tree) {
             DEBUG("Modules.treeFinder.visitModuleId " + tree + " " + mid);
             if (equal(TreeInfo.fullName(tree.qualId), mid.name) && equal(tree.versionQuery, mid.version))
                 result = tree;
@@ -1009,7 +1009,7 @@ public class Modules extends JCTree.Visitor {
 
     interface ErrorHandler {
         void report(ModuleSymbol msym, ModuleId mid, String key, Object... args);
-        void report(ModuleSymbol msym, ModuleIdQuery mq, String key, Object... args);
+        void report(ModuleSymbol msym, ModuleQuery mq, String key, Object... args);
     }
 
     class ZeroMod implements ModuleResolver {
@@ -1105,7 +1105,7 @@ public class Modules extends JCTree.Visitor {
                 versions.put(mid.version, sym);
         }
 
-        private ModuleSymbol getModule(ModuleIdQuery mid) throws ModuleException {
+        private ModuleSymbol getModule(ModuleQuery mid) throws ModuleException {
             Map<Name, ModuleSymbol> versions = moduleTable.get(mid.name);
             if (versions == null)
                 throw new ModuleException("mdl.no.version.available", mid);
@@ -1128,17 +1128,17 @@ public class Modules extends JCTree.Visitor {
 
         private class ModuleException extends Exception {
             private static final long serialVersionUID = 0;
-            ModuleException(String key, ModuleIdQuery moduleQuery) {
+            ModuleException(String key, ModuleQuery moduleQuery) {
                 this.key = key;
                 this.moduleQuery = moduleQuery;
             }
             final String key;
-            final ModuleIdQuery moduleQuery;
+            final ModuleQuery moduleQuery;
         }
 
-////////        List<Node> getNodes(Iterable<? extends ModuleElement.ModuleIdQuery> queries) {
+////////        List<Node> getNodes(Iterable<? extends ModuleElement.ModuleQuery> queries) {
 ////////            ListBuffer<Node> nodes = new ListBuffer<Node>();
-////////            for (ModuleElement.ModuleIdQuery midq: queries) {
+////////            for (ModuleElement.ModuleQuery midq: queries) {
 ////////                ModuleId mid = (ModuleId) midq;
 ////////                try {
 ////////                    nodes.add(getNode(getModule(mid)));

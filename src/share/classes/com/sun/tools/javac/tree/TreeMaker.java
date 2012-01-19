@@ -529,8 +529,8 @@ public class TreeMaker implements JCTree.Factory {
     }
 
     @Override
-    public JCModuleIdQuery ModuleIdQuery(JCTree qualId, Name versionQuery) {
-        JCModuleIdQuery tree = new JCModuleIdQuery(qualId, versionQuery);
+    public JCModuleQuery ModuleQuery(JCTree qualId, Name versionQuery) {
+        JCModuleQuery tree = new JCModuleQuery(qualId, versionQuery);
         tree.pos = pos;
         return tree;
     }
@@ -557,8 +557,8 @@ public class TreeMaker implements JCTree.Factory {
     }
 
     @Override
-    public JCRequiresModuleDirective RequiresModule(List<RequiresFlag> flags, JCModuleIdQuery moduleIdQuery) {
-        JCRequiresModuleDirective tree = new JCRequiresModuleDirective(flags, moduleIdQuery);
+    public JCRequiresModuleDirective RequiresModule(List<RequiresFlag> flags, JCModuleQuery moduleQuery) {
+        JCRequiresModuleDirective tree = new JCRequiresModuleDirective(flags, moduleQuery);
         tree.pos = pos;
         return tree;
     }

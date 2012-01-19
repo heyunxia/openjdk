@@ -271,7 +271,7 @@ public class SimpleTreeVisitor<R,P> implements TreeVisitor<R,P> {
     }
 
     @Override
-    public R visitModuleIdQuery(ModuleIdQueryTree node, P p) {
+    public R visitModuleQuery(ModuleQueryTree node, P p) {
         return defaultAction(node, p);
     }
 

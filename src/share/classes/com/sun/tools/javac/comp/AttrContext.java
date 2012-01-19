@@ -58,7 +58,7 @@ public class AttrContext {
      */
     boolean varArgs = false;
 
-    /** A list of type variables that are all-quantifed in current context.
+    /** A list of type variables that are all-quantified in current context.
      */
     List<Type> tvars = List.nil();
 
@@ -101,6 +101,7 @@ public class AttrContext {
         return scope.getElements();
     }
 
+    @Override
     public String toString() {
         return "AttrContext[" + scope.toString() + "]";
     }
