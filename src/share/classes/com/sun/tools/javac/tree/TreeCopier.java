@@ -455,11 +455,11 @@ public class TreeCopier<P> implements TreeVisitor<JCTree,P> {
     }
 
     @Override
-    public JCModuleIdQuery visitModuleIdQuery(ModuleIdQueryTree node, P p) {
-        JCModuleIdQuery t = (JCModuleIdQuery) node;
+    public JCModuleQuery visitModuleQuery(ModuleQueryTree node, P p) {
+        JCModuleQuery t = (JCModuleQuery) node;
         JCTree qualId = copy(t.qualId, p);
         Name versionQuery = t.versionQuery;
-        return M.at(t.pos).ModuleIdQuery(qualId, versionQuery);
+        return M.at(t.pos).ModuleQuery(qualId, versionQuery);
     }
 
     @Override
@@ -488,8 +488,8 @@ public class TreeCopier<P> implements TreeVisitor<JCTree,P> {
     public JCRequiresModuleDirective visitRequiresModule(RequiresModuleDirectiveTree node, P p) {
         JCRequiresModuleDirective t = (JCRequiresModuleDirective) node;
         List<RequiresFlag> flags = t.flags;
-        JCModuleIdQuery moduleIdQuery = copy(t.moduleIdQuery, p);
-        return M.at(t.pos).RequiresModule(flags, moduleIdQuery);
+        JCModuleQuery moduleQuery = copy(t.moduleQuery, p);
+        return M.at(t.pos).RequiresModule(flags, moduleQuery);
     }
 
     @Override

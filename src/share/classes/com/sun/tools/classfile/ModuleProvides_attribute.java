@@ -77,7 +77,7 @@ public class ModuleProvides_attribute extends Attribute {
         public final int service_length;
         public final Service[] service_table;
         public final int export_length;
-        public final Export[] export_table;
+        public final int[] export_table;
         public final int  permit_length;
         public final int[] permit_table;
 
@@ -93,9 +93,9 @@ public class ModuleProvides_attribute extends Attribute {
             for (int i = 0; i < service_table.length; i++)
                 service_table[i] = new Service(cr);
             export_length = cr.readUnsignedShort();
-            export_table = new Export[export_length];
+            export_table = new int[export_length];
             for (int i = 0; i < export_table.length; i++)
-                export_table[i] = new Export(cr);
+                export_table[i] = cr.readUnsignedShort();
             permit_length = cr.readUnsignedShort();
             permit_table = new int[permit_length];
             for (int i = 0; i < permit_table.length; i++)
@@ -104,7 +104,7 @@ public class ModuleProvides_attribute extends Attribute {
         
         public View(int view_name_index, int entrypoint_index,
                     int[] alias_table, Service[] service_table,
-                    Export[] export_table, int[] permit_table)
+                    int[] export_table, int[] permit_table)
         {
             this.view_name_index = view_name_index;
             this.entrypoint_index = entrypoint_index;
@@ -123,7 +123,7 @@ public class ModuleProvides_attribute extends Attribute {
                     + 2 // entrypoint_index
                     + 2 + 2 * alias_table.length
                     + 2 + Service.length * service_table.length
-                    + 2 + Export.length * export_table.length
+                    + 2 + 2 * export_table.length
                     + 2 + 2 * permit_table.length;
 
         }
@@ -144,30 +144,5 @@ public class ModuleProvides_attribute extends Attribute {
 	    this.service_index = service_index;
 	    this.impl_index = impl_index;
 	}
-    }
-
-    public static class Export {
-        public static final int TYPE                    = 0x1;
-        public static final int TYPE_AND_MEMBERS        = 0x2;
-        public static final int PACKAGE                 = 0x4;
-        public static final int PACKAGE_AND_SUBPACKAGES = 0x8;
-
-        static final int length = 6;
-
-        public final int export_index;
-        public final int export_flags;
-        public final int source_index;
-
-        Export(ClassReader cr) throws IOException {
-            export_index = cr.readUnsignedShort();
-            export_flags = cr.readUnsignedShort();
-            source_index = cr.readUnsignedShort();
-        }
-        
-        public Export(int index, int flags, int source_index) {
-            this.export_index = index;
-            this.export_flags = flags;
-            this.source_index = source_index;
-        }
     }
 }

@@ -60,8 +60,8 @@ public class ModuleId implements javax.lang.model.element.ModuleElement.ModuleId
         return version;
     }
 
-    public ModuleIdQuery toQuery() {
-        return new ModuleIdQuery(name, version);
+    public ModuleQuery toQuery() {
+        return new ModuleQuery(name, version);
     }
 
     @Override

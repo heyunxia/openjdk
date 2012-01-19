@@ -84,7 +84,7 @@ import static com.sun.tools.javac.tree.JCTree.Tag.*;
 public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
 
     /* Tree tag values, identifying kinds of trees */
-    public enum Tag{
+    public enum Tag {
         /** For methods that return an invalid tag if a given condition is not met
          */
         NO_TAG,
@@ -337,7 +337,7 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
 
         MODULE,
         MODULE_ID,
-        MODULE_ID_QUERY,
+        MODULE_QUERY,
         VIEW_DECLARATION,
         ENTRYPOINT_DIRECTIVE,
         EXPORT_DIRECTIVE,
@@ -2255,20 +2255,20 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         }
     }
 
-    public static class JCModuleIdQuery extends JCTree implements ModuleIdQueryTree {
+    public static class JCModuleQuery extends JCTree implements ModuleQueryTree {
         public JCTree qualId;
         public Name versionQuery;
-        protected JCModuleIdQuery(JCTree qualId, Name versionQuery) {
+        protected JCModuleQuery(JCTree qualId, Name versionQuery) {
             this.qualId = qualId;
             this.versionQuery = versionQuery;
         }
 
         @Override
-        public void accept(Visitor v) { v.visitModuleIdQuery(this); }
+        public void accept(Visitor v) { v.visitModuleQuery(this); }
 
         @Override
         public Kind getKind() {
-            return Kind.MODULE_ID_QUERY;
+            return Kind.MODULE_QUERY;
         }
 
         @Override
@@ -2283,12 +2283,12 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
 
         @Override
         public <R, D> R accept(TreeVisitor<R, D> v, D d) {
-            return v.visitModuleIdQuery(this, d);
+            return v.visitModuleQuery(this, d);
         }
 
         @Override
         public Tag getTag() {
-            return MODULE_ID;
+            return MODULE_QUERY;
         }
     }
 
@@ -2478,11 +2478,11 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
     public static class JCRequiresModuleDirective extends JCModuleDirective
             implements RequiresModuleDirectiveTree {
         public List<RequiresFlag> flags;
-        public JCModuleIdQuery moduleIdQuery;
+        public JCModuleQuery moduleQuery;
 
-        protected JCRequiresModuleDirective(List<RequiresFlag> flags, JCModuleIdQuery moduleIdQuery) {
+        protected JCRequiresModuleDirective(List<RequiresFlag> flags, JCModuleQuery moduleQuery) {
             this.flags = flags;
-            this.moduleIdQuery = moduleIdQuery;
+            this.moduleQuery = moduleQuery;
         }
 
         @Override
@@ -2504,8 +2504,8 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         }
 
         @Override
-        public JCModuleIdQuery getModuleIdQuery() {
-            return moduleIdQuery;
+        public JCModuleQuery getModuleQuery() {
+            return moduleQuery;
         }
 
         @Override
@@ -2793,13 +2793,13 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         JCModuleDecl Module(JCModuleId moduleId, List<JCModuleDirective> directives, Name metadata);
         JCViewDecl View(JCExpression name, List<JCModuleDirective> directives);
         JCModuleId ModuleId(JCTree qualId, Name version);
-        JCModuleIdQuery ModuleIdQuery(JCTree qualId, Name versionQuery);
+        JCModuleQuery ModuleQuery(JCTree qualId, Name versionQuery);
         JCEntrypointDirective Entrypoint(JCExpression qualId);
         JCExportDirective Exports(JCExpression qualId);
         JCPermitsDirective Permits(JCExpression qualId);
         JCProvidesModuleDirective ProvidesModule(JCModuleId moduleId);
         JCProvidesServiceDirective ProvidesService(JCExpression serviceName, JCExpression implementationName);
-        JCRequiresModuleDirective RequiresModule(List<RequiresFlag> flags, JCModuleIdQuery moduleIdQuery);
+        JCRequiresModuleDirective RequiresModule(List<RequiresFlag> flags, JCModuleQuery moduleQuery);
         JCRequiresServiceDirective RequiresService(List<RequiresFlag> flags, JCExpression serviceName);
         LetExpr LetExpr(List<JCVariableDecl> defs, JCTree expr);
     }
@@ -2862,7 +2862,7 @@ public abstract class JCTree implements Tree, Cloneable, DiagnosticPosition {
         public void visitEntrypoint(JCEntrypointDirective that) { visitTree(that); }
         public void visitExports(JCExportDirective that)   { visitTree(that); }
         public void visitModuleId(JCModuleId that)           { visitTree(that); }
-        public void visitModuleIdQuery(JCModuleIdQuery that) { visitTree(that); }
+        public void visitModuleQuery(JCModuleQuery that) { visitTree(that); }
         public void visitPermits(JCPermitsDirective that) { visitTree(that); }
         public void visitProvidesModule(JCProvidesModuleDirective that) { visitTree(that); }
         public void visitProvidesService(JCProvidesServiceDirective that) { visitTree(that); }

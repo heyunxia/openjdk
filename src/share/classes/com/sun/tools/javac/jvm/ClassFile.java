@@ -84,6 +84,7 @@ public class ClassFile {
     public final static int CONSTANT_MethodType = 16;
     public final static int CONSTANT_InvokeDynamic = 18;
     public final static int CONSTANT_ModuleId = 19;
+    public final static int CONSTANT_ModuleQuery = 20;
 
     public final static int MAX_PARAMETERS = 0xff;
     public final static int MAX_DIMENSIONS = 0xff;

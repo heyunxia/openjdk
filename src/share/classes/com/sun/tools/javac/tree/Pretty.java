@@ -424,7 +424,7 @@ public class Pretty extends JCTree.Visitor {
     }
 
     @Override
-    public void visitModuleIdQuery(JCModuleIdQuery tree) {
+    public void visitModuleQuery(JCModuleQuery tree) {
         try {
             printExpr(tree.qualId);
             if (tree.versionQuery != null) {
@@ -501,7 +501,7 @@ public class Pretty extends JCTree.Visitor {
                 print(l.head);
                 print(" ");
             }
-            printExpr(tree.moduleIdQuery);
+            printExpr(tree.moduleQuery);
             print(";");
         } catch (IOException e) {
             throw new UncheckedIOException(e);

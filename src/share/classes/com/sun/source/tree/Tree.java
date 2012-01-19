@@ -573,7 +573,7 @@ public interface Tree {
 
         MODULE_ID(ModuleIdTree.class),
 
-        MODULE_ID_QUERY(ModuleIdQueryTree.class),
+        MODULE_QUERY(ModuleQueryTree.class),
 
         PERMITS_DIRECTIVE(PermitsDirectiveTree.class),
 

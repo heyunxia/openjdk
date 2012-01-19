@@ -30,7 +30,7 @@ import javax.lang.model.element.Name;
 /**
  *
  */
-public interface ModuleIdQueryTree extends Tree {
+public interface ModuleQueryTree extends Tree {
     Tree getName();
     Name getVersionQuery();
 }

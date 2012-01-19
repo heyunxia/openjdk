@@ -51,6 +51,7 @@ import org.openjdk.jigsaw.Platform;
 import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.jvm.Target;
 import com.sun.tools.javac.main.Option;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Debug;
@@ -164,7 +165,7 @@ public class JigsawModuleResolver implements ModuleResolver {
                     sym = new ModuleSymbol(name, syms.rootModule);
                     sym.version = names.fromString(mid.version().toString());
                     sym.location = new JigsawLibraryLocation(catalog.library, mid);
-                    sym.directives = ListBuffer.lb();
+                    sym.directives = List.nil(); // synthesize java.base?
                 }
                 results.add(sym);
             }
@@ -181,20 +182,11 @@ public class JigsawModuleResolver implements ModuleResolver {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    public boolean isPlatformName(CharSequence name) {
-        return Platform.isPlatformModuleName(name.toString());
-    }
-
-    public String getDefaultPlatformModule() {
-        return Platform.defaultPlatformModule().toString();
-    }
-
-
     private ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleId mid) {
         return getModuleIdQuery(mid.getName(), mid.getVersion());
     }
 
-    private ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleIdQuery midq) {
+    private ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleQuery midq) {
         return getModuleIdQuery(midq.getName(), midq.getVersionQuery());
     }
 
