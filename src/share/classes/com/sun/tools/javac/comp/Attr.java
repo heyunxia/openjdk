@@ -3082,9 +3082,10 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitModuleDef(JCModuleDecl tree) {
-        env.info.directives = new ListBuffer<Directive>();
+        env.info.modcon = modules.getModuleContext(tree);
+        env.info.modcon.directives.clear();
         attribStats(tree.getDirectives(), env);
-        env.toplevel.modle.directives = merge(env.info.directives,
+        env.toplevel.modle.directives = merge(env.info.modcon.directives,
                 env.toplevel.modle.directives);
     }
 
@@ -3093,15 +3094,15 @@ public class Attr extends JCTree.Visitor {
         TypeSymbol tsym = attribTree(tree.qualid, env, PCK, Type.noType).tsym;
         if (tsym.kind == PCK) {
             ExportsDirective d = new ExportsDirective((PackageSymbol) tsym);
-            env.info.directives.add(d);
+            env.info.modcon.directives.add(d);
         }
     }
 
     @Override
     public void visitProvidesModule(JCProvidesModuleDirective tree) {
-        Directive d = modules.getDirective(tree);
+        Directive d = env.info.modcon.directiveForTree.get(tree);
         if (d != null)
-            env.info.directives.add(d);
+            env.info.modcon.directives.add(d);
     }
 
     @Override
@@ -3111,15 +3112,15 @@ public class Attr extends JCTree.Visitor {
         if (srvc.kind != ERR && impl.kind != ERR) {
             ProvidesServiceDirective d =
                     new ProvidesServiceDirective((ClassSymbol) srvc, (ClassSymbol) impl);
-            env.info.directives.add(d);
+            env.info.modcon.directives.add(d);
         }
     }
 
     @Override
     public void visitRequiresModule(JCRequiresModuleDirective tree) {
-        Directive d = modules.getDirective(tree);
+        Directive d = env.info.modcon.directiveForTree.get(tree);
         if (d != null)
-            env.info.directives.add(d);
+            env.info.modcon.directives.add(d);
     }
 
     @Override
@@ -3136,15 +3137,15 @@ public class Attr extends JCTree.Visitor {
                 }
             }
             RequiresServiceDirective d = new RequiresServiceDirective((ClassSymbol) tree.serviceName.type.tsym, flags);
-            env.info.directives.add(d);
+            env.info.modcon.directives.add(d);
         }
     }
 
     @Override
     public void visitPermits(JCPermitsDirective tree) {
-        Directive d = modules.getDirective(tree);
+        Directive d = env.info.modcon.directiveForTree.get(tree);
         if (d != null)
-            env.info.directives.add(d);
+            env.info.modcon.directives.add(d);
     }
 
     @Override
@@ -3153,24 +3154,25 @@ public class Attr extends JCTree.Visitor {
         if (t.tag == CLASS) {
             // FIXME: should check for duplicates
             EntrypointDirective d = new EntrypointDirective((ClassSymbol) tree.qualId.type.tsym);
-            env.info.directives.add(d);
+            env.info.modcon.directives.add(d);
         }
     }
 
     @Override
     public void visitView(JCViewDecl tree) {
-        ModuleSymbol msym = env.toplevel.modle;
         Name name = TreeInfo.fullName(tree.name);
-        ListBuffer<Directive> prev = env.info.directives;
-        env.info.directives = new ListBuffer<Directive>();
-        try {
-            attribStats(tree.directives, env);
-        } finally {
-            ViewDeclaration orig = (ViewDeclaration) modules.getDirective(tree);
-            ViewDeclaration d = new ViewDeclaration(name, 
-                    merge(env.info.directives, orig.directives));
-            env.info.directives = prev;
-            env.info.directives.add(d);
+        if (env.tree.hasTag(JCTree.Tag.MODULE)) {
+            ViewDeclaration orig = (ViewDeclaration) env.info.modcon.directiveForTree.get(tree);
+            Env<AttrContext> prevEnv = env;
+            env = env.dup(tree, env.info.dup());
+            try {
+                attribStats(tree.directives, env);
+            } finally {
+                ViewDeclaration d = new ViewDeclaration(name,
+                        merge(env.info.modcon.directives, orig.directives));
+                env = prevEnv;
+                env.info.modcon.directives.add(d);
+            }
         }
     }
 

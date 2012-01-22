@@ -71,8 +71,8 @@ public class AttrContext {
      */
     Symbol enclVar = null;
 
-    /** The collection of module directives being constructed. */
-    ListBuffer<Directive> directives;
+    /** The module context for the current module. */
+    ModuleContext modcon;
 
     /** Duplicate this context, replacing scope field and copying all others.
      */
@@ -86,6 +86,7 @@ public class AttrContext {
         info.tvars = tvars;
         info.lint = lint;
         info.enclVar = enclVar;
+        info.modcon = modcon == null ? null : modcon.dup();
         return info;
     }
 
