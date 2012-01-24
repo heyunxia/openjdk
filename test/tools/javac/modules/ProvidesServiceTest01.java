@@ -23,119 +23,83 @@
 
 /*
  * @test
- * @summary Simple test for "provides service service-name with impl-name;"
+ * @summary Tests for "provides service service-name with impl-name;"
+ * @build DirectiveTest
+ * @run main ProvidesServiceTest01
  */
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
-import javax.tools.StandardLocation;
 
-import com.sun.source.util.JavacTask;
-import com.sun.tools.classfile.Attribute;
 import com.sun.tools.classfile.ClassFile;
 import com.sun.tools.classfile.ConstantPool;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_Class_info;
 import com.sun.tools.classfile.ConstantPoolException;
 import com.sun.tools.classfile.ModuleProvides_attribute;
 import com.sun.tools.classfile.ModuleProvides_attribute.View;
-import com.sun.tools.javac.api.JavacTool;
-import com.sun.tools.javap.JavapTask;
-import javax.tools.StandardJavaFileManager;
 
-public class ProvidesServiceTest01 {
+public class ProvidesServiceTest01 extends DirectiveTest {
     public static void main(String... args) throws Exception {
         new ProvidesServiceTest01().run();
     }
 
     void run() throws Exception {
-        srcDir.mkdirs();
-        classesDir.mkdirs();
-        javac = JavacTool.create();
-        fm = javac.getStandardFileManager(null, null, null);
-        fm.setLocation(StandardLocation.SOURCE_PATH, Arrays.asList(srcDir));
-        fm.setLocation(StandardLocation.MODULE_PATH, Collections.<File>emptyList());
-        fm.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(classesDir));
-
-        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
-        files.add(createFile("M1/module-info.java",
-                "module M1 { provides service p.S with p.S; }"));
-        files.add(createFile("M1/p/S.java",
-                "package p; public class S { }"));
-        compile(fm, files);
-
-        checkProvidesAttribute("M1/module-info.class");
+        basicTest();
+        duplTest();
 
         if (errors > 0)
             throw new Exception(errors + " errors found");
     }
 
-    void checkProvidesAttribute(String path) throws IOException, ConstantPoolException {
-        javap(path);
-        ClassFile cf = ClassFile.read(new File(classesDir, path));
-        ConstantPool cp = cf.constant_pool;
-        ModuleProvides_attribute attr = (ModuleProvides_attribute) cf.getAttribute(Attribute.ModuleProvides);
-        Set<String> expect = createSet("p/S p/S");
-        Set<String> found = new HashSet<String>();
-        for (View v: attr.view_table) {
-            if (v.view_name_index == 0) {
-                for (ModuleProvides_attribute.Service e: v.service_table) {
-                    CONSTANT_Class_info serviceInfo = cp.getClassInfo(e.service_index);
-                    CONSTANT_Class_info implInfo = cp.getClassInfo(e.impl_index);
-                    found.add(serviceInfo.getName() + " " + implInfo.getName());
-                }
-            }
-        }
+    void basicTest() throws Exception {
+        init("basic");
+
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides service p.S1 with p.S2; }"));
+        files.add(createFile("M1/p/S1.java",
+                "package p; public class S1 { }"));
+        files.add(createFile("M1/p/S2.java",
+                "package p; public class S2 extends S1 { }"));
+        compile(files);
+
+        Set<String> expect = createSet("p/S1 p/S2");
+        Set<String> found = getServices("M1/module-info.class", null);
         checkEqual("services", expect, found);
     }
 
-    void compile(JavaFileManager fm, List<JavaFileObject> files) throws Exception {
-        JavacTask task = javac.getTask(null, fm, null, null, null, files);
-        if (!task.call())
-            throw new Exception("compilation failed");
+    void duplTest() throws Exception {
+        init("dupl");
+
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { requires service p.S; requires service p.S; }"));
+        files.add(createFile("M2/module-info.java",
+                "module M2 { provides service p.S with p.S; }"));
+        files.add(createFile("M2/p/S.java",
+                "package p; public class S { }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.requires [p.S]");
+        compile(files, expectDiags);
     }
 
-    void javap(String path) {
-        List<String> opts = Arrays.asList("-v");
-        List<String> files = Arrays.asList(new File(classesDir, path).getPath());
-        JavapTask t = new JavapTask(null, fm, null, opts, files);
-        t.call();
-    }
-
-    JavaFileObject createFile(String path, final String body) throws IOException {
-        File f = new File(srcDir, path);
-        f.getParentFile().mkdirs();
-        try (FileWriter out = new FileWriter(f)) {
-            out.write(body);
+    Set<String> getServices(String path, String viewName) throws IOException, ConstantPoolException {
+        javap(path);
+        Set<String> found = new HashSet<String>();
+        ClassFile cf = ClassFile.read(new File(classesDir, path));
+        ConstantPool cp = cf.constant_pool;
+        View v = getView(cf, viewName);
+        for (ModuleProvides_attribute.Service e: v.service_table) {
+            CONSTANT_Class_info serviceInfo = cp.getClassInfo(e.service_index);
+            CONSTANT_Class_info implInfo = cp.getClassInfo(e.impl_index);
+            found.add(serviceInfo.getName() + " " + implInfo.getName());
         }
-        return fm.getJavaFileObjects(f).iterator().next();
+        return found;
     }
-
-    <T> Set<T> createSet(T... items) {
-        return new HashSet<T>(Arrays.asList(items));
-    }
-
-    <T> void checkEqual(String label, Collection<T> expect, Collection<T> found) {
-        if (found.equals(expect))
-            return;
-        System.err.println("Error: mismatch");
-        System.err.println("  expected: " + expect);
-        System.err.println("     found: " + found);
-        errors++;
-    }
-
-    JavacTool javac;
-    StandardJavaFileManager fm;
-    File srcDir = new File("src");
-    File classesDir = new File("classes");
-    int errors;
 }

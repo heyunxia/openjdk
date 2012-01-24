@@ -25,7 +25,12 @@
 
 package com.sun.tools.javac.comp;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,10 +61,42 @@ public class ModuleContext {
         return new ModuleContext();
     }
 
+    void addDirective(Directive d, JCModuleDirective tree, Name name) {
+        directives.add(d);
+        directiveForTree.put(tree, d);
+        Set<Directive> set = directiveIndex.get(name);
+        if (set == null)
+            directiveIndex.put(name, (set = new LinkedHashSet<Directive>()));
+        set.add(d);
+    }
+
+    Collection<Directive> getDirectives(Name name) {
+        Set<Directive> set = directiveIndex.get(name);
+        return (set != null) ? set : Collections.<Directive>emptySet();
+    }
+
+    Collection<Directive> getDirectives(Directive.Kind kind, Name name) {
+        Set<Directive> set = directiveIndex.get(name);
+        if (set == null) 
+            return Collections.emptySet();
+        List<Directive> list = null;
+        for (Directive d: set) {
+            if (d.getKind() == kind) {
+                if (list == null)
+                    list = new ArrayList<Directive>();
+                list.add(d);
+            }
+        }
+        return list;
+    }
+
+
+
     final ListBuffer<Directive> directives;
     final Map<JCModuleDirective, Directive> directiveForTree;
     final Map<Name, Set<Directive>> directiveIndex;
 
     boolean requiresBaseModule;
     boolean isPlatformModule;
+    boolean hasEntrypoint;
 }

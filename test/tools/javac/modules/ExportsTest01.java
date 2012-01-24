@@ -23,15 +23,15 @@
 
 /*
  * @test
- * @summary Tests for "class class-name;"
+ * @summary Tests for "exports package-name;"
  * @build DirectiveTest
- * @run main EntrypointTest01
+ * @run main ExportsTest01
  */
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,13 +39,13 @@ import javax.tools.JavaFileObject;
 
 import com.sun.tools.classfile.ClassFile;
 import com.sun.tools.classfile.ConstantPool;
-import com.sun.tools.classfile.ConstantPool.CONSTANT_Class_info;
+import com.sun.tools.classfile.ConstantPool.CONSTANT_Utf8_info;
 import com.sun.tools.classfile.ConstantPoolException;
 import com.sun.tools.classfile.ModuleProvides_attribute.View;
 
-public class EntrypointTest01 extends DirectiveTest {
+public class ExportsTest01 extends DirectiveTest {
     public static void main(String... args) throws Exception {
-        new EntrypointTest01().run();
+        new ExportsTest01().run();
     }
 
     void run() throws Exception {
@@ -61,14 +61,14 @@ public class EntrypointTest01 extends DirectiveTest {
 
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
-                "module M1 { class p.Main; }"));
-        files.add(createFile("M1/p/Main.java",
-                "package p; public class Main { public static void main(String... args) { } }"));
+                "module M1 { exports p; }"));
+        files.add(createFile("M1/p/C.java",
+                "package p; public class C { }"));
         compile(files);
 
-        Set<String> expect = createSet("p/Main");
-        Set<String> found = getEntrypoints("M1/module-info.class", null);
-        checkEqual("entrypoint", expect, found);
+        Set<String> expect = createSet("p");
+        Set<String> found = getExports("M1/module-info.class", null);
+        checkEqual("exports", expect, found);
     }
 
     void duplTest() throws Exception {
@@ -76,24 +76,24 @@ public class EntrypointTest01 extends DirectiveTest {
 
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
-                "module M1 { class p.Main; class p.Main2; }"));
-        files.add(createFile("M1/p/Main.java",
-                "package p; public class Main { public static void main(String... args) { } }"));
-        files.add(createFile("M1/p/Main2.java",
-                "package p; public class Main2 { public static void main(String... args) { } }"));
+                "module M1 { exports p; exports p; }"));
+        files.add(createFile("M1/p/C.java",
+                "package p; public class C { }"));
 
-        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.entrypoint []");
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.exports [p]");
         compile(files, expectDiags);
     }
 
-    Set<String> getEntrypoints(String path, String viewName) throws IOException, ConstantPoolException {
+    Set<String> getExports(String path, String viewName) throws IOException, ConstantPoolException {
         javap(path);
         Set<String> found = new HashSet<String>();
         ClassFile cf = ClassFile.read(new File(classesDir, path));
         ConstantPool cp = cf.constant_pool;
         View v = getView(cf, viewName);
-        CONSTANT_Class_info info = cp.getClassInfo(v.entrypoint_index);
-        found.add(info.getName());
+        for (int e: v.export_table) {
+            CONSTANT_Utf8_info info = cp.getUTF8Info(e);
+            found.add(info.value);
+        }
         return found;
     }
 }

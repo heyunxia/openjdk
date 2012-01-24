@@ -43,26 +43,15 @@ public class ModuleData_attribute extends Attribute {
         data_index = cr.readUnsignedShort();
     }
 
-    public ModuleData_attribute(ConstantPool constant_pool, int class_index, int[] attributes)
-            throws ConstantPoolException {
-        this(constant_pool.getUTF8Index(Attribute.ModuleData), class_index, attributes);
-    }
-
-    public ModuleData_attribute(int name_index, int data_index, int[] attributes) {
-        super(name_index, 2 + attributes.length * 2);
+    public ModuleData_attribute(int name_index, int data_index) {
+        super(name_index, 2);
         this.data_index = data_index;
-    }
-
-    public CONSTANT_Class_info getClassInfo(ConstantPool constant_pool) throws ConstantPoolException {
-        if (data_index == 0)
-            return null;
-        return constant_pool.getClassInfo(data_index);
     }
 
     public String getData(ConstantPool constant_pool) throws ConstantPoolException {
         if (data_index == 0)
             return null;
-        return constant_pool.getClassInfo(data_index).getName();
+        return constant_pool.getUTF8Info(data_index).value;
     }
 
     public <R, D> R accept(Visitor<R, D> visitor, D data) {

@@ -23,119 +23,75 @@
 
 /*
  * @test
- * @summary Simple test for "provides module-name;"
+ * @summary Tests for "provides module-name;"
+ * @build DirectiveTest
+ * @run main ProvidesModuleTest01
  */
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
-import javax.tools.StandardLocation;
 
-import com.sun.source.util.JavacTask;
-import com.sun.tools.classfile.Attribute;
 import com.sun.tools.classfile.ClassFile;
 import com.sun.tools.classfile.ConstantPool;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_ModuleId_info;
 import com.sun.tools.classfile.ConstantPoolException;
-import com.sun.tools.classfile.ModuleProvides_attribute;
 import com.sun.tools.classfile.ModuleProvides_attribute.View;
-import com.sun.tools.javac.api.JavacTool;
-import com.sun.tools.javap.JavapTask;
-import javax.tools.StandardJavaFileManager;
 
-public class ProvidesModuleTest01 {
+public class ProvidesModuleTest01 extends DirectiveTest {
     public static void main(String... args) throws Exception {
         new ProvidesModuleTest01().run();
     }
 
     void run() throws Exception {
-        srcDir.mkdirs();
-        classesDir.mkdirs();
-        javac = JavacTool.create();
-        fm = javac.getStandardFileManager(null, null, null);
-        fm.setLocation(StandardLocation.SOURCE_PATH, Arrays.asList(srcDir));
-        fm.setLocation(StandardLocation.MODULE_PATH, Collections.<File>emptyList());
-        fm.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(classesDir));
-
-        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
-        files.add(createFile("M1/module-info.java",
-                "module M1 { provides M1a; }"));
-        compile(fm, files);
-
-        checkProvidesAttribute("M1/module-info.class");
+        basicTest();
+        duplTest();
 
         if (errors > 0)
             throw new Exception(errors + " errors found");
     }
 
-    void checkProvidesAttribute(String path) throws IOException, ConstantPoolException {
+    void basicTest() throws Exception {
+        init("basic");
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides M1a; }"));
+        compile(files);
+
+        Set<String> expect = createSet("M1a");
+        Set<String> found = getAliases("M1/module-info.class", null);
+        checkEqual("aliases", expect, found);
+    }
+
+    void duplTest() throws Exception {
+        init("dupl");
+
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides M1a; provides M1a; }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.provides [M1a]");
+        compile(files, expectDiags);
+    }
+
+    Set<String> getAliases(String path, String viewName) throws IOException, ConstantPoolException {
         javap(path);
+        Set<String> found = new HashSet<String>();
         ClassFile cf = ClassFile.read(new File(classesDir, path));
         ConstantPool cp = cf.constant_pool;
-        ModuleProvides_attribute attr = (ModuleProvides_attribute) cf.getAttribute(Attribute.ModuleProvides);
-        Set<String> expect = createSet("M1a");
-        Set<String> found = new HashSet<String>();
-        for (View v: attr.view_table) {
-            if (v.view_name_index == 0) {
-                for (int i: v.alias_table) {
-                    CONSTANT_ModuleId_info info = cp.getModuleIdInfo(i);
-                    String s = info.getName();
-                    if (info.version_index != 0)
-                        s += "@" + info.getVersion();
-                    found.add(s);
-                }
-            }
+        View v = getView(cf, viewName);
+        for (int i: v.alias_table) {
+            CONSTANT_ModuleId_info info = cp.getModuleIdInfo(i);
+            String s = info.getName();
+            if (info.version_index != 0)
+                s += "@" + info.getVersion();
+            found.add(s);
         }
-        checkEqual("provides", expect, found);
+        return found;
     }
-
-    void compile(JavaFileManager fm, List<JavaFileObject> files) throws Exception {
-        JavacTask task = javac.getTask(null, fm, null, null, null, files);
-        if (!task.call())
-            throw new Exception("compilation failed");
-    }
-
-    void javap(String path) {
-        List<String> opts = Arrays.asList("-v");
-        List<String> files = Arrays.asList(new File(classesDir, path).getPath());
-        JavapTask t = new JavapTask(null, fm, null, opts, files);
-        t.call();
-    }
-
-    JavaFileObject createFile(String path, final String body) throws IOException {
-        File f = new File(srcDir, path);
-        f.getParentFile().mkdirs();
-        try (FileWriter out = new FileWriter(f)) {
-            out.write(body);
-        }
-        return fm.getJavaFileObjects(f).iterator().next();
-    }
-
-    <T> Set<T> createSet(T... items) {
-        return new HashSet<T>(Arrays.asList(items));
-    }
-
-    <T> void checkEqual(String label, Collection<T> expect, Collection<T> found) {
-        if (found.equals(expect))
-            return;
-        System.err.println("Error: mismatch");
-        System.err.println("  expected: " + expect);
-        System.err.println("     found: " + found);
-        errors++;
-    }
-
-    JavacTool javac;
-    StandardJavaFileManager fm;
-    File srcDir = new File("src");
-    File classesDir = new File("classes");
-    int errors;
 }

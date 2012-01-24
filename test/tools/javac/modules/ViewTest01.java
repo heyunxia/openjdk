@@ -23,11 +23,12 @@
 
 /*
  * @test
- * @summary Tests for "class class-name;"
+ * @summary Tests for "view { ... };"
  * @build DirectiveTest
- * @run main EntrypointTest01
+ * @run main ViewTest01
  */
 
+import com.sun.tools.classfile.Attribute;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -39,13 +40,13 @@ import javax.tools.JavaFileObject;
 
 import com.sun.tools.classfile.ClassFile;
 import com.sun.tools.classfile.ConstantPool;
-import com.sun.tools.classfile.ConstantPool.CONSTANT_Class_info;
 import com.sun.tools.classfile.ConstantPoolException;
+import com.sun.tools.classfile.ModuleProvides_attribute;
 import com.sun.tools.classfile.ModuleProvides_attribute.View;
 
-public class EntrypointTest01 extends DirectiveTest {
+public class ViewTest01 extends DirectiveTest {
     public static void main(String... args) throws Exception {
-        new EntrypointTest01().run();
+        new ViewTest01().run();
     }
 
     void run() throws Exception {
@@ -61,14 +62,12 @@ public class EntrypointTest01 extends DirectiveTest {
 
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
-                "module M1 { class p.Main; }"));
-        files.add(createFile("M1/p/Main.java",
-                "package p; public class Main { public static void main(String... args) { } }"));
+                "module M1 { view V { } }"));
         compile(files);
 
-        Set<String> expect = createSet("p/Main");
-        Set<String> found = getEntrypoints("M1/module-info.class", null);
-        checkEqual("entrypoint", expect, found);
+        Set<String> expect = createSet("V");
+        Set<String> found = getViews("M1/module-info.class");
+        checkEqual("views", expect, found);
     }
 
     void duplTest() throws Exception {
@@ -76,24 +75,21 @@ public class EntrypointTest01 extends DirectiveTest {
 
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
-                "module M1 { class p.Main; class p.Main2; }"));
-        files.add(createFile("M1/p/Main.java",
-                "package p; public class Main { public static void main(String... args) { } }"));
-        files.add(createFile("M1/p/Main2.java",
-                "package p; public class Main2 { public static void main(String... args) { } }"));
+                "module M1 { view V { } view V { } }"));
 
-        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.entrypoint []");
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.view [V]");
         compile(files, expectDiags);
     }
 
-    Set<String> getEntrypoints(String path, String viewName) throws IOException, ConstantPoolException {
+    Set<String> getViews(String path) throws IOException, ConstantPoolException {
         javap(path);
         Set<String> found = new HashSet<String>();
         ClassFile cf = ClassFile.read(new File(classesDir, path));
         ConstantPool cp = cf.constant_pool;
-        View v = getView(cf, viewName);
-        CONSTANT_Class_info info = cp.getClassInfo(v.entrypoint_index);
-        found.add(info.getName());
+        ModuleProvides_attribute attr = (ModuleProvides_attribute) cf.getAttribute(Attribute.ModuleProvides);
+        for (View v: attr.view_table) {
+            found.add(v.view_name_index == 0 ? null : cp.getUTF8Value(v.view_name_index));
+        }
         return found;
     }
 }

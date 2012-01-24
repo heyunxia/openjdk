@@ -480,6 +480,7 @@ public class JavacFileManager
         return result;
     }
 
+    // cleared by setLocation
     private Map<String, Location> locationCache = new HashMap<String,Location>();
 
     @Override // javax.tools.ModuleFileManager
@@ -1021,6 +1022,7 @@ public class JavacFileManager
     {
         nullCheck(location);
         locations.setLocation(location, path);
+        locationCache.clear();
     }
 
     @Override // javax.tools.StandardJavaFileManager

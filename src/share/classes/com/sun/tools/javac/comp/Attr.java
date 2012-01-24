@@ -3094,7 +3094,11 @@ public class Attr extends JCTree.Visitor {
         TypeSymbol tsym = attribTree(tree.qualid, env, PCK, Type.noType).tsym;
         if (tsym.kind == PCK) {
             ExportsDirective d = new ExportsDirective((PackageSymbol) tsym);
-            env.info.modcon.directives.add(d);
+            if (env.info.modcon.getDirectives(Directive.Kind.EXPORTS, d.sym.fullname).isEmpty()) {
+                env.info.modcon.addDirective(d, tree, d.sym.fullname);
+            } else {
+                log.error("dupl.exports", d.sym);
+            }
         }
     }
 
@@ -3126,7 +3130,7 @@ public class Attr extends JCTree.Visitor {
     @Override
     public void visitRequiresService(JCRequiresServiceDirective tree) {
         Type t = attribType(tree.serviceName, env);
-        if (t.tag == CLASS) {
+        if (t.tag == CLASS && env.tree.hasTag(JCTree.Tag.MODULE)) {
             // FIXME: should check for duplicates
             Set<Directive.RequiresFlag> flags = EnumSet.noneOf(Directive.RequiresFlag.class);
             for (RequiresFlag f: tree.flags) {
@@ -3136,8 +3140,12 @@ public class Attr extends JCTree.Visitor {
                         break;
                 }
             }
-            RequiresServiceDirective d = new RequiresServiceDirective((ClassSymbol) tree.serviceName.type.tsym, flags);
-            env.info.modcon.directives.add(d);
+            RequiresServiceDirective d = new RequiresServiceDirective((ClassSymbol) t.tsym, flags);
+            if (env.info.modcon.getDirectives(Directive.Kind.REQUIRES_SERVICE, d.sym.fullname).isEmpty()) {
+                env.info.modcon.addDirective(d, tree, d.sym.fullname);
+            } else {
+                log.error("dupl.requires", d.sym);
+            }
         }
     }
 
