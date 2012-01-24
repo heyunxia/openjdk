@@ -268,6 +268,8 @@ public class Tokens {
                 return "token.float";
             case DOUBLELITERAL:
                 return "token.double";
+            case VERSIONLITERAL:
+                return "token.version";
             case ERROR:
                 return "token.bad-symbol";
             case EOF:

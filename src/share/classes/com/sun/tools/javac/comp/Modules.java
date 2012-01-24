@@ -651,7 +651,7 @@ public class Modules extends JCTree.Visitor {
                     if (t instanceof FileNotFoundException)
                         log.error("module.library.not.found", t.getMessage());
                     else if (t instanceof IOException)
-                        log.error("canot.open.module.library", t.getMessage()); // FIXME, t.getMessage is a barely helpful string
+                        log.error("cannot.open.module.library", t.getMessage()); // FIXME, t.getMessage is a barely helpful string
                     else if (t instanceof RuntimeException)
                         throw new RuntimeException(t);
                     else if (t instanceof Error)

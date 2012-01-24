@@ -2739,7 +2739,7 @@ public class JavacParser implements Parser {
             if (token.kind == VERSIONLITERAL) {
                 version = token.name();
             } else
-               log.error(pos, "modules.version.literal.expected");
+               log.error(pos, "module.version.literal.expected");
             nextToken();
         }
         return toP(F.at(pos).ModuleId(qualId, version));
@@ -2765,10 +2765,10 @@ public class JavacParser implements Parser {
                     query = names.fromString(op.kind.name + token.name());
                     nextToken();
                 } else {
-                    log.error(token.pos, "modules.version.literal.expected");
+                    log.error(token.pos, "module.version.literal.expected");
                 }
             } else {
-               log.error(pos, "modules.version.query.expected");
+               log.error(pos, "module.version.query.expected");
             }
         }
         return toP(F.at(pos).ModuleQuery(qualId, query));

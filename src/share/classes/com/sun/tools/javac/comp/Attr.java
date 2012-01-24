@@ -3144,7 +3144,7 @@ public class Attr extends JCTree.Visitor {
             if (env.info.modcon.getDirectives(Directive.Kind.REQUIRES_SERVICE, d.sym.fullname).isEmpty()) {
                 env.info.modcon.addDirective(d, tree, d.sym.fullname);
             } else {
-                log.error("dupl.requires", d.sym);
+                log.error("dupl.requires.service", d.sym);
             }
         }
     }
