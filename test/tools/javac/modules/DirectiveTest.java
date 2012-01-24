@@ -21,7 +21,6 @@
  * questions.
  */
 
-import com.sun.tools.classfile.ConstantPool.InvalidIndex;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -139,7 +138,7 @@ abstract class DirectiveTest {
     }
 
     <T> void checkEqual(String label, Collection<T> expect, Collection<T> found) {
-        if (found.equals(expect))
+        if ((found == null) ? (expect == null) : found.equals(expect))
             return;
         System.err.println("Error: mismatch");
         System.err.println("  expected: " + expect);

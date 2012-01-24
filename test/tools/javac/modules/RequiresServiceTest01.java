@@ -82,7 +82,7 @@ public class RequiresServiceTest01 extends DirectiveTest {
                 "module M1 { requires service p.S1; requires service p.S1; }"));
         provideService(files, "M2", "p.S1", "p.S2");
 
-        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.requires [p.S1]");
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.requires.service [p.S1]");
         compile(files, expectDiags);
     }
 

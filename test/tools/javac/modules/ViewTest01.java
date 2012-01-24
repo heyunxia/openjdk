@@ -50,11 +50,25 @@ public class ViewTest01 extends DirectiveTest {
     }
 
     void run() throws Exception {
+        emptyTest();
         basicTest();
         duplTest();
 
         if (errors > 0)
             throw new Exception(errors + " errors found");
+    }
+
+    void emptyTest() throws Exception {
+        init("empty");
+
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { }"));
+        compile(files);
+
+        Set<String> expect = null;
+        Set<String> found = getViews("M1/module-info.class");
+        checkEqual("views", expect, found);
     }
 
     void basicTest() throws Exception {
@@ -83,10 +97,12 @@ public class ViewTest01 extends DirectiveTest {
 
     Set<String> getViews(String path) throws IOException, ConstantPoolException {
         javap(path);
-        Set<String> found = new HashSet<String>();
         ClassFile cf = ClassFile.read(new File(classesDir, path));
         ConstantPool cp = cf.constant_pool;
         ModuleProvides_attribute attr = (ModuleProvides_attribute) cf.getAttribute(Attribute.ModuleProvides);
+        if (attr == null)
+            return null;
+        Set<String> found = new HashSet<String>();
         for (View v: attr.view_table) {
             found.add(v.view_name_index == 0 ? null : cp.getUTF8Value(v.view_name_index));
         }
