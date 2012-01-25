@@ -48,16 +48,8 @@ public class ProvidesModuleTest01 extends DirectiveTest {
         new ProvidesModuleTest01().run();
     }
 
-    void run() throws Exception {
-        basicTest();
-        duplTest();
-
-        if (errors > 0)
-            throw new Exception(errors + " errors found");
-    }
-
+    @Test
     void basicTest() throws Exception {
-        init("basic");
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { provides M1a; }"));
@@ -68,9 +60,8 @@ public class ProvidesModuleTest01 extends DirectiveTest {
         checkEqual("aliases", expect, found);
     }
 
+    @Test
     void duplTest() throws Exception {
-        init("dupl");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { provides M1a; provides M1a; }"));

@@ -24,6 +24,11 @@
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -31,6 +36,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject;
@@ -38,7 +44,6 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 
 import com.sun.source.util.JavacTask;
-
 import com.sun.tools.classfile.Attribute;
 import com.sun.tools.classfile.ClassFile;
 import com.sun.tools.classfile.ConstantPool;
@@ -52,13 +57,38 @@ import com.sun.tools.javap.JavapTask;
 
 /* Utilities for module directives tests. */
 abstract class DirectiveTest {
+
     protected DirectiveTest() {
         javac = JavacTool.create();
         fm = javac.getStandardFileManager(null, null, null);
     }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Test { }
     
+    void run() throws Exception {
+        for (Method m: getClass().getDeclaredMethods()) {
+            Annotation a = m.getAnnotation(Test.class);
+            if (a != null) {
+                init(m.getName());
+                try {
+                    m.invoke(this, new Object[] { });
+
+                } catch (InvocationTargetException e) {
+                    Throwable cause = e.getCause();
+                    throw (cause instanceof Exception) ? ((Exception) cause) : e;
+                }
+            }
+        }
+        System.err.println(testCount + " tests" + ((errorCount == 0) ? "" : ", " + errorCount + " errors"));
+        if (errorCount > 0)
+            throw new Exception(errorCount + " errors found");
+    }
+
     void init(String name) throws IOException {
         System.err.println("Test " + name);
+        testCount++;
+
         srcDir = new File(name, "src");
         srcDir.mkdirs();
         classesDir = new File(name, "classes");
@@ -67,6 +97,7 @@ abstract class DirectiveTest {
         fm.setLocation(StandardLocation.SOURCE_PATH, Arrays.asList(srcDir));
         fm.setLocation(StandardLocation.MODULE_PATH, Collections.<File>emptyList());
         fm.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(classesDir));
+
     }
 
     void compile(List<JavaFileObject> files) throws Exception {
@@ -80,6 +111,7 @@ abstract class DirectiveTest {
             List<String> diags = new ArrayList<String>();
             @Override
             public void report(Diagnostic<? extends JavaFileObject> diagnostic) {
+                System.err.println(diagnostic);
                 JCDiagnostic d = ((ClientCodeWrapper.DiagnosticSourceUnwrapper) diagnostic).d;
                 diags.add(d.getKind() + ": " + d.getCode() + " " + Arrays.asList(d.getArgs()));
             }
@@ -134,7 +166,7 @@ abstract class DirectiveTest {
         System.err.println("Error: mismatch");
         System.err.println("  expected: " + expect);
         System.err.println("     found: " + found);
-        errors++;
+        errorCount++;
     }
 
     <T> void checkEqual(String label, Collection<T> expect, Collection<T> found) {
@@ -143,13 +175,14 @@ abstract class DirectiveTest {
         System.err.println("Error: mismatch");
         System.err.println("  expected: " + expect);
         System.err.println("     found: " + found);
-        errors++;
+        errorCount++;
     }
 
     JavacTool javac;
     StandardJavaFileManager fm;
     File srcDir;
     File classesDir;
-    int errors;
+    int testCount;
+    int errorCount;
 
 }

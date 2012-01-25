@@ -51,18 +51,8 @@ public class RequiresServiceTest01 extends DirectiveTest {
         new RequiresServiceTest01().run();
     }
 
-    void run() throws Exception {
-        basicTest();
-        duplTest();
-        viewTest();
-
-        if (errors > 0)
-            throw new Exception(errors + " errors found");
-    }
-
+    @Test
     void basicTest() throws Exception {
-        init("basic");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { requires service p.S1; }"));
@@ -74,9 +64,8 @@ public class RequiresServiceTest01 extends DirectiveTest {
         checkEqual("required services", expect, found);
     }
 
+    @Test
     void duplTest() throws Exception {
-        init("dupl");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { requires service p.S1; requires service p.S1; }"));
@@ -86,9 +75,8 @@ public class RequiresServiceTest01 extends DirectiveTest {
         compile(files, expectDiags);
     }
 
+    @Test
     void viewTest() throws Exception {
-        init("view");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { view V { requires service p.S1; } }"));

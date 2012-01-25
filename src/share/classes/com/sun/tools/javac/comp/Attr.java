@@ -3097,7 +3097,7 @@ public class Attr extends JCTree.Visitor {
             if (env.info.modcon.getDirectives(Directive.Kind.EXPORTS, d.sym.fullname).isEmpty()) {
                 env.info.modcon.addDirective(d, tree, d.sym.fullname);
             } else {
-                log.error("dupl.exports", d.sym);
+                log.error(tree.qualid, "dupl.exports", d.sym);
             }
         }
     }
@@ -3111,12 +3111,21 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitProvidesService(JCProvidesServiceDirective tree) {
-        Symbol srvc = attribTree(tree.serviceName, env, TYP, Type.noType).tsym;
+        TypeSymbol srvc = attribTree(tree.serviceName, env, TYP, Type.noType).tsym;
         TypeSymbol impl = attribTree(tree.implName, env, TYP, Type.noType).tsym;
         if (srvc.kind != ERR && impl.kind != ERR) {
-            ProvidesServiceDirective d =
+            ProvidesServiceDirective psd =
                     new ProvidesServiceDirective((ClassSymbol) srvc, (ClassSymbol) impl);
-            env.info.modcon.directives.add(d);
+            for (Directive d: env.info.modcon.getDirectives(Directive.Kind.PROVIDES_SERVICE, psd.service.fullname)) {
+                if (d.getKind().equals(Directive.Kind.PROVIDES_SERVICE)) {
+                    if (psd.impl.fullname == ((ProvidesServiceDirective) d).impl.fullname) {
+                        log.error(tree.implName, "dupl.provides.service", psd.service, psd.impl);
+                        return;
+                    }
+                }
+            }
+
+            env.info.modcon.addDirective(psd, tree, psd.service.fullname);
         }
     }
 
@@ -3144,7 +3153,7 @@ public class Attr extends JCTree.Visitor {
             if (env.info.modcon.getDirectives(Directive.Kind.REQUIRES_SERVICE, d.sym.fullname).isEmpty()) {
                 env.info.modcon.addDirective(d, tree, d.sym.fullname);
             } else {
-                log.error("dupl.requires.service", d.sym);
+                log.error(tree.serviceName, "dupl.requires.service", d.sym);
             }
         }
     }

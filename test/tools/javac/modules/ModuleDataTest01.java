@@ -46,14 +46,15 @@ public class ModuleDataTest01 extends DirectiveTest {
         new ModuleDataTest01().run();
     }
 
+    @Override
     void run() throws Exception {
         String[] tests = { /*"", */"  ", "\n", "\nthis is module data\n" };
         for (String s: tests) {
             test(s);
         }
 
-        if (errors > 0)
-            throw new Exception(errors + " errors found");
+        if (errorCount > 0)
+            throw new Exception(errorCount + " errors found");
     }
 
     void test(String s) throws Exception {
