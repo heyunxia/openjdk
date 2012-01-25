@@ -214,11 +214,11 @@ public class JavacCatalog  extends Catalog {
         return jigsaw.parseModuleId(mid); // FIXME -- throws IllegalArgumentException
     }
 
-    ModuleIdQuery getModuleIdQuery(com.sun.tools.javac.code.ModuleIdQuery midq) {
+    ModuleIdQuery getModuleQuery(com.sun.tools.javac.code.ModuleQuery midq) {
         return getModuleIdQuery(midq.name, midq.versionQuery); // FIXME -- throws IllegalArgumentException
     }
     
-    ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleIdQuery midq) {
+    ModuleIdQuery getModuleIdQuery(ModuleElement.ModuleQuery midq) {
         return getModuleIdQuery(midq.getName(), midq.getVersionQuery());
     }
 
@@ -238,7 +238,7 @@ public class JavacCatalog  extends Catalog {
                 return Dependence.Modifier.LOCAL;
             case OPTIONAL:
                 return Dependence.Modifier.OPTIONAL;
-            case PUBLIC:
+            case REEXPORT:
                 return Dependence.Modifier.PUBLIC;
 			default:
                 throw new IllegalArgumentException(f.toString());  // FIXME -- throws IllegalArgumentException
@@ -319,7 +319,7 @@ public class JavacCatalog  extends Catalog {
             requiresModules = new LinkedHashSet<ViewDependence>();
             for (RequiresModuleDirective r: msym.getRequiredModules()) {
                 DEBUG("JavacModuleInfo: require " + r);
-                ModuleIdQuery q = getModuleIdQuery(r.moduleQuery);
+                ModuleIdQuery q = getModuleQuery(r.moduleQuery);
                 EnumSet<Dependence.Modifier> mods = EnumSet.noneOf(Dependence.Modifier.class);
                 for (com.sun.tools.javac.code.Directive.RequiresFlag f: r.flags) {
                     mods.add(getModifier(f));  // FIXME -- throws IllegalArgumentException

@@ -1,10 +1,12 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
  * This code is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -21,33 +23,14 @@
  * questions.
  */
 
-/*
- * @test
- * @summary simple compilation -- java.lang imports only
- * @build TestRunner
- * @run main HelloWorldTest
+package com.sun.source.tree;
+
+import javax.lang.model.element.Name;
+
+/**
+ *
  */
-
-import java.io.*;
-
-public class HelloWorldTest extends TestRunner {
-    public static void main(String... args) throws Exception {
-        new HelloWorldTest().run();
-    }
-
-    void run() throws Exception {
-        setModuleCompilationMode(ModuleCompilationMode.NO_MODULES);
-        setCommandLineFiles(createFile("HelloWorld.java", hw));
-        setExpectedClasses("HelloWorld");
-        test();
-        summary();
-    }
-
-    String[] hw = {
-        "class HelloWorld {",
-        "    public static void main(String... args) {",
-        "       System.out.println(\"Hello World!\");",
-        "    }",
-        "}"
-    };
+public interface ModuleQueryTree extends Tree {
+    Tree getName();
+    Name getVersionQuery();
 }

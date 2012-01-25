@@ -87,7 +87,7 @@ public interface TreeVisitor<R,P> {
     R visitModifiers(ModifiersTree node, P p);
     R visitModule(ModuleTree node, P p);
     R visitModuleId(ModuleIdTree node, P p);
-    R visitModuleIdQuery(ModuleIdQueryTree node, P p);
+    R visitModuleQuery(ModuleQueryTree node, P p);
     R visitNewArray(NewArrayTree node, P p);
     R visitNewClass(NewClassTree node, P p);
     R visitLambdaExpression(LambdaExpressionTree node, P p);

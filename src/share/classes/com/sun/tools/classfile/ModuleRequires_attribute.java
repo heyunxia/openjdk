@@ -36,10 +36,11 @@ import java.io.IOException;
  *  deletion without notice.</b>
  */
 public class ModuleRequires_attribute extends Attribute {
-    public static final int MR_OPTIONAL = 0x1;
-    public static final int MR_LOCAL = 0x2;
-    public static final int MR_PUBLIC = 0x4;
-    public static final int MR_SYNTHETIC = 0x1000;    // THIS IS NOT IN THE OFFICIAL SPEC, YET
+    public static final int ACC_OPTIONAL = 0x1;
+    public static final int ACC_LOCAL = 0x2;
+    public static final int ACC_REEXPORT = 0x4;
+    public static final int ACC_SYNTHETIC = 0x1000;
+    public static final int ACC_SYNTHESIZED = 0x10000;
 
     ModuleRequires_attribute(ClassReader cr, int name_index, int length) throws IOException {
         super(name_index, length);
@@ -82,7 +83,7 @@ public class ModuleRequires_attribute extends Attribute {
     public static class Entry {
         Entry(ClassReader cr) throws IOException {
             index = cr.readUnsignedShort();
-            flags = cr.readUnsignedShort();
+            flags = cr.readInt();
         }
 
         public Entry(int index, int flags) {

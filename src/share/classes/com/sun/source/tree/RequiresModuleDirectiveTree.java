@@ -29,5 +29,5 @@ import java.util.List;
 
 public interface RequiresModuleDirectiveTree extends ModuleDirectiveTree {
     List<RequiresFlag> getFlags();
-    ModuleIdQueryTree getModuleIdQuery();
+    ModuleQueryTree getModuleQuery();
 }

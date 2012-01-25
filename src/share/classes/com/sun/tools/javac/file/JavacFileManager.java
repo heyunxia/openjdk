@@ -406,7 +406,12 @@ public class JavacFileManager
     @Override // javax.tools.ModuleFileManager
     public ModuleMode getModuleMode() {
         if (moduleMode == null) {
-            if (options.get(MODULEPATH) != null && options.get(CLASSPATH) == null)
+//            boolean cp = hasLocation(StandardLocation.CLASS_PATH) || options.isSet(CLASSPATH);
+            // MUST-FIX:  mp && !cp does not work well in 199 mode, need something better,
+            // either explicit setModuleMode, or ability to test explicit setLocation -- uugh
+            boolean cp = options.isSet(CLASSPATH);
+            boolean mp = hasLocation(StandardLocation.MODULE_PATH) || options.isSet(MODULEPATH);
+            if (mp && !cp)
                 moduleMode = ModuleMode.MULTIPLE;
             else
                 moduleMode = ModuleMode.SINGLE;
@@ -475,6 +480,7 @@ public class JavacFileManager
         return result;
     }
 
+    // cleared by setLocation
     private Map<String, Location> locationCache = new HashMap<String,Location>();
 
     @Override // javax.tools.ModuleFileManager
@@ -507,7 +513,7 @@ public class JavacFileManager
 
     // Get a location for all the containers named "tag" on given location
     // Containers may be either directories or archive files.
-    private Location getModuleLocation(Location location, String tag) {
+    protected Location getModuleLocation(Location location, String tag) {
         // TODO: should reject bad use when location is already a module location
         // TODO: should honor location.isOutput()
         String name = location.getName() + "[" + tag + "]";
@@ -1016,6 +1022,7 @@ public class JavacFileManager
     {
         nullCheck(location);
         locations.setLocation(location, path);
+        locationCache.clear();
     }
 
     @Override // javax.tools.StandardJavaFileManager

@@ -284,6 +284,12 @@ public class ClassWriter {
             return 1;
         }
 
+        public Integer visitModuleQuery(CONSTANT_ModuleQuery_info info, ClassOutputStream out) {
+            out.writeShort(info.name_index);
+            out.writeShort(info.version_index);
+            return 1;
+        }
+
         public Integer visitNameAndType(CONSTANT_NameAndType_info info, ClassOutputStream out) {
             out.writeShort(info.name_index);
             out.writeShort(info.type_index);
@@ -514,10 +520,8 @@ public class ClassWriter {
                 out.writeShort(s.impl_index);
             }
             out.writeShort(v.export_table.length);
-            for (ModuleProvides_attribute.Export e: v.export_table) {
-                out.writeShort(e.export_index);
-                out.writeShort(e.export_flags);
-                out.writeShort(e.source_index);
+            for (int export_index: v.export_table) {
+                out.writeShort(export_index);
             }
             out.writeShort(v.permit_table.length);
             for (int permit_index: v.permit_table)
@@ -528,12 +532,12 @@ public class ClassWriter {
             out.writeShort(attr.module_table.length);
             for (ModuleRequires_attribute.Entry e: attr.module_table) {
                 out.writeShort(e.index);
-                out.writeShort(e.flags);
+                out.writeInt(e.flags);
             }
             out.writeShort(attr.service_table.length);
             for (ModuleRequires_attribute.Entry e: attr.service_table) {
                 out.writeShort(e.index);
-                out.writeShort(e.flags);
+                out.writeInt(e.flags);
             }
             return null;
         }

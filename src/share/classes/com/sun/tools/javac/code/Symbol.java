@@ -25,7 +25,7 @@
 
 package com.sun.tools.javac.code;
 
-import java.util.Map;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.lang.model.element.*;
@@ -654,9 +654,9 @@ public abstract class Symbol implements Element {
         public Name version;
 
         /** All directives, in natural order. */
-        public ListBuffer<Directive> directives;
+        public List<Directive> directives;
 
-        /** An uninterpreted string associated with the module. */
+        /** An uninterpreted sequence of characters associated with the module. */
         public Name extendedMetadata;
 
         public ClassSymbol module_info;
@@ -727,7 +727,7 @@ public abstract class Symbol implements Element {
                         defaultViewDirectives.add(d);
                 }
             }
-            return new ViewDeclaration(defaultViewDirectives);
+            return new ViewDeclaration(defaultViewDirectives.toList());
         }
 
         public List<ViewDeclaration> getViews() {
@@ -746,12 +746,31 @@ public abstract class Symbol implements Element {
                     Directive.filter(directives, Directive.Kind.VIEW,
                         ViewDeclaration.class);
             if (defaultViewDirectives.nonEmpty())
-                views = views.prepend(new ViewDeclaration(defaultViewDirectives));
+                views = views.prepend(new ViewDeclaration(defaultViewDirectives.toList()));
             return views;
         }
 
         public boolean hasExtendedMetadata() {
             return (extendedMetadata != null) && !extendedMetadata.isEmpty();
+        }
+
+        public Set<PackageSymbol> getExports(final ViewDeclaration viewDecl) {
+            final Set<PackageSymbol> exports = new LinkedHashSet<PackageSymbol>();
+            Directive.Scanner<Void,Void> s = new Directive.Scanner<Void,Void>() {
+                @Override
+                public Void visitExports(Directive.ExportsDirective d, Void p) {
+                    exports.add(d.sym);
+                    return null;
+                }
+                @Override
+                public Void visitView(Directive.ViewDeclaration d, Void p) {
+                    if (d == viewDecl)
+                        scan(d.directives, null);
+                    return null;
+                }
+            };
+            s.scan(directives, null);
+            return exports;
         }
 
         @Override

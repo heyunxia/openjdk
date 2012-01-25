@@ -118,6 +118,7 @@ public class ConstantPool {
     public static final int CONSTANT_MethodType = 16;
     public static final int CONSTANT_InvokeDynamic = 18;
     public static final int CONSTANT_ModuleId = 19;
+    public static final int CONSTANT_ModuleQuery = 20;
 
     public static enum RefKind {
         REF_getField(1, "getfield"),
@@ -220,6 +221,10 @@ public class ConstantPool {
                 pool[i] = new CONSTANT_ModuleId_info(this, cr);
                 break;
 
+            case CONSTANT_ModuleQuery:
+                pool[i] = new CONSTANT_ModuleQuery_info(this, cr);
+                break;
+
             case CONSTANT_NameAndType:
                 pool[i] = new CONSTANT_NameAndType_info(this, cr);
                 break;
@@ -287,6 +292,10 @@ public class ConstantPool {
         return ((CONSTANT_ModuleId_info) get(index, CONSTANT_ModuleId));
     }
 
+    public CONSTANT_ModuleQuery_info getModuleQueryInfo(int index) throws InvalidIndex, UnexpectedEntry {
+        return ((CONSTANT_ModuleQuery_info) get(index, CONSTANT_ModuleQuery));
+    }
+
     public CONSTANT_NameAndType_info getNameAndTypeInfo(int index) throws InvalidIndex, UnexpectedEntry {
         return ((CONSTANT_NameAndType_info) get(index, CONSTANT_NameAndType));
     }
@@ -351,6 +360,7 @@ public class ConstantPool {
         R visitInvokeDynamic(CONSTANT_InvokeDynamic_info info, P p);
         R visitLong(CONSTANT_Long_info info, P p);
         R visitModuleId(CONSTANT_ModuleId_info info, P p);
+        R visitModuleQuery(CONSTANT_ModuleQuery_info info, P p);
         R visitNameAndType(CONSTANT_NameAndType_info info, P p);
         R visitMethodref(CONSTANT_Methodref_info info, P p);
         R visitMethodHandle(CONSTANT_MethodHandle_info info, P p);
@@ -829,6 +839,49 @@ public class ConstantPool {
 
         public <R, D> R accept(Visitor<R, D> visitor, D data) {
             return visitor.visitModuleId(this, data);
+        }
+
+        public final int name_index;
+        public final int version_index;
+    }
+
+
+    public static class CONSTANT_ModuleQuery_info extends CPInfo {
+        CONSTANT_ModuleQuery_info(ConstantPool cp, ClassReader cr) throws IOException {
+            super(cp);
+            name_index = cr.readUnsignedShort();
+            version_index = cr.readUnsignedShort();
+        }
+
+        public CONSTANT_ModuleQuery_info(ConstantPool cp, int name_index, int version_index) {
+            super(cp);
+            this.name_index = name_index;
+            this.version_index = version_index;
+        }
+
+        public int getTag() {
+            return CONSTANT_ModuleQuery;
+        }
+
+        public String getName() throws ConstantPoolException {
+            return cp.getUTF8Value(name_index);
+        }
+
+        public int byteLength() {
+            return 5;
+        }
+
+        public String getVersion() throws ConstantPoolException {
+            return (version_index == 0 ? null : cp.getUTF8Value(version_index));
+        }
+
+        @Override
+        public String toString() {
+            return "CONSTANT_ModuleQuery_info[name_index: " + name_index + ", version_index: " + version_index + "]";
+        }
+
+        public <R, D> R accept(Visitor<R, D> visitor, D data) {
+            return visitor.visitModuleQuery(this, data);
         }
 
         public final int name_index;

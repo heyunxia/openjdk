@@ -27,7 +27,6 @@ package com.sun.tools.javac.comp;
 
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.code.*;
-import com.sun.tools.javac.code.Directive.ViewDeclaration;
 
 /** Contains information specific to the attribute and enter
  *  passes, to be used in place of the generic field in environments.
@@ -59,7 +58,7 @@ public class AttrContext {
      */
     boolean varArgs = false;
 
-    /** A list of type variables that are all-quantifed in current context.
+    /** A list of type variables that are all-quantified in current context.
      */
     List<Type> tvars = List.nil();
 
@@ -72,8 +71,8 @@ public class AttrContext {
      */
     Symbol enclVar = null;
 
-    /** The enclosing view, in a module-info file. */
-    ViewDeclaration enclView;
+    /** The module context for the current module. */
+    ModuleContext modcon;
 
     /** Duplicate this context, replacing scope field and copying all others.
      */
@@ -87,6 +86,7 @@ public class AttrContext {
         info.tvars = tvars;
         info.lint = lint;
         info.enclVar = enclVar;
+        info.modcon = modcon == null ? null : modcon.dup();
         return info;
     }
 
@@ -102,6 +102,7 @@ public class AttrContext {
         return scope.getElements();
     }
 
+    @Override
     public String toString() {
         return "AttrContext[" + scope.toString() + "]";
     }

@@ -28,12 +28,11 @@ package com.sun.tools.javac.code;
 import java.util.EnumSet;
 import java.util.Set;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.code.Symbol.TypeSymbol;
+import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 
-import static com.sun.tools.javac.code.Kinds.*;
 
 /**
  *  Root class for the directives that may appear in module compilation units.
@@ -59,7 +58,9 @@ public abstract class Directive {
     public enum RequiresFlag {
         OPTIONAL(0x0001),
         LOCAL(0x0002),
-        PUBLIC(0x0004);
+        REEXPORT(0x0004),
+        SYNTHETIC(0x1000),
+        SYNTHESIZED(0x10000);
 
         // overkill? move to ClassWriter?
         public static int value(Set<RequiresFlag> s) {
@@ -76,44 +77,11 @@ public abstract class Directive {
         public final int value;
     }
 
-    /** Flags for an ExportsDirective.
-     * These are mutually exclusive; only one may be used in an ExportsDirective.
-     */
-    public enum ExportFlag {
-        TYPE(0x0001),
-        TYPE_AND_MEMBERS(0x0002),
-        PACKAGE(0x0004),
-        PACKAGE_AND_SUBPACKAGES(0x0008);
-
-        ExportFlag(int value) {
-            this.value = value;
-        }
-
-        // overkill? move to ClassWriter?
-        public static int value(Set<ExportFlag> s) {
-            int v = 0;
-            for (ExportFlag f: s)
-                v |= f.value;
-            return v;
-        }
-
-        public static ExportFlag valueOf(int kind, boolean asterisk) {
-            switch (kind) {
-                case PCK:
-                    return asterisk ? PACKAGE_AND_SUBPACKAGES : PACKAGE;
-                case TYP:
-                    return asterisk ? TYPE_AND_MEMBERS : TYPE;
-                default:
-                    throw new IllegalArgumentException();
-            }
-        }
-        
-        public final int value;
-    }
-
     public abstract Kind getKind();
 
-    static <T extends Directive> List<T> filter(ListBuffer<Directive> directives, Kind kind, Class<T> clazz) {
+    abstract <R, P> R accept(Visitor<R, P> visitor, P data);
+
+    static <T extends Directive> List<T> filter(List<Directive> directives, Kind kind, Class<T> clazz) {
         ListBuffer<T> list = ListBuffer.lb();
         for (Directive d: directives) {
             if (d.getKind() == kind)
@@ -126,14 +94,14 @@ public abstract class Directive {
      * 'requires' ['optional'] {'local' | 'public'} ModuleNameAndVersionQuery ';'
      */
     public static class RequiresModuleDirective extends Directive {
-        public final ModuleIdQuery moduleQuery;
+        public final ModuleQuery moduleQuery;
         public final Set<RequiresFlag> flags;
 
-        public RequiresModuleDirective(ModuleIdQuery moduleQuery) {
+        public RequiresModuleDirective(ModuleQuery moduleQuery) {
             this(moduleQuery, EnumSet.noneOf(RequiresFlag.class));
         }
 
-        public RequiresModuleDirective(ModuleIdQuery moduleQuery, Set<RequiresFlag> flags) {
+        public RequiresModuleDirective(ModuleQuery moduleQuery, Set<RequiresFlag> flags) {
             this.moduleQuery = moduleQuery;
             this.flags = flags;
         }
@@ -146,6 +114,11 @@ public abstract class Directive {
         @Override
         public String toString() {
             return "RequiresModule[" + flags + "," + moduleQuery + "]";
+        }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitRequiresModule(this, data);
         }
     }
 
@@ -170,6 +143,11 @@ public abstract class Directive {
         public String toString() {
             return "RequiresService[" + flags + "," + sym + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitRequiresService(this, data);
+        }
     }
 
     /**
@@ -190,6 +168,11 @@ public abstract class Directive {
         @Override
         public String toString() {
             return "ProvidesModule[" + moduleId + "]";
+        }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitProvidesModule(this, data);
         }
     }
 
@@ -214,20 +197,21 @@ public abstract class Directive {
         public String toString() {
             return "ProvidesService[" + service + "," + impl + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitProvidesService(this, data);
+        }
     }
 
     /**
-     * 'exports' PackageOrTypeName ['.' '*'] ';'
+     * 'exports' Package ';'
      */
     public static class ExportsDirective extends Directive {
-        public final TypeSymbol sym;
-        public final Set<ExportFlag> flags;
-        public final ModuleId origin;
+        public final PackageSymbol sym;
 
-        public ExportsDirective(TypeSymbol sym, Set<ExportFlag> flags, ModuleId origin) {
+        public ExportsDirective(PackageSymbol sym) {
             this.sym = sym;
-            this.flags = flags;
-            this.origin = origin;
         }
 
         @Override
@@ -237,7 +221,12 @@ public abstract class Directive {
 
         @Override
         public String toString() {
-            return "Exports[" + flags + "," + sym + "," + origin + "]";
+            return "Exports[" + sym + "]";
+        }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitExports(this, data);
         }
     }
 
@@ -264,6 +253,11 @@ public abstract class Directive {
         public String toString() {
             return "Permits[" + moduleId + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitPermits(this, data);
+        }
     }
 
     /**
@@ -285,6 +279,11 @@ public abstract class Directive {
         public String toString() {
             return "Entrypoint[" + sym + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitEntrypoint(this, data);
+        }
     }
 
     /**
@@ -292,14 +291,14 @@ public abstract class Directive {
      */
     public static class ViewDeclaration extends Directive {
         public final Name name;
-        public final ListBuffer<Directive> directives;
-        
-        public ViewDeclaration(Name name) {
+        public final List<Directive> directives;
+
+        public ViewDeclaration(Name name, List<Directive> directives) {
             this.name = name;
-            this.directives = ListBuffer.lb();
+            this.directives = directives;
         }
 
-        public ViewDeclaration(ListBuffer<Directive> directives) {
+        public ViewDeclaration(List<Directive> directives) {
             this.name = null;
             this.directives = directives;
         }
@@ -347,5 +346,151 @@ public abstract class Directive {
         public String toString() {
             return "View[" + directives + "]";
         }
+
+        @Override
+        public <R, P> R accept(Visitor<R, P> visitor, P data) {
+            return visitor.visitView(this, data);
+        }
+    }
+
+    public static interface Visitor<R, P> {
+        R visitRequiresModule(RequiresModuleDirective d, P p);
+        R visitRequiresService(RequiresServiceDirective d, P p);
+        R visitProvidesModule(ProvidesModuleDirective d, P p);
+        R visitProvidesService(ProvidesServiceDirective d, P p);
+        R visitExports(ExportsDirective d, P p);
+        R visitPermits(PermitsDirective d, P p);
+        R visitEntrypoint(EntrypointDirective d, P p);
+        R visitView(ViewDeclaration d, P p);
+    }
+
+    public static class SimpleVisitor<R, P> implements Visitor<R, P> {
+        protected final R DEFAULT_VALUE;
+
+        protected SimpleVisitor() {
+            DEFAULT_VALUE = null;
+        }
+
+        protected SimpleVisitor(R defaultValue) {
+            DEFAULT_VALUE = defaultValue;
+        }
+
+        protected R defaultAction(Directive d, P p) {
+            return DEFAULT_VALUE;
+        }
+
+        public final R visit(Directive d, P p) {
+            return (d == null) ? null : d.accept(this, p);
+        }
+
+        public final R visit(Iterable<? extends Directive> ds, P p) {
+            R r = null;
+            if (ds != null)
+                for (Directive d : ds)
+                    r = visit(d, p);
+            return r;
+        }
+
+        public R visitRequiresModule(RequiresModuleDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitRequiresService(RequiresServiceDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitProvidesModule(ProvidesModuleDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitProvidesService(ProvidesServiceDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitExports(ExportsDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitPermits(PermitsDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitEntrypoint(EntrypointDirective d, P p) {
+            return defaultAction(d, p);
+        }
+
+        public R visitView(ViewDeclaration d, P p) {
+            return defaultAction(d, p);
+        }
+    }
+
+    public static class Scanner<R, P> implements Visitor<R, P> {
+
+
+        /** Scan a single node.
+         */
+        public R scan(Directive d, P p) {
+            return (d == null) ? null : d.accept(this, p);
+        }
+
+        private R scanAndReduce(Directive d, P p, R r) {
+            return reduce(scan(d, p), r);
+        }
+
+        /** Scan a list of nodes.
+         */
+        public R scan(Iterable<? extends Directive> ds, P p) {
+            R r = null;
+            if (ds != null) {
+                boolean first = true;
+                for (Directive d : ds) {
+                    r = (first ? scan(d, p) : scanAndReduce(d, p, r));
+                    first = false;
+                }
+            }
+            return r;
+        }
+
+        /**
+         * Reduces two results into a combined result.
+         * The default implementation is to return the first parameter.
+         * The general contract of the method is that it may take any action whatsoever.
+         */
+        public R reduce(R r1, R r2) {
+            return r1;
+        }
+
+        public R visitRequiresModule(RequiresModuleDirective d, P p) {
+            return null;
+        }
+
+        public R visitRequiresService(RequiresServiceDirective d, P p) {
+            return null;
+        }
+
+        public R visitProvidesModule(ProvidesModuleDirective d, P p) {
+            return null;
+        }
+
+        public R visitProvidesService(ProvidesServiceDirective d, P p) {
+            return null;
+        }
+
+        public R visitExports(ExportsDirective d, P p) {
+            return null;
+        }
+
+        public R visitPermits(PermitsDirective d, P p) {
+            return null;
+        }
+
+        public R visitEntrypoint(EntrypointDirective d, P p) {
+            return null;
+        }
+
+        public R visitView(ViewDeclaration d, P p) {
+            return scan(d.directives, p);
+        }
+
     }
 }

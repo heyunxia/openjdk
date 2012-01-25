@@ -60,6 +60,7 @@ import java.lang.annotation.Target;
 import javax.lang.model.element.Modifier;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject.Kind;
+import javax.tools.ModuleFileManager;
 
 /**
  *  Wrap objects to enable unchecked exceptions to be caught and handled.
@@ -112,7 +113,10 @@ public class ClientCodeWrapper {
     public JavaFileManager wrap(JavaFileManager fm) {
         if (isTrusted(fm))
             return fm;
-        return new WrappedJavaFileManager(fm);
+        if (fm instanceof ModuleFileManager)
+            return new WrappedModuleFileManager(fm);
+        else
+            return new WrappedJavaFileManager(fm);
     }
 
     public FileObject wrap(FileObject fo) {
@@ -487,6 +491,61 @@ public class ClientCodeWrapper {
             }
         }
     }
+    protected class WrappedModuleFileManager extends WrappedJavaFileManager implements ModuleFileManager {
+        protected ModuleFileManager clientModuleFileManager;
+        WrappedModuleFileManager(JavaFileManager clientJavaFileManager) {
+            super(clientJavaFileManager);
+            this.clientModuleFileManager = (ModuleFileManager) clientJavaFileManager;
+        }
+
+        public ModuleMode getModuleMode() {
+            try {
+                return ((clientModuleFileManager).getModuleMode());
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Location getModuleLocation(Location location, JavaFileObject fo, String packageName) throws IllegalArgumentException {
+            try {
+                return ((clientModuleFileManager).getModuleLocation(location, unwrap(fo), packageName));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Iterable<? extends Location> getModuleLocations(Location location) {
+            try {
+                return ((clientModuleFileManager).getModuleLocations(location));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Location join(Iterable<? extends Location> locations) {
+            try {
+                return ((clientModuleFileManager).join(locations));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+    }
 
     protected class WrappedJavaFileObject extends WrappedFileObject implements JavaFileObject {
         WrappedJavaFileObject(JavaFileObject clientJavaFileObject) {
@@ -610,6 +669,7 @@ public class ClientCodeWrapper {
             return d.getMessage(locale);
         }
 
+        @Override
         public String toString() {
             return d.toString();
         }

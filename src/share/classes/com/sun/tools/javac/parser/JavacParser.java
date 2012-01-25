@@ -2655,14 +2655,14 @@ public class JavacParser implements Parser {
                     while ((token.kind == PUBLIC)
                             || (token.kind == IDENTIFIER && token.name() == names.local)) {
                         RequiresFlag flag = (token.kind == PUBLIC)
-                                ? RequiresFlag.PUBLIC : RequiresFlag.LOCAL;
+                                ? RequiresFlag.REEXPORT : RequiresFlag.LOCAL;
                         // FIXME: check duplicates
                         flags.append(flag);
                         nextToken();
                     }
-                    JCModuleIdQuery moduleIdQuery = moduleIdQuery();
+                    JCModuleQuery moduleQuery = moduleQuery();
                     accept(SEMI);
-                    defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleIdQuery)));
+                    defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleQuery)));
                 }
             } else if (token.name() == names.permits) {
                 nextToken();
@@ -2739,17 +2739,17 @@ public class JavacParser implements Parser {
             if (token.kind == VERSIONLITERAL) {
                 version = token.name();
             } else
-               log.error(pos, "modules.version.literal.expected");
+               log.error(pos, "module.version.literal.expected");
             nextToken();
         }
         return toP(F.at(pos).ModuleId(qualId, version));
     }
 
-    JCModuleIdQuery moduleIdQuery() {
-        return moduleIdQuery(toP(F.at(token.pos).Ident(ident())));
+    JCModuleQuery moduleQuery() {
+        return moduleQuery(toP(F.at(token.pos).Ident(ident())));
     }
 
-    JCModuleIdQuery moduleIdQuery(JCExpression head) {
+    JCModuleQuery moduleQuery(JCExpression head) {
         int pos = token.pos;
         JCTree qualId = qualident(head);
         Name query = null;
@@ -2765,13 +2765,13 @@ public class JavacParser implements Parser {
                     query = names.fromString(op.kind.name + token.name());
                     nextToken();
                 } else {
-                    log.error(token.pos, "modules.version.literal.expected");
+                    log.error(token.pos, "module.version.literal.expected");
                 }
             } else {
-               log.error(pos, "modules.version.query.expected");
+               log.error(pos, "module.version.query.expected");
             }
         }
-        return toP(F.at(pos).ModuleIdQuery(qualId, query));
+        return toP(F.at(pos).ModuleQuery(qualId, query));
     }
 
     /** ImportDeclaration = IMPORT [ STATIC ] Ident { "." Ident } [ "." "*" ] ";"

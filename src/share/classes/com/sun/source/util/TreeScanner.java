@@ -414,7 +414,7 @@ public class TreeScanner<R,P> implements TreeVisitor<R,P> {
         return scan(node.getName(), p);
     }
 
-    public R visitModuleIdQuery(ModuleIdQueryTree node, P p) {
+    public R visitModuleQuery(ModuleQueryTree node, P p) {
         return scan(node.getName(), p);
     }
 
@@ -433,7 +433,7 @@ public class TreeScanner<R,P> implements TreeVisitor<R,P> {
     }
 
     public R visitRequiresModule(RequiresModuleDirectiveTree node, P p) {
-        return scan(node.getModuleIdQuery(), p);
+        return scan(node.getModuleQuery(), p);
     }
 
     public R visitRequiresService(RequiresServiceDirectiveTree node, P p) {

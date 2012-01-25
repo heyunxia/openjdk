@@ -26,10 +26,12 @@
 package com.sun.source.tree;
 
 /**
- *
+ * This may go away in favor of a public definition in javax.lang.model
  */
 public enum RequiresFlag {
     OPTIONAL,
     LOCAL,
-    PUBLIC
+    REEXPORT,
+    SYNTHETIC,
+    SYNTHESIZED
 }
