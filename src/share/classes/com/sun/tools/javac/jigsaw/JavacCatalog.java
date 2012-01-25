@@ -240,7 +240,11 @@ public class JavacCatalog  extends Catalog {
                 return Dependence.Modifier.OPTIONAL;
             case REEXPORT:
                 return Dependence.Modifier.PUBLIC;
-			default:
+            case SYNTHETIC:
+                return Dependence.Modifier.SYNTHETIC;
+            case SYNTHESIZED:
+                return Dependence.Modifier.SYNTHESIZED;
+	    default:
                 throw new IllegalArgumentException(f.toString());  // FIXME -- throws IllegalArgumentException
         }
     }
