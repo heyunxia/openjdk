@@ -49,18 +49,8 @@ public class ViewTest01 extends DirectiveTest {
         new ViewTest01().run();
     }
 
-    void run() throws Exception {
-        emptyTest();
-        basicTest();
-        duplTest();
-
-        if (errors > 0)
-            throw new Exception(errors + " errors found");
-    }
-
+    @Test
     void emptyTest() throws Exception {
-        init("empty");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { }"));
@@ -71,9 +61,8 @@ public class ViewTest01 extends DirectiveTest {
         checkEqual("views", expect, found);
     }
 
+    @Test
     void basicTest() throws Exception {
-        init("basic");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { view V { } }"));
@@ -84,14 +73,23 @@ public class ViewTest01 extends DirectiveTest {
         checkEqual("views", expect, found);
     }
 
+    @Test
     void duplTest() throws Exception {
-        init("dupl");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { view V { } view V { } }"));
 
         List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.view [V]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void inheritDuplTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { view M1 { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.view [M1]");
         compile(files, expectDiags);
     }
 

@@ -30,11 +30,12 @@
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.classfile.ClassFile;
@@ -48,17 +49,8 @@ public class EntrypointTest01 extends DirectiveTest {
         new EntrypointTest01().run();
     }
 
-    void run() throws Exception {
-        basicTest();
-        duplTest();
-
-        if (errors > 0)
-            throw new Exception(errors + " errors found");
-    }
-
+    @Test
     void basicTest() throws Exception {
-        init("basic");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { class p.Main; }"));
@@ -71,9 +63,8 @@ public class EntrypointTest01 extends DirectiveTest {
         checkEqual("entrypoint", expect, found);
     }
 
+    @Test
     void duplTest() throws Exception {
-        init("dupl");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { class p.Main; class p.Main2; }"));

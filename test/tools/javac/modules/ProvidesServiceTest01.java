@@ -31,9 +31,11 @@
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.classfile.ClassFile;
@@ -48,17 +50,8 @@ public class ProvidesServiceTest01 extends DirectiveTest {
         new ProvidesServiceTest01().run();
     }
 
-    void run() throws Exception {
-        basicTest();
-//        duplTest();
-
-        if (errors > 0)
-            throw new Exception(errors + " errors found");
-    }
-
+    @Test
     void basicTest() throws Exception {
-        init("basic");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { provides service p.S1 with p.S2; }"));
@@ -73,21 +66,19 @@ public class ProvidesServiceTest01 extends DirectiveTest {
         checkEqual("services", expect, found);
     }
 
-//    void duplTest() throws Exception {
-//        init("dupl");
-//
-//        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
-//        files.add(createFile("M1/module-info.java",
-//                "module M1 { provides service p.S1 with p.S2; provides service p.S1 with p.S2; }"));
-//        files.add(createFile("M1/p/S1.java",
-//                "package p; public class S1 { }"));
-//        files.add(createFile("M1/p/S2.java",
-//                "package p; public class S2 extends S1 { }"));
-//        compile(files);
-//
-//        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.provides [p.S1, p.S2]");
-//        compile(files, expectDiags);
-//    }
+    @Test
+    void duplTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides service p.S1 with p.S2; provides service p.S1 with p.S2; }"));
+        files.add(createFile("M1/p/S1.java",
+                "package p; public class S1 { }"));
+        files.add(createFile("M1/p/S2.java",
+                "package p; public class S2 extends S1 { }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.dupl.provides.service [p.S1, p.S2]");
+        compile(files, expectDiags);
+    }
 
     Set<String> getServices(String path, String viewName) throws IOException, ConstantPoolException {
         javap(path);

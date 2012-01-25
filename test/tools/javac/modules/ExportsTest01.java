@@ -48,17 +48,8 @@ public class ExportsTest01 extends DirectiveTest {
         new ExportsTest01().run();
     }
 
-    void run() throws Exception {
-        basicTest();
-        duplTest();
-
-        if (errors > 0)
-            throw new Exception(errors + " errors found");
-    }
-
+    @Test
     void basicTest() throws Exception {
-        init("basic");
-
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { exports p; }"));
@@ -71,9 +62,28 @@ public class ExportsTest01 extends DirectiveTest {
         checkEqual("exports", expect, found);
     }
 
-    void duplTest() throws Exception {
-        init("dupl");
+    @Test
+    void viewTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { exports p; view V { exports q; } }"));
+        files.add(createFile("M1/p/C.java",
+                "package p; public class C { }"));
+        files.add(createFile("M1/q/C.java",
+                "package q; public class C { }"));
+        compile(files);
 
+        Set<String> expectDefault = createSet("p");
+        Set<String> foundDefault = getExports("M1/module-info.class", null);
+        checkEqual("exports", expectDefault, foundDefault);
+
+        Set<String> expectV = createSet("p", "q");
+        Set<String> foundV = getExports("M1/module-info.class", "V");
+        checkEqual("exports", expectV, foundV);
+    }
+
+    @Test
+    void duplTest() throws Exception {
         List<JavaFileObject> files = new ArrayList<JavaFileObject>();
         files.add(createFile("M1/module-info.java",
                 "module M1 { exports p; exports p; }"));

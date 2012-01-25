@@ -306,7 +306,7 @@ public class Modules extends JCTree.Visitor {
         if (env.info.getDirectives(Directive.Kind.PERMITS, d.moduleId.name).isEmpty()) {
             env.info.addDirective(d, tree, d.moduleId.name);
         } else {
-            log.error("dupl.permits", d.moduleId.name);
+            log.error(tree.moduleName, "dupl.permits", d.moduleId.name);
         }
     }
 
@@ -320,7 +320,7 @@ public class Modules extends JCTree.Visitor {
             if (isBaseModuleName(d.moduleId.name))
                 env.info.requiresBaseModule = false;
         } else {
-            log.error("dupl.provides", d.moduleId.name);
+            log.error(tree.moduleId, "dupl.provides", d.moduleId.name);
         }
     }
 
@@ -331,7 +331,7 @@ public class Modules extends JCTree.Visitor {
     @Override
     public void visitRequiresModule(JCRequiresModuleDirective tree) {
         if (!env.tree.hasTag(JCTree.Tag.MODULE)) {
-            log.error("requires.not.allowed.in.view");
+            log.error(tree, "requires.not.allowed.in.view");
             return;
         }
 
@@ -357,40 +357,46 @@ public class Modules extends JCTree.Visitor {
             if (isBaseModuleName(mq.name))
                 env.info.requiresBaseModule = false;
         } else {
-            log.error("dupl.requires", mq.name);
+            log.error(tree, "dupl.requires", mq.name);
         }
     }
 
     @Override
     public void visitRequiresService(JCRequiresServiceDirective tree) {
         if (!env.tree.hasTag(JCTree.Tag.MODULE)) {
-            log.error("requires.not.allowed.in.view");
+            log.error(tree, "requires.not.allowed.in.view");
             return;
         }
     }
 
     @Override
     public void visitView(JCViewDecl tree) {
-        if (env.tree.hasTag(JCTree.Tag.MODULE)) {
-            Env<ModuleContext> prevEnv = env;
-            env = env.dup(tree, env.info.dup());
-            try {
-                acceptAll(tree.directives);
-            } finally {
-                ViewDeclaration v = new ViewDeclaration(TreeInfo.fullName(tree.name),
-                        env.info.directives.toList());
-                env = prevEnv;
-                if (env.info.getDirectives(Directive.Kind.VIEW, v.name).isEmpty()) {
-                    env.info.addDirective(v, tree, v.name);
-                    if (isBaseModuleName(v.name))
-                        env.info.requiresBaseModule = false;
-                } else {
-                    log.error("dupl.view", v.name);
-                }
-            }
-        } else {
-            log.error(tree, "nested.view.not.allowed");
+        List<Directive> viewDirectives;
+        Env<ModuleContext> prevEnv = env;
+        env = env.dup(tree, env.info.dup());
+        try {
+            acceptAll(tree.directives);
+        } finally {
+            viewDirectives = env.info.directives.toList();
+            env = prevEnv;
         }
+
+        if (!env.tree.hasTag(JCTree.Tag.MODULE)) {
+            log.error(tree, "nested.view.not.allowed");
+            return;
+        }
+
+        ViewDeclaration v = new ViewDeclaration(TreeInfo.fullName(tree.name),
+                viewDirectives);
+        if (!env.info.getDirectives(Directive.Kind.VIEW, v.name).isEmpty()
+                || v.name.equals(((JCModuleDecl) env.tree).sym.fullname)) {
+            log.error(tree, "dupl.view", v.name);
+            return;
+        }
+
+        env.info.addDirective(v, tree, v.name);
+        if (isBaseModuleName(v.name))
+            env.info.requiresBaseModule = false;
     }
 
     @Override
