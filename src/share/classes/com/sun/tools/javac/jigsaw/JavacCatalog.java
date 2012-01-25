@@ -32,13 +32,15 @@ import java.lang.module.ModuleId;
 import java.lang.module.ModuleIdQuery;
 import java.lang.module.ModuleInfo;
 import java.lang.module.ModuleView;
-import java.lang.module.Service;
+import java.lang.module.ServiceDependence;
+import java.lang.module.ViewDependence;
 import java.lang.module.Version;
 import java.lang.module.VersionQuery;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -247,7 +249,7 @@ public class JavacCatalog  extends Catalog {
         ModuleSymbol msym;
 
         ModuleId id;
-        Set<Dependence> requires;
+        Set<ViewDependence> requiresModules;
         Map<ModuleId, ModuleView> views;
 
         JavacModuleInfo(ModuleSymbol msym) {
@@ -278,18 +280,23 @@ public class JavacCatalog  extends Catalog {
                     provides.add(getModuleId(d.moduleId));
                 }
                 
-                Set<Service.ProviderInfo> services = new LinkedHashSet<Service.ProviderInfo>();
+                Map<String,Set<String>> services = new LinkedHashMap<String,Set<String>>();
                 for (ProvidesServiceDirective s : v.getServices()) {
                     String sn = new String(ClassFile.externalize(s.service.flatname));
                     String pn = new String(ClassFile.externalize(s.impl.flatname));
-                    services.add(new Service.ProviderInfo(sn, pn));
+                    Set<String> providers = services.get(sn);
+                    if (providers == null) {
+                        providers = new LinkedHashSet<String>();
+                        services.put(sn, providers);
+                    }
+                    providers.add(pn);
                 }
                 
                 ModuleId vid = (v.name == null)
                                    ? id
                                    : getModuleId(v.name, msym.version);
-                ModuleView view = new JavacModuleView(id,
-                                                      vid.name(),
+                ModuleView view = new JavacModuleView(this,
+                                                      vid,
                                                       mainClass,
                                                       provides,
                                                       exports,
@@ -300,16 +307,16 @@ public class JavacCatalog  extends Catalog {
             
             if (!views.containsKey(id)) {
                 // create the default view if not exists
-                views.put(id, new JavacModuleView(id,
-                                                  id.name(),
+                views.put(id, new JavacModuleView(this,
+                                                  id,
                                                   null,
                                                   Collections.<ModuleId>emptySet(),
                                                   Collections.<String>emptySet(),
                                                   Collections.<String>emptySet(),
-                                                  Collections.<Service.ProviderInfo>emptySet()));
+                                                  Collections.<String,Set<String>>emptyMap()));
             }
 
-            requires = new LinkedHashSet<Dependence>();
+            requiresModules = new LinkedHashSet<ViewDependence>();
             for (RequiresModuleDirective r: msym.getRequiredModules()) {
                 DEBUG("JavacModuleInfo: require " + r);
                 ModuleIdQuery q = getModuleIdQuery(r.moduleQuery);
@@ -317,9 +324,9 @@ public class JavacCatalog  extends Catalog {
                 for (com.sun.tools.javac.code.Directive.RequiresFlag f: r.flags) {
                     mods.add(getModifier(f));  // FIXME -- throws IllegalArgumentException
                 }
-                requires.add(new Dependence(mods, q));
+                requiresModules.add(new ViewDependence(mods, q));
             }
-            DEBUG("JavacModuleInfo: msym: " + msym + "[id:" + id + " views:" + views + " requires:" + requires + "]");
+            DEBUG("JavacModuleInfo: msym: " + msym + "[id:" + id + " views:" + views + " requires:" + requiresModules + "]");
         }
 
         @Override
@@ -328,11 +335,11 @@ public class JavacCatalog  extends Catalog {
         }
          
         @Override
-        public Set<Dependence> requires() {
-            return requires;
+        public Set<ViewDependence> requiresModules() {
+            return requiresModules;
         }
         
-        public Set<Service.Dependence> requiresServices() {
+        public Set<ServiceDependence> requiresServices() {
             return Collections.emptySet();
         }
 
@@ -343,38 +350,28 @@ public class JavacCatalog  extends Catalog {
         public Set<ModuleView> views() {
             return Collections.unmodifiableSet(new HashSet<ModuleView>(views.values()));
         }
-        
-        public ModuleView view(ModuleId mid) {
-            return views.get(mid);
-        }
-        
-        public ModuleView view(String mn) {
-            return views.get(new ModuleId(mn, id.version()));
-        }
     }
     
     class JavacModuleView
         implements ModuleView
     {
-        private final ModuleId mid;
-        private final String name;
+        private final ModuleInfo mi;
         private final ModuleId id;
         private final Set<String> exports;
         private final Set<ModuleId> aliases;
-        private final Set<Service.ProviderInfo> services;
+        private final Map<String,Set<String>> services;
         private final Set<String> permits;
         private final String mainClass;
 
-        JavacModuleView(ModuleId mid,
-                        String name,
+        JavacModuleView(ModuleInfo mi,
+                        ModuleId id,
                         String mainClass,
                         Set<ModuleId> aliases,
                         Set<String> exports,
                         Set<String> permits,
-                        Set<Service.ProviderInfo> serviceProviders) {
-            this.mid = mid;
-            this.name = name;
-            this.id = new ModuleId(name, mid.version());
+                        Map<String,Set<String>> serviceProviders) {
+            this.mi = mi;
+            this.id = id;
             this.mainClass = mainClass;
             this.aliases = aliases;
             this.exports = exports;
@@ -382,13 +379,8 @@ public class JavacCatalog  extends Catalog {
             this.services = serviceProviders;
         }
 
-        public ModuleId module() {
-            return mid;
-        }
-
-
-        public String name() {
-            return name;
+        public ModuleInfo moduleInfo() {
+            return mi;
         }
 
         public ModuleId id() {
@@ -407,8 +399,8 @@ public class JavacCatalog  extends Catalog {
             return Collections.unmodifiableSet(permits);
         }
 
-        public Set<Service.ProviderInfo> providesServices() {
-            return Collections.unmodifiableSet(services);
+        public Map<String,Set<String>> services() {
+            return Collections.unmodifiableMap(services);
         }
 
         public String mainClass() {
@@ -417,7 +409,7 @@ public class JavacCatalog  extends Catalog {
 
         @Override
         public String toString() {
-            return "View { name: " + name
+            return "View { id: " + id
                     + ", provides: " + aliases
                     + ", provides service: " + services
                     + ", permits: " + permits
