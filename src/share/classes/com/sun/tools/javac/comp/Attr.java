@@ -3114,6 +3114,34 @@ public class Attr extends JCTree.Visitor {
         TypeSymbol srvc = attribTree(tree.serviceName, env, TYP, Type.noType).tsym;
         TypeSymbol impl = attribTree(tree.implName, env, TYP, Type.noType).tsym;
         if (srvc.kind != ERR && impl.kind != ERR) {
+            if ((impl.flags() & ABSTRACT) != 0) {
+                log.error(tree.implName, "service.impl.is.abstract", impl);
+                return;
+            }
+
+            if ((impl.flags() & PUBLIC) == 0) {
+                log.error(tree.implName, "service.impl.not.public", impl);
+                return;
+            }
+
+            boolean hasPublicNoArgsConstructor = false;
+            for (Scope.Entry e = impl.members().lookup(names.init); e.scope != null; e = e.next()) {
+                if (e.sym.kind == MTH && ((e.sym.flags() & PUBLIC) != 0)
+                        && ((MethodSymbol) e.sym).params.isEmpty()) {
+                    hasPublicNoArgsConstructor = true;
+                    break;
+                }
+            }
+            if (!hasPublicNoArgsConstructor) {
+                log.error(tree.implName, "service.impl.no.default.constr", impl);
+                return;
+            }
+
+            if (impl.owner.kind != PCK) {
+                log.error(tree.implName, "service.impl.is.inner", impl);
+                return;
+            }
+
             ProvidesServiceDirective psd =
                     new ProvidesServiceDirective((ClassSymbol) srvc, (ClassSymbol) impl);
             for (Directive d: env.info.modcon.getDirectives(Directive.Kind.PROVIDES_SERVICE, psd.service.fullname)) {
@@ -3169,9 +3197,36 @@ public class Attr extends JCTree.Visitor {
     public void visitEntrypoint(JCEntrypointDirective tree) {
         Type t = attribType(tree.qualId, env);
         if (t.tag == CLASS) {
-            // FIXME: should check for duplicates
-            EntrypointDirective d = new EntrypointDirective((ClassSymbol) tree.qualId.type.tsym);
-            env.info.modcon.directives.add(d);
+            Symbol sym = t.tsym;
+
+            boolean hasPublicStaticVoidMain = false;
+            for (Scope.Entry e = sym.members().lookup(names.main); e.scope != null; e = e.next()) {
+                int PUBLIC_STATIC = PUBLIC | STATIC;
+                if (e.sym.kind == MTH && ((e.sym.flags() & PUBLIC_STATIC) == PUBLIC_STATIC)) {
+                    MethodSymbol m = (MethodSymbol) e.sym;
+                    if (m.getReturnType().tag != VOID)
+                        continue;
+                    if (m.params.size() != 1)
+                        continue;
+                    VarSymbol p = m.params.head;
+                    if (types.dimensions(p.type) == 1
+                            && types.elemtype(p.type).tsym == syms.stringType.tsym) {
+                        hasPublicStaticVoidMain = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasPublicStaticVoidMain) {
+                log.error(tree.qualId, "no.psv.main", sym);
+                return;
+            }
+
+            // Duplicate entrypoints should already have been detected and
+            // reported in Modules.visitEntrypoint, so here we just act
+            // defensively to ignore duplicates.
+            EntrypointDirective d = new EntrypointDirective((ClassSymbol) t.tsym);
+            if (env.info.modcon.getDirectives(Directive.Kind.ENTRYPOINT, d.sym.fullname).isEmpty())
+                env.info.modcon.addDirective(d, tree, d.sym.fullname);
         }
     }
 

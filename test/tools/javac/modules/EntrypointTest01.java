@@ -77,6 +77,78 @@ public class EntrypointTest01 extends DirectiveTest {
         compile(files, expectDiags);
     }
 
+    @Test
+    void mainNotPublicTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { class p.Main; }"));
+        files.add(createFile("M1/p/Main.java",
+                "package p; public class Main { static void main(String... args) { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.no.psv.main [p.Main]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void mainNotStaticTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { class p.Main; }"));
+        files.add(createFile("M1/p/Main.java",
+                "package p; public class Main { public void main(String... args) { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.no.psv.main [p.Main]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void mainNotVoidTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { class p.Main; }"));
+        files.add(createFile("M1/p/Main.java",
+                "package p; public class Main { public static int main(String... args) { return 0; } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.no.psv.main [p.Main]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void mainNoArgsTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { class p.Main; }"));
+        files.add(createFile("M1/p/Main.java",
+                "package p; public class Main { public static void main() { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.no.psv.main [p.Main]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void mainArgsNotArray1Test() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { class p.Main; }"));
+        files.add(createFile("M1/p/Main.java",
+                "package p; public class Main { public static void main(String arg) { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.no.psv.main [p.Main]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void mainArgsNotArray2Test() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { class p.Main; }"));
+        files.add(createFile("M1/p/Main.java",
+                "package p; public class Main { public static void main(int[] arg) { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.no.psv.main [p.Main]");
+        compile(files, expectDiags);
+    }
+
     Set<String> getEntrypoints(String path, String viewName) throws IOException, ConstantPoolException {
         javap(path);
         Set<String> found = new HashSet<String>();

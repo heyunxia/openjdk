@@ -80,6 +80,76 @@ public class ProvidesServiceTest01 extends DirectiveTest {
         compile(files, expectDiags);
     }
 
+    @Test
+    void implIsAbstractTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides service p.S1 with p.S2; }"));
+        files.add(createFile("M1/p/S1.java",
+                "package p; public class S1 { }"));
+        files.add(createFile("M1/p/S2.java",
+                "package p; public abstract class S2 extends S1 { }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.service.impl.is.abstract [p.S2]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void implNotPublicTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides service p.S1 with p.S2; }"));
+        files.add(createFile("M1/p/S1.java",
+                "package p; public class S1 { }"));
+        files.add(createFile("M1/p/S2.java",
+                "package p; class S2 extends S1 { }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.not.def.public.cant.access [p.S2, p]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void implConstrNotPublicTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides service p.S1 with p.S2; }"));
+        files.add(createFile("M1/p/S1.java",
+                "package p; public class S1 { }"));
+        files.add(createFile("M1/p/S2.java",
+                "package p; public class S2 extends S1 { private S2() { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.service.impl.no.default.constr [p.S2]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void implConstrHasArgsTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides service p.S1 with p.S2; }"));
+        files.add(createFile("M1/p/S1.java",
+                "package p; public class S1 { }"));
+        files.add(createFile("M1/p/S2.java",
+                "package p; public class S2 extends S1 { public S2(int i) { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.service.impl.no.default.constr [p.S2]");
+        compile(files, expectDiags);
+    }
+
+    @Test
+    void implIsInnerTest() throws Exception {
+        List<JavaFileObject> files = new ArrayList<JavaFileObject>();
+        files.add(createFile("M1/module-info.java",
+                "module M1 { provides service p.S1 with p.S2.Inner; }"));
+        files.add(createFile("M1/p/S1.java",
+                "package p; public class S1 { }"));
+        files.add(createFile("M1/p/S2.java",
+                "package p; public class S2 extends S1 { public class Inner { } }"));
+
+        List<String> expectDiags = Arrays.asList("ERROR: compiler.err.service.impl.is.inner [p.S2.Inner]");
+        compile(files, expectDiags);
+    }
+
     Set<String> getServices(String path, String viewName) throws IOException, ConstantPoolException {
         javap(path);
         Set<String> found = new HashSet<String>();

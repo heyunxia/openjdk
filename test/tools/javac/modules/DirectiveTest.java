@@ -73,11 +73,11 @@ abstract class DirectiveTest {
                 init(m.getName());
                 try {
                     m.invoke(this, new Object[] { });
-
                 } catch (InvocationTargetException e) {
                     Throwable cause = e.getCause();
                     throw (cause instanceof Exception) ? ((Exception) cause) : e;
                 }
+                System.err.println();
             }
         }
         System.err.println(testCount + " tests" + ((errorCount == 0) ? "" : ", " + errorCount + " errors"));
@@ -97,7 +97,6 @@ abstract class DirectiveTest {
         fm.setLocation(StandardLocation.SOURCE_PATH, Arrays.asList(srcDir));
         fm.setLocation(StandardLocation.MODULE_PATH, Collections.<File>emptyList());
         fm.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(classesDir));
-
     }
 
     void compile(List<JavaFileObject> files) throws Exception {

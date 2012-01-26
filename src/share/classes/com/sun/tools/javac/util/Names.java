@@ -171,6 +171,7 @@ public class Names {
     public final Name _public;
     public final Name optional;
     public final Name local;
+    public final Name main;
 
     public final Name.Table table;
 
@@ -310,6 +311,7 @@ public class Names {
         _public = fromString("public");
         optional = fromString("optional");
         local = fromString("local");
+        main = fromString("main");
 
     }
 
