@@ -28,6 +28,7 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
+import java.nio.file.*;
 import java.security.*;
 import java.security.cert.*;
 import java.util.*;
@@ -70,8 +71,8 @@ public final class SimpleLibrary
         protected final int maxMinorVersion;
         protected int majorVersion;
         protected int minorVersion;
-        private FileConstants.Type type;
-        private File file;
+        private final FileConstants.Type type;
+        private final File file;
 
         protected MetaData(int maxMajor, int maxMinor,
                            FileConstants.Type t, File f)
@@ -86,17 +87,14 @@ public final class SimpleLibrary
             throws IOException;
 
         void store() throws IOException {
-            OutputStream fo = new FileOutputStream(file);
-            DataOutputStream out
-                = new DataOutputStream(new BufferedOutputStream(fo));
-            try {
+            try (OutputStream fos = new FileOutputStream(file);
+                 BufferedOutputStream bos = new BufferedOutputStream(fos);
+                 DataOutputStream out = new DataOutputStream(bos)) {
                 out.writeInt(FileConstants.MAGIC);
                 out.writeShort(type.value());
                 out.writeShort(majorVersion);
                 out.writeShort(minorVersion);
                 storeRest(out);
-            } finally {
-                out.close();
             }
         }
 
@@ -104,15 +102,12 @@ public final class SimpleLibrary
             throws IOException;
 
         protected void load() throws IOException {
-            InputStream fi = new FileInputStream(file);
-            try {
-                DataInputStream in
-                    = new DataInputStream(new BufferedInputStream(fi));
-                int m = in.readInt();
-                if (m != FileConstants.MAGIC)
+            try (InputStream fis = new FileInputStream(file);
+                 BufferedInputStream bis = new BufferedInputStream(fis);
+                 DataInputStream in = new DataInputStream(fis)) {
+                if (in.readInt() != FileConstants.MAGIC)
                     throw new IOException(file + ": Invalid magic number");
-                int typ = in.readShort();
-                if (typ != type.value())
+                if (in.readShort() != type.value())
                     throw new IOException(file + ": Invalid file type");
                 int maj = in.readShort();
                 int min = in.readShort();
@@ -125,13 +120,9 @@ public final class SimpleLibrary
                 minorVersion = min;
                 loadRest(in);
             } catch (EOFException x) {
-                throw new IOException(file + ": Invalid library metadata",
-                                      x);
-            } finally {
-                fi.close();
+                throw new IOException(file + ": Invalid library metadata", x);
             }
         }
-
     }
 
     /**
@@ -153,63 +144,93 @@ public final class SimpleLibrary
         private static final int DEFLATED = 1 << 0;
 
         private File parent;
+        // location of native libs for this library (may be outside the library)
+        // null:default, to use a per-module 'lib' directory
+        private File natlibs;
+        // location of native cmds for this library (may be outside the library)
+        // null:default, to use a per-module 'bin' directory
+        private File natcmds;
+        // location of config files for this library (may be outside the library)
+        // null:default, to use a per-module 'etc' directory
+        private File configs;
         private Set<StorageOption> opts;
 
-        public File parent() { return parent; }
+        public File parent()  { return parent;  }
+        public File natlibs() { return natlibs; }
+        public File natcmds() { return natcmds; }
+        public File configs() { return configs; }
         public boolean isDeflated() {
-           return opts.contains(StorageOption.DEFLATED);
-        }
-
-        private Header(File root, File p, Set<StorageOption> opts) {
-            super(MAJOR_VERSION, MINOR_VERSION,
-                  FileConstants.Type.LIBRARY_HEADER,
-                  new File(root, FILE));
-            this.parent = p;
-            this.opts = new HashSet<>(opts);
+            return opts.contains(StorageOption.DEFLATED);
         }
 
         private Header(File root) {
-            this(root, null, Collections.<StorageOption>emptySet());
+             super(MAJOR_VERSION, MINOR_VERSION,
+                  FileConstants.Type.LIBRARY_HEADER,
+                  new File(root, FILE));
         }
 
-        protected void storeRest(DataOutputStream out)
-            throws IOException
-        {
+        private Header(File root, File parent, File natlibs, File natcmds,
+                       File configs, Set<StorageOption> opts) {
+            this(root);
+            this.parent = parent;
+            this.natlibs = natlibs;
+            this.natcmds = natcmds;
+            this.configs = configs;
+            this.opts = new HashSet<>(opts);
+        }
+
+        private void storePath(File p, DataOutputStream out) throws IOException {  
+            if (p != null) {
+                out.writeByte(1);
+                out.writeUTF(Files.convertSeparator(p.toString()));
+            } else {
+                out.write(0);
+            }
+        }
+
+        protected void storeRest(DataOutputStream out) throws IOException {
             int flags = 0;
             if (isDeflated())
                 flags |= DEFLATED;
             out.writeShort(flags);
-            out.writeByte((parent != null) ? 1 : 0);
-            if (parent != null)
-                out.writeUTF(parent.toString());
+            
+            storePath(parent, out);
+            storePath(natlibs, out);
+            storePath(natcmds, out);
+            storePath(configs, out);
+        }
+        
+        private File loadPath(DataInputStream in) throws IOException {  
+            if (in.readByte() != 0)
+                return new File(Files.platformSeparator(in.readUTF()));
+            return null;
         }
 
-        protected void loadRest(DataInputStream in)
-            throws IOException
-        {
+        protected void loadRest(DataInputStream in) throws IOException {
             opts = new HashSet<StorageOption>();
             int flags = in.readShort();
             if ((flags & DEFLATED) == DEFLATED)
                 opts.add(StorageOption.DEFLATED);
-            int b = in.readByte();
-            if (b != 0)
-                parent = new File(in.readUTF());
+            parent = loadPath(in);
+            natlibs = loadPath(in);
+            natcmds = loadPath(in);
+            configs = loadPath(in);
         }
 
-        private static Header load(File f)
-            throws IOException
-        {
+        private static Header load(File f) throws IOException {
             Header h = new Header(f);
             h.load();
             return h;
         }
-
     }
 
     private final File root;
     private final File canonicalRoot;
-    private File parentPath = null;
-    private SimpleLibrary parent = null;
+    private final File parentPath;
+    private final File natlibs;
+    private final File natcmds;
+    private final File configs;
+    private final SimpleLibrary parent;
     private final Header hd;
 
     public String name() { return root.toString(); }
@@ -217,6 +238,9 @@ public final class SimpleLibrary
     public int majorVersion() { return hd.majorVersion; }
     public int minorVersion() { return hd.minorVersion; }
     public SimpleLibrary parent() { return parent; }
+    public File natlibs() { return natlibs; }
+    public File natcmds() { return natcmds; }
+    public File configs() { return configs; }
     public boolean isDeflated() { return hd.isDeflated(); }
 
     private URI location = null;
@@ -233,56 +257,102 @@ public final class SimpleLibrary
                 + ", v" + hd.majorVersion + "." + hd.minorVersion + "]");
     }
 
-    private SimpleLibrary(File path, boolean create, File parentPath, Set<StorageOption> opts)
+
+    private static File resolveAndEnsurePath(File path) throws IOException {
+        if (path == null) { return null; }
+        
+        File p = path.getCanonicalFile();
+        if (!p.exists()) {
+            Files.mkdirs(p, p.toString());
+        } else {
+            Files.ensureIsDirectory(p);
+            Files.ensureWriteable(p);
+        }
+        return p;
+    }
+
+    private File relativize(File path) throws IOException {
+        if (path == null) { return null; }
+        // Return the path relative to the canonical root
+        return (canonicalRoot.toPath().relativize(path.toPath().toRealPath())).toFile();
+    }
+
+    // Opens an existing library
+    private SimpleLibrary(File path) throws IOException {
+        root = path;
+        canonicalRoot = root.getCanonicalFile();
+        Files.ensureIsDirectory(root);
+        hd = Header.load(root);
+        
+        parentPath = hd.parent();
+        parent = parentPath != null ? open(parentPath) : null;
+
+        natlibs = hd.natlibs() == null ? null :
+            new File(canonicalRoot, hd.natlibs().toString()).getCanonicalFile();
+        natcmds = hd.natcmds() == null ? null :
+            new File(canonicalRoot, hd.natcmds().toString()).getCanonicalFile();
+        configs = hd.configs() == null ? null :
+            new File(canonicalRoot, hd.configs().toString()).getCanonicalFile();
+    }
+
+    // Creates a new library
+    private SimpleLibrary(File path, File parentPath, File natlibs, File natcmds,
+                          File configs, Set<StorageOption> opts)
         throws IOException
     {
         root = path;
         canonicalRoot = root.getCanonicalFile();
         if (root.exists()) {
-            if (!root.isDirectory())
-                throw new IOException(root + ": Exists but is not a directory");
-            hd = Header.load(root);
-            if (hd.parent() != null) {
-                parent = open(hd.parent());
-                parentPath = hd.parent();
-            }
-            return;
-        }
-        if (!create)
-            throw new FileNotFoundException(root.toString());
-        if (parentPath != null) {
-            this.parent = open(parentPath);
-            this.parentPath = this.parent.root();
-        }
-        if (!root.mkdirs())
-            throw new IOException(root + ": Cannot create library directory");
-        hd = new Header(canonicalRoot, this.parentPath, opts);
+            Files.ensureIsDirectory(root);
+            if (root.list().length != 0)
+                throw new IOException(root + ": Already Exists");
+            Files.ensureWriteable(root);
+        } else
+            Files.mkdirs(root, root.toString());
+
+        this.parent = parentPath != null ? open(parentPath) : null;
+        this.parentPath = parentPath != null ? this.parent.root() : null;
+
+        this.natlibs = resolveAndEnsurePath(natlibs);
+        this.natcmds = resolveAndEnsurePath(natcmds);
+        this.configs = resolveAndEnsurePath(configs);
+
+        hd = new Header(canonicalRoot, this.parentPath, relativize(this.natlibs),
+                        relativize(this.natcmds), relativize(this.configs), opts);
         hd.store();
+    }
+
+    public static SimpleLibrary create(File path, File parent, File natlibs,
+                                       File natcmds, File configs,
+                                       Set<StorageOption> opts)
+        throws IOException
+    {
+        return new SimpleLibrary(path, parent, natlibs, natcmds, configs, opts);
     }
 
     public static SimpleLibrary create(File path, File parent, Set<StorageOption> opts)
         throws IOException
     {
-        return new SimpleLibrary(path, true, parent, opts);
+        return new SimpleLibrary(path, parent, null, null, null, opts);
     }
 
     public static SimpleLibrary create(File path, File parent)
-        throws IOException 
+        throws IOException
     {
-	return new SimpleLibrary(path, true, parent, Collections.<StorageOption>emptySet());
+	return SimpleLibrary.create(path, parent, Collections.<StorageOption>emptySet());
     }
 
     public static SimpleLibrary create(File path, Set<StorageOption> opts)
         throws IOException
     {
         // ## Should default parent to $JAVA_HOME/lib/modules
-        return new SimpleLibrary(path, true, null, opts);
+        return SimpleLibrary.create(path, null, opts);
     }
 
     public static SimpleLibrary open(File path)
         throws IOException
     {
-        return new SimpleLibrary(path, false, null, Collections.<StorageOption>emptySet());
+        return new SimpleLibrary(path);
     }
 
     private static final JigsawModuleSystem jms
@@ -829,11 +899,11 @@ public final class SimpleLibrary
      * directory.
      */
     private void strip(File md) throws IOException {
-        File classes = new File(md, "classes"); 
+        File classes = new File(md, "classes");
         if (classes.isFile()) {
             File pf = new File(md, "classes.pack");
             try (JarFile jf = new JarFile(classes);
-                FileOutputStream out = new FileOutputStream(pf)) 
+                FileOutputStream out = new FileOutputStream(pf))
             {
                 Pack200.Packer packer = Pack200.newPacker();
                 Map<String,String> p = packer.properties();
@@ -998,13 +1068,13 @@ public final class SimpleLibrary
                 new Signers(md, signers).store();
 
                 // Read and verify the rest of the hashes
-                mr.readRest(md, isDeflated());
+                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
                 mfv.verifyHashesRest(mfvParams);
             } else {
-                mr.readRest(md, isDeflated());
+                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
             }
- 
-            if (strip) 
+
+            if (strip)
                 strip(md);
             reIndex(mid);         // ## Could do this while reading module file
             return mid;
@@ -1012,7 +1082,7 @@ public final class SimpleLibrary
         } catch (IOException | SignatureException x) {
             if (md != null && md.exists()) {
                 try {
-                    Files.deleteTree(md);
+                   ModuleFile.Reader.remove(md);
                 } catch (IOException y) {
                     y.initCause(x);
                     throw y;
@@ -1186,6 +1256,7 @@ public final class SimpleLibrary
         if (mf.getName().endsWith(".jar"))
             mid = installFromJarFile(mf, verifySignature, strip);
         else {
+            // Assume jmod file
             try (FileInputStream in = new FileInputStream(mf)) {
                 mid = install(in, verifySignature, strip);
             }
@@ -1338,10 +1409,14 @@ public final class SimpleLibrary
     public File findLocalNativeLibrary(ModuleId mid, String name)
         throws IOException
     {
-        File md = findModuleDir(mid);
-        if (md == null)
-            return null;
-        File f = new File(new File(md, "lib"), name);
+        File f = natlibs();
+        if (f == null) {
+            f = findModuleDir(mid);
+            if (f == null)
+                return null;
+            f = new File(f, "lib");
+        }
+        f = new File(f, name);
         if (!f.exists())
             return null;
         return f;

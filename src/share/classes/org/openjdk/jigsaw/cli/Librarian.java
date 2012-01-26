@@ -32,7 +32,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
 import java.util.*;
-import java.util.regex.*;
 
 import static java.lang.System.out;
 import static java.lang.System.err;
@@ -47,12 +46,41 @@ public class Librarian {
     private static JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
+    private static final File homeLibrary = Library.systemLibraryPath();
+
     static class Create extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
         {
             noDry();
             finishArgs();
+            File lp = libPath(opts);
+            File pp = null;
+            if (opts.has(parentPath))
+                pp = opts.valueOf(parentPath);
+            else if (!opts.has("N"))
+                pp = homeLibrary;
+
+            File natlibs = null;
+            if (opts.has(nativeLibs))
+                natlibs = opts.valueOf(nativeLibs);
+            File natcmds = null;
+            if (opts.has(nativeCmds))
+                natcmds = opts.valueOf(nativeCmds);
+            File configs = null;
+            if (opts.has(configFiles))
+                configs = opts.valueOf(configFiles);
+
+            Set<StorageOption> createOpts = new HashSet<>();
+            if (opts.has("z"))
+                createOpts.add(StorageOption.DEFLATED);
+
+            try {
+                lib = SimpleLibrary.create(lp, pp, natlibs, natcmds,
+                                           configs, createOpts);
+            } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
         }
     }
 
@@ -104,6 +132,12 @@ public class Librarian {
             out.format("path %s%n", lib.root());
             out.format("version %d.%d%n",
                        lib.majorVersion(), lib.minorVersion());
+            if (lib.natlibs() != null)
+                out.format("natlibs %s%n", lib.natlibs());
+            if (lib.natcmds() != null)
+                out.format("natcmds %s%n", lib.natcmds());
+            if (lib.configs() != null)
+                out.format("configs %s%n", lib.configs());
             SimpleLibrary plib = lib.parent();
             while (plib != null) {
                 out.format("parent %s%n", plib.root());
@@ -119,23 +153,23 @@ public class Librarian {
             noDry();
             while (hasArg()) {
                 File module = new File(takeArg());
-                File classes = null;
+                File destination = null;
                 try (FileInputStream fis = new FileInputStream(module);
-                     DataInputStream dis = new DataInputStream(fis);
-                     ModuleFile.Reader reader = new ModuleFile.Reader(dis)) {
+                    DataInputStream dis = new DataInputStream(fis);
+                    ModuleFile.Reader reader = new ModuleFile.Reader(dis)) {
 
                     ModuleInfo mi = jms.parseModuleInfo(reader.readStart());
-                    classes = new File(mi.id().name());
-                    Path path = classes.toPath();
+                    destination = new File(mi.id().name());
+                    Path path = destination.toPath();
                     Files.deleteIfExists(path);
                     Files.createDirectory(path);
-                    reader.readRest(classes, false);
+                    reader.readRest(destination, false);
                 }
                 catch (IOException x) {
                     // Try to cleanup if an exception is thrown
-                    if (classes != null && classes.exists())
+                    if (destination != null && destination.exists())
                         try {
-                            FilePaths.deleteTree(classes.toPath());
+                            FilePaths.deleteTree(destination.toPath());
                         }
                         catch (IOException y) {
                             throw (Command.Exception)
@@ -447,7 +481,7 @@ public class Librarian {
             }
         }
     }
-    
+
     private static Map<String,Class<? extends Command<SimpleLibrary>>> commands
         = new HashMap<>();
 
@@ -473,13 +507,19 @@ public class Librarian {
     private OptionParser parser;
 
     private static OptionSpec<Integer> repoIndex; // ##
+    private static OptionSpec<File> libPath;
+    private static OptionSpec<File> parentPath;
+    private static OptionSpec<File> nativeLibs;
+    private static OptionSpec<File> nativeCmds;
+    private static OptionSpec<File> configFiles;
 
     private void usage() {
         out.format("%n");
         out.format("usage: jmod add-repo [-i <index>] URL%n");
         out.format("       jmod extract <module-file> ...%n");
         out.format("       jmod config [<module-id> ...]%n");
-        out.format("       jmod create [-L <library>] [-P <parent>]%n");
+        out.format("       jmod create [-L <library>] [-P <parent>]" +
+                " [--natlib <natlib>] [--natcmd <natcmd>] [--config <config>]%n");
         out.format("       jmod del-repo URL%n");
         out.format("       jmod dump-class <module-id> <class-name> <output-file>%n");
         out.format("       jmod dump-config <module-id>%n");
@@ -510,18 +550,33 @@ public class Librarian {
         parser = new OptionParser();
 
         // ## Need subcommand-specific option parsing
-        OptionSpec<File> libPath
+        libPath
             = (parser.acceptsAll(Arrays.asList("L", "library"),
                                  "Module-library location"
                                  + " (default $JAVA_MODULES)")
                .withRequiredArg()
                .describedAs("path")
                .ofType(File.class));
-        OptionSpec<File> parentPath
+        parentPath
             = (parser.acceptsAll(Arrays.asList("P", "parent-path"),
                                  "Parent module-library location")
                .withRequiredArg()
                .describedAs("path")
+               .ofType(File.class));
+        nativeLibs
+            = (parser.accepts("natlib", "Directory to store native libs")
+               .withRequiredArg()
+               .describedAs("dir")
+               .ofType(File.class));
+        nativeCmds
+            = (parser.accepts("natcmd", "Directory to store native launchers")
+               .withRequiredArg()
+               .describedAs("dir")
+               .ofType(File.class));
+        configFiles
+            = (parser.accepts("config", "Directory to store config files")
+               .withRequiredArg()
+               .describedAs("dir")
                .ofType(File.class));
         parser.acceptsAll(Arrays.asList("N", "no-parent"),
                           "Use no parent library when creating");
@@ -550,12 +605,9 @@ public class Librarian {
                           + "Treat as unsigned.");
         parser.acceptsAll(Arrays.asList("G", "strip-debug"),
                           "Strip debug attributes during installation");
-        
+
         if (args.length == 0)
             usage();
-
-        File homeLibrary = new File(System.getProperty("java.home"),
-                                    "lib/modules");
 
         OptionSet opts = parser.parse(args);
         if (opts.has("h"))
@@ -567,47 +619,30 @@ public class Librarian {
         Class<? extends Command<SimpleLibrary>> cmd = commands.get(verb);
         if (cmd == null)
             throw new Command.Exception("%s: unknown command", verb);
-        File lp = null;
-        if (opts.has(libPath)) {
-            lp = opts.valueOf(libPath);
-        } else {
-            String jm = System.getenv("JAVA_MODULES");
-            if (jm != null)
-                lp = new File(jm);
-            else
-                lp = homeLibrary;
-        }
-        File pp = null;
-        if (opts.has(parentPath)) {
-            pp = opts.valueOf(parentPath);
-        } else if (!opts.has("N")) {
-            pp = homeLibrary;
-        }
+
+        // Every command, except 'create' and 'extract', needs
+        // to have a valid reference to the library
         SimpleLibrary lib = null;
-        try {
-            if (verb.equals("create")) {
-                Set<StorageOption> createOpts = new HashSet<>();
-                if (opts.has("z"))
-                    createOpts.add(StorageOption.DEFLATED);
-                lib = SimpleLibrary.create(lp, pp, createOpts);
-            } else {
-                lib = SimpleLibrary.open(lp);
-            }
-        } catch (FileNotFoundException x) {
-            String msg = null;
-            File f = new File(x.getMessage());
+        if (!(verb.equals("create") || verb.equals("extract"))) {
+            File lp = libPath(opts);
             try {
-                f = f.getCanonicalFile();
-                if (lp.getCanonicalFile().equals(f))
-                    msg = "No such library";
-                else
-                    msg = "Cannot open parent library " + f;
-            } catch (IOException y) {
-                throw new Command.Exception(y);
+                lib = SimpleLibrary.open(lp);
+            } catch (FileNotFoundException x) {
+                String msg = null;
+                File f = new File(x.getMessage());
+                try {
+                    f = f.getCanonicalFile();
+                    if (lp.getCanonicalFile().equals(f))
+                        msg = "No such library";
+                    else
+                        msg = "Cannot open parent library " + f;
+                } catch (IOException y) {
+                    throw new Command.Exception(y);
+                }
+                throw new Command.Exception("%s: %s", lp, msg);
+            } catch (IOException x) {
+                throw new Command.Exception(x);
             }
-            throw new Command.Exception("%s: %s", lp, msg);
-        } catch (IOException x) {
-            throw new Command.Exception(x);
         }
         try {
             cmd.newInstance().run(lib, opts);
@@ -615,6 +650,18 @@ public class Librarian {
             throw new AssertionError(x);
         } catch (IllegalAccessException x) {
             throw new AssertionError(x);
+        }
+    }
+
+    private static File libPath(OptionSet opts) {
+        if (opts.has(libPath)) {
+            return opts.valueOf(libPath);
+        } else {
+            String jm = System.getenv("JAVA_MODULES");
+            if (jm != null)
+                return new File(jm);
+            else
+                return homeLibrary;
         }
     }
 

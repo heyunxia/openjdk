@@ -53,7 +53,7 @@ public class ModuleAnnotationTest {
 
     public static void main(String[] argv) throws Exception {
         File libPath = new File(argv[0]);
-        Library lb = SimpleLibrary.open(libPath, false);
+        Library lb = SimpleLibrary.open(libPath);
 
         List<ModuleId> mids = lb.findModuleIds("test.foo.bar");
         if (mids.size() != 1)

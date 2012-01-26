@@ -62,6 +62,9 @@ public final class ModuleFile {
         private File destination;
         private boolean deflate;
         private HashType hashtype;
+        private File natlibs;
+        private File natcmds;
+        private File configs;
 
         private static class CountingInputStream extends FilterInputStream {
             int count;
@@ -180,12 +183,22 @@ public final class ModuleFile {
 
         public void readRest() throws IOException {
             extract = false;
-            readRest(null, false);
+            readRest(null, false, null, null, null);
         }
 
         public void readRest(File dst, boolean deflate) throws IOException {
-            this.destination = dst;
+            readRest(dst, deflate, null, null, null);
+        }
+
+        public void readRest(File dst, boolean deflate, File natlibs,
+                             File natcmds, File configs)
+                throws IOException
+        {
             this.deflate = deflate;
+            this.destination = dst != null ? dst.getCanonicalFile() : null;
+            this.natlibs = natlibs != null ? natlibs : new File(destination, "lib");
+            this.natcmds = natcmds != null ? natcmds : new File(destination, "bin");
+            this.configs = configs != null ? configs : new File(destination, "etc");
             try {
                 if (extract)
                     Files.store(moduleInfoBytes, computeRealPath("info"));
@@ -260,14 +273,21 @@ public final class ModuleFile {
 
         public void close() throws IOException {
             try {
-                if (contentStream != null) {
-                    contentStream.close();
-                    contentStream = null;
+                try {
+                    if (contentStream != null) {
+                        contentStream.close();
+                        contentStream = null;
+                    }
+                } finally {
+                    if (fileIn != null) {
+                        fileIn.close();
+                        fileIn = null;
+                    }
                 }
             } finally {
-                if (fileIn != null) {
-                    fileIn.close();
-                    fileIn = null;
+                if (filesWriter != null) {
+                    filesWriter.close();
+                    filesWriter = null;
                 }
             }
         }
@@ -430,7 +450,7 @@ public final class ModuleFile {
             }
 
             if (extract)
-                markNativeCodeExecutable(type, currentPath);
+                postExtract(type, currentPath);
         }
 
         public void readUncompressedFile(DataInputStream in,
@@ -448,7 +468,9 @@ public final class ModuleFile {
                 while ((n = cin.read(buf)) >= 0)
                     out.write(buf, 0, n);
             }
-            markNativeCodeExecutable(type, currentPath);
+            if (extract) {
+                postExtract(type, currentPath);
+            }
          }
 
         public byte[] readModuleInfo(DataInputStream in, int csize)
@@ -469,28 +491,78 @@ public final class ModuleFile {
             return readModuleInfo(in, csize); // signature has the same format
         }
 
-        private File computeRealPath(String storedpath) throws IOException {
+        // Track files installed outside the module library. For later removal.
+        // files are relative to the modules directory.
+        private PrintWriter filesWriter;
 
-            String convertedpath = storedpath.replace('/', File.separatorChar);
-            File path = new File(convertedpath);
-
-            // Absolute path names are not permitted.
-            ensureNonAbsolute(path);
-            path = resolveAndNormalize(destination, convertedpath);
-            // Create the parent directories if necessary
-            File parent = path.getParentFile();
-            if (!parent.exists())
-                Files.mkdirs(parent, path.getName());
-
-            return path;
-        }
-
-        private File computeRealPath(SectionType type,
-                                     String storedpath)
+        private void trackFiles(SectionType type, File file)
             throws IOException
         {
-            String dir = getSubdirOfSection(type);
-            return computeRealPath(dir + File.separatorChar + storedpath);
+            if (file == null || file.toPath().startsWith(destination.toPath()))
+                return;
+
+            // Lazy construction, not all modules will need this.
+            if (filesWriter == null)
+                filesWriter = new PrintWriter(computeRealPath("files"), "UTF-8");
+
+            filesWriter.println(Files.convertSeparator(relativize(destination, file)));
+            filesWriter.flush();
+        }
+
+        void remove() throws IOException {
+            ModuleFile.Reader.remove(destination);
+        }
+
+        // Removes a module, given its module install directory
+        static void remove(File moduleDir) throws IOException {
+            // Firstly remove any files installed outside of the module dir
+            File files = new File(moduleDir, "files");
+            if (files.exists()) {
+                try (FileInputStream fis = new FileInputStream(files);
+                     InputStreamReader isr = new InputStreamReader(fis, "UTF-8");
+                     BufferedReader in = new BufferedReader(isr)) {
+                    String filename;
+                    while ((filename = in.readLine()) != null)
+                        Files.delete(new File(moduleDir,
+                                              Files.platformSeparator(filename)));
+                }
+            }
+
+            Files.deleteTree(moduleDir);
+        }
+
+        // Returns the absolute path of the given section type.
+        private File getDirOfSection(SectionType type) {
+            if (type == SectionType.NATIVE_LIBS)
+                return natlibs; 
+            else if (type == SectionType.NATIVE_CMDS)
+                return natcmds;
+            else if (type == SectionType.CONFIG)
+                return configs;
+
+            // resolve sub dir section paths against the modules directory
+            return new File(destination, ModuleFile.getSubdirOfSection(type));
+        }
+
+        private File computeRealPath(String path) throws IOException {
+            return resolveAndNormalize(destination, path);
+        }
+
+        private File computeRealPath(SectionType type, String storedpath)
+            throws IOException
+        {
+            File sectionPath = getDirOfSection(type);
+            File realpath = new File(sectionPath,
+                 Files.ensureNonAbsolute(Files.platformSeparator(storedpath)));
+
+            validatePath(sectionPath, realpath);
+
+            // Create the parent directories if necessary
+            File parent = realpath.getParentFile();
+            if (!parent.exists())
+                Files.mkdirs(parent, realpath.getName());
+
+            return realpath;
         }
 
         private static void markNativeCodeExecutable(SectionType type,
@@ -502,6 +574,13 @@ public final class ModuleFile {
                 {
                     file.setExecutable(true);
                 }
+        }
+
+        private void postExtract(SectionType type, File path)
+            throws IOException
+        {
+            markNativeCodeExecutable(type, path);
+            trackFiles(type, path);
         }
 
         private void unpack200gzip(DataInputStream in) throws IOException {
@@ -577,11 +656,6 @@ public final class ModuleFile {
         throws IOException
     {
         copyStream(in, (DataOutput) new DataOutputStream(out), count);
-    }
-
-    private static void ensureNonAbsolute(File path) throws IOException {
-        if (path.isAbsolute())
-            throw new IOException("Abolute path instead of relative: " + path);
     }
 
     private static void ensureNonNegativity(long size, String parameter) {
@@ -674,6 +748,22 @@ public final class ModuleFile {
             throw new IOException("Bogus relative path: " + path);
 
         return realpath;
+    }
+
+
+    private static String relativize(File directory, File path) throws IOException {
+        return (directory.toPath().relativize(path.toPath().toRealPath())).toString();
+    }
+
+    private static void validatePath(File parent, File child)
+        throws IOException
+    {
+        if (!child.toPath().startsWith(parent.toPath()) )
+            throw new IOException("Bogus relative path: " + child);
+        if (child.exists()) {
+            // conflict, for now just fail
+            throw new IOException("File " + child + " already exists");
+        }
     }
 
     private static short readHashLength(DataInputStream in) throws IOException {

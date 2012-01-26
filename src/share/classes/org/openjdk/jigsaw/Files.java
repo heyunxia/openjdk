@@ -26,18 +26,34 @@
 package org.openjdk.jigsaw;
 
 import java.io.*;
-import java.util.*;
 import java.util.jar.*;
 import java.util.zip.*;
-
 
 public final class Files {
 
     private Files() { }
 
-    private static void ensureIsDirectory(File path)
-        throws IOException
-    {
+    // paths are stored with a platform agnostic separator, '/'
+    static String convertSeparator(String path) {
+        return path.replace(File.separatorChar, '/');
+    }
+    
+    static String platformSeparator(String path) {
+        return path.replace('/', File.separatorChar);
+    }
+
+    static void ensureWriteable(File path) throws IOException {
+        if (!path.canWrite())
+            throw new IOException(path + ": is not writeable.");
+    }
+
+    static String ensureNonAbsolute(String path) throws IOException {
+        if ((new File(path)).isAbsolute())
+            throw new IOException("Abolute path instead of relative: " + path);
+        return path;
+    }
+
+    static void ensureIsDirectory(File path) throws IOException {
         if (!path.exists() || !path.isDirectory())
             throw new IOException(path + ": Not a directory");
     }

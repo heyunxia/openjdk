@@ -89,6 +89,9 @@ $BIN/jpkg -d z.test/module-files -m z.test/modules/org.astro \
 $BIN/jmod -L z.lib create
 $BIN/jmod -L z.lib install z.test/module-files/*
 $BIN/java -L z.lib -m com.greetings
+$BIN/jmod -L z.libImageLib create --natlib z.libSpecifyLib_libs
+$BIN/jmod -L z.libImageLib install z.test/module-files/*
+$BIN/java -L z.libImageLib -m com.greetings
 
 exit 0
 
