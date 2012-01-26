@@ -113,4 +113,11 @@ public final class LoaderPool {
         return findLoader(cx);
     }
 
+    void initBootLoader() {
+        ModuleId mid = Platform.baseModule();
+        Context cx = config().getContextForModuleName(mid.name());
+        if (cx == null)
+            throw new InternalError(mid + ": Cannot find context");
+        findLoader(cx);
+    }
 }

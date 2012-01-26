@@ -43,7 +43,9 @@ public class Hello {
     }
 }
 
-module org.astro @ 2.0 { }
+module org.astro @ 2.0 {
+    exports org.astro.*;
+}
 
 package org.astro;
 import java.io.*;

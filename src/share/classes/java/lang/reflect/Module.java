@@ -26,19 +26,17 @@
 package java.lang.reflect;
 
 import java.lang.annotation.Annotation;
-import java.lang.annotation.AnnotationFormatError;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.module.ModuleClassLoader;
 import java.lang.module.ModuleId;
 import java.lang.module.ModuleInfo;
 import java.lang.module.Version;
 import java.security.CodeSource;
-import java.util.Map;
-import java.util.LinkedHashMap;
-import sun.reflect.annotation.AnnotationType;
 
+//
+// ## Module is an AccessibleObject but it may not be annotated?
+//
 public final class Module
-    implements AnnotatedElement
+    extends AccessibleObject
 {
 
     private ModuleInfo moduleInfo;
@@ -89,7 +87,7 @@ public final class Module
      * {@inheritDoc}
      */
     public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-        return getAnnotation(annotationClass) != null;
+        return false;
     }
 
     /**
@@ -99,7 +97,7 @@ public final class Module
         if (annotationClass == null)
             throw new NullPointerException();
 
-        return (A) annotationsMap().get(annotationClass);
+        return null;
     }
 
     /**
@@ -114,30 +112,7 @@ public final class Module
      * {@inheritDoc}
      */
     public Annotation[] getDeclaredAnnotations() {
-        return annotationsMap.values().toArray(new Annotation[0]);
-    }
-
-    private transient Map<Class<? extends Annotation>, Annotation> annotationsMap;
-    // Returns the cached annotations
-    private synchronized  Map<Class<? extends Annotation>, Annotation> annotationsMap() {
-        if (annotationsMap != null)
-            return annotationsMap;
-
-        // module-info.class is not loaded in the VM as a Class object
-        // we can't use sun.reflect.annotation.AnnotationParser here
-        annotationsMap = new LinkedHashMap<Class<? extends Annotation>, Annotation>();
-        for (Annotation a: sun.misc.SharedSecrets.
-                               getJavaLangModuleAccess().getAnnotations(moduleInfo, this)) {
-            Class<? extends Annotation> klass = a.annotationType();
-            AnnotationType type = AnnotationType.getInstance(klass);
-            if (type.retention() == RetentionPolicy.RUNTIME) {
-                if (annotationsMap.put(klass, a) != null) {
-                    throw new AnnotationFormatError(
-                        "Duplicate annotation for class: "+klass+": " + a);
-                }
-            }
-        }
-        return annotationsMap;
+        return new Annotation[0];
     }
 
     // ## EHS

@@ -58,37 +58,39 @@ public class _ModuleInfoReader {
         eq(mi.id(), ms.parseModuleId("M@1.0"));
 
         // provides
-        Set<ModuleId> ps = new HashSet<ModuleId>();
+        Set<ModuleId> ps = new HashSet<>();
         ps.add(ms.parseModuleId("M1 @ 2.0"));
         ps.add(ms.parseModuleId("M2 @ 2.1"));
-        eq(mi.provides(), ps);
+        eq(mi.defaultView().aliases(), ps);
 
         // requires
-        Set<Dependence> ds = new HashSet<Dependence>();
-        ds.add(new Dependence(EnumSet.of(OPTIONAL, LOCAL),
-                              new ModuleIdQuery("N",
-                                                ms.parseVersionQuery("9.0"))));
-        ds.add(new Dependence(EnumSet.of(OPTIONAL, LOCAL),
-                              new ModuleIdQuery("P",
-                                                // ## Should be >=9.1, but
-                                                // ## javac can't compile
-                                                // ## that at the moment
-                                                ms.parseVersionQuery("9.1"))));
-        ds.add(new Dependence(EnumSet.of(PUBLIC),
-                              new ModuleIdQuery("Q",
-                                                ms.parseVersionQuery("5.11"))));
+        Set<ViewDependence> ds = new HashSet<>();
+        ds.add(new ViewDependence(EnumSet.of(OPTIONAL, LOCAL),
+                                  new ModuleIdQuery("N",
+                                                     ms.parseVersionQuery("9.0"))));
+        ds.add(new ViewDependence(EnumSet.of(OPTIONAL, LOCAL),
+                                  new ModuleIdQuery("P",
+                                                      // ## Should be >=9.1, but
+                                                      // ## javac can't compile
+                                                      // ## that at the moment
+                                                      ms.parseVersionQuery("9.1"))));
+        ds.add(new ViewDependence(EnumSet.of(PUBLIC),
+                                  new ModuleIdQuery("Q",
+                                                    ms.parseVersionQuery("5.11"))));
         // ## need a better way to verify independent of the version
-        ds.add(new Dependence(EnumSet.of(SYNTHETIC),
-                              new ModuleIdQuery("jdk",
-                                                ms.parseVersionQuery("8-ea"))));
-        eq(mi.requires(), ds);
+        // ## javac bug: synthetic not set
+        // ## This test needs update anyway when default platform module is changed
+        ds.add(new ViewDependence(EnumSet.noneOf(Dependence.Modifier.class),
+                                  new ModuleIdQuery("jdk",
+                                                    ms.parseVersionQuery("8-ea"))));
+        eq(mi.requiresModules(), ds);
 
         // permits
-        eq(mi.permits(),
-           new HashSet<String>(Arrays.asList("A", "B")));
+        eq(mi.defaultView().permits(),
+           new HashSet<>(Arrays.asList("A", "B")));
 
         // main class
-        ok(mi.mainClass().equals("M.X.Y.Main"));
+        ok(mi.defaultView().mainClass().equals("M.X.Y.Main"));
 
     }
 

@@ -28,8 +28,8 @@ exec sh ${TESTSRC:-.}/tester.sh $0
 : trivial pass
 
 module x @ 1 {
-  requires y @ 1;
-  class x.X;
+    requires y @ 1;
+    class x.X;
 }
 
 package x;
@@ -39,7 +39,9 @@ public class X {
     }
 }
 
-module y @ 1 { }
+module y @ 1 {
+    exports y.*;
+}
 
 package y;
 public class Y {
@@ -49,14 +51,16 @@ public class Y {
 : trivial2 fail compile
 
 module x @ 1 {
-  requires y @ 1;
-  class x.X;
+    requires y @ 1;
+    class x.X;
 }
 
 package x;
 public class X { }
 
-module y @ 2 { }
+module y @ 2 {
+    exports y.*;
+}
 
 package y;
 public class Y { }
@@ -64,8 +68,8 @@ public class Y { }
 : package-private fail invoke
 
 module x @ 1 {
-  requires y @ 1;
-  class x.X;
+    requires y @ 1;
+    class x.X;
 }
 
 package x;
@@ -75,7 +79,9 @@ public class X {
     }
 }
 
-module y @ 1 { }
+module y @ 1 {
+    exports y.*;
+}
 
 package y;
 class Y { }

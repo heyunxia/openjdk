@@ -29,15 +29,11 @@ import java.io.*;
 import java.util.*;
 import java.lang.module.*;
 import java.net.*;
-import java.nio.*;
-import java.nio.channels.*;
 import java.nio.file.*;
 import org.openjdk.jigsaw.*;
 import org.openjdk.jigsaw.SimpleLibrary.StorageOption;
 
 import static java.lang.System.out;
-import static java.nio.file.StandardOpenOption.*;
-
 
 public class _RemoteRepositoryList {
 
@@ -62,13 +58,21 @@ public class _RemoteRepositoryList {
     }
 
     private static boolean equals(ModuleInfo mi1, ModuleInfo mi2) {
+        // ## TODO multiple views
         return (mi1.id().equals(mi2.id())
-                && mi1.provides().equals(mi2.provides())
-                && mi1.requires().equals(mi2.requires())
-                && mi1.permits().equals(mi2.permits())
-                && ((mi1.mainClass() == mi2.mainClass())
-                    || (mi1.mainClass() != null
-                        && mi1.mainClass().equals(mi2.mainClass()))));
+                && mi1.requiresModules().equals(mi2.requiresModules())
+                && mi1.requiresServices().equals(mi2.requiresServices())
+                && equals(mi1.defaultView(), mi2.defaultView()));
+    }
+
+    private static boolean equals(ModuleView mv1, ModuleView mv2) {
+        return (mv1.id().equals(mv2.id())
+                && mv1.aliases().equals(mv2.aliases())
+                && mv1.services().equals(mv2.services())
+                && mv1.permits().equals(mv2.permits())
+                && ((mv1.mainClass() == mv2.mainClass())
+                    || (mv1.mainClass() != null
+                        && mv1.mainClass().equals(mv2.mainClass()))));
     }
 
     static final File REM_REPO = new File("z.remote");

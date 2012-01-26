@@ -26,7 +26,6 @@
 package org.openjdk.jigsaw;
 
 import java.lang.module.*;
-import java.io.*;
 import java.util.*;
 
 import static java.lang.module.Dependence.Modifier;
@@ -47,10 +46,10 @@ public final class Platform {
         return DEFAULT_PLATFORM_MID;
     }
 
-    private static final ModuleId BOOT_MID
+    private static final ModuleId BASE_MID
         = jms.parseModuleId("jdk.base@8-ea");
 
-    public static ModuleId bootModule() { return BOOT_MID; }
+    public static ModuleId baseModule() { return BASE_MID; }
 
     public static boolean isPlatformModuleName(String mn) {
         return (mn.equals("jdk") || mn.startsWith("jdk.") ||
@@ -67,23 +66,24 @@ public final class Platform {
     }
 
     static boolean isBootContext(BaseContext cx) {
+        String boot = baseModule().name();
         for (ModuleId mid : cx.modules()) {
-            if (mid.name().equals("jdk.boot"))
+            if (mid.name().equals(boot))
                 return true;
         }
         return false;
     }
 
-    // ## Workaround: Compiler should not add synthetic dependences
-    // ## to platform modules themselves
+    // ## Workaround: Compiler should add synthesized dependence
+    // ## for platform modules except jdk.base
     //
     public static void adjustPlatformDependences(ModuleInfo mi) {
         if (!isPlatformModuleName(mi.id().name()))
             return;
-        for (Iterator<Dependence> i = mi.requires().iterator();
+        for (Iterator<ViewDependence> i = mi.requiresModules().iterator();
              i.hasNext();)
         {
-            Dependence d = i.next();
+            ViewDependence d = i.next();
             if (d.modifiers().contains(Modifier.SYNTHETIC)) {
                 if (tracing)
                     trace(1, "removing %s -> %s", mi.id(), d);

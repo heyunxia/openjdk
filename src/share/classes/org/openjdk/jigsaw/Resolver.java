@@ -29,7 +29,6 @@ import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
 import java.util.*;
-import java.util.regex.*;
 
 import static java.lang.module.Dependence.Modifier;
 import static org.openjdk.jigsaw.Repository.ModuleSize;
@@ -71,11 +70,10 @@ final class Resolver {
         rootQueries = rqs;
     }
 
-    private Set<ModuleInfo> modules = new HashSet<ModuleInfo>();
+    private Set<ModuleInfo> modules = new HashSet<>();
 
-    private Map<String,ModuleInfo> moduleForName
-        = new HashMap<String,ModuleInfo>();
-
+    private Map<String,ModuleView> moduleViewForName
+        = new HashMap<>();
     private Map<String,URI> locationForName = new HashMap<>();
 
     private long spaceRequired = 0;
@@ -90,13 +88,13 @@ final class Resolver {
     // Does the supplying module smi permit the requesting module rmi
     // to require it?
     //
-    private boolean permits(ModuleInfo rmi, Dependence dep, ModuleInfo smi) {
-        assert dep.query().matches(smi.id());
+    private boolean permits(ModuleInfo rmi, ViewDependence dep, ModuleView smv) {
+        assert dep.query().matches(smv.id());
         if (rmi == null) {
             // Special case: Synthetic root dependence
             return true;
         }
-        Set<String> ps = smi.permits();
+        Set<String> ps = smv.permits();
         if (ps.isEmpty() && !dep.modifiers().contains(Modifier.LOCAL)) {
             // Non-local dependences are implicitly permitted
             // when the permit set is empty
@@ -115,15 +113,15 @@ final class Resolver {
     //
     private static final class Choice {
         private final ModuleInfo rmi;   // Requesting module
-        private final Dependence dep;   // Dependence to be satisfied
+        private final ViewDependence dep;   // Dependence to be satisfied
         private final Choice next;      // Next choice in stack
-        private Choice(ModuleInfo mi, Dependence d, Choice ch) {
+        private Choice(ModuleInfo mi, ViewDependence d, Choice ch) {
             rmi = mi;
             dep = d;
             next = ch;
         }
     }
-
+    
     // Resolve the given choice
     //
     private boolean resolve(int depth, Choice choice)
@@ -136,7 +134,7 @@ final class Resolver {
         }
 
         ModuleInfo rmi = choice.rmi;
-        Dependence dep = choice.dep;
+        ViewDependence dep = choice.dep;
 
         if (tracing)
             trace(1, depth, "resolving %s %s",
@@ -148,14 +146,15 @@ final class Resolver {
         // the given name.  If so then it must satisfy the constraints, else
         // we fail since we don't support side-by-side versioning at run time.
         //
-        ModuleInfo mi = moduleForName.get(mn);
+        ModuleView mv = moduleViewForName.get(mn);
+        ModuleInfo mi = mv != null ? mv.moduleInfo() : null;
         if (mi != null) {
-            boolean rv = (dep.query().matches(mi.id())
-                          && permits(rmi, dep, mi));
+            boolean rv = (dep.query().matches(mv.id())
+                          && permits(rmi, dep, mv));
             if (!rv) {
                 if (tracing)
-                    trace(1, depth, "fail: previously-resolved %s unacceptable",
-                          mi.id());
+                    trace(1, depth, "fail: previously-resolved %s (module %s) unacceptable",
+                          mv.id(), mi.id());
                 return false;
             }
             return resolve(depth + 1, choice.next);
@@ -215,7 +214,7 @@ final class Resolver {
     // dependence
     //
     private boolean resolve(int depth, Choice nextChoice,
-                            ModuleInfo rmi, Dependence dep,
+                            ModuleInfo rmi, ViewDependence dep,
                             Catalog cat, ModuleId mid)
         throws IOException
     {
@@ -228,7 +227,8 @@ final class Resolver {
         }
 
         assert dep.query().matches(mid);
-        assert moduleForName.get(mid.name()) == null;
+        
+        assert moduleViewForName.get(mid.name()) == null;
 
         // Find and read the ModuleInfo, saving its location
         // and size data, if any
@@ -256,22 +256,34 @@ final class Resolver {
 
         // Check this module's permits constraints
         //
-        if (!permits(rmi, dep, mi)) {
+        ModuleView smv = null;
+        for (ModuleView mv : mi.views()) {
+            if (mv.id().equals(mid)) {
+                smv = mv;
+                break;
+            }
+        }
+        if (!permits(rmi, dep, smv)) {
             if (tracing)
-                trace(1, depth, "fail: permits %s", mi.permits());
+                trace(1, depth, "fail: permits %s", smv.permits());
             return false;
         }
 
-        // Save the ModuleInfo in the moduleForName map,
+        // Save the ModuleView in the moduleViewForName map,
         // which also serves as our visited-node set
         //
+        String smn = mi.id().name();
         modules.add(mi);
-        moduleForName.put(mid.name(), mi);
+        
+        // add module views
+        for (ModuleView mv : mi.views()) {
+            moduleViewForName.put(mv.id().name(), mv);
+        }
 
         // Save the module's location, if known
         //
         if (ml != null)
-            locationForName.put(mid.name(), ml);
+            locationForName.put(smn, ml);
 
         // Save the module's download and install sizes, if any
         //
@@ -286,9 +298,9 @@ final class Resolver {
         //
         Choice ch = nextChoice;
         // ## ModuleInfo.requires() should be a list, not a set
-        List<Dependence> dl = new ArrayList<Dependence>(mi.requires());
+        List<ViewDependence> dl = new ArrayList<>(mi.requiresModules());
         Collections.reverse(dl);
-        for (Dependence d : dl)
+        for (ViewDependence d : dl)
             ch = new Choice(mi, d, ch);
 
         // Recursively examine the next choice
@@ -297,9 +309,11 @@ final class Resolver {
 
             // Revert maps, then fail
             modules.remove(mi);
-            moduleForName.remove(mid.name());
+            for (ModuleView mv : mi.views()) {
+                moduleViewForName.remove(mv.id().name());
+            }
             if (ml != null)
-                locationForName.remove(mid.name());
+                locationForName.remove(smn);
             if (ms != null) {
                 downloadRequired -= ms.download();
                 spaceRequired -= ms.install();
@@ -311,7 +325,6 @@ final class Resolver {
         }
 
         return true;
-
     }
 
     private boolean run()
@@ -319,7 +332,7 @@ final class Resolver {
     {
         Choice ch = null;
         for (ModuleIdQuery midq : rootQueries) {
-            Dependence dep = new Dependence(EnumSet.noneOf(Modifier.class),
+            ViewDependence dep = new ViewDependence(EnumSet.noneOf(Modifier.class),
                                             midq);
             ch = new Choice(null, dep,  ch);
         }
@@ -338,7 +351,8 @@ final class Resolver {
                   ? rootQueries.iterator().next()
                   : rootQueries));
         return new Resolution(rootQueries, r.modules,
-                              r.moduleForName, r.locationForName,
+                              r.moduleViewForName,
+                              r.locationForName,
                               r.downloadRequired, r.spaceRequired);
     }
 

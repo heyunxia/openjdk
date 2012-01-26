@@ -23,14 +23,15 @@
  */
 package com.sun.classanalyzer;
 
-import com.sun.classanalyzer.ModuleInfo.Dependence;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * Module contains a list of classes and resources.
@@ -65,7 +65,6 @@ public class Module implements Comparable<Module> {
             return value;
     }
 
-
     static void setModuleProperties(String file) throws IOException {
         File f = new File(file);
         BufferedReader reader = null;
@@ -86,27 +85,41 @@ public class Module implements Comparable<Module> {
     private final Set<ResourceFile> resources;
     private final Set<Reference> unresolved;
     private final Set<Module> members;
-    // update during the analysis
+    private final Map<String,View> views;
+    private final View defaultView;
+    private final View internalView;
+    private final Map<String, PackageInfo> packageForClass;
+    private final Map<String, PackageInfo> packageForResource;
+    private final Set<Dependence> requires; // requires came from ModuleConfig
 
+    // update during the analysis
+    private boolean isBaseModule;
     private Module group;
     private ModuleInfo minfo;
-    private Set<PackageInfo> pkgInfos;
-    private Set<PackageInfo> resourcePkgInfos;
-
-    private boolean isBaseModule;
-    protected String mainClassName;
-
     protected Module(ModuleConfig config) {
         this.name = config.module;
         this.version = config.version;
         this.isBaseModule = name.equals(baseModuleName);
-        this.classes = new TreeSet<Klass>();
-        this.resources = new TreeSet<ResourceFile>();
+        this.classes = new HashSet<Klass>();
+        this.resources = new HashSet<ResourceFile>();
+        this.packageForClass = new HashMap<>();
+        this.packageForResource = new HashMap<>();
+        this.requires = new HashSet<>(config.requires());
         this.config = config;
-        this.mainClassName = config.mainClass();
         this.unresolved = new HashSet<Reference>();
         this.members = new HashSet<Module>();
         this.group = this; // initialize to itself
+
+        this.views = new LinkedHashMap<>();
+        for (ModuleConfig.View mcv : config.viewForName.values()) {
+            View v = new View(this, mcv, mcv.name);
+            views.put(mcv.name, v);
+        }
+        this.defaultView = views.get(name);
+
+        // create an internal view
+        this.internalView = View.getInternalView(this, name + ".internal");
+        views.put(internalView.name, internalView);
     }
 
     String name() {
@@ -133,48 +146,82 @@ public class Module implements Comparable<Module> {
         return Collections.unmodifiableSet(classes);
     }
 
-    synchronized Set<PackageInfo> packages() {
-        if (pkgInfos == null) {
-            pkgInfos = new TreeSet<PackageInfo>();
-            resourcePkgInfos = new TreeSet<PackageInfo>();
-            for (PackageInfo pi : PackageInfo.getPackageInfos(this)) {
-                if (pi.classCount > 0) {
-                    pkgInfos.add(pi);
-                }
-                if (pi.resourceCount > 0) {
-                    resourcePkgInfos.add(pi);
-                }
-            }
-        }
-        return Collections.unmodifiableSet(pkgInfos);
+    Collection<PackageInfo> packages() {
+        return packageForClass.values();
     }
 
     Set<ResourceFile> resources() {
         return Collections.unmodifiableSet(resources);
     }
 
+    Set<Dependence> configRequires() {
+        return requires;
+    }
+
     Set<Module> members() {
         return Collections.unmodifiableSet(members);
+    }
+
+    Module.View defaultView() {
+        return defaultView;
+    }
+
+    Module.View internalView() {
+        return internalView;     
+    }
+
+    Collection<View> views() {
+        return views.values();
+    }
+
+    Module.View getView(String name) {
+        return views.get(name);
+    }
+    
+    Module.View getView(Klass k) {
+        String pn = k.getPackageName();
+        for (View v : views.values()) {
+            if (v.exports.contains(pn))
+                return v;
+        }
+        PackageInfo pinfo = packageForClass.get(pn);
+        if (contains(k) && !pinfo.isExported) {
+            internalView.exports.add(pn);
+            return internalView;
+        }
+        
+        throw new RuntimeException("No view found for " + k +
+                (contains(k) ? " exists" : " does not exists") +
+                " in " + name);
     }
 
     boolean contains(Klass k) {
         return k != null && classes.contains(k);
     }
 
+    // returns true if a property named <module-name>.<key> is set to "true"
+    // otherwise; return false
+    boolean moduleProperty(String key) {
+        String value = moduleProps.getProperty(name + "." + key);
+        if (value == null)
+            return false;
+        else
+            return Boolean.parseBoolean(value);
+    }
+
     boolean isEmpty() {
-        return classes.isEmpty()
-                && resources.isEmpty()
-                && mainClass() == null;
+        if (!classes.isEmpty() || !resources.isEmpty())
+            return false;
+
+        for (View v : views.values()) {
+            if (v.mainClass() != null)
+                return false;
+        }
+        return true;
     }
 
-    boolean allowEmpty() {
-        return moduleProps.getProperty(name + ".allow.empty") != null;
-    }
-
-    boolean exportAllPackages() {
-        // default - only exported packages
-        String value = moduleProps.getProperty(name + ".exports.all");
-        return value != null && Boolean.valueOf(value);
+    boolean allowsEmpty() {
+        return moduleProperty("allows.empty");
     }
 
     protected boolean isTopLevel() {
@@ -185,13 +232,7 @@ public class Module implements Comparable<Module> {
             reexports = reexports || d.isPublic();
         }
         return this.group() == this
-                && (isBase() || !isEmpty() || allowEmpty() || reexports);
-    }
-
-    Klass mainClass() {
-        Klass k = mainClassName != null ?
-                      Klass.findKlass(mainClassName) : null;
-        return k;
+                && (isBase() || !isEmpty() || allowsEmpty() || reexports);
     }
 
     @Override
@@ -210,11 +251,33 @@ public class Module implements Comparable<Module> {
     void addKlass(Klass k) {
         classes.add(k);
         k.setModule(this);
+
+        // add PackageInfo
+        String pkg = k.getPackageName();
+        PackageInfo pkginfo = getPackageInfo(pkg, packageForClass);
+        pkginfo.addKlass(k);
+    }
+
+    private PackageInfo getPackageInfo(String pkg, Map<String, PackageInfo> packageMap) {
+        PackageInfo pkginfo = packageMap.get(pkg);
+        if (pkginfo == null) {
+            pkginfo = new PackageInfo(this, pkg);
+            packageMap.put(pkg, pkginfo);
+        }
+        return pkginfo;
     }
 
     void addResource(ResourceFile res) {
         resources.add(res);
         res.setModule(this);
+
+        String pkg = "";
+        int i = res.getName().lastIndexOf('/');
+        if (i > 0) {
+            pkg = res.getName().substring(0, i).replace('/', '.');
+        }
+        PackageInfo pkginfo = getPackageInfo(pkg, packageForResource);
+        pkginfo.addResource(res);
     }
 
     void processRootsAndReferences() {
@@ -283,15 +346,34 @@ public class Module implements Comparable<Module> {
                 }
             }
         }
+
+        buildExports();
     }
 
-    boolean isModuleDependence(Klass k) {
-        Module m = k.getModule();
-        return m == null || (!classes.contains(k) && !m.isBase());
+    private void buildExports() {
+        boolean all = moduleProperty("exports.all");
+        for (PackageInfo pi : packageForClass.values()) {
+            if (all || pi.isExported)
+                defaultView.exports.add(pi.pkgName);
+        }
     }
 
-    Module getModuleDependence(Klass k) {
-        if (isModuleDependence(k)) {
+
+    boolean requiresModuleDependence(Klass k) {
+        if (classes.contains(k))
+            return false;
+
+        if (k.getModule() == null)
+            return true;
+
+        // Returns true if class k is exported from another module
+        // and not from the base's default view
+        Module m = k.getModule().group();
+        return !(m.isBase() && m.defaultView.exports.contains(k.getPackageName()));
+    }
+
+    Module getRequiresModule(Klass k) {
+        if (requiresModuleDependence(k)) {
             Module m = k.getModule();
             if (group() == this && m != null) {
                 // top-level module
@@ -299,7 +381,6 @@ public class Module implements Comparable<Module> {
             } else {
                 return m;
             }
-
         }
         return null;
     }
@@ -319,25 +400,130 @@ public class Module implements Comparable<Module> {
     }
 
     void addMember(Module m) {
-        // merge class list
-        for (Klass k : m.classes) {
-            classes.add(k);
+
+        // merge class list and resource list
+        classes.addAll(m.classes);
+        resources.addAll(m.resources);
+
+        // merge package infos
+        for (Map.Entry<String,PackageInfo> e : m.packageForClass.entrySet()) {
+            String pn = e.getKey();
+            PackageInfo pinfo = getPackageInfo(pn, packageForClass);
+            pinfo.add(e.getValue());
         }
 
-        // merge resource list
-        for (ResourceFile res : m.resources) {
-            resources.add(res);
+        for (Map.Entry<String,PackageInfo> e : m.packageForResource.entrySet()) {
+            String pn = e.getKey();
+            PackageInfo pinfo = getPackageInfo(pn, packageForResource);
+            pinfo.add(e.getValue());
         }
+                
+        // rebuild default view's exports after PackageInfo are merged
+        buildExports();
 
-        // propagate the main entry point
-        if (m.mainClassName != null) {
-            if (mainClassName == null) {
-                mainClassName = m.mainClassName;
-            } else {
-                Trace.trace("Module %s already has an entry point: " +
-                    "%s member: %s class %s%n",
-                    name, mainClassName, m.name, m, m.name);
+        // merge requires from module configs
+        requires.addAll(m.requires);
+        
+        // merge views
+        for (View v : m.views.values()) {
+            if (views.containsKey(v.name)) {
+                throw new RuntimeException(name + " and member " + m.name
+                        + " already has view " + v.name);
             }
+            if (v == m.defaultView) {
+                // merge default view
+                defaultView.merge(v);
+            } else if (v == m.internalView) {
+                internalView.merge(v);
+            } else {
+                views.put(v.name, v);
+            }
+        }
+    }
+
+    public static class View {
+        final Module module;
+        final String name;
+        private final Set<String> exports;
+        private final Set<String> permitNames;
+        private final Set<String> aliases;
+        private String mainClass;
+        private final Set<Module> permits;
+        private int refCount;
+
+        static View getInternalView(Module m, String name) {
+            View v = new View(m, null, name);
+            v.refCount = -1;  // internal view is initialized to be -1
+            return v;
+        }
+
+        public View(Module m, ModuleConfig.View mcv, String name) {
+            this.module = m;
+            this.name = name;
+            this.refCount = 0;
+            this.exports = new HashSet<>();
+            this.permits = new HashSet<>();
+            this.permitNames = new HashSet<>();
+            this.aliases = new HashSet<>();
+            if (mcv != null) {
+                exports.addAll(mcv.exports);
+                permitNames.addAll(mcv.permits);
+                aliases.addAll(mcv.aliases);
+                this.mainClass = mcv.mainClass;
+            }
+        }
+
+        boolean isEmpty() {
+            // Internal view may have non-empty exports but it's only
+            // non-empty if any module requires it
+            return mainClass() == null &&
+                    (refCount < 0 || exports.isEmpty()) &&
+                    permits.isEmpty() &&
+                    aliases.isEmpty();
+        }
+        
+        Set<String> permitNames() {
+            return Collections.unmodifiableSet(permitNames);
+        }
+        
+        Set<Module> permits() {
+            return Collections.unmodifiableSet(permits);
+        }
+        
+        Set<String> aliases() {
+            return Collections.unmodifiableSet(aliases);
+        }
+        
+        Set<String> exports() {
+            return Collections.unmodifiableSet(exports);
+        }
+        
+        void addPermit(Module m) {
+            permits.add(m);
+        }
+
+        void merge(View v) {
+            // main class is not propagated to the default view            
+            this.aliases.addAll(v.aliases);
+            this.permitNames.addAll(v.permitNames);
+        }
+
+        Klass mainClass() {
+            Klass k = mainClass != null
+                    ? Klass.findKlass(mainClass) : null;
+            return k;
+        }
+
+        void addRefCount() {
+            refCount++;
+        }
+
+        String id() {
+            return name + "@" + module.version();
+        }
+
+        public String toString() {
+            return id();
         }
     }
 
@@ -349,6 +535,7 @@ public class Module implements Comparable<Module> {
     static class Factory {
         protected Map<String, Module> modules =
                 new LinkedHashMap<String, Module>();
+
         protected final void addModule(Module m) {
             // ## For now, maintain the static all modules list.
             // ## Need to revisit later
@@ -363,7 +550,33 @@ public class Module implements Comparable<Module> {
             return modules.get(name);
         }
 
+        public final Module findModuleForView(String name) {
+            Module m = findModule(name);
+            if (m != null)
+                return m;
+            
+            String[] suffices = getModuleProperty("module.view.suffix", "").split("\\s+");
+            for (String s : suffices) {
+                int i = name.lastIndexOf("." + s);
+                if (i != -1 && name.endsWith("." + s)) {
+                    String mn = name.substring(0, i);
+                    if ((m = findModule(mn)) != null) {
+                        if (m.getView(name) == null)
+                            throw new RuntimeException("module view " + name + " doesn't exist");
+                        return m;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        public final Module baseModule() {
+            return findModule(Module.baseModuleName);
+        }
+        
         public final Set<Module> getAllModules() {
+            // initialize unknown module (last to add to the list)
+            unknownModule();
             Set<Module> ms = new LinkedHashSet<Module>(modules.values());
             return ms;
         }
@@ -388,12 +601,11 @@ public class Module implements Comparable<Module> {
                 addModule(m);
             }
         }
-
         private static Module unknown;
         Module unknownModule() {
             synchronized (Factory.class) {
                 if (unknown == null) {
-                    unknown = this.newModule(new ModuleConfig("unknown", "unknown"));
+                    unknown = this.newModule(ModuleConfig.moduleConfigForUnknownModule());
                     addModule(unknown);
                 }
             }

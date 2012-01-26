@@ -77,23 +77,23 @@ public abstract class Catalog {
 
     /**
      * <p> Gather the {@link java.lang.module.ModuleId ModuleIds} of the
-     * modules available locally in this catalog, ignoring any parent
+     * module views available locally in this catalog, ignoring any parent
      * catalogs. </p>
      *
-     * @param  moduleName
+     * @param  name
      *         The name of the module being sought; if {@code null} then all
      *         module ids will be gathered
      *
      * @param  mids
      *         A mutable set to which the gathered ids will be added
      */
-    protected abstract void gatherLocalModuleIds(String moduleName,
+    protected abstract void gatherLocalModuleIds(String name,
                                                  Set<ModuleId> mids)
         throws IOException;
-
+    
     /**
-     * <p> List all of the modules present locally in this catalog, without
-     * regard to any parent catalogs. </p>
+     * <p> List all of the module views present locally in this catalog,
+     * without regard to any parent catalogs. </p>
      *
      * @return  The list of requested module ids, sorted in their natural
      *          order ## why?
@@ -109,8 +109,8 @@ public abstract class Catalog {
     }
 
     /**
-     * <p> List all of the modules present in this catalog and in any parent
-     * catalogs. </p>
+     * <p> List all of the module views present in this catalog and in
+     * any parent catalogs. </p>
      *
      * @return  The list of requested module ids, sorted in their natural
      *          order
@@ -130,24 +130,24 @@ public abstract class Catalog {
     }
 
     /**
-     * <p> Find all modules with the given name in this catalog and in any
+     * <p> Find all module views with the given name in this catalog and in any
      * parent catalogs. </p>
      *
-     * @param   moduleName
+     * @param   name
      *          The name of the modules being sought
      *
      * @return  An unsorted list containing the module identifiers of the
      *          found modules; if no modules were found then the list will
      *          be empty
      */
-    public List<ModuleId> findModuleIds(String moduleName)
+    public List<ModuleId> findModuleIds(String name)
         throws IOException
     {
-        ModuleSystem.checkModuleName(moduleName);
+        ModuleSystem.checkModuleName(name);
         Set<ModuleId> mids = new HashSet<ModuleId>();
         Catalog c = this;
         while (c != null) {
-            c.gatherLocalModuleIds(moduleName, mids);
+            c.gatherLocalModuleIds(name, mids);
             c = c.parent();
         }
         // ## Perhaps this method should return a set after all?
@@ -155,8 +155,8 @@ public abstract class Catalog {
     }
 
     /**
-     * <p> Find all modules matching the given query in this catalog and in any
-     * parent catalogs. </p>
+     * <p> Find all module views matching the given query in this catalog and
+     * in any parent catalogs. </p>
      *
      * @param   midq
      *          The query to match against
@@ -187,7 +187,7 @@ public abstract class Catalog {
      * <p> Find the most recently-versioned module matching the given query in
      * this catalog or in any parent catalogs. </p>
      *
-     * @param   midq
+     * @param   midq 
      *          The query to match against
      *
      * @return  The identification of the latest module matching the given
@@ -253,5 +253,38 @@ public abstract class Catalog {
         }
         return null;
     }
-
+    
+    /**
+     * <p> Find the {@link java.lang.module.ModuleView ModuleView} object for
+     * the module with the given identifier, in this catalog or in any parent
+     * catalogs. </p>
+     *
+     * @param   mid
+     *          The identifier of the module view being sought
+     *
+     * @return  The requested {@link java.lang.module.ModuleView ModuleView},
+     *          or {@code null} if no such module is present in this catalog
+     *
+     * @throws  IllegalArgumentException
+     *          If the given module identifier is not a Jigsaw module
+     *          identifier
+     */
+    public ModuleView readModuleView(ModuleId mid)
+        throws IOException
+    {
+        Catalog c = this;
+        while (c != null) {
+            ModuleInfo mi = c.readLocalModuleInfo(mid);
+            if (mi != null) {
+                for (ModuleView mv : mi.views()) {
+                    if (mv.id().equals(mid)) {
+                        return mv;
+                    }
+                }
+                throw new InternalError("Should not reach here");
+            }
+            c = c.parent();
+        }
+        return null;
+    }
 }

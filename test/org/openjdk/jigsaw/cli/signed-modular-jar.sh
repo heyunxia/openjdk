@@ -45,7 +45,7 @@ $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
              -noprompt -storepass test123 -alias ca 
 
 # Import the signer's private key and cert
-$BIN/javac -source 7 -d  . ${TESTSRC}/ImportPrivateKey.java
+$BIN/javac -source 8 -d  . ${TESTSRC}/ImportPrivateKey.java
 $BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer signer-prikey.pem \
           RSA signer-cert.pem
 

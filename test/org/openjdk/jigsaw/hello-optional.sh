@@ -51,7 +51,9 @@ public class Hello {
     }
 }
 
-module org.astro @ 1.2 { }
+module org.astro @ 1.2 {
+    exports org.astro.*;
+}
 
 package org.astro;
 public class World {
@@ -60,7 +62,9 @@ public class World {
     }
 }
 
-module com.foo @ 2.0 { }
+module com.foo @ 2.0 {
+    exports com.foo.*;
+}
 
 package com.foo;
 public class Foo {
@@ -104,7 +108,9 @@ public class Hello {
     }
 }
 
-module org.astro @ 1.2 { }
+module org.astro @ 1.2 {
+    exports org.astro.*;
+}
 
 package org.astro;
 import java.lang.reflect.Module;
@@ -134,6 +140,7 @@ public class Hello {
 
 module org.astro @ 2.0 {
     requires optional com.foo;
+    exports org.astro.*;
 }
 
 package org.astro;
@@ -146,7 +153,9 @@ public class World {
     }
 }
 
-module com.foo @ 2.0 { }
+module com.foo @ 2.0 {
+    exports com.foo.*;
+}
 
 package com.foo;
 public class Foo {

@@ -346,7 +346,7 @@ public class PublishedRepository
 
             StreamedRepositoryCatalog cat = loadCatalog();
             Set<ModuleId> cmids = new HashSet<>();
-            cat.gatherModuleIds(null, cmids);
+            cat.gatherModuleIds(cmids);
 
             Set<ModuleId> fmids = new HashSet<>();
             gatherModuleIdsFromDirectoryWhileLocked(fmids);

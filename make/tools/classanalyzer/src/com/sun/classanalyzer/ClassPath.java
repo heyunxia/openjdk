@@ -45,6 +45,7 @@ public class ClassPath {
     protected final List<ClassPathEntry> entries = new LinkedList<ClassPathEntry>();
     private final Set<Klass> classes = new LinkedHashSet<Klass>();
     private final Set<ResourceFile> resources = new LinkedHashSet<ResourceFile>();
+    private long parseTime;
 
     private ClassPath() {
     }
@@ -117,14 +118,16 @@ public class ClassPath {
     }
 
     public void parse(Filter filter, boolean deps, boolean apiOnly) throws IOException {
+        long start = System.nanoTime();
         ClassResourceVisitor crv = new ClassResourceVisitor(classes, resources, deps, apiOnly);
         ClassPathVisitor cpvisitor = new ClassPathVisitor(crv, filter);
         visit(cpvisitor, filter, null);
+        parseTime = System.nanoTime() - start;
     }
 
     public void printStats() {
-        System.out.format("%d classes %d resource files processed%n",
-                classes.size(), resources.size());
+        System.out.format("%d classes %d resource files processed in %d ms%n",
+                classes.size(), resources.size(), ((long) parseTime/1000000));
     }
 
     protected void addJarFileEntries(File f) throws IOException {

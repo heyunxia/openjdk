@@ -47,7 +47,8 @@ class Commands {
         = JigsawModuleSystem.instance();
 
     private static void formatCommaList(PrintStream out,
-                                        String prefix, Collection<?> list)
+                                        String prefix,
+                                        Collection<?> list)
     {
         if (list.isEmpty())
             return;
@@ -64,6 +65,39 @@ class Commands {
         out.format("%n");
     }
 
+    private static void formatModuleView(PrintStream out,
+                                         ModuleView view,
+                                         String indent) {
+        formatCommaList(out, indent + "provides",
+                        view.aliases());
+        formatCommaList(out, indent + "permits",
+                        view.permits());
+        Map<String, Set<String>> services = view.services();
+        if (!services.isEmpty()) {
+            Set<String> names = new HashSet<>();
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Set<String>> e : services.entrySet()) {
+                String s = e.getKey();
+                for (String impl : e.getValue()) {
+                    sb.append(s);
+                    sb.append(" with ");
+                    sb.append(impl);
+                }
+            }
+            names.add(sb.toString());
+            formatCommaList(out,
+                            indent + "provides service",
+                            names);
+        }
+        if (!view.exports().isEmpty()) {
+            out.format("  %sexports%n", indent);
+            Set<String> exports = new TreeSet<>(view.exports());
+            for (String pn : exports) {
+                out.format("  %s  %s%n", indent, pn);
+            }
+        }
+    }
+    
     private static void listCommand(Catalog cat, ModuleIdQuery midq,
                                     boolean parents, boolean verbose)
         throws Command.Exception
@@ -76,17 +110,30 @@ class Commands {
                 if (midq != null && !midq.matches(mid))
                     continue;
                 ModuleInfo mi = cat.readModuleInfo(mid);
-                if (verbose)
-                    out.format("%n");
-                out.format("%s%n", mi.id());
-                n++;
-                if (verbose) {
-                    formatCommaList(out, "provides", mi.provides());
-                    Platform.adjustPlatformDependences(mi); // ##
-                    for (Dependence d : mi.requires()) {
-                        out.format("  %s%n", d);
+                if (mid.equals(mi.id())) {
+                    if (verbose)
+                        out.format("%n");
+                    
+                    // print module and its views
+                    out.format("%s%n", mi.id());
+                    n++;
+                    if (verbose) {
+                        Platform.adjustPlatformDependences(mi); // ##
+                        for (ViewDependence d : mi.requiresModules()) {
+                            out.format("  %s%n", d);
+                        }
+                        for (ServiceDependence sd: mi.requiresServices()) {
+                            out.format("  %s%n", sd);
+                        }
+                        formatModuleView(out, mi.defaultView(), "");
+                        
+                        for (ModuleView mv : mi.views()) {
+                            if (mv == mi.defaultView())
+                                continue;
+                            out.format("  view %s%n", mv.id().name());
+                            formatModuleView(out, mv, "  ");
+                        }
                     }
-                    formatCommaList(out, "permits", mi.permits());
                 }
             }
         } catch (IOException x) {

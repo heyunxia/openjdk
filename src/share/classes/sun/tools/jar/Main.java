@@ -157,7 +157,6 @@ class Main {
             }
             if (cflag) {
                 Manifest manifest = null;
-                ModuleInfo minfo = null;
                 InputStream in = null;
 
                 if (!Mflag) {
@@ -205,12 +204,8 @@ class Main {
                             return false;
                         }
                     }
-                    minfo = new ModuleInfo(moduleid, getMainClass(manifest));
-                    if (manifest != null) {
-                        addModuleRequires(minfo, getClassPath(manifest));
-                    }
                 }
-                create(new BufferedOutputStream(out, 4096), manifest, minfo);
+                create(new BufferedOutputStream(out, 4096), manifest);
                 if (in != null) {
                     in.close();
                 }
@@ -480,7 +475,7 @@ class Main {
     /**
      * Creates a new JAR file.
      */
-    void create(OutputStream out, Manifest manifest, ModuleInfo minfo)
+    void create(OutputStream out, Manifest manifest)
         throws IOException
     {
         ZipOutputStream zos = new JarOutputStream(out);
@@ -501,14 +496,21 @@ class Main {
             }
             writeManifest(manifest, zos, System.currentTimeMillis());
         }
+
+        ModuleInfo minfo = moduleid != null
+                               ? new ModuleInfo(moduleid) : null;
+        for (File file: entries) {
+            addFile(zos, file, minfo);
+        }
+
         if (minfo != null) {
+            minfo.setMainClass(getMainClass(manifest));
+            addModuleRequires(minfo, getClassPath(manifest));
+
             if (vflag) {
                 output(getMsg("out.added.moduleinfo"));
             }
             writeModuleInfo(minfo, zos, System.currentTimeMillis());
-        }
-        for (File file: entries) {
-            addFile(zos, file);
         }
         zos.close();
     }
@@ -538,7 +540,7 @@ class Main {
                     JarFile jf = new JarFile(f);
                     java.lang.module.ModuleInfo mi = jf.getModuleInfo();
                     if (mi != null) {
-                        minfo.addRequire(mi.id());
+                        minfo.addRequires(mi.id());
                         continue;
                     }
                 }
@@ -598,6 +600,8 @@ class Main {
                    InputStream newManifest,
                    JarIndex jarIndex) throws IOException
     {
+        ModuleInfo minfo = moduleid != null
+                               ? new ModuleInfo(moduleid) : null;
         try (ZipInputStream zis = new ZipInputStream(in);
              ZipOutputStream zos = new JarOutputStream(out)) {
             ZipEntry e = null;
@@ -658,13 +662,14 @@ class Main {
 
                 if (!entryMap.containsKey(name)) { // copy the old stuff
                     if (!name.equals(MODULEINFO_NAME) || moduleid == null) {
+                        // add exports in the generated module-info.java
                         copyZipEntry(e, zos);
-                        copy(zis, zos);   // copy the content
+                        copy(e, zis, zos, minfo);   // copy the content
                         zos.closeEntry();
-                    } 
+                    }
                 } else { // replace with the new files
                     File f = entryMap.get(name);
-                    addFile(zos, f);
+                    addFile(zos, f, minfo);
                     entryMap.remove(name);
                     entries.remove(f);
                 }
@@ -672,7 +677,7 @@ class Main {
 
             // add the remaining new files
             for (File f : entries) {
-                addFile(zos, f);
+                addFile(zos, f, minfo);
             }
 
             if (mf == null) {
@@ -686,12 +691,10 @@ class Main {
                 }
             }
 
-            if (moduleid != null) {
+            if (minfo != null) {
                 // -I is specified
-                ModuleInfo minfo = new ModuleInfo(moduleid, getMainClass(mf));
-                if (mf != null) {
-                    addModuleRequires(minfo, getClassPath(mf));
-                }
+                minfo.setMainClass(getMainClass(mf));
+                addModuleRequires(minfo, getClassPath(mf));
                 writeModuleInfo(minfo, zos, System.currentTimeMillis());
                 if (vflag) {
                     output(getMsg("out.update.moduleinfo"));
@@ -826,6 +829,13 @@ class Main {
         return false;
     }
 
+    void addFile(ZipOutputStream zos, File file, ModuleInfo minfo) throws IOException {
+        addFile(zos, file);
+        // add exports in the generated module-info.java
+        if (minfo != null && file.getName().endsWith(".class"))
+            minfo.addExports(file);
+    }
+
     /**
      * Adds a new file entry to the ZIP output stream.
      */
@@ -884,7 +894,7 @@ class Main {
             }
         }
     }
-
+    
     /**
      * A buffer for use only by copy(InputStream, OutputStream).
      * Not as clean as allocating a new buffer as needed by copy,
@@ -900,12 +910,52 @@ class Main {
      * @param to the output stream to write to
      * @throws IOException if an I/O error occurs
      */
-    private void copy(InputStream from, OutputStream to) throws IOException {
+    void copy(InputStream from, OutputStream to) throws IOException {
         int n;
-        while ((n = from.read(copyBuf)) != -1)
+        while ((n = from.read(copyBuf)) != -1) {
             to.write(copyBuf, 0, n);
+        }
     }
-
+    
+    /**
+     * Copies all bytes from the input stream to the output stream.
+     * Does not close or flush either stream.  Also, add exports
+     * to the given ModuleInfo.
+     */
+    void copy(ZipEntry e, InputStream from, OutputStream to,
+              ModuleInfo minfo) throws IOException {
+        String path = e.getName();
+        if (minfo == null || !path.endsWith(".class")) {
+            copy(from, to);
+        } else {
+            // avoid reading the input stream twice
+            // the ByteStreamHelper saves the bytes in a buffer
+            // for writing to the output stream and also loaded
+            // to determine if it's a public class and get its classname.
+            helper.copyFrom(from);
+            helper.copyTo(to);
+            helper.addExports(minfo, e);
+        }
+    }
+    
+    private ByteStreamHelper helper = new ByteStreamHelper();
+    class ByteStreamHelper extends ByteArrayOutputStream {
+        void copyFrom(InputStream from) throws IOException {
+            reset();
+            
+            int n;
+            while ((n = from.read(copyBuf)) != -1) {
+                this.write(copyBuf, 0, n);
+            }
+        }
+        void copyTo(OutputStream to) throws IOException {
+            to.write(buf);
+        }
+        
+        void addExports(ModuleInfo minfo, ZipEntry e) throws IOException {
+            minfo.addExports(new ByteArrayInputStream(buf), e.getSize(), e.getName());
+        }
+    }
     /**
      * Copies all bytes from the input file to the output stream.
      * Does not close or flush the output stream.
@@ -1152,6 +1202,8 @@ class Main {
     private HashSet<String> jarPaths = new HashSet<String>();
 
     String getClassPath(Manifest m) {
+        if (m == null) return null;
+
         Attributes attr = m.getMainAttributes();
         if (attr != null) {
             return attr.getValue(Attributes.Name.CLASS_PATH);
@@ -1159,6 +1211,7 @@ class Main {
             return null;
         }
     }
+
     /**
      * Generates the transitive closure of the Class-Path attribute for
      * the specified jar file.

@@ -44,6 +44,8 @@ mk z.src/org.foo/module-info.java <<EOF
 module org.foo @ 1 {
     requires jdk.base;
     requires optional net.bar;
+    exports org.foo.*;
+    exports org.foo.spi.*;
     class org.foo.Main;
 }
 EOF
@@ -96,7 +98,7 @@ mk z.src/org.foo/org/foo/DefaultImpl.java <<EOF
 package org.foo;
 import org.foo.spi.Service;
 
-public class DefaultImpl implements Service {
+class DefaultImpl implements Service {
     public DefaultImpl() {};
 }
 EOF
@@ -105,6 +107,7 @@ mk z.src/net.bar/module-info.java <<EOF
 module net.bar @ 2 {
     requires jdk.base;
     requires org.foo;
+    exports net.bar.*;
     class net.bar.Ness;
 }
 EOF

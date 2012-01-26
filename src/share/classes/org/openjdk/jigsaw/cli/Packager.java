@@ -129,7 +129,7 @@ public class Packager {
     private Integer installedSize = null;
 
     // Platform boot module
-    private static final String BOOT_MODULE = "jdk.boot";
+    private static final String BOOT_MODULE = "jdk.base";
 
     private static void createTempWorkDir()
         throws Command.Exception
@@ -268,8 +268,8 @@ public class Packager {
         {
             StringBuilder deps = new StringBuilder();
 
-            for (Dependence d : info.requires()) {
-                if (d.modifiers().contains(Dependence.Modifier.OPTIONAL))
+            for (ViewDependence d : info.requiresModules()) {
+                if (d.modifiers().contains(ViewDependence.Modifier.OPTIONAL))
                     continue; // skip optional dependency
 
                 deps.append(", ")
@@ -289,7 +289,7 @@ public class Packager {
         {
             StringBuilder deps = new StringBuilder();
 
-            for (ModuleId id : info.provides())
+            for (ModuleId id : info.defaultView().aliases())
                 deps.append(", ")
                     .append(id.name());
 
@@ -360,9 +360,9 @@ public class Packager {
                                    default_long_description);
                 }
 
-                if (!bootmodule && !info.requires().isEmpty())
+                if (!bootmodule && !info.requiresModules().isEmpty())
                     control.format("Depends: %s\n", computeDependencies(info));
-                if (!info.provides().isEmpty())
+                if (!info.defaultView().aliases().isEmpty())
                     control.format("Provides: %s\n", computeProvides(info));
                 if (null != extra_metadata)
                     control.format("%s\n", new String(Files.load(extra_metadata)));
@@ -376,7 +376,7 @@ public class Packager {
 
 
                 // Generate the launcher script, if a main class exists
-                if (!bootmodule && info.mainClass() != null) {
+                if (!bootmodule && info.defaultView().mainClass() != null) {
                     // If no command name is given, use module name
                     if (null == bincmd)
                         bincmd = info.id().name();

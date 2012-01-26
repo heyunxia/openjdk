@@ -42,9 +42,11 @@ rm -rf z.*
 
 mk z.src/com.foo.bar/module-info.java <<EOF
 module com.foo.bar @ 1.2.3_04-5a
-    provides com.foo.baz @ 2.0, com.foo.bez @ 3.4a-9
 {
-    permits com.foo.buz, com.oof.byz;
+    provides com.foo.baz @ 2.0;
+    provides com.foo.bez @ 3.4a-9;
+    permits com.foo.buz;
+    permits com.oof.byz;
     class com.foo.bar.Main;
 }
 EOF
@@ -69,13 +71,15 @@ mkdir z.modules z.classes
 
 $BIN/javac -source 8 -d z.classes $SRC/_Library.java
 
-$BIN/javac -source 7 -d z.modules -modulepath z.modules \
+$BIN/javac -source 8 -d z.modules -modulepath z.modules \
   `find z.src -name '*.java'`
 
 for v in 1 1.2 2 3; do
   m=org.multi@$v
   mk z.src.$m/org.multi/module-info.java <<EOF
-module org.multi @ $v { }
+module org.multi @ $v {
+  exports org.multi.*;
+}
 EOF
 mk z.src.$m/org.multi/org/multi/Tudinous.java <<EOF
 package org.multi;
@@ -83,7 +87,7 @@ public class Tudinous { }
 EOF
   md=z.modules.$m
   mkdir -p $md
-  $BIN/javac -source 7 -d $md -modulepath $md `find z.src.$m -name '*.java'`
+  $BIN/javac -source 8 -d $md -modulepath $md `find z.src.$m -name '*.java'`
 done
 
 mk z.src/net.baz.aar/module-info.java <<EOF
@@ -123,7 +127,7 @@ case "$OS" in
     ;;
 esac
 
-$BIN/javac -source 7 -d z.modules -modulepath z.modules${PS}z.modules.org.multi@1 \
+$BIN/javac -source 8 -d z.modules -modulepath z.modules${PS}z.modules.org.multi@1 \
    `find z.src/net.baz.aar -name '*.java'`
 
 $BIN/java -ea -cp z.classes _Library

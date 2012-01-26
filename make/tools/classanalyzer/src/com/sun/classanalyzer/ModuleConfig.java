@@ -33,27 +33,44 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import com.sun.classanalyzer.ModuleInfo.Dependence;
-import com.sun.classanalyzer.ModuleInfo.Dependence.Modifier;
+import java.util.HashSet;
 
 /**
  *
  */
 public class ModuleConfig {
+    public static class View {
+        final String modulename;
+        final String name;
+        final Set<String> exports;
+        final Set<String> permits;
+        final Set<String> aliases;
+        String mainClass;
+
+        public View(String modulename, String name) {
+            this.modulename = modulename;
+            this.name = name;
+            this.exports = new HashSet<>();
+            this.permits = new HashSet<>();
+            this.aliases = new HashSet<>();
+        }
+
+        void addPermit(Module m) {
+            permits.add(m.name());
+        }
+    }
 
     private final Set<String> roots;
     protected final Set<String> includes;
-    protected final Set<String> permits;
     protected final Map<String, Dependence> requires;
-    protected final Set<String> exports;
     private final Filter filter;
     private List<String> members;
-    private String mainClass;
     final String module;
     final String version;
+    final View defaultView;
+    final Map<String,View> viewForName;
 
     ModuleConfig(String name, String version) {
         this(name, version, null);
@@ -65,18 +82,23 @@ public class ModuleConfig {
 
         this.module = name;
         this.version = version;
-        this.roots = new TreeSet<String>();
-        this.includes = new TreeSet<String>();
-        this.permits = new TreeSet<String>();
-        this.exports = new TreeSet<String>();
-        this.requires = new LinkedHashMap<String, Dependence>();
+        this.roots = new TreeSet<>();
+        this.includes = new TreeSet<>();
+        this.requires = new LinkedHashMap<>();
         this.filter = new Filter(this);
-        this.mainClass = mainClass;
+        this.viewForName = new LinkedHashMap<>();
+        this.defaultView = newView(name);
+    }
+
+    static ModuleConfig moduleConfigForUnknownModule() {
+        ModuleConfig mc = new ModuleConfig("unknown", "unknown");
+        mc.includes.add("**");
+        return mc;
     }
 
     List<String> members() {
         if (members == null) {
-            members = new LinkedList<String>();
+            members = new LinkedList<>();
 
             for (String s : includes) {
                 if (!s.contains("*")) {
@@ -88,40 +110,14 @@ public class ModuleConfig {
         return members;
     }
 
-    Set<String> permits() {
-        return permits;
-    }
-
-    Set<String> exports() {
-        return exports;
-    }
-
     Collection<Dependence> requires() {
         return requires.values();
     }
 
-    void reexportModule(Module m) {
-        reexportModule(m, false);
-    }
-
-    void reexportModule(Module m, boolean optional) {
-        Dependence d = requires.get(m.name());
-        if (d == null) {
-            EnumSet<Modifier> mods = optional ?
-                EnumSet.of(Modifier.PUBLIC, Modifier.OPTIONAL) :
-                EnumSet.of(Modifier.PUBLIC);
-            requires.put(m.name(), new Dependence(m, mods));
-        } else if (!d.isPublic()){
-            throw new RuntimeException(module + " should require public " + m.name());
-        }
-    }
-
-    void addPermit(Module m) {
-        permits.add(m.name());
-    }
-
-    String mainClass() {
-        return mainClass;
+    private View newView(String name) {
+         View view = new View(module, name);
+         viewForName.put(name, view);
+         return view;
     }
 
     boolean matchesRoot(String name) {
@@ -274,8 +270,8 @@ public class ModuleConfig {
     static class Filter {
 
         final ModuleConfig config;
-        final Set<String> exclude = new TreeSet<String>();
-        final Set<String> allow = new TreeSet<String>();
+        final Set<String> exclude = new TreeSet<>();
+        final Set<String> allow = new TreeSet<>();
 
         Filter(ModuleConfig config) {
             this.config = config;
@@ -431,13 +427,12 @@ public class ModuleConfig {
     static final Pattern classNamePattern = Pattern.compile("[\\w\\.\\*_$-/]+");
 
     static List<ModuleConfig> readConfigurationFile(String file, String version) throws IOException {
-        List<ModuleConfig> result = new ArrayList<ModuleConfig>();
+        List<ModuleConfig> result = new ArrayList<>();
         // parse configuration file
-        FileInputStream in = new FileInputStream(file);
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        try (FileInputStream in = new FileInputStream(file);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(in)))
+        {
             String line;
-
             int lineNumber = 0;
             boolean inRoots = false;
             boolean inIncludes = false;
@@ -445,12 +440,15 @@ public class ModuleConfig {
             boolean inExcludes = false;
             boolean inPermits = false;
             boolean inRequires = false;
+            boolean inProvides = false;
+            boolean inView = false;
             boolean optional = false;
             boolean reexport = false;
             boolean local = false;
 
             boolean inBlockComment = false;
             ModuleConfig config = null;
+            View view = null;
 
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
@@ -488,7 +486,10 @@ public class ModuleConfig {
                                     lineNumber + ", is malformed");
                         }
                         // use the given version
-                        config = new ModuleConfig(s[1].trim(), version);
+                        String name = s[1].trim();
+                        config = new ModuleConfig(name, version);
+                        view = config.defaultView;
+
                         result.add(config);
                         // switch to a new module; so reset the flags
                         inRoots = false;
@@ -497,13 +498,15 @@ public class ModuleConfig {
                         inAllows = false;
                         inRequires = false;
                         inPermits = false;
+                        inProvides = false;
+                        inView = false;
                         continue;
                     } else if (keyword.equals("class")) {
                         if (s.length != 2 || !s[1].trim().endsWith(";")) {
                             throw new RuntimeException(file + ", line "
                                     + lineNumber + ", is malformed");
                         }
-                        config.mainClass = s[1].substring(0, s[1].length() - 1);
+                        view.mainClass = s[1].substring(0, s[1].length() - 1);
                         continue;
                     } else if (keyword.equals("roots")) {
                         inRoots = true;
@@ -515,13 +518,18 @@ public class ModuleConfig {
                         inAllows = true;
                     } else if (keyword.equals("permits")) {
                         inPermits = true;
-                    } else if (keyword.equals("export")) {
+                    } else if (keyword.equals("provides")) {
+                        inProvides = true;
+                    } else if (keyword.equals("exports")) {
                         // only support one class/package/wildcard in each export statement
-                        if (s.length != 2 || !s[1].trim().endsWith(";")) {
+                        String n = s[1].trim();
+                        if (s.length != 2 || (!n.equals("**;") && !n.endsWith(".*;"))) {
                             throw new RuntimeException(file + ", line "
                                     + lineNumber + ", is malformed");
                         }
-                        config.exports.add(s[1].substring(0, s[1].length() - 1));
+                        // remove ".*" and ';'
+                        String e = n.equals("**;") ? "*" : n.substring(0, n.length() - 3);
+                        view.exports.add(e);
                         continue;
                     } else if (keyword.equals("requires")) {
                         inRequires = true;
@@ -543,15 +551,30 @@ public class ModuleConfig {
                                 break;
                             }
                         }
+                    } else if (keyword.equals("view")) {
+                        if (s.length != 3 || !s[2].trim().equals("{")) {
+                            throw new RuntimeException(file + ", line " +
+                                    lineNumber + ", is malformed");
+                        }
+
+                        // use the given version
+                        inView = true;
+                        String name = s[1].trim();
+                        view = config.newView(name);
+                        continue;
                     } else if (keyword.equals("}")) {
                         if (config == null || s.length != 1) {
                             throw new RuntimeException(file + ", line " +
                                     lineNumber + ", is malformed");
+                        } else if (inView) {
+                            inView = false;
+                            view = config.defaultView;
                         } else {
                             // end of a module
                             config = null;
-                            continue;
+                            view = null;
                         }
+                         continue;
                     } else {
                         throw new RuntimeException(file + ", \"" + keyword + "\" on line " +
                                 lineNumber + ", is not recognized");
@@ -593,7 +616,9 @@ public class ModuleConfig {
                         } else if (inAllows) {
                             config.filter.allow(s);
                         } else if (inPermits) {
-                            config.permits.add(s);
+                            view.permits.add(s);
+                        } else if (inProvides) {
+                            view.aliases.add(s);
                         } else if (inRequires) {
                             if (config.requires.containsKey(s)) {
                                 throw new RuntimeException(file + ", line " +
@@ -610,7 +635,9 @@ public class ModuleConfig {
                     inExcludes = false;
                     inAllows = false;
                     inPermits = false;
+                    inProvides = false;
                     inRequires = false;
+                    inView = false;
                 }
             }
 
@@ -623,20 +650,18 @@ public class ModuleConfig {
                         lineNumber + ", missing \"}\" to end module definition" +
                         " for \"" + config.module + "\"");
             }
-        } finally {
-            in.close();
         }
 
         return result;
     }
 
-    private String format(String keyword, Collection<String> values) {
+    private String format(int level, String keyword, Collection<String> values) {
         if (values.size() == 0) {
             return "";
         }
 
         StringBuilder sb = new StringBuilder();
-        String format = "%4s%-9s";
+        String format = level == 1 ? "%4s%-9s" : "%8s%-9s";
         String spaces = String.format(format, "", "");
         sb.append(String.format(format, "", keyword));
         int count = 0;
@@ -658,16 +683,21 @@ public class ModuleConfig {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("module " + module).append(" {\n");
-        sb.append(format("include", includes));
-        sb.append(format("root", roots));
-        sb.append(format("allow", filter.allow));
-        sb.append(format("exclude", filter.exclude));
-        Set<String> reqs = new TreeSet<String>();
+        sb.append(format(1, "include", includes));
+        sb.append(format(1, "root", roots));
+        sb.append(format(1, "allow", filter.allow));
+        sb.append(format(1, "exclude", filter.exclude));
+        Set<String> reqs = new TreeSet<>();
         for (Dependence rm : requires.values()) {
             reqs.add(rm.toString());
         }
-        sb.append(format("requires", reqs));
-        sb.append(format("permits", permits));
+        sb.append(format(1, "requires", reqs));
+        for (View v : viewForName.values()) {
+            sb.append("    ").append("view ").append(v.name).append(" {\n");
+            sb.append(format(2, "permits", v.permits));
+            sb.append(format(2, "exports", v.exports));
+            sb.append(format(2, "provides", v.aliases));
+        }
         sb.append("}\n");
         return sb.toString();
     }

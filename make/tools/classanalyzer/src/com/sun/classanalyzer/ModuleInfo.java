@@ -33,20 +33,11 @@ public class ModuleInfo {
 
     private final Module module;
     private final Set<Dependence> requires;
-    private final Set<Module> permits;
 
     ModuleInfo(Module m,
-            Collection<Dependence> reqs,
-            Collection<Module> permits) {
+               Collection<Dependence> reqs) {
         this.module = m;
-        this.permits = new TreeSet<Module>(permits);
-        this.requires = new TreeSet<Dependence>();
-        // filter non-top level module
-        for (Dependence d : reqs) {
-            if (d.getModule().isTopLevel()) {
-                requires.add(d);
-            }
-        }
+        this.requires = new TreeSet<Dependence>(reqs);
     }
 
     public Module getModule() {
@@ -69,25 +60,6 @@ public class ModuleInfo {
      */
     public Set<Dependence> requires() {
         return Collections.unmodifiableSet(requires);
-    }
-
-    /**
-     * The modules that are permitted to require this module
-     */
-    public Set<Module> permits() {
-        return Collections.unmodifiableSet(permits);
-    }
-
-    public void addPermit(Module m) {
-        permits.add(m);
-    }
-
-    /**
-     * The fully qualified name of the main class of this module
-     */
-    public String mainClass() {
-        Klass k = module.mainClass();
-        return k != null ? k.getClassName() : "";
     }
 
     void visitDependence(Dependence.Filter filter, Set<Module> visited, Set<Module> result) {
@@ -134,7 +106,7 @@ public class ModuleInfo {
             if (dm != module) {
                 // exports all local packages
                 for (PackageInfo p : dm.packages()) {
-                    if (PackageInfo.isExportedPackage(p.pkgName)) {
+                    if (p.isExported) {
                         reexports.add(p.pkgName + ".*");
                     }
                 }
@@ -144,12 +116,12 @@ public class ModuleInfo {
         return reexports;
     }
 
-    // a system property to specify to use "requires public"
-    // or the "exports" statement
-    private static final boolean requiresPublic =
-        Boolean.parseBoolean(System.getProperty("classanalyzer.requiresPublic", "true"));
-    private static final String INDENT = "    ";
+    private static final boolean noRequiresPublic =
+        Boolean.getBoolean("classanalyzer.useExports.reexport");
+    private static final boolean useCommaSeparator =
+        Boolean.getBoolean("classanalyzer.permits.list");
 
+    private static final String INDENT = "    ";
 
     /**
      * Returns a string representation of module-info.java for
@@ -162,46 +134,22 @@ public class ModuleInfo {
 
         for (Dependence d : requires()) {
             String mods = "";
-            for (Dependence.Modifier mod : d.mods) {
-                if (requiresPublic || mod != Dependence.Modifier.PUBLIC) {
+            for (Dependence.Modifier mod : d.modifiers()) {
+                if (!noRequiresPublic || mod != Dependence.Modifier.PUBLIC) {
                     mods += mod.toString() + " ";
                 }
             }
-            sb.append(String.format("%srequires %s%s;%n", INDENT,
-                                    mods,
-                                    d.getModule().getModuleInfo().id()));
+            Module.View v = d.getModuleView();
+            if (v == null)
+                throw new RuntimeException("module " + module + " requires " + d + " has null view");
+            sb.append(format(1, "requires %s%s;%n", mods, d.getModuleView().id()));
         }
 
-        String permits = INDENT + "permits ";
-        int i = 0;
-        for (Module pm : permits()) {
-            if (i > 0) {
-                permits += ", ";
-                if ((i % 5) == 0) {
-                    permits += "\n" + INDENT + "        "; // "permits"
-                }
-            }
-            permits += pm.name();
-            i++;
+        for (Module.View v : module.views()) {
+            printModuleView(v == module.defaultView() ? 0 : 1, sb, v);
         }
 
-        if (permits().size() > 0) {
-            sb.append(permits).append(";\n");
-        }
-        if (module.mainClass() != null) {
-            sb.append(String.format("%sclass %s;%n", INDENT, mainClass()));
-        }
-
-        if (!requiresPublic)
-            printExports(sb);
-
-        sb.append("}\n");
-        return sb.toString();
-    }
-
-    private void printExports(StringBuilder sb) {
-        Set<Module> modules = dependences(new Dependence.Filter() {
-
+        Set<Module> reexportedModules = dependences(new Dependence.Filter() {
             @Override
             public boolean accept(Dependence d) {
                 // filter itself
@@ -209,38 +157,40 @@ public class ModuleInfo {
             }
         });
 
-        // explicit exports in the given config file
-        Set<String> cexports = new TreeSet<String>();
-        for (Module m : modules) {
-            cexports.addAll(m.config().exports());
+        if (noRequiresPublic) {
+            printReexports(reexportedModules, sb);
         }
 
-        if (cexports.size() > 0) {
-            sb.append("\n" + INDENT + "// explicit exports\n");
-            for (String e : cexports) {
-                sb.append(String.format("%sexport %s;%n", INDENT, e));
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    private void printCommaSepPermits(StringBuilder sb, int level, Set<Module> permits) {
+        assert useCommaSeparator == true;
+        if (permits.isEmpty())
+            return;
+        
+        Set<Module> list = new TreeSet<>(permits);
+        sb.append(format(level, "permits "));
+        int i = 0;
+        for (Module pm : list) {
+            if (i > 0) {
+                sb.append(", ");
+                if ((i % 5) == 0) {
+                    sb.append("\n");
+                    sb.append(format(level, "       "));
+                }
             }
+            sb.append(pm.name());
+            i++;
         }
+        sb.append(";\n");
+    }
 
-        // exports all local packages
-        Set<String> pkgs = new TreeSet<String>();
-        for (PackageInfo pi : module.packages()) {
-            String p = pi.pkgName;
-            if (module.exportAllPackages() || PackageInfo.isExportedPackage(p))
-                pkgs.add(p);
-        }
-
-        if (pkgs.size() > 0) {
-            sb.append(String.format("%n%s// exports %s packages%n", INDENT,
-                                    module.exportAllPackages() ? "all local" : "supported"));
-            for (String p : pkgs) {
-                sb.append(String.format("%sexport %s.*;%n", INDENT, p));
-            }
-        }
-
+    private void printReexports(Set<Module> modules, StringBuilder sb) {
         // reexports
         if (reexports().size() > 0) {
-            Set<String> rexports = new TreeSet<String>();
+            Set<String> rexports = new TreeSet<>();
             if (modules.size() == 2) {
                 // special case?
                 rexports.addAll(reexports());
@@ -252,169 +202,88 @@ public class ModuleInfo {
             }
             sb.append("\n" + INDENT + "// reexports\n");
             for (String p : rexports) {
-                sb.append(String.format("%sexport %s;%n", INDENT, p));
+                sb.append(String.format("%sexports %s;%n", INDENT, p));
             }
         }
     }
 
-    static class Dependence implements Comparable<Dependence> {
+    private String format(String fmt, Object... args) {
+        return format(0, fmt, args);
+    }
 
-        static enum Modifier {
+    private String format(int level, String fmt, Object... args) {
+        String s = "";
+        for (int i=0; i < level; i++) {
+            s += INDENT;
+        }
+        return s + String.format(fmt, args);
+    }
+    
+    private StringBuilder formatList(StringBuilder sb, int level, String fmt, Collection<?> c) {
+        return formatList(sb, level, fmt, c, false);
+    }
 
-            PUBLIC("public"),
-            OPTIONAL("optional"),
-            LOCAL("local");
-            private final String name;
+    private StringBuilder formatList(StringBuilder sb, int level, String fmt, Collection<?> c, boolean newline) {
+        if (c.isEmpty())
+            return sb;
+     
+        if (newline)
+            sb.append("\n");
+        
+        TreeSet<?> ls = new TreeSet<>(c);
+        for (Object o : ls) {
+            sb.append(format(level, fmt, o));
+        }
+        return sb;
+    }
+    
+    private void printModuleView(int level, StringBuilder sb, Module.View view) {
+        if (view.isEmpty())
+            return;
 
-            Modifier(String n) {
-                this.name = n;
+        if (level > 0) {
+            // non-default view
+            sb.append("\n");
+            sb.append(format(level, "view %s {%n", view.name));
+        }
+
+        formatList(sb, level+1, "provides %s @ 8;%n", view.aliases());
+        if (view.mainClass() != null) {
+            sb.append(format(level+1, "class %s;%n", view.mainClass()));
+        }
+        
+        boolean newline = !view.aliases().isEmpty() || view.mainClass() != null;
+        if (!view.exports().isEmpty()) {
+            if (level == 0) {
+                sb.append(newline ? "\n" : "");
+                sb.append(format(level+1, "// default view exports%n"));
+                newline = false;
             }
-
-            @Override
-            public String toString() {
-                return name;
+            Set<String> exports = view.exports();
+            String s = exports.iterator().next();
+            if (s.equals("*")) {
+                // exports all public types that are not exported in the default view
+                exports = new TreeSet<>();
+                for (PackageInfo pi : module.packages()) {
+                    String pn = pi.pkgName;
+                    if (pi.publicClassCount > 0 && 
+                            !module.defaultView().exports().contains(pn)) {
+                        exports.add(pn);
+                    }
+                }
             }
-        }
-        final String id;
-        private EnumSet<Modifier> mods;
-        private Module dm = null;
-        private boolean internal = false;
-
-        public Dependence(Module dm) {
-            this(dm, false);
+            formatList(sb, level+1, "exports %s.*;%n", exports, newline);
+            newline = true;
         }
 
-        public Dependence(Module dm, boolean optional) {
-            this(dm, modifier(optional));
+        if (useCommaSeparator) {
+            printCommaSepPermits(sb, level + 1, view.permits());
+        } else {
+            formatList(sb, level + 1, "permits %s;%n", view.permits(), newline);
         }
 
-        public Dependence(Module dm, EnumSet<Modifier> mods) {
-            this.dm = dm.group();
-            this.id = dm.name();
-            this.mods = mods;
-        }
-
-        public Dependence(String name, boolean optional) {
-            this(name, optional, false, false);
-        }
-
-        public Dependence(String name, boolean optional, boolean reexport, boolean local) {
-            Set<Modifier> ms = new TreeSet<Modifier>();
-            if (optional) {
-                ms.add(Modifier.OPTIONAL);
-            }
-            if (reexport) {
-                ms.add(Modifier.PUBLIC);
-            }
-            if (local) {
-                ms.add(Modifier.LOCAL);
-            }
-            this.id = name;
-            this.mods = ms.isEmpty()
-                    ? EnumSet.noneOf(Modifier.class)
-                    : EnumSet.copyOf(ms);
-        }
-
-        private static EnumSet<Modifier> modifier(boolean optional) {
-            return optional ? EnumSet.of(Modifier.OPTIONAL)
-                    : EnumSet.noneOf(Modifier.class);
-        }
-
-        void setModule(Module m) {
-            assert dm == null && m != null;
-            dm = m.group();
-        }
-
-        void setInternal(boolean b) {
-            internal = b;
-        }
-
-        boolean isInternal() {
-            return internal;
-        }
-
-        Module getModule() {
-            return dm;
-        }
-
-        public boolean isOptional() {
-            return mods.contains(Modifier.OPTIONAL);
-        }
-
-        public boolean isLocal() {
-            return mods.contains(Modifier.LOCAL);
-        }
-
-        public boolean isPublic() {
-            return mods.contains(Modifier.PUBLIC);
-        }
-
-        public void addModifier(Modifier e) {
-            mods.add(e);
-        }
-
-        public void update(Dependence d) {
-            // static dependence overrides the optional
-            if (isOptional() && !d.isOptional()) {
-                mods.remove(Modifier.OPTIONAL);
-            }
-            // local dependence overrides non-local dependence
-            if (!isLocal() && d.isLocal()) {
-                mods.add(Modifier.LOCAL);
-            }
-
-            // reexport
-            if (!isPublic() && d.isPublic()) {
-                mods.add(Modifier.PUBLIC);
-            }
-            internal = internal || d.internal;
-        }
-
-        public EnumSet<Modifier> modifiers() {
-            return mods;
-        }
-
-        static interface Filter {
-
-            public boolean accept(Dependence d);
-        }
-
-        @Override
-        public int compareTo(Dependence d) {
-            if (this.equals(d)) {
-                return 0;
-            }
-            return id.compareTo(d.id);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (!(obj instanceof Dependence)) {
-                return false;
-            }
-            if (this == obj) {
-                return true;
-            }
-
-            Dependence d = (Dependence) obj;
-            return this.id.equals(d.id) && mods.equals(d.mods);
-        }
-
-        @Override
-        public int hashCode() {
-            int hash = 3;
-            hash = 19 * hash + this.id.hashCode();
-            return hash;
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            for (Dependence.Modifier mod : mods) {
-                sb.append(mod).append(" ");
-            }
-            sb.append(getModule().name());
-            return sb.toString();
-        }
+        if (level > 0)
+            sb.append(format(level, "}%n"));
     }
 }
+

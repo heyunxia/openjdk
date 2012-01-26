@@ -110,7 +110,7 @@ public class Loader
                     trace(0, "%s: load %s:%s", this, rcxn, cn);
             }
             if (ld == null) {
-                throw new ClassNotFoundException(cn);
+                throw new ClassNotFoundException(cn + " : requested by " + context);
             }
             c = ld.findClass(lmid, cn);
         }
@@ -129,7 +129,7 @@ public class Loader
     }
 
     private ClassNotFoundException cnf(String mn, String cn, IOException x) {
-        return new ClassNotFoundException(mn + ":" + cn, x);
+        return new ClassNotFoundException(cn + " in module " + mn, x);
     }
 
     Class<?> findClass(ModuleId mid, String cn)
@@ -354,6 +354,9 @@ public class Loader
 
     public URL getResource(String rn) {
         try {
+            if (tracing)
+                trace(0, "%s: get resource %s", this, rn);
+            
             URI u = visitResources(rn, new ResourceVisitor() {
                     public URI accept(URI u) {
                         return u;
@@ -371,6 +374,9 @@ public class Loader
     public Enumeration<URL> getResources(String rn)
         throws IOException
     {
+        if (tracing)
+            trace(0, "%s: get resources %s", this, rn);
+        
         final List<URL> us = new ArrayList<>();
         visitResources(rn, new ResourceVisitor() {
                 public URI accept(URI u) throws IOException {

@@ -56,7 +56,9 @@ public class Hello {
 EOF
 
 mk z.src/org.astro/module-info.java <<EOF
-module org.astro @ 1.2 { }
+module org.astro @ 1.2 {
+    exports org.astro.*;
+}
 EOF
 
 mk z.src/org.astro/org/astro/World.java <<EOF
@@ -92,13 +94,12 @@ public class Test {
         ModuleInfo mi = jf.getModuleInfo();
         if (mi == null)
             throw new RuntimeException("null ModuleInfo in " + jfname);
-        if (!mi.mainClass().equals("com.greetings.Hello")) {
+        if (!mi.defaultView().mainClass().equals("com.greetings.Hello")) {
             throw new RuntimeException("Unexpected main class " + mi);
         }
-        if (mi.requires().size() != 3)
+        if (mi.requiresModules().size() != 3)
             throw new RuntimeException("requires.length != 3");
-        Dependence[] ds = mi.requires().toArray(new Dependence[0]);
-        for (Dependence d : mi.requires()) {
+        for (ViewDependence d : mi.requiresModules()) {
             String n = d.query().name();
             if (n.startsWith("jdk")) continue;
             if (!n.equals("org.astro") && !n.equals("test"))

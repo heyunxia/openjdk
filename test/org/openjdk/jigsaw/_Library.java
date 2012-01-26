@@ -105,8 +105,9 @@ public class _Library {
         eq(mids, emids);
 
         // Find module ids by query
-        mids = new HashSet<ModuleId>(lib.findModuleIds(new ModuleIdQuery("org.multi",
-                                                                         ms.parseVersionQuery(">1.1"))));
+        mids = new HashSet<ModuleId>(
+                       lib.findModuleIds(new ModuleIdQuery("org.multi",
+                                         ms.parseVersionQuery(">1.1"))));
         out.format("query: %s%n", mids);
         emids = new HashSet<ModuleId>();
         for (String v : multiVersions) {

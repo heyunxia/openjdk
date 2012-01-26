@@ -90,7 +90,7 @@ public class _RepositoryCatalog {
             in.close();
         }
         Set<ModuleId> mids = new HashSet<>();
-        rc.gatherModuleIds(null, mids);
+        rc.gatherModuleIds(mids);
         assert eq(mids, modules.keySet());
         for (ModuleId mid : mids) {
             assert Arrays.equals(rc.readModuleInfoBytes(mid),

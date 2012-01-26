@@ -35,18 +35,17 @@ final class ContextSet<Cx extends BaseContext> {
 
     final Set<ModuleInfo> modules;
 
-    final Map<String,ModuleInfo> moduleForName;
-
+    final Map<String,ModuleView> moduleViewForName;
+            
     final Set<Cx> contexts;
 
-    final Map<String,Cx> contextForModule;
+    final Map<String,Cx> contextForModuleView;
 
-    ContextSet(Resolution res, Set<Cx> cxs, Map<String,Cx> cxfm) {
+    ContextSet(Resolution res, Set<Cx> cxs, Map<String,Cx> cxfmv) {
         rootQueries = res.rootQueries;
         modules = res.modules;
-        moduleForName = res.moduleForName;
+        moduleViewForName = res.moduleViewForName;
         contexts = cxs;
-        contextForModule = cxfm;
+        contextForModuleView = cxfmv;
     }
-
 }

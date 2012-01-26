@@ -26,7 +26,6 @@
 package org.openjdk.jigsaw;
 
 import java.io.*;
-import java.net.URI;
 import java.lang.module.*;
 import java.util.*;
 
@@ -44,6 +43,9 @@ public abstract class RepositoryCatalog {
     private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
+    public abstract void gatherModuleIds(Set<ModuleId> mids)
+        throws IOException;
+    
     public abstract void gatherModuleIds(String moduleName, Set<ModuleId> mids)
         throws IOException;
 
@@ -89,30 +91,45 @@ public abstract class RepositoryCatalog {
         static final int MINOR_VERSION = 0;
 
         private Map<ModuleId,Entry> modules = new HashMap<>();
+        private Map<ModuleId,ModuleId> moduleForViewId= new HashMap<>();
 
+        public void gatherModuleIds(Set<ModuleId> mids) {
+            mids.addAll(modules.keySet());
+        }
+        
         public void gatherModuleIds(String moduleName, Set<ModuleId> mids) {
-            for (ModuleId mid : modules.keySet()) {
+            for (ModuleId mid : moduleForViewId.keySet()) {
                 if (moduleName == null || mid.name().equals(moduleName))
                     mids.add(mid);
             }
         }
 
         public byte[] readModuleInfoBytes(ModuleId mid) {
-            Entry e = modules.get(mid);
+            Entry e = modules.get(moduleForViewId.get(mid));
             return (e != null) ? e.mibs : null;
         }
 
         public void add(Entry e) {
-            ModuleId mid = jms.parseModuleInfo(e.mibs).id(); // ## Need fast path
-            modules.put(mid, e);
+            ModuleInfo mi = jms.parseModuleInfo(e.mibs); // ## Need fast path
+            modules.put(mi.id(), e);
+            for (ModuleView mv : mi.views())
+                moduleForViewId.put(mv.id(), mi.id());
         }
 
         public boolean remove(ModuleId mid) {
+            for (Iterator<ModuleId> i = moduleForViewId.values().iterator();
+                 i.hasNext();)
+            {
+                ModuleId id = i.next();
+                if (id.equals(mid)) {
+                    i.remove();
+                }
+            }
             return modules.remove(mid) != null;
         }
 
         Entry get(ModuleId mid) {
-            return modules.get(mid);
+            return modules.get(moduleForViewId.get(mid));
         }
 
         /* ##
@@ -156,6 +173,11 @@ public abstract class RepositoryCatalog {
                 out.writeShort(e.mibs.length);
                 out.write(e.mibs);
             }
+            out.writeInt(moduleForViewId.size());
+            for (Map.Entry<ModuleId,ModuleId> me : moduleForViewId.entrySet()) {
+                out.writeUTF(me.getKey().toString());
+                out.writeUTF(me.getValue().toString());
+            }
             out.close();
         }
 
@@ -179,6 +201,12 @@ public abstract class RepositoryCatalog {
                 byte[] mibs = new byte[nb];
                 in.readFully(mibs);
                 modules.put(mid, new Entry(mibs, cs, us, ht, hash));
+            }
+            int nmids = in.readInt();
+            for (int i = 0; i < nmids; i++) {
+                ModuleId id = jms.parseModuleId(in.readUTF());
+                ModuleId mid = jms.parseModuleId(in.readUTF());
+                moduleForViewId.put(id, mid);
             }
             return this;
         }

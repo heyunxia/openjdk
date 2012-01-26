@@ -625,7 +625,7 @@ ifeq ($(MODULE_BUILD),true)
 endif
 
 JDK_ALL_TARGETS += jdk_jigsaw
-jdk_jigsaw: java/lang/module java/lang/reflect/Module $(JIGSAW_TESTS)
+jdk_jigsaw: java/lang/module $(JIGSAW_TESTS)
 	$(call RunOthervmBatch)
 
 # ------------------------------------------------------------------

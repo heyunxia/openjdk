@@ -25,7 +25,6 @@
 
 import java.util.*;
 import java.lang.module.*;
-import java.lang.annotation.Annotation;
 import org.openjdk.jigsaw.*;
 
 import static java.lang.module.Dependence.Modifier;
@@ -39,48 +38,70 @@ public class ModuleInfoBuilder {
         implements ModuleInfo
     {
 
-        private ModuleId mid;
+        private final ModuleId mid;
         public ModuleId id() { return mid; }
 
         private MI(ModuleId mid) {
             this.mid = mid;
         }
-
-        private Set<ModuleId> provides = new HashSet<ModuleId>();
-        public Set<ModuleId> provides() { return provides; }
-
-        private Set<Dependence> requires
+       
+        private Set<ViewDependence> requires
             // We use a linked hash set so as to guarantee deterministic order
-            = new LinkedHashSet<Dependence>();
-        public Set<Dependence> requires() { return requires; }
-
-        private Set<String> permits = new HashSet<String>();
-        public Set<String> permits() { return permits; }
-
-        private String mainClass;
-        public String mainClass() { return mainClass; }
-
-        public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-            return false;
+            = new LinkedHashSet<>();
+        public Set<ViewDependence> requiresModules() { return requires; }
+                
+        private Set<ServiceDependence> requiredServices = new LinkedHashSet<>();
+        public Set<ServiceDependence> requiresServices() {
+            return Collections.unmodifiableSet(requiredServices);
         }
-
-        public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
-            return null;
+        
+        Map<String, ModuleViewBuilder> viewBuilders = new HashMap<>();
+        
+        ModuleView defaultView;
+        Set<ModuleView> moduleViews;
+        public ModuleView defaultView() {
+            return defaultView;
+        }
+        
+        public Set<ModuleView> views() {
+            return moduleViews;
+        }
+        
+        ModuleInfo build() {
+            moduleViews = new HashSet<>();
+            for (ModuleViewBuilder mvb : viewBuilders.values()) {
+                ModuleView mv = mvb.build(this);
+                moduleViews.add(mv);
+                if (mv.id().equals(mid)) {
+                    defaultView = mv;
+                }
+            }
+            return this;
         }
 
         public String toString() { return mid.toString(); }
     }
 
-    private MI mi;
+    private final MI mi;
+    private final ModuleViewBuilder defaultView;
 
     private ModuleInfoBuilder(String id) {
         mi = new MI(jms.parseModuleId(id));
+        this.defaultView =  new ModuleViewBuilder(this, mi.mid);
+        mi.viewBuilders.put(mi.mid.name(), defaultView);
     }
 
     public static ModuleInfoBuilder module(String id) {
         return new ModuleInfoBuilder(id);
     }
 
+    public ModuleViewBuilder view(String name) {
+         ModuleId id = new ModuleId(name, mi.mid.version());
+         ModuleViewBuilder mvb = new ModuleViewBuilder(this, id);
+         mi.viewBuilders.put(id.name(), mvb);
+         return mvb;
+    }
+    
     public ModuleInfoBuilder requires(EnumSet<Modifier> mods, String mnvq) {
         int i = mnvq.indexOf('@');
         String mn;
@@ -91,8 +112,8 @@ public class ModuleInfoBuilder {
             mn = mnvq.substring(0, i);
             vq = jms.parseVersionQuery(mnvq.substring(i + 1));
         }
-        mi.requires.add(new Dependence(mods,
-                                       new ModuleIdQuery(mn, vq)));
+        mi.requires.add(new ViewDependence(mods,
+                                           new ModuleIdQuery(mn, vq)));
         return this;
     }
 
@@ -111,26 +132,151 @@ public class ModuleInfoBuilder {
     public ModuleInfoBuilder requiresPublic(String mnvq) {
         return requires(EnumSet.of(Modifier.PUBLIC), mnvq);
     }
-
-    public ModuleInfoBuilder provides(String mnv) {
-        mi.provides.add(jms.parseModuleId(mnv));
+   
+    public ModuleInfoBuilder aliases(String mnv) {
+        defaultView.aliases(mnv);
         return this;
     }
 
+    public ModuleInfoBuilder exports(String pn) {
+        defaultView.exports(pn);
+        return this;
+    }
+    
     public ModuleInfoBuilder permits(String s) {
-        if (s.indexOf('@') >= 0)
-            throw new IllegalArgumentException(s);
-        mi.permits.add(s);
+        defaultView.permits(s);
         return this;
     }
 
     public ModuleInfoBuilder mainClass(String cn) {
-        mi.mainClass = cn;
+        defaultView.mainClass = cn;
         return this;
     }
-
+    
     public ModuleInfo build() {
-        return mi;
+        return mi.build();
     }
 
+    class ModuleViewBuilder {
+        final ModuleInfoBuilder mib;
+        final ModuleId id;
+        final Set<String> exports = new HashSet<>();
+        final Set<ModuleId> aliases = new HashSet<>();
+        final Set<String> permits = new HashSet<>();
+        final Map<String,Set<String>> services = new HashMap<>();
+        String mainClass;
+        
+        private ModuleViewBuilder(ModuleInfoBuilder mib, ModuleId id) {
+            this.mib = mib;
+            this.id = id;
+        }
+        
+        public ModuleViewBuilder view(String name) {
+            Version version = mib.mi.mid.version();
+            ModuleId id = new ModuleId(name, version);
+            ModuleViewBuilder mvb = new ModuleViewBuilder(mib, id);
+            mib.mi.viewBuilders.put(id.name(), mvb);
+            return mvb;
+        }
+        
+        public ModuleViewBuilder aliases(String mnv) {
+            aliases.add(jms.parseModuleId(mnv));
+            return this;
+        }
+
+        public ModuleViewBuilder exports(String pn) {
+            exports.add(pn);
+            return this;
+        }
+
+        public ModuleViewBuilder permits(String s) {
+            if (s.indexOf('@') >= 0) {
+                throw new IllegalArgumentException(s);
+            }
+            permits.add(s);
+            return this;
+        }
+
+        public ModuleViewBuilder mainClass(String cn) {
+            mainClass = cn;
+            return this;
+        }
+        
+        ModuleView build(ModuleInfo mi) {
+            return new ModuleViewImpl(mi,
+                                      id,
+                                      mainClass,
+                                      aliases,
+                                      exports,
+                                      permits,
+                                      services);
+        }
+    }
+    
+    class ModuleViewImpl
+        implements ModuleView
+    {
+        private final ModuleInfo mi;
+        private final ModuleId id;
+        private final Set<String> exports;
+        private final Set<ModuleId> aliases;
+        private final Map<String,Set<String>> services;
+        private final Set<String> permits;
+        private final String mainClass;
+
+        ModuleViewImpl(ModuleInfo mi,
+                       ModuleId id,
+                       String mainClass,
+                       Set<ModuleId> aliases,
+                       Set<String> exports,
+                       Set<String> permits,
+                       Map<String,Set<String>> serviceProviders) {
+            this.mi = mi;
+            this.id = id;
+            this.mainClass = mainClass;
+            this.aliases = aliases;
+            this.exports = exports;
+            this.permits = permits;
+            this.services = serviceProviders;
+        }
+
+        public ModuleInfo moduleInfo() {
+            return mi;
+        }
+
+        public ModuleId id() {
+            return id;
+        }
+
+        public Set<ModuleId> aliases() {
+            return Collections.unmodifiableSet(aliases);
+        }
+
+        public Set<String> exports() {
+            return Collections.unmodifiableSet(exports);
+        }
+        
+        public Set<String> permits() {
+            return Collections.unmodifiableSet(permits);
+        }
+
+        public Map<String,Set<String>> services() {
+            return Collections.unmodifiableMap(services);
+        }
+
+        public String mainClass() {
+            return mainClass;
+        }
+
+        @Override
+        public String toString() {
+            return "view " + id.name() + " {"
+                    + ", provides: " + aliases
+                    + ", provides service: " + services
+                    + ", permits: " + permits
+                    + ", mainClass: " + mainClass
+                    + " }";
+        }
+    }
+ 
 }

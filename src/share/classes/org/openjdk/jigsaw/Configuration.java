@@ -84,13 +84,13 @@ public final class Configuration<Cx extends BaseContext> {
         return cx;
     }
 
-    private Map<String,Cx> contextForModule;
+    private Map<String,Cx> contextForModuleView;
 
     /**
      * Associate the given context with the given module name.
      */
     protected void put(String mn, Cx cx) {
-        contextForModule.put(mn, cx);
+        contextForModuleView.put(mn, cx);
     }
 
     /**
@@ -100,7 +100,7 @@ public final class Configuration<Cx extends BaseContext> {
      *          context exists in this configuration
      */
     public Cx findContextForModuleName(String mn) {
-        return contextForModule.get(mn);
+        return contextForModuleView.get(mn);
     }
 
     /**
@@ -111,24 +111,24 @@ public final class Configuration<Cx extends BaseContext> {
      *          in this configuration
      */
     public Cx getContextForModuleName(String mn) {
-        Cx cx = contextForModule.get(mn);
+        Cx cx = contextForModuleView.get(mn);
         if (cx == null)
             throw new IllegalArgumentException(mn + ": Unknown module");
         return cx;
     }
-
+    
     /**
      * Construct a new configuration from an existing context set and
-     * module-name-to-context map.
+     * module-view-name-to-context map.
      */
     public Configuration(Collection<ModuleId> roots,
                          Set<? extends Cx> contexts,
-                         Map<String,? extends Cx> contextForModule)
+                         Map<String,? extends Cx> contextForModuleView)
     {
         this.roots = new HashSet<>(roots);
-        this.contexts = new HashSet<Cx>(contexts);
-        this.contextForModule = new HashMap<String,Cx>(contextForModule);
-        this.contextForName = new HashMap<String,Cx>();
+        this.contexts = new HashSet<>(contexts);
+        this.contextForModuleView = new HashMap<>(contextForModuleView);
+        this.contextForName = new HashMap<>();
         for (Cx cx : contexts) {
             this.contextForName.put(cx.name(), cx);
         }
@@ -137,35 +137,36 @@ public final class Configuration<Cx extends BaseContext> {
     /**
      * Construct a new, empty configuration for the given root module.
      */
-    public Configuration(ModuleId root) {
-        this.roots = Collections.singleton(root);
+    public Configuration(Collection<ModuleId> roots) {
+        this.roots = new HashSet<>(roots);
         this.contexts = new HashSet<Cx>();
-        this.contextForModule = new HashMap<String,Cx>();
+        this.contextForModuleView = new HashMap<String,Cx>();
         this.contextForName = new HashMap<String,Cx>();
     }
 
     private void dump(Context cx, boolean all, PrintStream out) {
         if (!cx.localClasses().isEmpty()) {
-            Set<Map.Entry<String,ModuleId>> mflcmes
-                = cx.moduleForLocalClassMap().entrySet();
-            out.format("    local (%d)", mflcmes.size());
+            Set<String> classes = new TreeSet<>(cx.localClasses());
+            out.format("    local (%d)", classes.size());
             if (!all && Platform.isPlatformContext(cx)) {
                 out.format(" ...%n");
             } else {
                 out.format("%n");
-                for (Map.Entry<String,ModuleId> me : mflcmes)
-                    out.format("      %s:%s%n", me.getKey(), me.getValue());
+                Map<String,ModuleId> mflcm = cx.moduleForLocalClassMap();
+                for (String cn : classes)
+                    out.format("      %s:%s%n", cn, mflcm.get(cn));
             }
         }
         if (!cx.remotePackages().isEmpty()) {
-            Set<Map.Entry<String,String>> cfrpes
-                = cx.contextForRemotePackageMap().entrySet();
-            out.format("    remote (%d)%n", cfrpes.size());
-            for (Map.Entry<String,String> me : cfrpes) {
-                Cx dcx = getContext(me.getValue());
+            Set<String> rpkgs = new TreeSet<>(cx.remotePackages());
+            out.format("    remote (%d)%n", rpkgs.size());
+            Map<String,String> cfrpm = cx.contextForRemotePackageMap();
+            for (String pn : rpkgs) {
+                String cxn = cfrpm.get(pn);
+                Cx dcx = getContext(cxn);
                 if (!all && Platform.isPlatformContext(dcx))
                     continue;
-                out.format("      %s=%s%n", me.getKey(), me.getValue());
+                out.format("      %s=%s%n", pn, cxn);
             }
         }
     }
@@ -194,7 +195,11 @@ public final class Configuration<Cx extends BaseContext> {
                         out.format(" [%s]", lp);
                 }
                 out.format("%n");
+                for (ModuleId id : cx.views(mid)) {
+                    out.format("      view %s%n", id);
+                }
             }
+
             if (cx instanceof Context)
                 dump((Context)cx, all, out);
             else if (cx instanceof PathContext)
@@ -209,7 +214,7 @@ public final class Configuration<Cx extends BaseContext> {
     public int hashCode() {
         int hc = roots.hashCode();
         hc = hc * 43 + contexts.hashCode();
-        hc = hc * 43 + contextForModule.hashCode();
+        hc = hc * 43 + contextForModuleView.hashCode();
         return hc;
     }
 
@@ -219,7 +224,7 @@ public final class Configuration<Cx extends BaseContext> {
         Configuration that = (Configuration)ob;
         return (roots.equals(that.roots)
                 && contexts.equals(that.contexts)
-                && contextForModule.equals(that.contextForModule));
+                && contextForModuleView.equals(that.contextForModuleView));
     }
 
 }

@@ -110,7 +110,9 @@ public class Hello {
     }
 }
 
-module org.astro @ 1.2 { }
+module org.astro @ 1.2 {
+    exports org.astro.*;
+}
 
 package org.astro;
 public class World {

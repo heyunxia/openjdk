@@ -336,7 +336,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         SetModuleProp(what);    /* sun.java.launcher.module */
         // ## Store boot module in %jigsaw-library?
         // ## hardcoded path is temporary
-        SetModuleBootProp("lib/modules/jdk.boot/8-ea/classes:lib/modules/jdk.boot/8-ea/resources"); /* s.j.l.m.boot */
+        SetModuleBootProp("lib/modules/jdk.base/8-ea/classes"); /* s.j.l.m.boot */
     } else {
         if (mode == LM_JAR) {
             SetClassPath(what);     /* Override class path */

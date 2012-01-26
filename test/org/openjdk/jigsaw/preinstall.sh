@@ -76,7 +76,9 @@ public class X {
     }
 }
 
-module y @ 1 { }
+module y @ 1 {
+    exports y.*;
+}
 
 package y;
 public class Y {

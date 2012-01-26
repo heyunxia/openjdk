@@ -171,8 +171,8 @@ define copy-jre-image
 from=$(strip $1); dest=$(strip $2); \
 ($(CD) $(MODULE_IMAGES_DIR)/$$from && $(FIND) . -depth -print \
               | $(CPIO) -pdum $(MODULE_IMAGES_DIR)/$$dest) ; \
-if [ -d "$(ABS_MODULEPATH_DIR)/jdk.boot/include" ] ; then \
-   $(CP) -rf $(ABS_MODULEPATH_DIR)/jdk.boot/include $(MODULE_IMAGES_DIR)/$$dest; \
+if [ -d "$(ABS_MODULEPATH_DIR)/jdk.base/include" ] ; then \
+   $(CP) -rf $(ABS_MODULEPATH_DIR)/jdk.base/include $(MODULE_IMAGES_DIR)/$$dest; \
 fi
 endef
 
@@ -202,7 +202,13 @@ endef
 # Rules for building packages
 include $(BUILDDIR)/common/BuildNativePackages.gmk
 
+# set BUILD_PACKAGES=false to skip building jmod packages
+# 
 PKG_TYPES = jmod-pkgs
+ifeq ($(BUILD_PACKAGES), false)
+  PKG_TYPES =
+endif
+
 DEBIAN := $(shell \
                if [ -f /etc/debian_version ] ; then \
                   $(ECHO) true; \
@@ -210,20 +216,22 @@ DEBIAN := $(shell \
                   $(ECHO) false; \
                fi)
 
+# FIXME: turn on building debian packages by default once
+#        the debian-related issues are fixed (e.g. views, version).
+#
+BUILD_NATIVE_PACKAGES=false
 
-# set BUILD_PACKAGES=false to skip building jmod and native packages
+# set BUILD_NATIVE_PACKAGES=false to skip building native packages
 # 
-ifeq ($(BUILD_PACKAGES), false)
-PKG_TYPES =
-DEBIAN = false
+ifeq ($(BUILD_NATIVE_PACKAGES), false)
+  DEBIAN = false
 endif
 
 ifeq ($(DEBIAN), true)
-PKG_TYPES += deb-pkgs
+  PKG_TYPES += deb-pkgs
 endif
 
 gen-pkgs: $(PKG_TYPES)
-
 
 %-setup:
 	$(RM) -r $(MODULE_IMAGES_DIR)/$*

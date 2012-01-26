@@ -39,10 +39,11 @@ mk() {
 rm -rf z.src
 
 mk z.src/com.foo.bar/module-info.java <<EOF
-module com.foo.bar @ 1.2.3_01-4a
-    provides baz @ 2.0, biz @ 3.4a
-{
-    permits com.foo.top, com.foo.bottom;
+module com.foo.bar @ 1.2.3_01-4a {
+    provides baz @ 2.0;
+    provides biz @ 3.4a;
+    permits com.foo.top;
+    permits com.foo.bottom;
     class com.foo.bar.Main;
 }
 EOF

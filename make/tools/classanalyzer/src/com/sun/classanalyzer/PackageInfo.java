@@ -22,10 +22,7 @@
  */
 package com.sun.classanalyzer;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -35,7 +32,7 @@ public class PackageInfo implements Comparable<PackageInfo> {
 
     final Module module;
     final String pkgName;
-    final boolean exportPkg;
+    final boolean isExported;
     int  classCount;
     long classBytes;
     int  publicClassCount;
@@ -46,7 +43,7 @@ public class PackageInfo implements Comparable<PackageInfo> {
     PackageInfo(Module m, String name) {
         this.module = m;
         this.pkgName = name;
-        this.exportPkg = isExportedPackage(name);
+        this.isExported = isExportedPackage(name);
         this.classCount = 0;
         this.classBytes = 0;
         this.publicClassCount = 0;
@@ -55,7 +52,7 @@ public class PackageInfo implements Comparable<PackageInfo> {
         this.resourceBytes = 0;
     }
 
-    private void add(PackageInfo pkg) {
+    void add(PackageInfo pkg) {
         this.classCount += pkg.classCount;
         this.classBytes += pkg.classBytes;
         this.publicClassCount += pkg.publicClassCount;
@@ -75,13 +72,9 @@ public class PackageInfo implements Comparable<PackageInfo> {
         }
     }
 
-    private void addResource(ResourceFile r) {
+    void addResource(ResourceFile r) {
         resourceCount++;
         resourceBytes += r.getFileSize();
-    }
-
-    boolean isExported() {
-        return exportPkg;
     }
 
     @Override
@@ -112,44 +105,6 @@ public class PackageInfo implements Comparable<PackageInfo> {
         }
     }
 
-    public static Collection<PackageInfo> getPackageInfos(final Module m) {
-        Map<String, PackageInfo> packages = new HashMap<String, PackageInfo>();
-        Module.Visitor<Void, Map<String, PackageInfo>> visitor =
-                new Module.Visitor<Void, Map<String, PackageInfo>>() {
-                    private PackageInfo getPackageInfo(Map<String, PackageInfo> packages, String pkg) {
-                        PackageInfo pkginfo = packages.get(pkg);
-                        if (pkginfo == null) {
-                            pkginfo = new PackageInfo(m, pkg);
-                            packages.put(pkg, pkginfo);
-                        }
-                        return pkginfo;
-                    }
-                    @Override
-                    public Void visitClass(Klass k, Map<String, PackageInfo> packages) {
-                        // update package statistics
-                        String pkg = k.getPackageName();
-                        PackageInfo pkginfo = getPackageInfo(packages, pkg);
-                        // only count the class that is parsed
-                        pkginfo.addKlass(k);
-                        return null;
-                    }
-
-                    @Override
-                    public Void visitResource(ResourceFile r, Map<String, PackageInfo> packages) {
-                        String pkg = "";
-                        int i = r.getName().lastIndexOf('/');
-                        if (i > 0) {
-                            pkg = r.getName().substring(0, i).replace('/', '.');
-                        }
-                        PackageInfo pkginfo = getPackageInfo(packages, pkg);
-                        pkginfo.addResource(r);
-                        return null;
-                    }
-                };
-
-        m.visit(visitor, packages);
-        return packages.values();
-    }
     final static Set<String> exportedPackages = new HashSet<String>();
 
     static {

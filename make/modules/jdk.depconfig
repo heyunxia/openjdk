@@ -511,3 +511,5 @@
   javax.management.remote.rmi.RMIConnector -> com.sun.jmx.remote.protocol.iiop.PInputStream
   com.sun.jmx.remote.internal.IIOPHelper -> com.sun.jmx.remote.protocol.iiop.IIOPProxyImpl
 
+@ClassForName(optional)
+  javax.tools.ToolProvider -> com.sun.tools.javac.api.JavacTool

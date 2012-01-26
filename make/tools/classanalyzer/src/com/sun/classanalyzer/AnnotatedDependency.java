@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Set;
 
 import com.sun.classanalyzer.Module.Reference;
-import com.sun.classanalyzer.ModuleInfo.Dependence;
 
 /**
  */
@@ -372,7 +371,6 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
     }
 
     static class OptionalDependency extends AnnotatedDependency {
-
         static boolean isOptional(Klass from, Klass to) {
             synchronized (OptionalDependency.class) {
                 if (optionalDepsMap == null) {
@@ -563,7 +561,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
 
         Map<Reference, Set<AnnotatedDependency>> result = new HashMap<Reference, Set<AnnotatedDependency>>();
         for (Reference ref : annotatedDepsMap.keySet()) {
-            if (m.contains(ref.referrer()) && m.isModuleDependence(ref.referree())) {
+            if (m.contains(ref.referrer()) && m.requiresModuleDependence(ref.referree())) {
                 result.put(ref, annotatedDepsMap.get(ref));
             }
         }
@@ -577,12 +575,13 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         Set<Dependence> deps = new HashSet<Dependence>();
         for (Reference ref : annotatedDepsMap.keySet()) {
             if (m.contains(ref.referrer())) {
-                Module other = m.getModuleDependence(ref.referree());
+                Module other = m.getRequiresModule(ref.referree());
                 if (other != null) {
+                    boolean optional = false;
                     for (AnnotatedDependency ad : annotatedDepsMap.get(ref)) {
-                        Dependence d = new Dependence(other, ad.isOptional());
-                        deps.add(d);
+                        optional = optional || ad.isOptional();
                     }
+                    deps.add(Dependence.newDependence(ref.referree(), optional));
                 }
             }
         }

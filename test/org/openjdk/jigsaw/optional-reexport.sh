@@ -65,7 +65,9 @@ public class WorldWrapper {
     }
 }
 
-module org.astro @ 2.0 { }
+module org.astro @ 2.0 {
+    exports org.astro.*;
+}
 
 package org.astro;
 import java.lang.reflect.Module;
@@ -79,7 +81,9 @@ public class World {
     }
 }
 
-module com.foo @ 3.0 {}
+module com.foo @ 3.0 {
+    exports com.foo.*;
+}
 
 package com.foo;
 import java.lang.reflect.*;
@@ -91,4 +95,5 @@ public class Foo {
 
 module com.foobar @ 1.0 {
     requires public com.foo @ 3.0;
+    exports com.foobar.*;
 }

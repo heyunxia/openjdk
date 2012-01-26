@@ -258,7 +258,7 @@ public class _Configurator {
         new Test("simple", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requiresPublic("y@1"))
-                    .add(module("y@1"))
+                    .add(module("y@1").exports("y"))
                     .addPublic("x@1", "x.A")
                     .addOther("x@1", "x.B")
                     .addPublic("y@1", "y.C")
@@ -276,11 +276,11 @@ public class _Configurator {
 
         new Test("publicity", true, "x@1") {
             void init(MockLibrary mlib) {
-                mlib.add(module("x@1").requires("y@1").requires("v@1"))
-                    .add(module("y@1").requiresPublic("z@1").requires("w@1"))
-                    .add(module("z@1"))
-                    .add(module("w@1"))
-                    .add(module("v@1"))
+                mlib.add(module("x@1").requires("y@1").requires("v@1").exports("x"))
+                    .add(module("y@1").requiresPublic("z@1").requires("w@1").exports("y"))
+                    .add(module("z@1").exports("z"))
+                    .add(module("w@1").exports("w"))
+                    .add(module("v@1").exports("v"))
                     .addPublic("x@1", "x.P")
                     .addOther("x@1", "x.O")
                     .addPublic("y@1", "y.P")
@@ -314,8 +314,8 @@ public class _Configurator {
         new Test("dup", false, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requires("y@1").requires("z@1"))
-                    .add(module("y@1"))
-                    .add(module("z@1"))
+                    .add(module("y@1").exports("a"))
+                    .add(module("z@1").exports("a"))
                     .addPublic("y@1", "a.B")
                     .addPublic("z@1", "a.B");
             }
@@ -396,7 +396,92 @@ public class _Configurator {
                          .localClass("p.R", "lr"));
             }
         };
+        
+        new Test("simple-view", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresPublic("yv@1"))
+                    .add(module("y@1").view("yv").exports("y"))
+                    .addPublic("x@1", "x.A")
+                    .addOther("x@1", "x.B")
+                    .addPublic("y@1", "y.C")
+                    .addOther("y@1", "y.D");
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1")
+                         .remote("+y")
+                         .localClass("x.A", "x").localClass("x.B", "x")
+                         .remotePackage("y", "+y"))
+                    .add(context("y@1").views("y@1", "yv")
+                         .localClass("y.D", "y").localClass("y.C", "y"));
+            }
+        };
+        
+        new Test("view-reexports", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requires("yv@1"))
+                    .add(module("y@1").requiresPublic("zv@1").requires("z@1")
+                         .view("yv").exports("y"))
+                    .add(module("z@1").view("zv").exports("z"))
+                    .addPublic("x@1", "x.A")
+                    .addOther("x@1", "x.B")
+                    .addPublic("y@1", "y.C")
+                    .addOther("y@1", "y.D")
+                    .addPublic("z@1", "z.E")
+                    .addOther("z@1", "z.F");
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1")
+                         .remote("+y", "+z")
+                         .localClass("x.A", "x").localClass("x.B", "x")
+                         .remotePackage("y", "+y")
+                         .remotePackage("z", "+z"))
+                    .add(context("y@1").views("y@1", "yv")
+                         .remote("+z")
+                         .localClass("y.D", "y").localClass("y.C", "y")
+                         .remotePackage("z", "+z"))
+                    .add(context("z@1").views("z@1", "zv")
+                         .localClass("z.E", "z").localClass("z.F", "z"));
+            }
+        };
 
+  
+        new Test("view-permits", true, "x@1", "y@1", "lc@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("ll@1").requiresLocal("lr@1")
+                         .permits("lc").permits("x").exports("l"))
+                    .add(module("lc@1").requiresLocal("ll@1")
+                         .requires("r@1").exports("c"))
+                    .add(module("r@1").exports("r")
+                         .view("lr").permits("ll").permits("y").exports("r.v"))
+                    .add(module("x@1").requires("ll@1").requires("r@1"))
+                    .add(module("y@1").requires("lr@1").requires("r@1"))
+                    .addPublic("x@1",  "x.X")
+                    .addOther("y@1",  "y.Y")
+                    .addPublic("ll@1", "l.L")
+                    .addPublic("lc@1", "c.C")
+                    .addPublic("r@1",  "r.R")
+                    .addPublic("r@1",  "r.v.V");
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1")
+                         .remote("+lc+ll+r")
+                         .localClass("x.X", "x")
+                         .remotePackage("l", "+lc+ll+r")
+                         .remotePackage("r", "+lc+ll+r"))
+                    .add(context("y@1")
+                         .remote("+lc+ll+r")
+                         .localClass("y.Y", "y")
+                         .remotePackage("r", "+lc+ll+r")
+                         .remotePackage("r.v", "+lc+ll+r"))
+                    .add(context("lc@1", "ll@1", "r@1")
+                         .views("r@1", "lr")
+                         .localClass("l.L", "ll")
+                         .localClass("c.C", "lc")
+                         .localClass("r.R", "r")
+                         .localClass("r.v.V", "r"));               
+            }
+        };
+        
         /* ## Not yet
 
         new Test("cycle", true, "x@1") {

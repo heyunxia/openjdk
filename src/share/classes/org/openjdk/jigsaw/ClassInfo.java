@@ -146,7 +146,10 @@ public class ClassInfo {
     private final static int CONSTANT_Double = 6;
     private final static int CONSTANT_NameAndType = 12;
     private final static int CONSTANT_Utf8 = 1;
-    private final static int CONSTANT_ModuleId = 13;
+    private final static int CONSTANT_MethodHandle = 15;
+    private final static int CONSTANT_MethodType = 16;
+    private final static int CONSTANT_InvokeDynamic = 18;
+    private final static int CONSTANT_ModuleId = 19;
 
     private Object[] constantPool;
 
@@ -362,7 +365,7 @@ public class ClassInfo {
 
     // -- Entry points --
 
-    static ClassInfo read(File f)
+    public static ClassInfo read(File f)
         throws IOException
     {
         ClassInfo ci = new ClassInfo();
@@ -374,7 +377,7 @@ public class ClassInfo {
         return ci;
     }
 
-    static ClassInfo read(InputStream in, long size, String path)
+    public static ClassInfo read(InputStream in, long size, String path)
         throws IOException
     {
         assert size > 1 && size <= Integer.MAX_VALUE

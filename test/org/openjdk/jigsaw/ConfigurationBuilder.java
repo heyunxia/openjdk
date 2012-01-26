@@ -27,9 +27,6 @@ import java.util.*;
 import java.lang.module.*;
 import org.openjdk.jigsaw.*;
 
-import static java.lang.module.Dependence.Modifier;
-
-
 public class ConfigurationBuilder {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
@@ -37,10 +34,10 @@ public class ConfigurationBuilder {
     private List<ModuleId> roots = new ArrayList<>();
 
     private Set<Context> contexts = new HashSet<>();
-    private Map<String,Context> contextForModule = new HashMap<>();
+    private Map<String,Context> contextForModuleView = new HashMap<>();
 
     private Set<PathContext> pathContexts = new HashSet<>();
-    private Map<String,PathContext> pathContextForModule = new HashMap<>();
+    private Map<String,PathContext> pathContextForModuleView = new HashMap<>();
 
     private ConfigurationBuilder(String[] rmids) {
         for (String s : rmids)
@@ -54,22 +51,28 @@ public class ConfigurationBuilder {
     public ConfigurationBuilder add(ContextBuilder cb) {
         Context cx = cb.build();
         contexts.add(cx);
-        for (ModuleId mid : cx.modules())
-            contextForModule.put(mid.name(), cx);
+        for (ModuleId mid : cx.modules()) {
+            for (ModuleId id : cx.views(mid)) {
+                contextForModuleView.put(id.name(), cx);
+            }
+        }
         PathContext pcx = cb.buildPath();
         pathContexts.add(pcx);
-        for (ModuleId mid : pcx.modules())
-            pathContextForModule.put(mid.name(), pcx);
+        for (ModuleId mid : pcx.modules()) {
+            for (ModuleId id : pcx.views(mid)) {
+                pathContextForModuleView.put(id.name(), pcx);
+            }
+        }
         return this;
     }
 
     public Configuration<Context> build() {
-        return new Configuration<>(roots, contexts, contextForModule);
+        return new Configuration<>(roots, contexts, contextForModuleView);
     }
 
     public Configuration<PathContext> buildPath() {
         Configuration<PathContext> cf
-            = new Configuration<>(roots, pathContexts, pathContextForModule);
+            = new Configuration<>(roots, pathContexts, pathContextForModuleView);
         for (PathContext pcx : pathContexts)
             ((ContextBuilder.MockPathContext)pcx).linkRemoteContexts(cf);
         return cf;

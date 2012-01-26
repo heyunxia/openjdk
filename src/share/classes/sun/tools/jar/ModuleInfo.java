@@ -27,12 +27,13 @@ package sun.tools.jar;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
 import java.lang.module.*;
 import java.lang.module.Dependence.Modifier;
 import java.util.*;
 import com.sun.tools.classfile.*;
+import org.openjdk.jigsaw.ClassInfo;
 import static com.sun.tools.classfile.ConstantPool.*;
 
 /**
@@ -41,20 +42,21 @@ import static com.sun.tools.classfile.ConstantPool.*;
 class ModuleInfo {
     private static ModuleSystem ms = ModuleSystem.base();
     private final ModuleId moduleId;
-    private final String mainClass;
-    private final Set<Dependence> requires;
+    private final Set<ViewDependence> requiresModules;
+    private final Set<String> exports;
     private final ModuleInfoWriter writer;
+    private String mainClass;
     private byte[] bytes;
 
-    ModuleInfo(String mid, String mainclass) {
+    ModuleInfo(String mid) {
         this.moduleId = ms.parseModuleId(mid);
-        this.mainClass = mainclass;
-        this.requires = new HashSet<>();
+        this.requiresModules = new HashSet<>();
+        this.exports = new TreeSet<>();
         this.writer = new ModuleInfoWriter();
-        addRequire(org.openjdk.jigsaw.Platform.defaultPlatformModule(),
-                   EnumSet.of(Modifier.SYNTHETIC));
+        addRequires(org.openjdk.jigsaw.Platform.defaultPlatformModule(),
+                    EnumSet.of(Modifier.SYNTHETIC));
     }
-
+    
     ModuleId id() {
         return moduleId;
     }
@@ -63,17 +65,17 @@ class ModuleInfo {
         return mainClass;
     }
 
-    void addRequire(ModuleId mid) {
-        addRequire(mid, Collections.EMPTY_SET);
+    void setMainClass(String mainclass) {
+        this.mainClass = mainclass;
     }
 
-    void addRequire(ModuleId mid, Set<Modifier> mods) {
+    void addRequires(ModuleId mid) {
+        addRequires(mid, Collections.EMPTY_SET);
+    }
+
+    void addRequires(ModuleId mid, Set<Modifier> mods) {
         ModuleIdQuery midq = ms.parseModuleIdQuery(mid.name() + "@" + mid.version());
-        requires.add(new Dependence(mods, midq));
-    }
-
-    void addRequire(Dependence d) {
-        requires.add(d);
+        requiresModules.add(new ViewDependence(mods, midq));
     }
 
     void write(OutputStream os) throws IOException {
@@ -86,12 +88,35 @@ class ModuleInfo {
         os.write(bytes);
     }
 
+    private void addExports(ClassInfo ci) {
+        // exports the package of this class if it's public
+        if (ci.isPublic() && !ci.isModuleInfo()) {
+            int i = ci.name().lastIndexOf('.');
+            if (i > 0) {
+                String pn = ci.name().substring(0, i);
+                exports.add(pn);
+            }
+        }
+    }
+    
+    void addExports(File f) throws IOException {
+        ClassInfo ci = ClassInfo.read(f);
+        addExports(ci);
+    }
+    
+    void addExports(InputStream in, long size, String path) throws IOException {
+        ClassInfo ci = ClassInfo.read(in, size, path);
+        addExports(ci);
+    }
+
     class ModuleInfoWriter {
         final List<CPInfo> cpinfos = new ArrayList<>();
         final List<Attribute> attrs = new ArrayList<>();
         int cpidx = 1;
         int this_class_idx;
-
+        int moduleNameIndex;
+        int moduleIndex;
+        
         ModuleInfoWriter() {
             cpinfos.add(0, new CONSTANT_Utf8_info("dummy"));
         }
@@ -101,6 +126,8 @@ class ModuleInfo {
             this_class_idx = cpidx;
             cpinfos.add(cpidx, new CONSTANT_Class_info(null, cpidx+3));
             cpinfos.add(cpidx+1, new CONSTANT_Utf8_info(mname));
+            moduleNameIndex = cpidx+1;
+
             cpinfos.add(cpidx+2, new CONSTANT_Utf8_info(moduleId.version().toString()));
             cpinfos.add(cpidx+3, new CONSTANT_Utf8_info(mname + "/module-info"));
             cpinfos.add(cpidx+4, new CONSTANT_ModuleId_info(null, cpidx+1, cpidx+2));
@@ -110,77 +137,101 @@ class ModuleInfo {
             cpidx += 6;
         }
 
-        void addModuleRequireAttribute() {
-            // add constant pool entries for the modifiers
-            List<Modifier> modifiers = new ArrayList<>();
-            int modifierIdx = cpidx;
-            for (Dependence d: requires) {
-                for (Modifier m : d.modifiers()) {
-                    int i = modifiers.indexOf(m);
-                    if (i >= 0)
-                        continue;
-
-                    modifiers.add(m);
-                    String s = m.name().toLowerCase(Locale.ENGLISH);
-                    cpinfos.add(cpidx++, new CONSTANT_Utf8_info(s));
-                }
-            }
-
-            ModuleRequires_attribute.Entry[] reqs =
-                new ModuleRequires_attribute.Entry[requires.size()];
-            int i = 0, j = 0;
-            for (Dependence d: requires) {
+        void addModuleRequiresAttribute() {
+            ModuleRequires_attribute.Entry[] moduleEntries =
+                new ModuleRequires_attribute.Entry[requiresModules.size()];
+            ModuleRequires_attribute.Entry[] serviceEntries =
+                new ModuleRequires_attribute.Entry[0];
+            int i=0;
+            for (ViewDependence d: requiresModules) {
                 // ## specify a version range in CONSTANT_ModuleId_info? 
                 String version = d.query().versionQuery().toString();
                 cpinfos.add(cpidx, new CONSTANT_Utf8_info(d.query().name()));
                 cpinfos.add(cpidx+1, new CONSTANT_Utf8_info(version));
                 cpinfos.add(cpidx+2, new CONSTANT_ModuleId_info(null, cpidx, cpidx+1));
-                int[] attrs = new int[d.modifiers().size()];
-                j = 0;
+                int flags = 0;
                 for (Modifier m : d.modifiers()) {
-                    attrs[j++] = modifierIdx + modifiers.indexOf(m);
+                    switch (m) {
+                        case OPTIONAL:
+                            flags |= ModuleRequires_attribute.MR_OPTIONAL;
+                            break;
+                        case LOCAL:
+                            flags |= ModuleRequires_attribute.MR_LOCAL;
+                            break;
+                        case PUBLIC:
+                            flags |= ModuleRequires_attribute.MR_PUBLIC;
+                            break;
+                        case SYNTHETIC:
+                            flags |= ModuleRequires_attribute.MR_SYNTHETIC;
+                            break;
+                    }
                 }
-                reqs[i++] = new ModuleRequires_attribute.Entry(cpidx+2, attrs);
+                moduleEntries[i++] = new ModuleRequires_attribute.Entry(cpidx+2, flags);
                 cpidx += 3;
             }
             cpinfos.add(cpidx, new CONSTANT_Utf8_info(Attribute.ModuleRequires));
-            Attribute attr = new ModuleRequires_attribute(cpidx, reqs);
+            Attribute attr = new ModuleRequires_attribute(cpidx, moduleEntries, serviceEntries);
+            attrs.add(attr);
+            cpidx++;
+        }
+        
+        void addModuleProvidesAttribute() {
+            // ## multiple views support
+            ModuleProvides_attribute.View[] views =
+                new ModuleProvides_attribute.View[1];
+            
+            int entryPointIndex = mainClass() == null ? 0 : addClassInfo(mainClass());
+            ModuleProvides_attribute.Export[] providesAttrExports =
+                new ModuleProvides_attribute.Export[exports.size()];
+            
+            int i = 0;
+            for (String pn : exports) {
+                int index = cpidx++;
+                cpinfos.add(index, new CONSTANT_Utf8_info(pn));
+                providesAttrExports[i++] = 
+                    new ModuleProvides_attribute.Export(index,
+                            ModuleProvides_attribute.Export.PACKAGE, 
+                            moduleIndex);
+            }
+            
+            views[0] = new ModuleProvides_attribute.View(0,
+                            entryPointIndex, 
+                            new int[0],
+                            new ModuleProvides_attribute.Service[0],
+                            providesAttrExports,
+                            new int[0]);
+           
+            cpinfos.add(cpidx, new CONSTANT_Utf8_info(Attribute.ModuleProvides));
+            Attribute attr = new ModuleProvides_attribute(cpidx, views);
             attrs.add(attr);
             cpidx++;
         }
  
-        void addModuleClassAttribute() {
-            String cname = mainClass.replace('.', '/');
-            cpinfos.add(cpidx, new CONSTANT_Utf8_info(Attribute.ModuleClass));
-            cpinfos.add(cpidx+1, new CONSTANT_Utf8_info(cname));
-            cpinfos.add(cpidx+2, new CONSTANT_Class_info(null, cpidx+1));
-            Attribute attr = new ModuleClass_attribute(cpidx, cpidx+2, new int[0]);
-            attrs.add(attr);
-            cpidx += 3;
+        int addClassInfo(String cn) {
+            String cname = cn.replace('.', '/');
+            cpinfos.add(cpidx, new CONSTANT_Utf8_info(cname));
+            cpinfos.add(cpidx+1, new CONSTANT_Class_info(null, cpidx));
+            int index = cpidx+1;
+            cpidx += 2;
+            return index;
         }
-
-        void addModuleExportAttribute() {
-            cpinfos.add(cpidx, new CONSTANT_Utf8_info(Attribute.ModuleExport));
-            cpinfos.add(cpidx+1, new CONSTANT_Utf8_info("**"));
-            cpinfos.add(cpidx+2, new CONSTANT_Class_info(null, cpidx+1));
-            ModuleExport_attribute.Entry[] entry = 
-                new ModuleExport_attribute.Entry[] {
-                    new ModuleExport_attribute.Entry(cpidx+2, 0)
-                };
-            Attribute attr = new ModuleExport_attribute(cpidx, entry);
-            attrs.add(attr);
+        
+        int addModuleId(ModuleIdQuery query) {
+            String version = query.versionQuery().toString();
+            cpinfos.add(cpidx, new CONSTANT_Utf8_info(query.name()));
+            cpinfos.add(cpidx + 1, new CONSTANT_Utf8_info(version));
+            cpinfos.add(cpidx + 2, new CONSTANT_ModuleId_info(null, cpidx, cpidx + 1));
+            int index = cpidx + 2;
             cpidx += 3;
+            return index;
         }
 
         byte[] getModuleInfoBytes() throws IOException {
             ByteArrayOutputStream os = new ByteArrayOutputStream();
             ClassWriter cw = new ClassWriter();
             addModuleAttribute();
-            addModuleRequireAttribute();
-            addModuleExportAttribute();
-
-            if (mainClass != null)
-                addModuleClassAttribute();
+            addModuleRequiresAttribute();
+            addModuleProvidesAttribute();
 
             ConstantPool cpool = new ConstantPool(cpinfos.toArray(new CPInfo[0]));
             Attributes attributes = new Attributes(cpool, attrs.toArray(new Attribute[0]));

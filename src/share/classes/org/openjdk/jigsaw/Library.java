@@ -80,26 +80,27 @@ public abstract class Library
     public abstract Library parent();
 
     /**
-     * <p> List all of the root modules installed in this library.  A root
-     * module is any module that declares a main class. </p>
+     * <p> List all of the root module views installed in this library.  A root
+     * module view is any module view that declares a main class. </p>
      *
-     * <p> This method does not include root modules installed in this
+     * <p> This method does not include root module views installed in this
      * library's parent, if any. </p>
      *
-     * @return  An unsorted list of module-info objects
+     * @return  An unsorted list of {@link ModuleView} objects
      */
-    public List<ModuleInfo> listLocalRootModuleInfos()
+    public List<ModuleView> listLocalRootModuleViews()
         throws IOException
     {
-        final List<ModuleInfo> mis = new ArrayList<ModuleInfo>();
+        final List<ModuleView> mvs = new ArrayList<>();
         for (ModuleId mid : listLocalModuleIds()) {
-            ModuleInfo mi = readModuleInfo(mid);
-            if (mi.mainClass() != null)
-                mis.add(mi);
+            ModuleView mv = readModuleView(mid);
+            if (mv.mainClass() != null) {
+                mvs.add(mv);
+            }   
         }
-        return mis;
+        return mvs;
     }
-
+    
     /**
      * <p> Read the module-info class bytes for the module with the given
      * identifier, from this library only. </p>
@@ -284,7 +285,7 @@ public abstract class Library
      *
      * @param   res
      *          A {@link Resolution} previously computed by the
-     *          {@link Library#install() install()} method
+     *          {@link Library#install install()} method
      *
      * @param   verifySignature
      *          Perform signature verification, if true

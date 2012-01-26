@@ -30,9 +30,6 @@ import java.lang.module.*;
 import java.security.CodeSigner;
 import org.openjdk.jigsaw.*;
 
-import static java.lang.module.Dependence.Modifier;
-
-
 class MockLibrary
     extends Library
 {
@@ -48,13 +45,16 @@ class MockLibrary
         = new HashMap<ModuleId,ModuleInfo>();
 
     MockLibrary add(ModuleInfo mi) {
-        infoForId.put(mi.id(), mi);
-        List<ModuleId> ls = idsForName.get(mi.id().name());
-        if (ls == null) {
-            ls = new ArrayList<ModuleId>();
-            idsForName.put(mi.id().name(), ls);
+        for (ModuleView mv : mi.views()) {
+            String name = mv.id().name();
+            infoForId.put(mv.id(), mi);
+            List<ModuleId> ls = idsForName.get(name);
+            if (ls == null) {
+                ls = new ArrayList<ModuleId>();
+                idsForName.put(name, ls);
+            }
+            ls.add(mv.id());
         }
-        ls.add(mi.id());
         return this;
     }
 
@@ -62,6 +62,10 @@ class MockLibrary
         return add(mib.build());
     }
 
+    MockLibrary add(ModuleInfoBuilder.ModuleViewBuilder mvb) {
+        return add(mvb.mib);
+    }
+    
     private Map<ModuleId,List<String>> publicClassesForId
         = new HashMap<ModuleId,List<String>>();
 

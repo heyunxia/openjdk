@@ -209,7 +209,17 @@ final class ProviderConfig {
                     debug.println("Loading provider: " + ProviderConfig.this);
                 }
                 try {
-                    ClassLoader cl = ClassLoader.getSystemClassLoader();
+                    // ## Revisit this to use the services for modules
+                    // ## In legacy mode, the service provider will be searched
+                    // ## from the bootclasspath first.  In module mode, 
+                    // ## a module loader can only see the classes locally
+                    // ## or the exported types from its dependencies.
+                    // ## 
+                    // ## Workaround now to load providers by the boot loader
+                    // ## in module mode.  Won't find other "ext" providers such
+                    // ## as sunpkcs11, smartcardio, xmldsig. 
+                    // ## 
+                    ClassLoader cl = org.openjdk.jigsaw.BootLoader.getSystemLoader();
                     Class<?> provClass;
                     if (cl != null) {
                         provClass = cl.loadClass(className);

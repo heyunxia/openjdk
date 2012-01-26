@@ -28,20 +28,14 @@ package java.lang.module;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.lang.module.Dependence;
-import java.lang.module.ModuleId;
-import java.lang.module.ModuleIdQuery;
-import java.lang.module.ModuleInfo;
-import java.lang.module.VersionQuery;
-import java.security.AccessController;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.Map;
 
+import java.lang.module.Dependence.Modifier;
 
 /**
  * Read a module-info class file.
@@ -63,14 +57,10 @@ import java.util.Map;
     private DataInputStream in;
     private ConstantPool cpool;
     private ModuleId moduleId;
-    private Set<ModuleId> provides = new LinkedHashSet<ModuleId>();
-    private Set<Dependence> requires = new LinkedHashSet<Dependence>();
-    private Set<String> permits = new LinkedHashSet<String>();
-    private String mainClass;
-    private Map<String, ModuleInfoAnnotation> annotationTypes = new LinkedHashMap<String, ModuleInfoAnnotation>();
-
-    // ## Not surfaced in ModuleInfo interface; should probably be removed
-    private Set<String> mainClassModifiers = new LinkedHashSet<String>();
+    private Set<ViewDependence> requiresModules = new LinkedHashSet<>();
+    private Set<ServiceDependence> requiresServices = new LinkedHashSet<>();
+    private Set<ModuleView> views = new LinkedHashSet<>();
+    private ModuleView defaultView;
 
     private ModuleInfoReader(ModuleSystem ms, byte[] data) {
 
@@ -106,10 +96,25 @@ import java.util.Map;
                 throw new IllegalArgumentException("bad #methods");
 
             readAttributes();
-
-            moduleInfo = new ModuleInfoImpl(moduleId, provides,
-                    requires, permits, mainClass,
-                    annotationTypes);
+            
+            if (defaultView == null) {
+                defaultView =
+                    new ModuleViewImpl(moduleId,
+                                       null,
+                                       Collections.<ModuleId>emptySet(),
+                                       Collections.<String>emptySet(),
+                                       Collections.<String>emptySet(),
+                                       Collections.<String, Set<String>>emptyMap());
+                views.add(defaultView);
+            }
+            moduleInfo = new ModuleInfoImpl(moduleId,
+                                            defaultView,
+                                            views,
+                                            requiresModules,
+                                            requiresServices);
+            for (ModuleView mv : views) {
+                ((ModuleViewImpl)mv).mi = moduleInfo;
+            }
 
         } catch (IOException e) {
             throw new Error(e);
@@ -121,31 +126,26 @@ import java.util.Map;
     private static final String MODULE = "Module";
     private static final String MODULE_PROVIDES = "ModuleProvides";
     private static final String MODULE_REQUIRES = "ModuleRequires";
-    private static final String MODULE_PERMITS = "ModulePermits";
-    private static final String MODULE_CLASS = "ModuleClass";
-    private static final String RUNTIME_VISABLE_ANNOTATION = "RuntimeVisibleAnnotations";
-    private static final String RUNTIME_INVISABLE_ANNOTATION = "RuntimeInvisibleAnnotations";
-
+    private static final String MODULE_DATA = "ModuleData";
+    
     private void readAttributes() throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
             int nameIndex = in.readUnsignedShort();
             String name = cpool.getUtf8(nameIndex);
             int length = in.readInt();
-            if (name.equals(MODULE))
-                readModule();
-            else if (name.equals(MODULE_PROVIDES))
-                readModuleProvides();
-            else if (name.equals(MODULE_REQUIRES))
-                readModuleRequires();
-            else if (name.equals(MODULE_PERMITS))
-                readModulePermits();
-            else if (name.equals(MODULE_CLASS))
-                readModuleClass();
-            else if (name.equals(RUNTIME_VISABLE_ANNOTATION)) {
-                readAnnotations();
-            } else {
-                in.skip(length);
+            switch (name) {
+                case MODULE:
+                    readModule();
+                    break;
+                case MODULE_PROVIDES:
+                    readModuleProvides();
+                    break;
+                case MODULE_REQUIRES:
+                    readModuleRequires();
+                    break;
+                default:
+                    in.skip(length);
             }
         }
     }
@@ -155,133 +155,244 @@ import java.util.Map;
         moduleId = cpool.getModuleId(index);
     }
 
-    private void readModuleProvides() throws IOException {
-        int count = in.readUnsignedShort();
-        for (int i = 0; i < count; i++) {
-            provides.add(cpool.getModuleId(in.readUnsignedShort()));
-        }
-    }
-
     private void readModuleRequires() throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
             int index = in.readUnsignedShort();
-            int length = in.readUnsignedShort();
-            EnumSet<Dependence.Modifier> mods = EnumSet.noneOf(Dependence.Modifier.class);
-            for (int q = 0; q < length; q++) {
-                mods.add(Enum.valueOf(Dependence.Modifier.class,
-                                      cpool.getUtf8(in.readUnsignedShort()).toUpperCase()));
+            int flags = in.readUnsignedShort();
+            EnumSet<Modifier> mods = EnumSet.noneOf(Modifier.class);
+
+            if ((flags & 0x0001) != 0) {
+                mods.add(Modifier.OPTIONAL);
             }
-            requires.add(new Dependence(mods, cpool.getModuleIdQuery(index)));
+            if ((flags & 0x0002) != 0) {
+                mods.add(Modifier.LOCAL);
+            }
+            if ((flags & 0x0004) != 0) {
+                mods.add(Modifier.PUBLIC);
+            }
+            requiresModules.add(new ViewDependence(mods, cpool.getModuleIdQuery(index)));
+        }
+                       
+        count = in.readUnsignedShort();
+        for (int i = 0; i < count; i++) {
+            String cn = readClassName();
+            int flags = in.readUnsignedShort();
+            boolean optional = (flags & 0x0001) != 0;
+
+            requiresServices.add(new ServiceDependence(cn, optional));
         }
     }
 
-    private void readModulePermits() throws IOException {
+    private void readModuleProvides() throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
-            permits.add(cpool.getUtf8(in.readUnsignedShort()));
+            Set<String> exports = new LinkedHashSet<>();
+            Set<ModuleId> aliases = new LinkedHashSet<>();
+            Map<String,Set<String>> services = new LinkedHashMap<>();
+            Set<String> permits = new LinkedHashSet<>();
+
+            int index = in.readUnsignedShort();
+            String viewname = index == 0 ? moduleId.name() : cpool.getUtf8(index);
+            ModuleId id = new ModuleId(viewname, moduleId.version());
+            String mainClass = readClassName();
+
+            readModuleAliases(aliases);
+            readModuleServices(services);
+            readModuleExports(exports);
+            readModulePermits(permits);
+            
+            // ## workaround javac bug
+            // ## inherit exports from the default view to the non-default views
+            ModuleView view = new ModuleViewImpl(id,
+                                                 mainClass,
+                                                 aliases,
+                                                 exports,
+                                                 permits,
+                                                 services);
+            if (index == 0) {
+                defaultView = view;
+                // ## see workaround above
+                assert views.isEmpty();
+            } else if (defaultView != null) {
+                // ## REMOVE this workaround when javac fixes its exports
+                exports.addAll(defaultView.exports());
+            }
+            views.add(view);
         }
     }
-
-    private void readModuleClass() throws IOException {
+    
+    private String readClassName() throws IOException {
         int index = in.readUnsignedShort();
-        mainClass = cpool.getClassName(index).replace('/', '.');
+        if (index == 0)
+            return null;
+        
+        return cpool.getClassName(index).replace('/', '.');
+    }
+    
+    private void readModuleExports(Set<String> exports) throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
-            mainClassModifiers.add(cpool.getUtf8(in.readUnsignedShort()));
+            int index = in.readUnsignedShort();
+            int flags = in.readUnsignedShort();
+            int source = in.readUnsignedShort();
+            exports.add(cpool.getUtf8(index));
         }
     }
-
-    private void readAnnotations() throws IOException {
+        
+    private void readModuleServices(Map<String,Set<String>> services) throws IOException {
         int count = in.readUnsignedShort();
-        for (int i=0; i < count; i++) {
-            ModuleInfoAnnotation at = new ModuleInfoAnnotation(in, cpool);
-            annotationTypes.put(at.getName(), at);
+        for (int i = 0; i < count; i++) {
+            String sn = readClassName();
+            String impl = readClassName();
+            if (sn == null || impl == null)
+                throw new NullPointerException("Service name: " + sn +
+                        " Implementation class: " + impl);
+            Set<String> providers = services.get(sn);
+            if (providers == null) {
+                providers = new LinkedHashSet<>();
+                services.put(sn, providers); 
+            }
+            providers.add(impl);
+        }
+    }
+    
+    private void readModulePermits(Set<String> permits) throws IOException {
+        int count = in.readUnsignedShort();
+        for (int i = 0; i < count; i++) {
+            ModuleId mid = cpool.getModuleId(in.readUnsignedShort());
+            permits.add(mid.name());
+        }
+    }
+    
+    private void readModuleAliases(Set<ModuleId> aliases) throws IOException {
+        int count = in.readUnsignedShort();
+        for (int i = 0; i < count; i++) {
+            aliases.add(cpool.getModuleId(in.readUnsignedShort()));
         }
     }
 
-    public static class ModuleInfoImpl
+    static class ModuleInfoImpl
         implements ModuleInfo
     {
 
-        private ModuleId id;
-        private Set<Dependence> requires;
-        private Set<ModuleId> provides;
-        private Set<String> permits;
-        private String mainClass;
-        private Map<String, ModuleInfoAnnotation> annotationTypes;
+        private final ModuleId id;
+        private final ModuleView defaultView;
+        private final Set<ModuleView> views;
+        private final Set<ViewDependence> requiresModules;
+        private final Set<ServiceDependence> requiresServices;
 
         ModuleInfoImpl(ModuleId id,
-                Set<ModuleId> provides,
-                Set<Dependence> requires,
-                Set<String> permits,
-                String mainClass,
-                Map<String, ModuleInfoAnnotation> annotationTypes)
+                       ModuleView defaultView,
+                       Set<ModuleView> views,
+                       Set<ViewDependence> viewDeps,
+                       Set<ServiceDependence> serviceDeps)
         {
             this.id = id;
-            this.provides = provides;
-            this.requires = requires;
-            this.permits = permits;
+            this.defaultView = defaultView;
+            this.views = Collections.unmodifiableSet(views);
+            this.requiresModules = Collections.unmodifiableSet(viewDeps);
+            this.requiresServices = Collections.unmodifiableSet(serviceDeps);
+        }
+
+        public ModuleId id() {
+            return id;
+        }
+        
+        public Set<ViewDependence> requiresModules() {
+            return requiresModules;
+        }
+
+        public Set<ServiceDependence> requiresServices() {
+            return requiresServices;
+        }
+        
+        public ModuleView defaultView() {
+            return defaultView;
+        }
+
+        public Set<ModuleView> views() {
+            return views;
+        }
+                
+        @Override
+        public String toString() {
+            Set<String> names = new LinkedHashSet<>();
+            for (ModuleView mv : views) {
+                names.add(mv.id().name());
+            }    
+            return "ModuleInfo { id: " + id
+                    + ", requires: " + requiresModules
+                    + ", requires service:" + requiresServices
+                    + ", views: " + names
+                    + " }";
+        }
+    }
+
+    static class ModuleViewImpl
+        implements ModuleView
+    {
+        private final ModuleId id;
+        private final Set<String> exports;
+        private final Set<ModuleId> aliases;
+        private final Map<String,Set<String>> services;
+        private final Set<String> permits;
+        private final String mainClass;
+        ModuleInfo mi;
+
+        ModuleViewImpl(ModuleId id,
+                       String mainClass,
+                       Set<ModuleId> aliases,
+                       Set<String> exports,
+                       Set<String> permits,
+                       Map<String,Set<String>> serviceProviders) {
+            this.id = id;
             this.mainClass = mainClass;
-            this.annotationTypes = annotationTypes;
+            this.aliases = Collections.unmodifiableSet(aliases);
+            this.exports = Collections.unmodifiableSet(exports);
+            this.permits = Collections.unmodifiableSet(permits);
+            this.services = Collections.unmodifiableMap(serviceProviders);
+        }
+
+        public ModuleInfo moduleInfo() {
+            return mi;
         }
 
         public ModuleId id() {
             return id;
         }
 
-        public Set<Dependence> requires() {
-            // ## Temporarily allow this to be modifiable so that
-            // ## platform-default dependences can be added at
-            // ## configuration time.  Undo this once we start
-            // ## adding those defaults at compile time.
-            //return Collections.unmodifiableSet(requires);
-            return requires;
+        public Set<ModuleId> aliases() {
+            return aliases;
         }
 
-        public Set<ModuleId> provides() {
-            return Collections.unmodifiableSet(provides);
+        public Set<String> exports() {
+            return exports;
         }
-
+        
         public Set<String> permits() {
-            return Collections.unmodifiableSet(permits);
+            return permits;
+        }
+
+        public Map<String,Set<String>> services() {
+            return services;
         }
 
         public String mainClass() {
             return mainClass;
         }
 
-        public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-            if (annotationClass == null)
-                throw new NullPointerException("Argument annotationClass is null");
-            return annotationTypes.containsKey(annotationClass.getName());
-        }
-
-        public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
-            if (annotationClass == null)
-                throw new NullPointerException("Argument annotationClass is null");
-            ModuleInfoAnnotation at = annotationTypes.get(annotationClass.getName());
-            if (at == null) {
-                return null;
-            }
-            return at.generateAnnotation(annotationClass);
-        }
-
         @Override
         public String toString() {
-            return "ModuleInfo { id: " + id
-                    + ", " + requires
-                    + ", provides: " + provides
+            return "View { id: " + id
+                    + ", provides: " + aliases
+                    + ", provides service: " + services
                     + ", permits: " + permits
                     + ", mainClass: " + mainClass
                     + " }";
         }
-
-        Iterable<ModuleInfoAnnotation> getAnnotationTypes() {
-            return annotationTypes.values();
-        }
     }
-
+    
     static class ConstantPool {
 
         private static class Entry {
@@ -330,7 +441,10 @@ import java.util.Map;
         private static final int CONSTANT_Methodref = 10;
         private static final int CONSTANT_InterfaceMethodref = 11;
         private static final int CONSTANT_NameAndType = 12;
-        private static final int CONSTANT_ModuleId = 13;
+        private final static int CONSTANT_MethodHandle = 15;
+        private final static int CONSTANT_MethodType = 16;
+        private final static int CONSTANT_InvokeDynamic = 18;
+        private final static int CONSTANT_ModuleId = 19;
 
         private final ModuleSystem ms;
 
@@ -435,23 +549,5 @@ import java.util.Map;
                    e.tag == CONSTANT_Long;
             return ((ValueEntry) e).value;
         }
-    }
-
-    private static void setJavaLangModuleAccess() {
-        // Allow privileged classes outside of java.lang
-        sun.misc.SharedSecrets.setJavaLangModuleAccess(new sun.misc.JavaLangModuleAccess() {
-            public Iterable<Annotation> getAnnotations(ModuleInfo mi, java.lang.reflect.Module m) {
-                Set<Annotation> result = new LinkedHashSet<Annotation>();
-                ModuleInfoImpl miImpl = (ModuleInfoImpl) mi;
-                for (ModuleInfoAnnotation mia : miImpl.getAnnotationTypes()) {
-                    result.add(mia.getAnnotation(m));
-                }
-                return result;
-            }
-        });
-    }
-
-    static {
-        setJavaLangModuleAccess();
     }
 }

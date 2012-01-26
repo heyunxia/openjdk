@@ -28,7 +28,6 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.util.*;
-import java.util.regex.*;
 
 import static java.lang.module.Dependence.Modifier;
 import static org.openjdk.jigsaw.Trace.*;
@@ -62,10 +61,11 @@ final class PathLinker {
         throws ConfigurationException, IOException
     {
         for (PathContext cx : cxs.contexts) {
-            if (cx.modules.size() == 1) {
-                cx.localPath.addAll(cx.modules);
+            if (cx.modules().size() == 1) {
+                cx.localPath.addAll(cx.modules());
                 continue;
             }
+            
             // Order suppliers according to dominance ## Not yet implemented
             cx.localPath.addAll(cx.modules());
             Collections.sort(cx.localPath);
@@ -145,9 +145,9 @@ final class PathLinker {
             trace(1, "preparing export and supplier sets");
         for (PathContext cx : cxs.contexts) {
             for (ModuleInfo mi : cx.moduleInfos) {
-                for (Dependence d : mi.requires()) {
+                for (ViewDependence d : mi.requiresModules()) {
                     trace(1, 3, "dep %s", d);
-                    PathContext scx = cxs.contextForModule.get(d.query().name());
+                    PathContext scx = cxs.contextForModuleView.get(d.query().name());
                     if (scx == null) {
                         // Unsatisfied optional dependence
                         assert d.modifiers().contains(Modifier.OPTIONAL);
@@ -204,10 +204,10 @@ final class PathLinker {
 
         List<ModuleId> rids = new ArrayList<>();
         for (ModuleIdQuery rq : cxs.rootQueries)
-            rids.add(cxs.moduleForName.get(rq.name()).id());
+            rids.add(cxs.moduleViewForName.get(rq.name()).id());
         return new Configuration<>(rids,
                                    cxs.contexts,
-                                   cxs.contextForModule);
+                                   cxs.contextForModuleView);
 
     }
 

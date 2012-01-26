@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,19 +29,15 @@ import java.util.EnumSet;
 import java.util.Set;
 
 
-public final class Dependence {
+public class Dependence {
 
     public static enum Modifier { LOCAL, OPTIONAL, PUBLIC, SYNTHETIC; }
 
     private final Set<Modifier> mods;
-    private final ModuleIdQuery midq;
 
-    public Dependence(Set<Modifier> mods, ModuleIdQuery midq) {
+    public Dependence(Set<Modifier> mods) {
         this.mods = (mods != null) ? mods : EnumSet.noneOf(Modifier.class);
-        this.midq = midq;
     }
-
-    public ModuleIdQuery query() { return midq; }
 
     public Set<Modifier> modifiers() { return mods; }
 
@@ -49,22 +45,10 @@ public final class Dependence {
         if (!(ob instanceof Dependence))
             return false;
         Dependence that = (Dependence)ob;
-        return (midq.equals(that.midq) && mods.equals(that.mods));
+        return mods.equals(that.mods);
     }
 
     public int hashCode() {
-        return midq.hashCode() * 43 + mods.hashCode();
+        return mods.hashCode();
     }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("requires");
-        for (Modifier m : mods) {
-            sb.append(" ").append(m.toString().toLowerCase());
-        }
-        sb.append(" ").append(midq);
-        return sb.toString();
-    }
-
 }

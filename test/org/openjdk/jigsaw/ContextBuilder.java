@@ -35,9 +35,11 @@ public class ContextBuilder {
     private static class MockContext extends Context {
         private Map<String,ModuleId> moduleForName
             = new HashMap<String,ModuleId>();
-        public void add(ModuleId mid) {
-            super.add(mid);
+        void add(ModuleId mid) {
             moduleForName.put(mid.name(), mid);
+        }
+        public void add(ModuleId mid, Set<ModuleId> views) {
+            super.add(mid, views);
         }
         public void putModuleForLocalClass(String cn, String mn) {
             super.putModuleForLocalClass(cn, moduleForName.get(mn));
@@ -45,6 +47,7 @@ public class ContextBuilder {
         public void putContextForRemotePackage(String pn, String cxn) {
             super.putContextForRemotePackage(pn, cxn);
         }
+
     }
 
     private MockContext cx = new MockContext();
@@ -52,9 +55,11 @@ public class ContextBuilder {
     static class MockPathContext extends PathContext {
         private Map<String,ModuleId> moduleForName
             = new HashMap<String,ModuleId>();
-        public void add(ModuleId mid) {
-            super.add(mid);
+        void add(ModuleId mid) {
             moduleForName.put(mid.name(), mid);
+        }
+        public void add(ModuleId mid, Set<ModuleId> views) {
+            super.add(mid, views);
         }
         private void extend(List<ModuleId> pl, ModuleId mid) {
             if (pl.size() == 0 || !pl.get(pl.size() - 1).equals(mid))
@@ -73,11 +78,18 @@ public class ContextBuilder {
 
     private MockPathContext pcx = new MockPathContext();
 
+    private Map<ModuleId,Set<ModuleId>> modules = new HashMap<>();
     private ContextBuilder(String[] mids) {
         for (String s : mids) {
             ModuleId mid = jms.parseModuleId(s);
-            if (cx.modules().contains(mid))
+            if (modules.containsKey(mid)) {
                 throw new IllegalArgumentException(mid + ": Duplicate");
+            }
+            
+            Set<ModuleId> views = new HashSet<>();
+            views.add(mid);
+            modules.put(mid, views);
+
             cx.add(mid);
             pcx.add(mid);
             pcx.extendLocalPath(mid);
@@ -88,6 +100,19 @@ public class ContextBuilder {
         return new ContextBuilder(mids);
     }
 
+    public ContextBuilder views(String m, String... vns) {
+        ModuleId mid = jms.parseModuleId(m);
+        if (!modules.containsKey(mid)) {
+            throw new IllegalArgumentException(mid + ": not in this context");
+        }
+            
+        Set<ModuleId> views = modules.get(mid);
+        for (String name : vns) {
+            views.add(new ModuleId(name, mid.version()));
+        }
+        return this;
+    }
+    
     public ContextBuilder localClass(String cn, String mn) {
         cx.putModuleForLocalClass(cn, mn);
         return this;
@@ -106,13 +131,19 @@ public class ContextBuilder {
         }
         return this;
     }
-
+    
     public Context build() {
+        for (Map.Entry<ModuleId,Set<ModuleId>> e : modules.entrySet()) {
+            cx.add(e.getKey(), e.getValue());
+        }
         cx.freeze();
         return cx;
     }
 
     public PathContext buildPath() {
+        for (Map.Entry<ModuleId,Set<ModuleId>> e : modules.entrySet()) {
+            pcx.add(e.getKey(), e.getValue());
+        }
         pcx.freeze();
         return pcx;
     }

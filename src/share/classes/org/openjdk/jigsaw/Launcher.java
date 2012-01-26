@@ -27,7 +27,6 @@ package org.openjdk.jigsaw;
 
 import java.io.*;
 import java.lang.module.*;
-import java.lang.reflect.*;
 
 import static org.openjdk.jigsaw.Trace.*;
 
@@ -49,10 +48,10 @@ public final class Launcher {
         if (mid == null)
             throw new Error(midq + ": No installed module"
                             + " satisfies this query");
-        ModuleInfo mi = lb.readModuleInfo(mid);
-        if (mi == null)
+        ModuleView mv = lb.readModuleView(mid);
+        if (mv == null)
             throw new InternalError(midq + ": Can't read module-info");
-        String cn = mi.mainClass();
+        String cn = mv.mainClass();
         if (cn == null)
             throw new Error(mid + ": Module does not specify"
                             + " a main class");
@@ -64,9 +63,13 @@ public final class Launcher {
             throw new InternalError(mid + ": Cannot find context");
         LoaderPool lp = new LoaderPool(lb, cf, cn);
 
+        // initialize the BootLoader
+        // ## probably the VM should do this?
+        lp.initBootLoader();
+        
         return lp.findLoader(cx);
     }
-
+    
     public static ClassLoader launch(String midqs) {
         // ## What about the extension class loader?
         // ## Delete these and other sjlm properties when done with them

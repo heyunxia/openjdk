@@ -43,6 +43,7 @@ rm -rf z.*
 mk z.src/org.gee/module-info.java <<EOF
 module org.gee @ 1 {
     requires net.baz.aar;
+    exports org.gee.spi.*;
 }
 EOF
 
@@ -65,6 +66,7 @@ EOF
 mk z.src/net.baz.aar/module-info.java <<EOF
 module net.baz.aar @ 2 {
     requires org.gee;
+    exports net.baz.aar.*;
     class net.baz.aar.Ness;
 }
 EOF

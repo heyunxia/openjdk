@@ -42,19 +42,25 @@ import com.sun.classanalyzer.Module.*;
 public class ClassListWriter {
     private final Module module;
     private final File dir;
+    private final Set<Klass> classes;
+    private final Set<ResourceFile> resources;
+
     ClassListWriter(File dir, Module m) {
         this.module = m;
         this.dir = dir;
+        // ordered list for printing
+        this.classes = new TreeSet<>(m.classes());
+        this.resources = new TreeSet<>(m.resources());
     }
 
     void printClassList() throws IOException {
-        if (module.classes().isEmpty()) {
+        if (classes.isEmpty()) {
             return;
         }
 
         PrintWriter writer = new PrintWriter(Files.resolve(dir, module.name(), "classlist"));
         try {
-            for (Klass c : module.classes()) {
+            for (Klass c : classes) {
                 writer.format("%s\n", c.getClassFilePathname());
             }
         } finally {
@@ -65,13 +71,13 @@ public class ClassListWriter {
 
     void printResourceList() throws IOException {
         // no file created if the module doesn't have any resource file
-        if (module.resources().isEmpty()) {
+        if (resources.isEmpty()) {
             return;
         }
 
         PrintWriter writer = new PrintWriter(Files.resolve(dir, module.name(), "resources"));
         try {
-            for (ResourceFile res : module.resources()) {
+            for (ResourceFile res : resources) {
                 writer.format("%s\n", res.getPathname());
             }
 
@@ -92,7 +98,7 @@ public class ClassListWriter {
             Map<Reference, Set<AnnotatedDependency>> annotatedDeps =
                 AnnotatedDependency.getReferences(module);
 
-            for (Klass klass : module.classes()) {
+            for (Klass klass : classes) {
                 Set<Klass> references = klass.getReferencedClasses();
                 for (Klass other : references) {
                     String classname = klass.getClassName();
@@ -101,7 +107,7 @@ public class ClassListWriter {
                         classname = "[optional] " + classname;
                     }
 
-                    Module m = module.getModuleDependence(other);
+                    Module m = module.getRequiresModule(other);
                     if (m != null || other.getModule() == null) {
                         writer.format("%-40s -> %s (%s)", classname, other, m);
                         Reference ref = new Reference(klass, other);
@@ -121,7 +127,7 @@ public class ClassListWriter {
             if (annotatedDeps.size() > 0) {
                 for (Map.Entry<Reference, Set<AnnotatedDependency>> entry : annotatedDeps.entrySet()) {
                     Reference ref = entry.getKey();
-                    Module m = module.getModuleDependence(ref.referree);
+                    Module m = module.getRequiresModule(ref.referree);
                     if (m != null || ref.referree.getModule() == null) {
                         String classname = ref.referrer.getClassName();
                         boolean optional = true;

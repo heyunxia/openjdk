@@ -40,28 +40,37 @@ public class BaseContext {
 
     protected BaseContext() { }
 
-    // The set of modules in this context
+    // A map from a module to its views in this context
     //
-    protected Set<ModuleId> modules = new HashSet<ModuleId>();
-
+    protected Map<ModuleId,Set<ModuleId>> modules = new HashMap<>();
+    
     /**
-     * Add the given module to this context.
+     * Add the given module and its views to this context.
      */
-    protected void add(ModuleId mid) {
-        modules.add(mid);
+    protected void add(ModuleId mid, Set<ModuleId> views) {
+        modules.put(mid, new HashSet<>(views));
     }
-
-    private Set<ModuleId> roModules;
+    
+    private Map<ModuleId,Set<ModuleId>> roModules;
 
     /**
      * The set of modules in this context (read-only).
      */
     public final Set<ModuleId> modules() {
         if (roModules == null)
-            roModules = Collections.unmodifiableSet(modules);
-        return roModules;
+            roModules = Collections.unmodifiableMap(modules);
+        return roModules.keySet();
     }
-
+    
+    /**
+     * The set of module view's id of a given module in this context (read-only).
+     */
+    public final Set<ModuleId> views(ModuleId mid) {
+        if (roModules == null)
+            roModules = Collections.unmodifiableMap(modules);
+        return roModules.get(mid);
+    }
+    
     // This context's name
     //
     private String name;
@@ -76,8 +85,8 @@ public class BaseContext {
     public void freeze() {
         if (name != null)
             throw new IllegalStateException("Context already frozen");
-        name = makeName();
-        modules = Collections.unmodifiableSet(modules);
+        name = makeName().intern();
+        modules = Collections.unmodifiableMap(modules);
     }
 
     protected boolean isFrozen() {
@@ -88,7 +97,7 @@ public class BaseContext {
     //
     private String makeName() {
         StringBuilder sb = new StringBuilder();
-        ModuleId[] mids = modules.toArray(new ModuleId[] { });
+        ModuleId[] mids = modules.keySet().toArray(new ModuleId[] { });
         Arrays.sort(mids);
         for (ModuleId mid : mids)
             sb.append("+").append(mid.name());
@@ -127,7 +136,7 @@ public class BaseContext {
         hash = hc;
         return hc;
     }
-
+    
     public boolean equals(Object ob) {
         if (!(ob instanceof BaseContext))
             return false;

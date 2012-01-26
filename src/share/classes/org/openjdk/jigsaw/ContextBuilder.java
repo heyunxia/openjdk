@@ -29,9 +29,8 @@ import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
 import java.util.*;
-import java.util.regex.*;
 
-import static java.lang.module.Dependence.Modifier;
+import static java.lang.module.ViewDependence.Modifier;
 import static org.openjdk.jigsaw.Trace.*;
 
 
@@ -81,15 +80,15 @@ final class ContextBuilder<Cx extends BaseContext> {
     //
     private void findLocalRequestors() {
         for (ModuleInfo mi : res.modules) {
-            for (Dependence d : mi.requires()) {
+            for (ViewDependence d : mi.requiresModules()) {
                 if (d.modifiers().contains(Modifier.LOCAL)) {
-                    ModuleInfo smi = res.moduleForName.get(d.query().name());
-                    if (smi == null) {
+                    ModuleView smv = res.moduleViewForName.get(d.query().name());
+                    if (smv == null) {
                         // smi can be null if dependence is optional
                         assert d.modifiers().contains(Modifier.OPTIONAL);
                         continue;
                     }
-                    addLocalRequestor(mi.id().name(), smi.id().name());
+                    addLocalRequestor(mi.id().name(), smv.id().name());
                 }
             }
         }
@@ -98,72 +97,82 @@ final class ContextBuilder<Cx extends BaseContext> {
     // All of our contexts
     //
     private Set<Cx> contexts = new IdentityHashSet<>();
-
-    // For each module, its assigned context; this also serves
+    
+    // For each module view, its assigned context; this also serves
     // as the visited-node set during context construction
     //
-    private Map<String,Cx> contextForModule
-        = new HashMap<String,Cx>();
-
-    // Add the given module to the given context, or create a new context for
-    // that module if none is given, and then add all the other modules in the
+    private Map<String,Cx> contextForModuleView
+        = new HashMap<>();
+    
+    // Add the given module view to the given context, or create a new context for
+    // that module view if none is given, and then add all the other modules in the
     // module's locally-connected component to the same context
     //
-    private void build(Cx pcx, ModuleInfo mi) {
-
-        assert !contextForModule.containsKey(mi.id().name());
+    private void build(Cx pcx, ModuleView mv, ModuleInfo mi) {
+        assert !contextForModuleView.containsKey(mv.id().name());
 
         Cx cx = pcx;
         if (cx == null) {
             cx = cxf.create();
             contexts.add(cx);
         }
-        cx.add(mi.id());
-        if (cx instanceof LinkingContext)
-            ((LinkingContext)cx).moduleInfos().add(mi);
-        if (cx instanceof Context) {
-            URI lp = res.locationForName.get(mi.id().name());
-            if (lp != null) {
-                String s = lp.getScheme();
-                if (s == null || !s.equals("file"))
-                    throw new AssertionError(s);
-                ((Context)cx).putLibraryPathForModule(mi.id(), new File(lp));
+        if (!cx.modules.containsKey(mi.id())) {
+            Set<ModuleId> views = new HashSet<>();
+            for (ModuleView v : mi.views()) {
+                views.add(v.id());
             }
+            cx.add(mi.id(), views);
+            if (cx instanceof LinkingContext) {
+                ((LinkingContext) cx).addModule(mi);
+            }
+            if (cx instanceof Context) {
+                URI lp = res.locationForName.get(mi.id().name());
+                if (lp != null) {
+                    String s = lp.getScheme();
+                    if (s == null || !s.equals("file")) {
+                        throw new AssertionError(s);
+                    }
+                    ((Context) cx).putLibraryPathForModule(mi.id(), new File(lp));
+                }
+            }
+            contextForModuleView.put(mi.id().name(), cx);
         }
-        contextForModule.put(mi.id().name(), cx);
+        contextForModuleView.put(mv.id().name(), cx);
 
         // Forward edges
-        for (Dependence d : mi.requires()) {
+        for (ViewDependence d : mi.requiresModules()) {
             if (d.modifiers().contains(Modifier.LOCAL)) {
-                Cx scx = contextForModule.get(d.query().name());
-                if (scx != null) {
-                    assert cx == scx;
-                    continue;
-                }
-                ModuleInfo smi = res.moduleForName.get(d.query().name());
-                assert smi != null;
-                if (smi == null) {
+                ModuleView smv = res.moduleViewForName.get(d.query().name());
+                if (smv == null) {
                     // Unsatisfied optional dependence
                     assert d.modifiers().contains(Modifier.OPTIONAL);
                     continue;
                 }
-                build(cx, smi);
+                Cx scx = contextForModuleView.get(smv.id().name());
+                ModuleInfo smi = smv.moduleInfo();
+                if (scx != null) {
+                    assert cx == scx;
+                    continue;
+                }
+                
+                build(cx, smv, smi);
             }
         }
 
         // Back edges
         List<String> localRequestors
-            = localRequestorsOfName.get(mi.id().name());
+            = localRequestorsOfName.get(mv.id().name());
         if (localRequestors != null) {
             for (String rmn : localRequestors) {
-                Cx rcx = contextForModule.get(rmn);
+                Cx rcx = contextForModuleView.get(rmn);
                 if (rcx != null) {
                     assert cx == rcx;
                     continue;
                 }
-                ModuleInfo rmi = res.moduleForName.get(rmn);
-                assert rmi != null;
-                build(cx, rmi);
+                // requestor must be a module name
+                ModuleView rmv = res.moduleViewForName.get(rmn);
+                assert rmv != null;
+                build(cx, rmv, rmv.moduleInfo());
             }
         }
 
@@ -172,9 +181,12 @@ final class ContextBuilder<Cx extends BaseContext> {
     private void run() {
         findLocalRequestors();
         for (ModuleInfo mi : res.modules) {
-            if (contextForModule.containsKey(mi.id().name()))
-                continue;
-            build(null, mi);
+            for (ModuleView mv : mi.views()) {
+                if (contextForModuleView.containsKey(mv.id().name()))
+                    continue;
+                Cx cx = contextForModuleView.get(mi.id().name());
+                build(cx, mv, mi);
+            }
         }
         for (Cx cx : contexts)
             cx.freeze();
@@ -187,17 +199,18 @@ final class ContextBuilder<Cx extends BaseContext> {
     {
 
         for (ModuleIdQuery rq : res.rootQueries)
-            assert res.moduleForName.get(rq.name()) != null : rq;
+            assert res.moduleViewForName.get(rq.name()) != null : rq;
+        
         ContextBuilder<Cx> cb = new ContextBuilder<Cx>(res, cxf);
         cb.run();
         for (ModuleIdQuery rq : res.rootQueries)
-            assert cb.contextForModule.get(rq.name()) != null : rq;
+            assert cb.contextForModuleView.get(rq.name()) != null : rq;
 
         // Rehash the contexts so that the resulting ContextSet
         // doesn't contain an IdentityHashSet
         Set<Cx> rehashedContexts = new HashSet<>(cb.contexts);
-
-        return new ContextSet<Cx>(res, rehashedContexts, cb.contextForModule);
+        return new ContextSet<Cx>(res, rehashedContexts,
+                                  cb.contextForModuleView);
 
     }
 

@@ -125,17 +125,17 @@ $(MODULES_LIST):: $(MODULES_CONFIG) $(MODULES_GROUP) \
 # files for all or just the updated modules are generated.
 $(MODULES_LIST):: $(MODULES_UPDATE_MARKER)
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	$(clean-build)
 	$(HOST_JAVA_CMD) \
                 -jar $(CLASSANALYZER_JAR_FILE) \
                 -jdkhome $(OUTPUTDIR) \
-                -platform \
                 -config $(MODULES_CONFIG) \
                 -config $(MODULES_GROUP) \
                 -depconfig $(DEP_CONFIG) \
                 -depconfig $(OPTIONAL_DEP_CONFIG) \
                 -properties $(MODULES_PROPERTIES) \
                 -version $(MODULE_VERSION) \
-                -update \
+                -base $(BASE_MODULE) \
                 -output $(MODULE_CLASSLIST_DIR) \
                 -moduleinfo $(MODULEINFO_SRC)
 	@$(java-vm-cleanup)
@@ -146,16 +146,15 @@ $(MODULES_LIST):: $(MODULES_UPDATE_MARKER)
 # if JDK_HOST_PATH is a legacy jdk and the main class
 # for some modules are not in rt.jar (or $outputdir/classes)
 BOOTCLASSPATH := $(shell bcp="$(OUTPUTDIR)/classes"; \
-                      $(CD) $(OUTPUTDIR)/lib && ( \
-                      jfiles=`$(FIND) . -name \*.jar -print`) ; \
+                      jfiles=`$(FIND) $(OUTPUTDIR)/lib -name \*.jar -print` ; \
 	              for jf in  $$jfiles ; do \
                           if [ -f $$jf ] ; then \
-                              bcp="$$bcp$(CLASSPATH_SEPARATOR)$(OUTPUTDIR)/lib/$$jf"; \
+                              bcp="$$bcp$(CLASSPATH_SEPARATOR)$$jf"; \
                           fi \
                       done; \
                       $(ECHO) $$bcp)
-JAVAC_CMD = $(HOST_JAVAC_CMD) \
-                    -Xbootclasspath:$(BOOTCLASSPATH) \
+JAVAC_CMD := $(HOST_JAVAC_CMD) \
+                    -Xbootclasspath:"$(BOOTCLASSPATH)" \
                     -modulepath $(MODULEPATH_DIR) \
                     -sourcepath $(MODULEINFO_SRC)
 FILES_java := $(shell $(NAWK) '{print $$1 "/module-info.java"}' ${MODULES_LIST})
@@ -188,12 +187,12 @@ modularize: $(MODULES_LIST)
                 -cp $(CLASSANALYZER_JAR_FILE) \
                 com.sun.classanalyzer.Modularizer \
                 -jdkhome $(OUTPUTDIR) \
-                -update \
                 -classlistdir $(MODULE_CLASSLIST_DIR) \
                 -modulepath $(ABS_MODULEPATH_DIR)
 	@$(java-vm-cleanup)
 	$(MAKE) `$(NAWK) '{print "$(JIGSAW_MODULE_LIB)/" $$1 "/$(MODULE_VERSION)/info" }' $<` || exit 1
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
+
 
 # copy-module-content
 #    $1 - module
@@ -227,10 +226,21 @@ define install-module
   $(RM) -r $(JIGSAW_MODULE_LIB)/$$m ; \
   $(ECHO) "Installing module $$m" ; \
   $(CD) $(MODULEPATH_DIR) && \
-  $(HOST_JMOD_CMD) install $$m/classes $$m -L $(JIGSAW_MODULE_LIB) $(JMOD_INSTALL_ARGS) || exit 1 ; 
+  $(HOST_JMOD_CMD) -J-esa install $$m/classes $$m -L $(JIGSAW_MODULE_LIB) $(JMOD_INSTALL_ARGS) || exit 1 ; 
 endef
 
-#
+define patch-module-classes
+  m=$(strip $*); \
+  tmp=$(ABS_MODULES_TEMPDIR)/$$m.files ; \
+  $(SED) -e 's%\\%\/%g' $(MODULE_CLASSLIST_DIR)/$$m.classlist > $$tmp || exit 1 ; \
+  if [ -f $(MODULE_CLASSLIST_DIR)/$$m.resources ] ; then \
+    $(SED) -e 's%\\%\/%g' $(MODULE_CLASSLIST_DIR)/$$m.resources | \
+       $(EGREP) -v "default_US_export.policy|default_local.policy|exempt_local.policy" \
+       >> $$tmp || exit 1 ; \
+  fi ; \
+  $(ECHO) "Patching classes for module $$m" ; \
+  rsync -v -t --files-from=$$tmp $(ABS_OUTPUTDIR)/classes $(ABS_MODULEPATH_DIR)/$$m/classes || exit 1;
+endef
 
 #
 # Install the module if module-info.class is updated
@@ -272,14 +282,7 @@ clean clobber:: classes.clean
 	    $(ECHO) 'Invalid target: "$@" expected a valid module name' ; \
 	    exit 1; \
 	fi
-	$(HOST_JAVA_CMD) \
-                -cp $(CLASSANALYZER_JAR_FILE) \
-                com.sun.classanalyzer.Modularizer \
-                -jdkhome $(OUTPUTDIR) \
-                -update \
-                -classlistdir $(MODULE_CLASSLIST_DIR) \
-                -modulepath $(ABS_MODULEPATH_DIR)
-	@$(call copy-module-content,$@)
+	$(call patch-module-classes,$@)
 	$(call install-module,$@)
 	@$(java-vm-cleanup)
 	@if [ -d $(OUTPUTDIR)/jdk-module-image/lib/modules ] ; then \

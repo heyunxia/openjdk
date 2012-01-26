@@ -28,9 +28,7 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.util.*;
-import java.util.regex.*;
 
-import static java.lang.module.Dependence.Modifier;
 import static org.openjdk.jigsaw.Trace.*;
 
 
@@ -189,7 +187,7 @@ public final class Configurator {
         if (tracing) {
             List<ModuleId> rids = new ArrayList<>();
             for (ModuleIdQuery midq : res.rootQueries)
-                rids.add(cxs.moduleForName.get(midq.name()).id());
+                rids.add(cxs.moduleViewForName.get(midq.name()).id());
             trace(0, "Configured for %s", rids);
             if (traceLevel >= 3)
                 cf.dump(System.out);
@@ -281,7 +279,7 @@ public final class Configurator {
         if (tracing) {
             List<ModuleId> rids = new ArrayList<>();
             for (ModuleIdQuery midq : rootQueries)
-                rids.add(cxs.moduleForName.get(midq.name()).id());
+                rids.add(cxs.moduleViewForName.get(midq.name()).id());
             trace(0, "Configured paths for %s", rids);
             if (traceLevel >= 3)
                 cf.dump(System.out);

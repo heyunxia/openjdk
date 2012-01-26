@@ -65,8 +65,8 @@ else
 endif
 
 # Modules for imports
-CORBA_MODULE             = sun.corba
-JTA_MODULE               = sun.jta
+CORBA_MODULE             = jdk.corba
+JTA_MODULE               = jdk.jta
 XML_MODULE               = jdk.jaxp
 XERCES_MODULE            = jdk.jaxp
 XALAN_MODULE             = jdk.jaxp
@@ -74,24 +74,24 @@ JAXWS_MODULE             = jdk.jaxws
 JX_ANNOTATION_MODULE     = jdk.jx.annotations
 RMIC_MODULE              = jdk.tools
 COMPILER_MODULE          = jdk.compiler
-JAVAC_MODULE             = jdk.javac
-JAVAP_MODULE             = jdk.javap
-JAVAH_MODULE             = jdk.javah
-JAVADOC_MODULE           = jdk.javadoc
+JAVAC_MODULE             = jdk.devtools
+JAVAP_MODULE             = jdk.devtools
+JAVAH_MODULE             = jdk.devtools
+JAVADOC_MODULE           = jdk.devtools
 APT_MODULE               = jdk.apt
 MIRROR_MODULE            = jdk.mirror
 
 # idlj is grouped with the corba runtime
-IDLJ_MODULE              = sun.corba
+IDLJ_MODULE              = jdk.corba
 
 JDK_BASE_MODULE          = jdk.base
 BASE_TOOLS_MODULE        = jdk.tools.base
 JRE_TOOLS_MODULE         = jdk.tools.jre
 TOOLS_MODULE             = jdk.tools
 JAXWS_TOOLS_MODULE       = jdk.tools.jaxws
-CORBA_TOOLS_MODULE       = sun.corba
-RMI_TOOLS_MODULE         = sun.rmi
-KERBEROS_TOOLS_MODULE    = sun.kerberos
+CORBA_TOOLS_MODULE       = jdk.corba
+RMI_TOOLS_MODULE         = jdk.rmi
+KERBEROS_TOOLS_MODULE    = jdk.kerberos
 
 
 # Modules for JDK only

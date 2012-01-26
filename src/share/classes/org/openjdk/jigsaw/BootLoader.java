@@ -28,7 +28,6 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.lang.reflect.Module;
 import java.io.*;
-import java.util.*;
 
 import static org.openjdk.jigsaw.Trace.*;
 
@@ -59,7 +58,7 @@ public final class BootLoader    // ## TEMPORARY should be package-private
         // to the VM's boot class path
         //
         for (ModuleId mid : cx.modules()) {
-            if (mid.equals(Platform.bootModule()))
+            if (mid.equals(Platform.baseModule()))
                 continue;
             try {
                 File p = pool.library().classPath(mid);
@@ -90,7 +89,7 @@ public final class BootLoader    // ## TEMPORARY should be package-private
     private static BootLoader bootLoader;
     static BootLoader newLoader(LoaderPool p, Context cx) {
         if (bootLoader != null)
-            throw new AssertionError("Not supporting multiple LoaderPool yet");
+            throw new InternalError("Not supporting multiple LoaderPool yet");
 
         bootLoader = new BootLoader(p, cx);
         return bootLoader;
@@ -102,6 +101,24 @@ public final class BootLoader    // ## TEMPORARY should be package-private
         return bootLoader;
     }
 
+    /**
+     * Returns a ClassLoader that loads the system classes.
+     * 
+     * In legacy mode, it returns ClassLoader.getSystemClassLoader()
+     * that always delegates to the null class loader.
+     *
+     * In module mode, it returns the BootLoader that is the module class loader
+     * loading classes & resource files in the java.base module.
+     * 
+     */
+    public static ClassLoader getSystemLoader() {
+        // ## will this be called during VM startup in which
+        // ## the boot loader has not been initialized?
+        assert sun.misc.VM.isBooted() == true;
+        ClassLoader cl = getLoader();       
+        return cl != null ? cl : ClassLoader.getSystemClassLoader();
+    }
+    
     /**
      * Returns the Module for the given class loaded by the VM
      * bootstrap class loader. 

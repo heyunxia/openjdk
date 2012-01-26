@@ -28,7 +28,6 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.util.*;
-import java.util.regex.*;
 
 import static java.lang.module.Dependence.Modifier;
 import static org.openjdk.jigsaw.Trace.*;
@@ -52,31 +51,60 @@ final class Linker {
         // rather than context names as in the superclass
         //
         private Map<String,Context> contextForPackage
-            = new HashMap<String,Context>();
+            = new HashMap<>();
 
         // The ModuleInfos of the modules in this context
         //
-        Set<ModuleInfo> moduleInfos = new HashSet<ModuleInfo>(); // ## private?
+        private Set<ModuleInfo> moduleInfos = new HashSet<>();
 
         public Set<ModuleInfo> moduleInfos() { return moduleInfos; }
-
-        // This context's supplying contexts
+        
+        // This context's supplying context views
         //
-        private Set<Context> suppliers = new IdentityHashSet<>();
-
-        // This context's re-exported supplying contexts
+        private Set<ContextView> suppliers = new IdentityHashSet<>();
+                
+        // This context's re-exported supplying context views
         //
-        private Set<Context> reExportedSuppliers = new IdentityHashSet<>();
-
+        private Set<ContextView> reExportedSuppliers = new IdentityHashSet<>();
+        
         // The set of packages defined by this context
         //
-        private Set<String> packages = new HashSet<String>();
+        private Set<String> packages = new HashSet<>();
+        
+        // The set of re-exported packages to this context.
+        //
+        private Set<String> reexports = new HashSet<>();
 
-        // The set of packages exported by this context,
+        // The set of views in this context, each maintains the list of
+        // exported packages that can be accessed by another context
+        private Map<String, ContextView> views = new HashMap<>();
+        
+        public void addModule(ModuleInfo mi) {
+            moduleInfos.add(mi);
+            for (ModuleView mv : mi.views()) {
+                ContextView cxv = new ContextView(this, mv);
+                views.put(mv.id().name(), cxv);
+            }
+        }
+    }
+
+    static class ContextView {
+        final Context context;
+        final ModuleView view;
+        ContextView(Context cx, ModuleView view) {
+            this.context = cx;
+            this.view = view;
+        }
+
+        // The set of packages exported by this context view,
         // either directly or indirectly
         //
-        private Set<String> exports = new HashSet<String>();
-
+        Set<String> exports = new HashSet<>();
+        
+        @Override
+        public String toString() {
+            return context.toString() + "(" + view.id().name() + ")";
+        }
     }
 
     private final Library lib;
@@ -147,28 +175,40 @@ final class Linker {
     // --
 
     private boolean propagatePackage(boolean changed,
-                                     Context cx, Context scx, String pn)
+                                     Context cx, ContextView scxv, String pn)
         throws ConfigurationException
     {
         if (cx.packages.contains(pn)) {
             fail("Package %s defined in %s but exported by supplier %s",
-                 pn, cx, scx);
+                 pn, cx, scxv);
         }
+        
         Context dcx = cx.contextForPackage.get(pn);
+        Context scx = scxv.context;
+        if (!scx.packages.contains(pn)) {
+            scx = scx.contextForPackage.get(pn);  // a re-exported package
+        } 
         if (dcx == null) {
-            if (scx.packages.contains(pn))
-                dcx = scx;
-            else
-                dcx = scx.contextForPackage.get(pn);
+            dcx = scx;
             cx.contextForPackage.put(pn, dcx);
             if (tracing && !Platform.isPlatformContext(dcx))
                 trace(1, 1, "adding %s:%s to %s", dcx, pn, cx);
-            if (cx.reExportedSuppliers.contains(scx))
-                cx.exports.add(pn);
             changed = true;
         } else if (dcx != scx) {
-            if (dcx != scx.contextForPackage.get(pn))
-                fail("Package %s defined in both %s and %s", pn, scx, dcx);
+            fail("Package %s defined in both %s and %s", pn, scx, dcx);
+        }
+
+        // a supplier and a re-exported supplier can be two different 
+        // views of the same module
+        if (cx.reExportedSuppliers.contains(scxv) && !cx.reexports.contains(pn)) {
+            cx.reexports.add(pn);
+            changed = true;
+            if (tracing && !Platform.isPlatformContext(dcx))
+                trace(1, 1, "re-exporting %s:%s to %s", dcx, pn, cx);
+
+            // re-exports a package to all its context views
+            for (ContextView cxv : cx.views.values())
+                cxv.exports.add(pn);
         }
         return changed;
     }
@@ -183,31 +223,45 @@ final class Linker {
                 trace(1, "propagating suppliers (pass %d)", n);
             boolean changed = false;
             for (Context cx : cxs.contexts) {
-                for (Context scx : cx.suppliers) {
-                    for (String pn : scx.exports)
-                        changed = propagatePackage(changed, cx, scx, pn);
+                for (ContextView scxv : cx.suppliers) {
+                    for (String pn : scxv.exports)
+                        changed = propagatePackage(changed, cx, scxv, pn);
                 }
             }
+                        
             if (!changed)
                 return;
         }
+        
     }
 
     private void resolveRemoteSuppliers()
         throws ConfigurationException, IOException
     {
-
-        // Prepare export and supplier sets
+        // prepare exports
         for (Context cx : cxs.contexts) {
             for (ModuleInfo mi : cx.moduleInfos) {
                 Library l = libPool.get(cx, mi.id());
                 for (String cn : l.listLocalClasses(mi.id(), false)) {
                     String pn = packageName(cn);
                     cx.packages.add(pn);
-                    cx.exports.add(pn);
                 }
-                for (Dependence d : mi.requires()) {
-                    Context scx = cxs.contextForModule.get(d.query().name());
+            }
+            for (ContextView cxv : cx.views.values()) {
+                ModuleView mv = cxv.view;
+                for (String pn : mv.exports()) {
+                    if (cx.packages.contains(pn)) {
+                        cxv.exports.add(pn);
+                    }
+                }
+            }
+        }
+        
+        // Prepare supplier sets
+        for (Context cx : cxs.contexts) {       
+            for (ModuleInfo mi : cx.moduleInfos) {
+                for (ViewDependence d : mi.requiresModules()) {
+                    Context scx = cxs.contextForModuleView.get(d.query().name());
                     if (scx == null) {
                         // Unsatisfied optional dependence
                         assert d.modifiers().contains(Modifier.OPTIONAL);
@@ -217,14 +271,15 @@ final class Linker {
                         // Same context
                         continue;
                     }
-
+                    ContextView scxv = scx.views.get(d.query().name());
+                    assert scxv != null;
                     if (!d.modifiers().contains(Modifier.LOCAL)) {
                         // Dependence upon some other context
-                        cx.suppliers.add(scx);
+                        cx.suppliers.add(scxv);
                     }
                     if (d.modifiers().contains(Modifier.PUBLIC)) {
                         // Required publicly, so re-export it
-                        cx.reExportedSuppliers.add(scx);
+                        cx.reExportedSuppliers.add(scxv);
                     }
                 }
             }
@@ -245,8 +300,8 @@ final class Linker {
 
         // Synchronize the supplier-name maps and context-for-package maps
         for (Context cx : cxs.contexts) {
-            for (Context scx : cx.suppliers) {
-                cx.addSupplier(scx.name());
+            for (ContextView scxv : cx.suppliers) {
+                cx.addSupplier(scxv.context.name());
             }
             for (Map.Entry<String,Context> me
                      : cx.contextForPackage.entrySet())
@@ -267,10 +322,11 @@ final class Linker {
         new Linker(lib, cxs).run();
         List<ModuleId> rids = new ArrayList<>();
         for (ModuleIdQuery rq : cxs.rootQueries)
-            rids.add(cxs.moduleForName.get(rq.name()).id());
+            rids.add(cxs.moduleViewForName.get(rq.name()).id());
+        
         return new Configuration<org.openjdk.jigsaw.Context>(rids,
                                    cxs.contexts,
-                                   cxs.contextForModule);
+                                   cxs.contextForModuleView);
     }
 
 }

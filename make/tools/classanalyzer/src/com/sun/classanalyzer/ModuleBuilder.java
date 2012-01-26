@@ -24,9 +24,6 @@ package com.sun.classanalyzer;
 
 import com.sun.classanalyzer.AnnotatedDependency.OptionalDependency;
 import com.sun.classanalyzer.Module.Factory;
-import com.sun.classanalyzer.Module.ModuleVisitor;
-import com.sun.classanalyzer.ModuleInfo.Dependence;
-import static com.sun.classanalyzer.ModuleInfo.Dependence.Modifier.*;
 import java.io.IOException;
 import java.util.*;
 
@@ -92,6 +89,7 @@ public class ModuleBuilder {
      * This method can be overridden in a subclass implementation.
      */
     public Set<Module> run() throws IOException {
+        long start = System.nanoTime();
         // assign classes and resource files to the modules and
         // group fine-grained modules per configuration files
         buildModules();
@@ -99,9 +97,14 @@ public class ModuleBuilder {
         // generate package infos and determine if there is any split package
         buildPackageInfos();
 
+        long moduleBuildTime = (System.nanoTime() - start)/1000000;
+
         // analyze cross-module dependencies and generate ModuleInfo
         List<ModuleInfo> minfos = buildModuleInfos();
 
+        long total = (System.nanoTime() - start)/1000000;
+        System.out.format("ModuleBuilder %d ms (module build time %s ms dependency analysis %d ms%n",
+            total, moduleBuildTime, (total-moduleBuildTime));
         // generate an ordered list from the module dependency graph
         result = Collections.unmodifiableSet(orderedModuleList(minfos));
         return result;
@@ -124,12 +127,6 @@ public class ModuleBuilder {
             m.processRootsAndReferences();
         }
 
-        // add classes with null module to the default unknown module
-        for (Klass k : Klass.getAllClasses()) {
-            if (k.getModule() == null)
-                getFactory().unknownModule().addKlass(k);
-        }
-
         if (mergeModules) {
             // group fine-grained modules
             getFactory().buildModuleMembers();
@@ -140,7 +137,6 @@ public class ModuleBuilder {
      * Build ModuleInfo for the top level modules.
      */
     protected List<ModuleInfo> buildModuleInfos() {
-
         List<ModuleInfo> minfos = new LinkedList<ModuleInfo>();
         Set<Module> ms = new LinkedHashSet<Module>();
         // analyze the module's dependences and create ModuleInfo
@@ -160,8 +156,8 @@ public class ModuleBuilder {
 
     private void fixupPermits(List<ModuleInfo> minfos) {
         // backedges (i.e. reverse dependences)
-        Map<Module, Set<Module>> backedges = new HashMap<Module, Set<Module>>();
-        Map<Module, ModuleInfo> map = new LinkedHashMap<Module, ModuleInfo>();
+        Map<Module.View, Set<Module>> backedges = new HashMap<>();
+        Map<Module, ModuleInfo> map = new LinkedHashMap<>();
 
         // fixup permits after all ModuleInfo are created in two passes:
         // 1. permits the requesting module if it requires local dependence
@@ -172,11 +168,11 @@ public class ModuleBuilder {
             map.put(mi.getModule(), mi);
             for (Dependence d : mi.requires()) {
                 // only add the top level modules
-                Module dep = d.getModule();
-                Set<Module> set = backedges.get(dep);
+                Module.View mv = d.getModuleView();
+                Set<Module> set = backedges.get(mv);
                 if (set == null) {
                     set = new HashSet<Module>();
-                    backedges.put(dep, set);
+                    backedges.put(mv, set);
                 }
                 set.add(mi.getModule());
             }
@@ -185,21 +181,21 @@ public class ModuleBuilder {
         for (ModuleInfo mi : minfos) {
             for (Dependence d : mi.requires()) {
                 if (d.isLocal()) {
-                    Module dm = d.getModule();
-                    map.get(dm).addPermit(mi.getModule());
+                    Module.View dmv = d.getModuleView();
+                    dmv.addPermit(mi.getModule());
                 }
             }
         }
 
-        for (Map.Entry<Module, Set<Module>> e : backedges.entrySet()) {
-            Module dm = e.getKey();
-            ModuleInfo dmi = map.get(dm);
+        for (Map.Entry<Module.View, Set<Module>> e : backedges.entrySet()) {
+            Module.View dmv = e.getKey();
+            ModuleInfo dmi = map.get(dmv.module);
             if (dmi == null) {
-                throw new RuntimeException(dm + " null moduleinfo");
+                throw new RuntimeException("View " + dmv + " null moduleinfo");
             }
-            if (dmi.permits().size() > 0) {
+            if (dmv.permits().size() > 0) {
                 for (Module m : e.getValue()) {
-                    dmi.addPermit(m);
+                    dmv.addPermit(m);
                 }
             }
         }
@@ -281,15 +277,41 @@ public class ModuleBuilder {
             }
         }
     }
-
+    
     protected ModuleInfo buildModuleInfo(Module m) {
         Map<Module, Dependence> requires = new LinkedHashMap<Module, Dependence>();
-        Set<Module> permits = new HashSet<Module>();
+
+        Module base = getFactory().baseModule();
+        boolean requiresBase = true;
+        for (Dependence d : m.configRequires()) {
+            Module dm = getFactory().findModuleForView(d.module);
+            
+            // check if the base module is listed in the config
+            if (base != null && dm == base)
+                requiresBase = false;
+            
+            // add to requires only if it's a non-empty module or not aggregating modules
+            if (dm.isTopLevel()) {
+                if (d.isLocal()) {
+                    d.requiresLocal(dm);
+                } else {
+                    d.addView(dm.getView(d.module));
+                }
+                addDependence(requires, d);
+            }
+        }
+        
+        // add "requires" of the base module
+        if (!m.isBase() && base != null && requiresBase) {
+            Dependence d = new Dependence(base.name(), false);
+            d.addView(base.defaultView());
+            addDependence(requires, d);
+        }
 
         // add static dependences
         for (Klass from : m.classes()) {
             for (Klass to : from.getReferencedClasses()) {
-                if (m.isModuleDependence(to)) {
+                if (m.requiresModuleDependence(to)) {
                     // is this dependence overridden as optional?
                     boolean optional = OptionalDependency.isOptional(from, to);
                     addDependence(requires, to, optional);
@@ -297,23 +319,30 @@ public class ModuleBuilder {
             }
         }
 
-        // add requires and permits specified in the config files
-        processModuleConfigs(m, requires, permits);
-
-        // add dependency due to the main class
-        Klass k = m.mainClass();
-        if (k != null && m.isModuleDependence(k)) {
-            addDependence(requires, k);
-        }
-
         // add dependencies due to the AnnotatedDependency
         for (Dependence d : AnnotatedDependency.getDependencies(m)) {
-            if (d.isOptional()) {
-                Trace.trace("Warning: annotated dependency from %s to %s ignored%n",
-                        m.name(), d.toString());
-                continue;
+            // filter optional dependencies to the base module
+            if (!m.isBase() || !d.isOptional())
+                addDependence(requires, d);
+        }
+
+        // add dependency due to the main class
+        for (Module.View v : m.views()) {
+            Klass k = v.mainClass();
+            if (k != null && m.requiresModuleDependence(k)) {
+                addDependence(requires, k, false);
             }
-            addDependence(requires, d);
+
+            for (String name : v.permitNames()) {
+                Module pm = getFactory().findModuleForView(name);
+                if (pm != null) {
+                    v.addPermit(pm.group());
+                } else {
+                    throw new RuntimeException("module " + name
+                            + " specified in the permits rule for " + m.name()
+                            + " doesn't exist");
+                }
+            }
         }
 
         // Add LOCAL to the dependence and permits will be added
@@ -327,83 +356,54 @@ public class ModuleBuilder {
             assert mset.contains(m);
             for (Module sm : mset) {
                 // is the package splitted with its dependence?
-                if (requires.containsKey(sm)) {
+                Dependence dep = requires.get(sm);
+                if (dep != null) {
                     // If so, the dependence has to be LOCAL
-                    requires.get(sm).addModifier(LOCAL);
+                    dep.requiresLocal(sm);
                 }
             }
         }
 
-        ModuleInfo mi = new ModuleInfo(m,
-                new HashSet<Dependence>(requires.values()),
-                permits);
+        ModuleInfo mi = new ModuleInfo(m, requires.values());
         return mi;
     }
 
-    private void addDependence(Map<Module, Dependence> requires, Klass k) {
-        addDependence(requires, k, false);
-    }
-
     private void addDependence(Map<Module, Dependence> requires, Klass k, boolean optional) {
-        Dependence d = new Dependence(k.getModule(), optional);
-        d.setInternal(PackageInfo.isExportedPackage(k.getPackageName()) == false);
-        addDependence(requires, d);
+        Module dm = k.getModule().group();      
+        Dependence dep = requires.get(dm);
+        if (dep == null) {
+            dep = new Dependence(dm.name(), optional);
+            requires.put(dm, dep);
+        } else {
+            // update the modifiers
+            if (optional)
+                dep.requiresOptional(dm);
+        }
+        Module.View view = dm.getView(k);
+        if (view == null)
+            throw new RuntimeException("No view exporting " + k);
+        dep.addView(view);
     }
 
     private void addDependence(Map<Module, Dependence> requires, Dependence d) {
-        Module dm = d.getModule();
+        Module dm = getFactory().findModuleForView(d.module);
+        // not a dependence if it's an empty module and not aggregating modules
+        if (!dm.isTopLevel())
+            return;
+
         Dependence dep = requires.get(dm);
-        if (dep != null && !dep.equals(d)) {
-            if (dep.getModule() != d.getModule()) {
-                throw new RuntimeException("Unexpected dependence " + dep + " != " + d);
+        if (dep == null) {
+            requires.put(dm, d);
+        } else if (!dep.equals(d)) {
+            if (dep.module.equals(d.module) &&
+                !dep.isOptional() &&
+                !d.isLocal() && !d.isPublic() &&
+                dep.views.containsAll(d.views)) {
+                // the static dependence can override the optional dependence
+                return;
             }
-
-            // update the modifiers
-            dep.update(d);
-            d = dep;
+            throw new RuntimeException("mismatch input requires: "
+                    + dep + " and " + d);
         }
-        requires.put(dm, d);
-    }
-
-    private void processModuleConfigs(final Module module,
-            final Map<Module, Dependence> requires,
-            final Set<Module> permits) {
-        ModuleVisitor<Void> v = new ModuleVisitor<Void>() {
-            public void preVisit(Module p, Void dummy) {
-            }
-
-            public void visited(Module p, Module m, Void dummy) {
-                for (Dependence d : m.config().requires()) {
-                    if (d.getModule() == null) {
-                        // set the module in the Dependence as it
-                        // was unknown when ModuleConfig was initialized.
-                        Module dm = getFactory().findModule(d.id);
-                        if (dm == null)
-                            throw new RuntimeException("Module " + d.id + " doesn't exist");
-                        d.setModule(dm);
-                    }
-                    addDependence(requires, d);
-                }
-                for (String name : m.config().permits()) {
-                    Module pm = getFactory().findModule(name);
-                    if (pm != null) {
-                        permits.add(pm.group());
-                    } else {
-                        throw new RuntimeException("module " + name
-                                + " specified in the permits rule for " + m.name()
-                                + " doesn't exist");
-                    }
-                }
-            }
-
-            public void postVisit(Module p, Void dummy) {
-            }
-        };
-
-        Set<Module> visited = new HashSet<Module>();
-        // first add requires and permits for the module
-        v.visited(module, module, null);
-        // then visit their members
-        module.visitMembers(visited, v, null);
     }
 }

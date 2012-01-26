@@ -41,13 +41,15 @@ exit 0
 
 : setup pass compile
 
-module M @ 1.0
-    provides M1 @ 2.0, M2 @ 2.1
-{
-    requires optional local N @ 9.0, P @ 9.1;
+module M @ 1.0 {
+    provides M1 @ 2.0;
+    provides M2 @ 2.1;
+    requires optional local N @ 9.0;
+    requires optional local P @ 9.1;
     requires public Q @ 5.11;
-    permits A, B;
-    class act M.X.Y.Main;
+    permits A;
+    permits B;
+    class M.X.Y.Main;
 }
 
 package M.X.Y;

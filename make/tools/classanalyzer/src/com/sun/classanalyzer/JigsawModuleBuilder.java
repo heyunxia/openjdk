@@ -125,7 +125,7 @@ public class JigsawModuleBuilder extends ClassListReader {
         }
 
         @Override
-        boolean allowEmpty() {
+        boolean allowsEmpty() {
             // jdk.* module that reexports sun.* module is empty
             return true;
         }

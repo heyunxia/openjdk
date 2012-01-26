@@ -66,7 +66,6 @@ public class ClassAnalyzer {
         String minfoDir = null;
         String jigsawLibrary = null;
         ClassPath cpath = null;
-        boolean usePlatformModuleBuilder = false;
         boolean mergeModules = true;
         boolean apiOnly = false;
         boolean showDynamic = false;
@@ -82,6 +81,9 @@ public class ClassAnalyzer {
                 }
                 jdkhome = getOption(args, i++);
                 cpath = ClassPath.newJDKClassPath(jdkhome);
+            } else if (arg.equals("-base")) {
+                String base = getOption(args, i++);
+                Module.setBaseModule(base);
             } else if (arg.equals("-classpath")) {
                 if (jdkhome != null) {
                     error("Both -jdkhome and -classpath are set");
@@ -102,9 +104,6 @@ public class ClassAnalyzer {
                 minfoDir = getOption(args, i++);
             } else if (arg.equals("-version")) {
                 version = getOption(args, i++);
-            } else if (arg.equals("-platform")) {
-                // a special case for generating JDK modules
-                usePlatformModuleBuilder = true;
             } else if (arg.equals("-jigsawLibrary")) {
                 jigsawLibrary = getOption(args, i++);
             } else if (arg.equals("-api")) {
@@ -132,13 +131,7 @@ public class ClassAnalyzer {
             error("-version not set");
         }
 
-        ModuleBuilder builder;
-        if (usePlatformModuleBuilder) {
-            builder =
-                new PlatformModuleBuilder(configs, depconfigs, mergeModules, version);
-        } else {
-            builder = new ModuleBuilder(configs, depconfigs, mergeModules, version);
-        }
+        ModuleBuilder builder = new ModuleBuilder(configs, depconfigs, mergeModules, version);
 
         File systemLib;
         if (jigsawLibrary != null) {

@@ -501,14 +501,15 @@ JAVA_JAVA_jigsaw = \
     java/lang/module/ModuleId.java \
     java/lang/module/ModuleIdQuery.java \
     java/lang/module/ModuleInfo.java \
-    java/lang/module/ModuleInfoAnnotation.java \
     java/lang/module/ModuleInfoReader.java \
     java/lang/module/ModuleSystem.java \
+    java/lang/module/ModuleView.java \
     java/lang/module/ModuleNotPresentException.java \
     java/lang/module/RequireOptionalModule.java \
+    java/lang/module/ServiceDependence.java \
     java/lang/module/Version.java \
     java/lang/module/VersionQuery.java \
-    java/lang/module/UnsupportedElementTypeException.java \
+    java/lang/module/ViewDependence.java \
     java/lang/reflect/Module.java \
     \
     org/openjdk/jigsaw/BaseContext.java \
