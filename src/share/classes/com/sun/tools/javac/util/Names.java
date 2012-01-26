@@ -201,7 +201,7 @@ public class Names {
         _default = fromString("default");
 
         _class = fromString("class");
-        java_base = fromString("java.base");
+        java_base = fromString("jdk.base");   // FIXME: update when alias support working
         java_lang = fromString("java.lang");
         java_lang_Object = fromString("java.lang.Object");
         java_lang_Class = fromString("java.lang.Class");
