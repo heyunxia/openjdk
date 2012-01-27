@@ -68,6 +68,7 @@ public class Names {
     public final Name _default;
     public final Name _class;
     public final Name java_base;
+    public final Name jdk_legacy;
     public final Name java_lang;
     public final Name java_lang_Object;
     public final Name java_lang_Class;
@@ -202,6 +203,7 @@ public class Names {
 
         _class = fromString("class");
         java_base = fromString("jdk.base");   // FIXME: update when alias support working
+        jdk_legacy = fromString("jdk");   // FIXME: update when alias support working
         java_lang = fromString("java.lang");
         java_lang_Object = fromString("java.lang.Object");
         java_lang_Class = fromString("java.lang.Class");

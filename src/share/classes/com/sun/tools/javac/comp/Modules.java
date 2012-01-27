@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -51,11 +52,9 @@ import javax.tools.ModuleFileManager;
 import javax.tools.ModuleFileManager.InvalidFileObjectException;
 import javax.tools.ModuleFileManager.ModuleMode;
 import javax.tools.StandardLocation;
-
 import static javax.tools.StandardLocation.*;
 
 import com.sun.source.tree.RequiresFlag;
-
 import com.sun.tools.javac.code.Directive;
 import com.sun.tools.javac.code.Directive.PermitsDirective;
 import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
@@ -76,10 +75,10 @@ import com.sun.tools.javac.main.Option;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCEntrypointDirective;
-import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
 import com.sun.tools.javac.tree.JCTree.JCExportDirective;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.JCTree.JCModuleDecl;
 import com.sun.tools.javac.tree.JCTree.JCModuleId;
 import com.sun.tools.javac.tree.JCTree.JCModuleQuery;
 import com.sun.tools.javac.tree.JCTree.JCPermitsDirective;
@@ -99,7 +98,6 @@ import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Options;
-
 import static com.sun.tools.javac.main.Option.*;
 
 /**
@@ -122,6 +120,8 @@ public class Modules extends JCTree.Visitor {
 
     ModuleId baseModule;
     ModuleQuery baseModuleQuery;
+    ModuleId jdkLegacyModule;
+    ModuleQuery jdkLegacyQuery;
 
     /**
      * The set of module locations for entered trees.
@@ -180,8 +180,10 @@ public class Modules extends JCTree.Visitor {
         Target target = Target.instance(context);
         Name v = names.fromString(target.name.replaceAll("^1.", ""));
         baseModule = new ModuleId(names.java_base, v);
+        jdkLegacyModule = new ModuleId(names.jdk_legacy, v);
         Name q = names.fromString(">=" + v);
         baseModuleQuery = new ModuleQuery(names.java_base, q);
+        jdkLegacyQuery = new ModuleQuery(names.jdk_legacy, q);
     }
 
     <T extends JCTree> void acceptAll(List<T> trees) {
@@ -430,7 +432,7 @@ public class Modules extends JCTree.Visitor {
             if (classFile == null) {
                 sym.name = sym.fullname = names.empty; // unnamed module
                 DEBUG("Modules.readModule: (" + sym.hashCode() + ") no module info found for " + locn );
-                RequiresModuleDirective d = new RequiresModuleDirective(baseModuleQuery,
+                RequiresModuleDirective d = new RequiresModuleDirective(jdkLegacyQuery,
                         EnumSet.of(Directive.RequiresFlag.SYNTHESIZED));
                 sym.directives = List.<Directive>of(d);
                 return;
@@ -1074,16 +1076,17 @@ public class Modules extends JCTree.Visitor {
             }
 
             // Add entry for default platform module if needed
-            ModuleId p = baseModule;
-            Map<Name,ModuleSymbol> versions = table.get(p.name);
-            ModuleSymbol psym = (versions == null) ? null : versions.get(p.version);
-            if (psym == null) {
-                if (versions == null)
-                    table.put(p.name, versions = new HashMap<Name,ModuleSymbol>());
-                psym = new ModuleSymbol(p.name, syms.rootModule);
-                psym.location = StandardLocation.PLATFORM_CLASS_PATH;
-                versions.put(p.version, psym);
-                psym.directives = List.nil();
+            for (ModuleId p: Arrays.asList(baseModule, jdkLegacyModule)) {
+                Map<Name,ModuleSymbol> versions = table.get(p.name);
+                ModuleSymbol psym = (versions == null) ? null : versions.get(p.version);
+                if (psym == null) {
+                    if (versions == null)
+                        table.put(p.name, versions = new HashMap<Name,ModuleSymbol>());
+                    psym = new ModuleSymbol(p.name, syms.rootModule);
+                    psym.location = StandardLocation.PLATFORM_CLASS_PATH;
+                    versions.put(p.version, psym);
+                    psym.directives = List.nil();
+                }
             }
 
             return table;
