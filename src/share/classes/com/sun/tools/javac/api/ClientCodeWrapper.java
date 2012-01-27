@@ -111,7 +111,7 @@ public class ClientCodeWrapper {
     }
 
     public JavaFileManager wrap(JavaFileManager fm) {
-        if (isTrusted(fm))
+        if (fm == null || isTrusted(fm))
             return fm;
         if (fm instanceof ModuleFileManager)
             return new WrappedModuleFileManager(fm);
@@ -120,7 +120,7 @@ public class ClientCodeWrapper {
     }
 
     public FileObject wrap(FileObject fo) {
-        if (isTrusted(fo))
+        if (fo == null || isTrusted(fo))
             return fo;
         return new WrappedFileObject(fo);
     }
@@ -133,7 +133,7 @@ public class ClientCodeWrapper {
     }
 
     public JavaFileObject wrap(JavaFileObject fo) {
-        if (isTrusted(fo))
+        if (fo == null || isTrusted(fo))
             return fo;
         return new WrappedJavaFileObject(fo);
     }
@@ -153,13 +153,13 @@ public class ClientCodeWrapper {
     }
 
     <T /*super JavaFileOject*/> DiagnosticListener<T> wrap(DiagnosticListener<T> dl) {
-        if (isTrusted(dl))
+        if (dl == null || isTrusted(dl))
             return dl;
         return new WrappedDiagnosticListener<T>(dl);
     }
 
     TaskListener wrap(TaskListener tl) {
-        if (isTrusted(tl))
+        if (tl == null || isTrusted(tl))
             return tl;
         return new WrappedTaskListener(tl);
     }
