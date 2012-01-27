@@ -451,6 +451,7 @@ public class Modules extends JCTree.Visitor {
 
     JavaFileObject getModuleInfo(Location locn, JavaFileObject.Kind kind) {
         try {
+            DEBUG("Modules.getModuleInfo: locn:" + locn + " kind:" + kind);
             return fileManager.getJavaFileForInput(locn, "module-info", kind);
         } catch (IOException e) {
             return null;

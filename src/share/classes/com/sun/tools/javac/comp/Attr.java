@@ -3206,9 +3206,10 @@ public class Attr extends JCTree.Visitor {
                     MethodSymbol m = (MethodSymbol) e.sym;
                     if (m.getReturnType().tag != VOID)
                         continue;
-                    if (m.params.size() != 1)
+                    List<VarSymbol> params = m.params();
+                    if (params.size() != 1)
                         continue;
-                    VarSymbol p = m.params.head;
+                    VarSymbol p = params.head;
                     if (types.dimensions(p.type) == 1
                             && types.elemtype(p.type).tsym == syms.stringType.tsym) {
                         hasPublicStaticVoidMain = true;
