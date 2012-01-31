@@ -25,13 +25,16 @@
 
 package com.sun.tools.javac.code;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.lang.model.element.*;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.code.Directive.*;
 import com.sun.tools.javac.code.Type.*;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
@@ -43,6 +46,7 @@ import com.sun.tools.javac.tree.JCTree;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.Flags.MODULE; // disambiguate
 
 /** Root class for Java symbols. It contains subclasses
  *  for specific sorts of symbols, such as variables, methods and operators,
@@ -310,6 +314,13 @@ public abstract class Symbol implements Element {
         return (PackageSymbol) sym;
     }
 
+    /** The module which indirectly owns this symbol.
+     */
+    public ModuleSymbol modle() {
+        ClassSymbol c = outermostClass();
+        return c == null ? null : c.modle;
+    }
+
     /** Is this symbol a subclass of `base'? Only defined for ClassSymbols.
      */
     public boolean isSubClass(Symbol base, Types types) {
@@ -388,6 +399,20 @@ public abstract class Symbol implements Element {
                     return false;
             }
             return (clazz.flags() & INTERFACE) == 0;
+        case MODULE:
+            ModuleSymbol thisModule = this.modle();
+            for (Symbol sup = clazz;
+                 sup != null && sup != this.owner;
+                 sup = types.supertype(sup.type).tsym) {
+                if (sup.type.isErroneous())
+                    return true; // error recovery
+                if ((sup.flags() & COMPOUND) != 0)
+                    continue;
+                if (sup.modle() != thisModule)
+                    return false;
+            }
+            return true;
+
         }
     }
 
@@ -620,6 +645,134 @@ public abstract class Symbol implements Element {
         }
     }
 
+    /** A class for module symbols.
+     */
+    public static class ModuleSymbol extends TypeSymbol implements ModuleElement // JIGSAW need TypeSymbol?
+            /*implements ModuleElement*/ {
+
+        public Name fullname;
+        public Name version;
+
+        /** All directives, in natural order. */
+        public ListBuffer<Directive> directives;
+
+        /** An uninterpreted string associated with the module. */
+        public Name extendedMetadata;
+
+        public ClassSymbol module_info;
+
+        public JavaFileManager.Location location;
+
+        public ModuleSymbol() {
+            super(0, null, null, null);
+            this.kind = MDL;
+            this.type = new ModuleType(this);
+        }
+
+        public ModuleSymbol(Name name, Symbol owner) {
+            super(0, name, null, owner);
+            this.kind = MDL;
+            this.type = new ModuleType(this);
+            this.fullname = formFullName(name, owner);
+        }
+
+        // Currently ModuleId is defined in ModuleElement, which means
+        public com.sun.tools.javac.code.ModuleId getModuleId() {
+            return new com.sun.tools.javac.code.ModuleId(fullname, version);
+        }
+
+        public boolean hasRequires() {
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case REQUIRES_MODULE:
+                    case REQUIRES_SERVICE:
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        public List<RequiresModuleDirective> getRequiredModules() {
+            return Directive.filter(directives, Directive.Kind.REQUIRES_MODULE,
+                    RequiresModuleDirective.class);
+        }
+
+        public List<RequiresServiceDirective> getRequiredServices() {
+            return Directive.filter(directives, Directive.Kind.REQUIRES_SERVICE,
+                    RequiresServiceDirective.class);
+        }
+
+        public boolean hasViews() {
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case REQUIRES_MODULE:
+                    case REQUIRES_SERVICE:
+                        continue;
+                    default:
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        public ViewDeclaration getDefaultView() {
+            ListBuffer<Directive> defaultViewDirectives = ListBuffer.lb();
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case PROVIDES_MODULE:
+                    case PROVIDES_SERVICE:
+                    case EXPORTS:
+                    case PERMITS:
+                    case ENTRYPOINT:
+                        defaultViewDirectives.add(d);
+                }
+            }
+            return new ViewDeclaration(defaultViewDirectives);
+        }
+
+        public List<ViewDeclaration> getViews() {
+            ListBuffer<Directive> defaultViewDirectives = ListBuffer.lb();
+            for (Directive d: directives) {
+                switch (d.getKind()) {
+                    case PROVIDES_MODULE:
+                    case PROVIDES_SERVICE:
+                    case EXPORTS:
+                    case PERMITS:
+                    case ENTRYPOINT:
+                        defaultViewDirectives.add(d);
+                }
+            }
+            List<ViewDeclaration> views =
+                    Directive.filter(directives, Directive.Kind.VIEW,
+                        ViewDeclaration.class);
+            if (defaultViewDirectives.nonEmpty())
+                views = views.prepend(new ViewDeclaration(defaultViewDirectives));
+            return views;
+        }
+
+        public boolean hasExtendedMetadata() {
+            return (extendedMetadata != null) && !extendedMetadata.isEmpty();
+        }
+
+        @Override
+        public String toString() {
+            // the following strings should be localized
+            String n = (fullname == null) ? "<unknown>"
+                    : (fullname.isEmpty()) ? "<unnamed>"
+                    : String.valueOf(fullname);
+            return (version == null) ? n : n + "@" + version;
+        }
+
+        @Override
+        public Name getQualifiedName() {
+            return fullname;
+        }
+
+        public boolean isUnnamed() {
+            return name.isEmpty() && owner != null;
+        }
+    }
+
     /** A class for package symbols
      */
     public static class PackageSymbol extends TypeSymbol
@@ -700,6 +853,10 @@ public abstract class Symbol implements Element {
     /** A class for class symbols
      */
     public static class ClassSymbol extends TypeSymbol implements TypeElement {
+        /**
+         * The module for the class.
+         */
+        public ModuleSymbol modle;
 
         /** a scope for all class members; variables, methods and inner classes
          *  type parameters are not part of this scope

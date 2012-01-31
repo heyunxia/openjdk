@@ -36,6 +36,7 @@ import com.sun.tools.classfile.ConstantPool.CONSTANT_Long_info;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_MethodHandle_info;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_MethodType_info;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_Methodref_info;
+import com.sun.tools.classfile.ConstantPool.CONSTANT_ModuleId_info;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_NameAndType_info;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_String_info;
 import com.sun.tools.classfile.ConstantPool.CONSTANT_Utf8_info;
@@ -330,6 +331,19 @@ public class ClassTranslator
         return info;
     }
 
+    public CPInfo visitModuleId(CONSTANT_ModuleId_info info, Map<Object, Object> translations) {
+        CONSTANT_ModuleId_info info2 = (CONSTANT_ModuleId_info) translations.get(info);
+        if (info2 == null) {
+            ConstantPool cp2 = translate(info.cp, translations);
+            if (cp2 == info.cp)
+                info2 = info;
+            else
+                info2 = new CONSTANT_ModuleId_info(cp2, info.name_index, info.version_index);
+            translations.put(info, info2);
+        }
+        return info;
+    }
+
     public CPInfo visitNameAndType(CONSTANT_NameAndType_info info, Map<Object, Object> translations) {
         CONSTANT_NameAndType_info info2 = (CONSTANT_NameAndType_info) translations.get(info);
         if (info2 == null) {
@@ -343,6 +357,7 @@ public class ClassTranslator
         return info;
     }
 
+
     public CPInfo visitMethodref(CONSTANT_Methodref_info info, Map<Object, Object> translations) {
         CONSTANT_Methodref_info info2 = (CONSTANT_Methodref_info) translations.get(info);
         if (info2 == null) {
@@ -355,7 +370,6 @@ public class ClassTranslator
         }
         return info;
     }
-
     public CPInfo visitMethodHandle(CONSTANT_MethodHandle_info info, Map<Object, Object> translations) {
         CONSTANT_MethodHandle_info info2 = (CONSTANT_MethodHandle_info) translations.get(info);
         if (info2 == null) {

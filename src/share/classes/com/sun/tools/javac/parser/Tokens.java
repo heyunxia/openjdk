@@ -173,6 +173,7 @@ public class Tokens {
         DOUBLELITERAL(Tag.NUMERIC),
         CHARLITERAL(Tag.NUMERIC),
         STRINGLITERAL(Tag.STRING),
+        VERSIONLITERAL(Tag.NAMED),
         TRUE("true", Tag.NAMED),
         FALSE("false", Tag.NAMED),
         NULL("null", Tag.NAMED),
@@ -206,6 +207,7 @@ public class Tokens {
         PLUS("+"),
         SUB("-"),
         STAR("*"),
+        STARSTAR("**"),
         SLASH("/"),
         AMP("&"),
         BAR("|"),
@@ -229,14 +231,15 @@ public class Tokens {
         CUSTOM;
 
         public final String name;
-        public final Tag tag;
+        final Tag tag;
 
         TokenKind() {
             this(null, Tag.DEFAULT);
         }
 
         TokenKind(String name) {
-            this(name, Tag.DEFAULT);
+            // TEMP HACK
+            this(name, Character.isLetter(name.charAt(0)) ? Tag.NAMED : Tag.DEFAULT);
         }
 
         TokenKind(Tag tag) {
@@ -248,6 +251,7 @@ public class Tokens {
             this.tag = tag;
         }
 
+        @Override
         public String toString() {
             switch (this) {
             case IDENTIFIER:
@@ -415,6 +419,7 @@ public class Tokens {
             this.name = name;
         }
 
+        @Override
         protected void checkKind() {
             if (kind.tag != Tag.NAMED) {
                 throw new AssertionError("Bad token kind - expected " + Tag.NAMED);
@@ -436,6 +441,7 @@ public class Tokens {
             this.stringVal = stringVal;
         }
 
+        @Override
         protected void checkKind() {
             if (kind.tag != Tag.STRING) {
                 throw new AssertionError("Bad token kind - expected " + Tag.STRING);
@@ -457,6 +463,7 @@ public class Tokens {
             this.radix = radix;
         }
 
+        @Override
         protected void checkKind() {
             if (kind.tag != Tag.NUMERIC) {
                 throw new AssertionError("Bad token kind - expected " + Tag.NUMERIC);

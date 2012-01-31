@@ -227,6 +227,11 @@ public abstract class Printer implements Type.Visitor<String, Locale>, Symbol.Vi
         return visitType(t, locale);
     }
 
+    @Override
+    public String visitModuleType(ModuleType t, Locale locale) {
+        return visitType(t, locale);
+    }
+
     public String visitType(Type t, Locale locale) {
         String s = (t.tsym == null || t.tsym.name == null)
                 ? localize(locale, "compiler.misc.type.none")
