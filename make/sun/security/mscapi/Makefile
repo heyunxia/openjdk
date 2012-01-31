@@ -89,6 +89,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE  = security-sunmscapi
 PACKAGE = sun.security.mscapi
 LIBRARY = sunmscapi
 PRODUCT = sun
@@ -109,6 +110,10 @@ ifndef OPENJDK
     JCE_BUILD_DIR=${TEMPDIR}
   endif
 endif
+
+# Set OTHER_* flags before including Defs.gmk
+CLASSDESTDIR = $(TEMPDIR)/classes
+OTHER_JAVAHFLAGS += -classpath $(CLASSDESTDIR)
 
 include $(BUILDDIR)/common/Defs.gmk
 
@@ -272,7 +277,7 @@ $(JAR_DESTFILE): $(UNSIGNED_DIR)/sunmscapi.jar
 else
 $(JAR_DESTFILE): $(SIGNED_DIR)/sunmscapi.jar
 endif
-	$(install-file)
+	$(install-non-module-file)
 
 ifndef OPENJDK
 install-prebuilt:

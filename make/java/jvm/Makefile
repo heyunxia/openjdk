@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../..
+MODULE   = base
 
 include $(BUILDDIR)/common/Defs.gmk
 
@@ -38,10 +39,10 @@ FILES_h = $(INCLUDEDIR)/jni.h 			\
 	  $(INCLUDEDIR)/classfile_constants.h
 
 $(INCLUDEDIR)/%.h: $(SHARE_SRC)/javavm/export/%.h
-	$(install-file)
+	$(install-include-file)
 
 $(PLATFORM_INCLUDE)/%.h: $(PLATFORM_SRC)/javavm/export/%.h
-	$(install-file)
+	$(install-include-file)
 
 JVMCFG_DIR = $(LIBDIR)/$(LIBARCH)
 JVMCFG = $(JVMCFG_DIR)/jvm.cfg

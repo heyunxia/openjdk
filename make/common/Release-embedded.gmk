@@ -32,7 +32,7 @@ reduced-image-jre reduced-headless-image-jre ::
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 
 # Add the reduced-jre images as pre-reqs. These will be processed last
-images:: reduced-image-jre reduced-headless-image-jre
+legacy-images:: reduced-image-jre reduced-headless-image-jre
 
 
 ######################################################
