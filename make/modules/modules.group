@@ -537,7 +537,7 @@ module jdk.tools {
     }
 
     view jdk.jcmd {
-        class sun.tools.JCmd;
+        class sun.tools.jcmd.JCmd;
     }
 
     view jdk.jconsole {
