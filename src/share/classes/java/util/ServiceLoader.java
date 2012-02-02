@@ -30,15 +30,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+
+import org.openjdk.jigsaw.*;
+import sun.reflect.Reflection;
 
 
 /**
  * A simple service-provider loading facility.
+ * 
+ * <p> ## spec needs significant changes to specifying loading of services that 
+ *        are installed as modules.
  *
  * <p> A <i>service</i> is a well-known set of interfaces and (usually
  * abstract) classes.  A <i>service provider</i> is a specific implementation
@@ -185,16 +186,16 @@ public final class ServiceLoader<S>
     private static final String PREFIX = "META-INF/services/";
 
     // The class or interface representing the service being loaded
-    private Class<S> service;
+    private final Class<S> service;
 
     // The class loader used to locate, load, and instantiate providers
-    private ClassLoader loader;
+    private final ClassLoader loader;
 
     // Cached providers, in instantiation order
-    private LinkedHashMap<String,S> providers = new LinkedHashMap<>();
+    private final LinkedHashMap<String,S> providers = new LinkedHashMap<>();
 
     // The current lazy-lookup iterator
-    private LazyIterator lookupIterator;
+    private Iterator<S> lookupIterator;
 
     /**
      * Clear this loader's provider cache so that all providers will be
@@ -208,7 +209,7 @@ public final class ServiceLoader<S>
      * can be installed into a running Java virtual machine.
      */
     public void reload() {
-        providers.clear();
+        providers.clear(); 
         lookupIterator = new LazyIterator(service, loader);
     }
 
@@ -309,7 +310,7 @@ public final class ServiceLoader<S>
         }
         return names.iterator();
     }
-
+    
     // Private inner class implementing fully-lazy provider lookup
     //
     private class LazyIterator
@@ -377,9 +378,9 @@ public final class ServiceLoader<S>
         public void remove() {
             throw new UnsupportedOperationException();
         }
-
-    }
-
+        
+    }  
+    
     /**
      * Lazily loads the available providers of this loader's service.
      *
@@ -444,6 +445,19 @@ public final class ServiceLoader<S>
 
         };
     }
+    
+    /**
+     * Returns the caller claser's class loader. Should only be invoked by 
+     * the public load methods when in module mode.
+     */
+    private static ClassLoader callerLoader() {
+        Class<?> caller = Reflection.getCallerClass(3);
+        ClassLoader cl = (caller != null) ? caller.getClassLoader() : null;
+        if (cl == null)
+            cl = BootLoader.getLoader();
+        return cl;
+    }
+    
 
     /**
      * Creates a new service loader for the given service type and class
@@ -463,7 +477,17 @@ public final class ServiceLoader<S>
     public static <S> ServiceLoader<S> load(Class<S> service,
                                             ClassLoader loader)
     {
-        return new ServiceLoader<>(service, loader);
+        ClassLoader cl;
+        // ## in module mode use the caller module's loader when null. This
+        // will be re-visited once the full support for services is in.
+        if ((BootLoader.getLoader() != null) &&
+            (loader == null || loader == ClassLoader.getSystemClassLoader()))
+        {       
+            cl = callerLoader();
+        } else {
+            cl = loader;
+        }
+        return new ServiceLoader<>(service, cl);
     }
 
     /**
@@ -488,8 +512,13 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> load(Class<S> service) {
-        ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        return ServiceLoader.load(service, cl);
+        ClassLoader cl;
+        if (BootLoader.getLoader() != null) {
+            cl = callerLoader();
+        } else {
+            cl = Thread.currentThread().getContextClassLoader();
+        }
+        return new ServiceLoader<>(service, cl);
     }
 
     /**
@@ -517,13 +546,18 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> loadInstalled(Class<S> service) {
-        ClassLoader cl = ClassLoader.getSystemClassLoader();
-        ClassLoader prev = null;
-        while (cl != null) {
-            prev = cl;
-            cl = cl.getParent();
+        if (BootLoader.getLoader() != null) {
+            // in module mode then use the caller's class loader
+            return new ServiceLoader<>(service, callerLoader());
+        } else {
+            ClassLoader cl = ClassLoader.getSystemClassLoader();
+            ClassLoader prev = null;
+            while (cl != null) {
+                prev = cl;
+                cl = cl.getParent();
+            }
+            return new ServiceLoader<>(service, prev);
         }
-        return ServiceLoader.load(service, prev);
     }
 
     /**
