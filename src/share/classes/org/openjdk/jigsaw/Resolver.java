@@ -75,6 +75,9 @@ final class Resolver {
     private Map<String,ModuleView> moduleViewForName
         = new HashMap<>();
     private Map<String,URI> locationForName = new HashMap<>();
+    
+    // modules needs to be downloaded from remote repository
+    private Set<ModuleId> modulesNeeded = new HashSet<>();
 
     private long spaceRequired = 0;
     private long downloadRequired = 0;
@@ -288,6 +291,7 @@ final class Resolver {
         // Save the module's download and install sizes, if any
         //
         if (ms != null) {
+            modulesNeeded.add(mi.id());
             downloadRequired += ms.download();
             spaceRequired += ms.install();
         }
@@ -315,6 +319,7 @@ final class Resolver {
             if (ml != null)
                 locationForName.remove(smn);
             if (ms != null) {
+                modulesNeeded.remove(mi.id());
                 downloadRequired -= ms.download();
                 spaceRequired -= ms.install();
             }
@@ -353,6 +358,7 @@ final class Resolver {
         return new Resolution(rootQueries, r.modules,
                               r.moduleViewForName,
                               r.locationForName,
+                              r.modulesNeeded,
                               r.downloadRequired, r.spaceRequired);
     }
 

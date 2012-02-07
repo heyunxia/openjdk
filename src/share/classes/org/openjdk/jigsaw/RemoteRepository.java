@@ -30,6 +30,8 @@ import java.lang.module.*;
 import java.util.*;
 import java.net.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.*;
 
 import static org.openjdk.jigsaw.Trace.*;
@@ -64,27 +66,35 @@ public class RemoteRepository
     public URI location() {
         return uri;
     }
-
+    
     static URI canonicalize(URI u)
         throws IOException
     {
-        InetAddress ia = InetAddress.getByName(u.getHost());
-        String chn = ia.getCanonicalHostName().toLowerCase();
-        String p = u.getPath();
-        if (p == null)
-            p = "/";
-        else if (!p.endsWith("/"))
-            p += "/";
-        try {
-            return new URI(u.getScheme(),
-                           u.getUserInfo(),
-                           chn,
-                           u.getPort(),
-                           p,
-                           u.getQuery(),
-                           u.getFragment());
-        } catch (URISyntaxException x) {
-            throw new AssertionError(x);
+        String host = u.getHost();
+        if (host != null) {
+            InetAddress ia = InetAddress.getByName(host);
+            String chn = ia.getCanonicalHostName().toLowerCase();
+            String p = u.getPath();
+            if (p == null)
+                p = "/";
+            else if (!p.endsWith("/"))
+                p += "/";
+            try {
+                return new URI(u.getScheme(),
+                               u.getUserInfo(),
+                               chn,
+                               u.getPort(),
+                               p,
+                               u.getQuery(),
+                               u.getFragment());
+            } catch (URISyntaxException x) {
+                throw new AssertionError(x);
+            }
+        } else {
+            String s = u.toString();
+            if (s.endsWith("/"))
+                return u;
+            return URI.create(s + "/");
         }
     }
 
@@ -214,59 +224,62 @@ public class RemoteRepository
         URI u = uri.resolve("%25catalog");
         if (tracing)
             trace(1, "fetching catalog %s (head %s, force %s)", u, head, force);
-        HttpURLConnection co = (HttpURLConnection)u.toURL().openConnection();
-        co.setFollowRedirects(true);
-        if (!force) {
-            if (mtime != 0)
-                co.setIfModifiedSince(mtime);
-            if (etag != null)
-                co.setRequestProperty("If-None-Match", etag);
-            if (tracing)
-                trace(2, "old mtime %d, etag %s", mtime, etag);
-        }
-        if (head)
-            co.setRequestMethod("HEAD");
-        co.connect();
-
-        int rc = co.getResponseCode();
-        if (tracing)
-            trace(2, "response: %s", co.getResponseMessage());
-        if (rc == HttpURLConnection.HTTP_NOT_MODIFIED)
-            return false;
-        if (rc != HttpURLConnection.HTTP_OK)
-            throw new IOException(u + ": " + co.getResponseMessage());
-
-        File newfn = new File(dir, "catalog.new");
-        try {
-            InputStream in = co.getInputStream();
+        
+        // special-case file protocol for faster copy
+        if (u.getScheme().equalsIgnoreCase("file")) {
+            Path newfn = dir.toPath().resolve("catalog.new");
             try {
-                FileOutputStream out = new FileOutputStream(newfn);
-                try {
-                    byte[] buf = new byte[8192];
-                    int n, t = 0;
-                    while ((n = in.read(buf)) > 0) {
-                        t += n;
-                        out.write(buf, 0, n);
-                    }
-                    if (tracing)
-                        trace(2, "%d catalog bytes read", t);
-                } finally {
-                    out.close();
-                }
-            } finally {
-                in.close();
+                Files.copy(Paths.get(u), newfn);              ;
+                Files.move(newfn, catFile.toPath(), ATOMIC_MOVE);
+            } catch (IOException x) {
+                Files.deleteIfExists(newfn);
+                throw x;
             }
-        } catch (IOException x) {
-            newfn.delete();
-            throw x;
-        }
-        Files.move(newfn.toPath(), catFile.toPath(), ATOMIC_MOVE);
-        cat = null;
+        } else {
+            URLConnection uc = u.toURL().openConnection();
+            if (uc instanceof HttpURLConnection) {
+                HttpURLConnection http = (HttpURLConnection)uc;
+                http.setInstanceFollowRedirects(true);
+                if (!force) {
+                    if (mtime != 0)
+                        uc.setIfModifiedSince(mtime);
+                    if (etag != null)
+                        uc.setRequestProperty("If-None-Match", etag);
+                    if (tracing)
+                        trace(2, "old mtime %d, etag %s", mtime, etag);
+                }
+                if (head)
+                    http.setRequestMethod("HEAD");
+                http.connect();
 
-        mtime = co.getHeaderFieldDate("Last-Modified", 0);
-        etag = co.getHeaderField("ETag");
-        if (tracing)
-            trace(2, "new mtime %d, etag %s", mtime, etag);
+                int rc = http.getResponseCode();
+                if (tracing)
+                    trace(2, "response: %s", http.getResponseMessage());
+                if (rc == HttpURLConnection.HTTP_NOT_MODIFIED) {
+                    return false;
+                }
+                if (rc != HttpURLConnection.HTTP_OK)
+                    throw new IOException(u + ": " + http.getResponseMessage());
+            }
+
+            Path newfn = dir.toPath().resolve("catalog.new");
+            try (InputStream in = uc.getInputStream()) {
+                long t = Files.copy(in, newfn);
+                if (tracing)
+                    trace(2, "%d catalog bytes read", t);
+                Files.move(newfn, catFile.toPath(), ATOMIC_MOVE);
+            } catch (IOException x) {
+                Files.deleteIfExists(newfn);
+                throw x;
+            }
+
+            mtime = uc.getHeaderFieldDate("Last-Modified", 0);
+            etag = uc.getHeaderField("ETag");
+            if (tracing)
+                trace(2, "new mtime %d, etag %s", mtime, etag);
+        }
+        
+        cat = null;
         storeMeta();
 
         return true;
@@ -315,15 +328,24 @@ public class RemoteRepository
         URI u = uri.resolve(mid.toString() + ".jmod");
         if (tracing)
             trace(1, "fetching module %s", u);
-        HttpURLConnection co = (HttpURLConnection)u.toURL().openConnection();
-        co.setFollowRedirects(true);
-        co.connect();
-        int rc = co.getResponseCode();
-        if (tracing)
-            trace(2, "response: %s", co.getResponseMessage());
-        if (rc != HttpURLConnection.HTTP_OK)
-            throw new IOException(u + ": " + co.getResponseMessage());
-        return co.getInputStream();
+        
+        // special case file protocol for faster access
+        if (u.getScheme().equalsIgnoreCase("file")) {
+            return Files.newInputStream(Paths.get(u));
+        } else {
+            URLConnection uc = u.toURL().openConnection();
+            if (uc instanceof HttpURLConnection) {
+                HttpURLConnection http = (HttpURLConnection)uc;
+                http.setFollowRedirects(true);
+                http.connect();
+                int rc = http.getResponseCode();
+                if (tracing)
+                    trace(2, "response: %s", http.getResponseMessage());
+                if (rc != HttpURLConnection.HTTP_OK)
+                    throw new IOException(u + ": " + http.getResponseMessage());
+            }
+            return uc.getInputStream();
+        }
     }
 
     public ModuleSize sizeof(ModuleId mid) throws IOException {

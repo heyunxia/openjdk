@@ -68,21 +68,16 @@ public final class Resolution {
                Set<ModuleInfo> mis,
                Map<String,ModuleView> mvfn,
                Map<String,URI> lfn,
+               Set<ModuleId> needed,
                long dr, long sr)
     {
         rootQueries = rqs;
         modules = mis;
         moduleViewForName = mvfn;
         locationForName = lfn;
+        modulesNeeded = needed;
         downloadRequired = dr;
         spaceRequired = sr;
-        Set<ModuleId> nmids = new HashSet<>();
-        for (ModuleInfo mi : modules) {
-            URI u = locationForName.get(mi.id().name());
-            if (u != null && !u.getScheme().equals("file"))
-                nmids.add(mi.id());
-        }
-        modulesNeeded = Collections.unmodifiableSet(nmids);
     }
 
 }

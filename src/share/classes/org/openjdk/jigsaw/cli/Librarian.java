@@ -30,6 +30,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.*;
 import java.util.*;
 
@@ -257,7 +258,7 @@ public class Librarian {
                     out.format("To install: %s%n",
                                res.modulesNeeded()
                                .toString().replaceAll("^\\[|\\]$", ""));
-                    out.format("%d bytes to download%n",
+                    out.format("%d bytes to download/transfer%n",
                                res.downloadRequired());
                     out.format("%d bytes to store%n",
                                res.spaceRequired());
@@ -265,11 +266,7 @@ public class Librarian {
                 if (dry)
                     return;
                 lib.install(res, verifySignature, strip);
-            } catch (ConfigurationException x) {
-                throw new Command.Exception(x);
-            } catch (IOException x) {
-                throw new Command.Exception(x);
-            } catch (SignatureException x) {
+            } catch (ConfigurationException | IOException | SignatureException x) {
                 throw new Command.Exception(x);
             }
 
@@ -387,6 +384,9 @@ public class Librarian {
         throws Command.Exception
     {
         try {
+            // if a scheme isn't specified then assume that a file path
+            if (s.indexOf(':') == -1)
+                return Paths.get(s).toUri();
             return new URI(s);
         } catch (URISyntaxException x) {
             throw new Command.Exception("URI syntax error: "
