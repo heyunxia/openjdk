@@ -93,14 +93,17 @@ public class Debug {
 
     public void println(Object o) {
         out.println(o);
+        out.flush();
     }
 
     public void println(String s) {
         out.println(s);
+        out.flush();
     }
 
     public void println() {
         out.println();
+        out.flush();
     }
 
     void setOpts(String list) {

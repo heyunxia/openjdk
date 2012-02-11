@@ -580,7 +580,7 @@ public class Modules extends JCTree.Visitor {
     }
 
     boolean isPlatformModuleName(Name name) {
-        return name.toString().startsWith("java.");
+        return name.toString().startsWith("java.") || name.toString().startsWith("jdk.") ;
     }
 
     boolean definesPlatformModule(List<Directive> directives) {

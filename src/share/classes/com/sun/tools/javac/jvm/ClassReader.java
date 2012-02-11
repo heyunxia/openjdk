@@ -29,46 +29,53 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.CharBuffer;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+
 import javax.lang.model.SourceVersion;
-import javax.tools.JavaFileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileManager.Location;
+import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 
 import static javax.tools.StandardLocation.*;
 
-import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.code.*;
-import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
-import com.sun.tools.javac.code.Directive.PermitsDirective;
 import com.sun.tools.javac.code.Directive.EntrypointDirective;
-import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Directive.ExportsDirective;
-import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
+import com.sun.tools.javac.code.Directive.PermitsDirective;
 import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
+import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
 import com.sun.tools.javac.code.Directive.RequiresFlag;
+import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Lint.LintCategory;
-import com.sun.tools.javac.code.Type.*;
-import com.sun.tools.javac.code.Symbol.*;
-import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.code.Symbol.Completer;
+import com.sun.tools.javac.code.Symbol.CompletionFailure;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Symbol.ModuleSymbol;
+import com.sun.tools.javac.code.Symbol.PackageSymbol;
+import com.sun.tools.javac.code.Symbol.TypeSymbol;
+import com.sun.tools.javac.code.Symbol.VarSymbol;
+import com.sun.tools.javac.code.Type.ArrayType;
+import com.sun.tools.javac.code.Type.ClassType;
+import com.sun.tools.javac.code.Type.ForAll;
+import com.sun.tools.javac.code.Type.MethodType;
+import com.sun.tools.javac.code.Type.TypeVar;
+import com.sun.tools.javac.code.Type.WildcardType;
+import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.file.BaseFileObject;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.sun.tools.javac.util.List;
 
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
-import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.TypeTags.CLASS;
 import static com.sun.tools.javac.jvm.ClassFile.*;
 import static com.sun.tools.javac.jvm.ClassFile.Version.*;
-
-import static com.sun.tools.javac.main.Option.*;
+import static com.sun.tools.javac.main.Option.VERBOSE;
 
 /** This class provides operations to read a classfile into an internal
  *  representation. The internal representation is anchored in a
@@ -1224,24 +1231,23 @@ public class ClassReader implements Completer {
                 void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP && sym.owner.kind == MDL) {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
-                        ListBuffer<Directive> directives = new ListBuffer<Directive>();
                         int numViews = nextChar();
                         for (int v = 0; v < numViews; v++) {
                             Name viewName = readName(nextChar());
-                            ListBuffer<Directive> viewDirectives =
-                                (viewName == null) ? directives : new ListBuffer<Directive>();
+                            List<Directive> directives =
+                                (viewName == null) ? msym.directives : List.<Directive>nil();
 
                             ClassSymbol entrypoint = readClassSymbol(nextChar());
                             if (entrypoint != null) {
                                 EntrypointDirective d = new EntrypointDirective(entrypoint);
-                                viewDirectives.add(d);
+                                directives = directives.prepend(d);
                             }
 
                             int numAliases = nextChar();
                             for (int i = 0; i < numAliases; i++) {
                                 ModuleId id = readModuleId(nextChar());
                                 ProvidesModuleDirective d = new ProvidesModuleDirective(id);
-                                viewDirectives.add(d);
+                                directives = directives.prepend(d);
                             }
 
                             int numServices = nextChar();
@@ -1249,7 +1255,7 @@ public class ClassReader implements Completer {
                                 ClassSymbol svcSym = readClassSymbol(nextChar());
                                 ClassSymbol implSym = readClassSymbol(nextChar());
                                 ProvidesServiceDirective d = new ProvidesServiceDirective(svcSym, implSym);
-                                viewDirectives.add(d);
+                                directives = directives.prepend(d);
                             }
 
                             int numExports = nextChar();
@@ -1257,24 +1263,21 @@ public class ClassReader implements Completer {
                                 Name export = readName(nextChar());
                                 PackageSymbol psym = enterPackage(export);
                                 ExportsDirective d = new ExportsDirective(psym);
-                                viewDirectives.add(d);
+                                directives = directives.prepend(d);
                             }
 
                             int numPermits = nextChar();
                             for (int i = 0; i < numPermits; i++) {
                                 ModuleId id = readModuleId(nextChar());
                                 PermitsDirective d = new PermitsDirective(id);
-                                viewDirectives.add(d);
+                                directives = directives.prepend(d);
                             }
 
-                            if (viewName == null) {
-                                msym.directives = viewDirectives.toList();
-                            } else {
-                                ViewDeclaration vdecl = new ViewDeclaration(viewName, viewDirectives.toList());
-                                directives.add(vdecl);
+                            if (viewName != null) {
+                                ViewDeclaration d = new ViewDeclaration(viewName, directives.reverse());
+                                directives = directives.prepend(d);
                             }
                         }
-                        msym.directives = directives.toList();
                     }
                 }
             },
@@ -2329,9 +2332,10 @@ public class ClassReader implements Completer {
             //System.err.println("ClassReader.complete module " + sym + " " + sym.name);
             ModuleSymbol msym = (ModuleSymbol) sym;
             msym.module_info.members_field = new Scope(sym); // or Scope.empty?
+            msym.directives = List.nil();
             fillIn(msym.module_info);
+            msym.directives = msym.directives.reverse();
             assert msym.name != null;
-            assert msym.directives != null;
             //System.err.println("ClassReader.completed module " + sym + " " + sym.name);
         }
         if (!filling && !suppressFlush)

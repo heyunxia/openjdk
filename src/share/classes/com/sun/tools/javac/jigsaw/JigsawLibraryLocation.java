@@ -108,6 +108,11 @@ public class JigsawLibraryLocation implements ExtendedLocation {
             return null;
     }
 
+    @Override
+    public String toString() {
+        return ("JigsawLibrary[" + library + "," + mid + "]");
+    }
+
     private static String normalize(String name) {
         return name.replace('/', '.');
     }
