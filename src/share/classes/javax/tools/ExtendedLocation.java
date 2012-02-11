@@ -42,7 +42,7 @@ public interface ExtendedLocation extends JavaFileManager.Location {
      * @param recurse      if true include "subpackages"
      * @return an Iterable of file objects matching the given criteria
      * @throws IOException if an I/O error occurred
-     * @see JavaFileManager.list
+     * @see JavaFileManager#list
      */
     Iterable<JavaFileObject> list(String packageName,
                                   Set<JavaFileObject.Kind> kinds,
@@ -52,11 +52,10 @@ public interface ExtendedLocation extends JavaFileManager.Location {
     /**
      * Infers a binary name of a file object returned from this location.
      *
-     * @param location a location
      * @param file a file object
      * @return a binary name or {@code null} if the file object is not
      * found in this location
-     * @see JavaFileManager.inferBinaryName
+     * @see JavaFileManager#inferBinaryName
      */
     String inferBinaryName(JavaFileObject file);
 }
