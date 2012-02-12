@@ -1295,14 +1295,14 @@ public class ClassReader implements Completer {
                             ModuleQuery q = readModuleQuery(nextChar());
                             Set<RequiresFlag> flags = readRequiresFlags(nextInt());
                             RequiresModuleDirective d = new RequiresModuleDirective(q, flags);
-                            msym.directives.add(d);
+                            msym.directives = msym.directives.prepend(d);
                         }
                         int numServices = nextChar();
                         for (int r = 0; r < numServices; r++) {
                             ClassSymbol csym = readClassSymbol(nextChar());
                             Set<RequiresFlag> flags = readRequiresFlags(nextInt());
                             RequiresServiceDirective d = new RequiresServiceDirective(csym, flags);
-                            msym.directives.add(d);
+                            msym.directives = msym.directives.prepend(d);
                         }
                     }
                 }
