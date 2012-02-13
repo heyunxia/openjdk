@@ -67,7 +67,7 @@ public class WorldWrapper {
 }
 
 module org.astro @ 2.0 {
-    exports org.astro.*;
+    exports org.astro;
 }
 
 package org.astro;
@@ -82,7 +82,7 @@ public class World {
 }
 
 module com.foo @ 3.0 {
-    exports com.foo.*;
+    exports com.foo;
 }
 
 package com.foo;

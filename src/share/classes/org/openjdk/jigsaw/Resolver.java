@@ -255,8 +255,6 @@ final class Resolver {
             throw new AssertionError("No ModuleInfo for " + mid
                                      + "; initial catalog " + cat.name());
 
-        Platform.adjustPlatformDependences(mi);
-
         // Check this module's permits constraints
         //
         ModuleView smv = null;

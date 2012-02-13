@@ -42,7 +42,7 @@ public class Hello {
 }
 
 module org.astro @ 1.2 {
-    exports org.astro.*;
+    exports org.astro;
 }
 
 package org.astro;

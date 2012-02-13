@@ -115,6 +115,11 @@ public class ConstantPoolParser {
                 return 1;
             }
 
+            public Integer visitModuleQuery(CONSTANT_ModuleQuery_info info, Void p) {
+                // skip
+                return 1;
+            }
+
             public Integer visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
                 // skip
                 return 1;
@@ -267,28 +272,27 @@ public class ConstantPoolParser {
         }
 
         public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
-            if (info.version_index == 0)
-                return getCheckedName(info);
-            else
-                return getCheckedName(info) + "@" + getCheckedVersion(info);
-        }
-
-        String getCheckedName(CONSTANT_ModuleId_info info) {
             try {
-                return checkName(info.getName());
+                String name = checkName(info.getName());
+                if (info.version_index != 0)
+                    name += "@" + info.getVersion();
+                return name;
             } catch (ConstantPoolException e) {
                 throw new RuntimeException(e);
             }
         }
-
-        String getCheckedVersion(CONSTANT_ModuleId_info info) {
+        
+        public String visitModuleQuery(CONSTANT_ModuleQuery_info info, Void p) {
             try {
-                return info.getVersion();
+                String name = checkName(info.getName());
+                if (info.version_index != 0)
+                    name += "@" + info.getVersion();
+                return name;
             } catch (ConstantPoolException e) {
                 throw new RuntimeException(e);
             }
         }
-
+        
         public String visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
             return getCheckedName(info) + ":" + getType(info);
         }

@@ -53,8 +53,8 @@ class ModuleInfo {
         this.requiresModules = new HashSet<>();
         this.exports = new TreeSet<>();
         this.writer = new ModuleInfoWriter();
-        addRequires(org.openjdk.jigsaw.Platform.defaultPlatformModule(),
-                    EnumSet.of(Modifier.SYNTHETIC));
+        addRequires(ms.parseModuleIdQuery("jdk.jre"),
+                    EnumSet.of(Modifier.SYNTHESIZED));
     }
     
     ModuleId id() {
@@ -70,11 +70,14 @@ class ModuleInfo {
     }
 
     void addRequires(ModuleId mid) {
-        addRequires(mid, Collections.EMPTY_SET);
+        addRequires(ms.parseModuleIdQuery(mid.toString()));
     }
 
-    void addRequires(ModuleId mid, Set<Modifier> mods) {
-        ModuleIdQuery midq = ms.parseModuleIdQuery(mid.name() + "@" + mid.version());
+    void addRequires(ModuleIdQuery midq) {
+        addRequires(midq, Collections.EMPTY_SET);
+    }
+
+    void addRequires(ModuleIdQuery midq, Set<Modifier> mods) {
         requiresModules.add(new ViewDependence(mods, midq));
     }
 
@@ -137,6 +140,23 @@ class ModuleInfo {
             cpidx += 6;
         }
 
+                
+        int addModuleIdQuery(ModuleIdQuery query) {
+            int nameIdx, versionIdx;
+
+            nameIdx = cpidx++;
+            cpinfos.add(nameIdx, new CONSTANT_Utf8_info(query.name()));
+            if (query.versionQuery() == null) {
+                versionIdx = 0;
+            } else {
+                versionIdx = cpidx++;
+                cpinfos.add(versionIdx,
+                            new CONSTANT_Utf8_info(query.versionQuery().toString()));
+            }
+            cpinfos.add(cpidx, new CONSTANT_ModuleQuery_info(null, nameIdx, versionIdx));
+            return cpidx++;
+        }
+        
         void addModuleRequiresAttribute() {
             ModuleRequires_attribute.Entry[] moduleEntries =
                 new ModuleRequires_attribute.Entry[requiresModules.size()];
@@ -144,30 +164,29 @@ class ModuleInfo {
                 new ModuleRequires_attribute.Entry[0];
             int i=0;
             for (ViewDependence d: requiresModules) {
-                // ## specify a version range in CONSTANT_ModuleId_info? 
-                String version = d.query().versionQuery().toString();
-                cpinfos.add(cpidx, new CONSTANT_Utf8_info(d.query().name()));
-                cpinfos.add(cpidx+1, new CONSTANT_Utf8_info(version));
-                cpinfos.add(cpidx+2, new CONSTANT_ModuleId_info(null, cpidx, cpidx+1));
+                // ## specify a version range in CONSTANT_ModuleQuery_info? 
+                int midq = addModuleIdQuery(d.query());
                 int flags = 0;
                 for (Modifier m : d.modifiers()) {
                     switch (m) {
                         case OPTIONAL:
-                            flags |= ModuleRequires_attribute.MR_OPTIONAL;
+                            flags |= ModuleRequires_attribute.ACC_OPTIONAL;
                             break;
                         case LOCAL:
-                            flags |= ModuleRequires_attribute.MR_LOCAL;
+                            flags |= ModuleRequires_attribute.ACC_LOCAL;
                             break;
                         case PUBLIC:
-                            flags |= ModuleRequires_attribute.MR_PUBLIC;
+                            flags |= ModuleRequires_attribute.ACC_REEXPORT;
                             break;
                         case SYNTHETIC:
-                            flags |= ModuleRequires_attribute.MR_SYNTHETIC;
+                            flags |= ModuleRequires_attribute.ACC_SYNTHETIC;
+                            break;
+                        case SYNTHESIZED:
+                            flags |= ModuleRequires_attribute.ACC_SYNTHESIZED;
                             break;
                     }
                 }
-                moduleEntries[i++] = new ModuleRequires_attribute.Entry(cpidx+2, flags);
-                cpidx += 3;
+                moduleEntries[i++] = new ModuleRequires_attribute.Entry(midq, flags);
             }
             cpinfos.add(cpidx, new CONSTANT_Utf8_info(Attribute.ModuleRequires));
             Attribute attr = new ModuleRequires_attribute(cpidx, moduleEntries, serviceEntries);
@@ -181,25 +200,22 @@ class ModuleInfo {
                 new ModuleProvides_attribute.View[1];
             
             int entryPointIndex = mainClass() == null ? 0 : addClassInfo(mainClass());
-            ModuleProvides_attribute.Export[] providesAttrExports =
-                new ModuleProvides_attribute.Export[exports.size()];
+            int[] exportsCpIds = new int[exports.size()];
             
             int i = 0;
             for (String pn : exports) {
                 int index = cpidx++;
                 cpinfos.add(index, new CONSTANT_Utf8_info(pn));
-                providesAttrExports[i++] = 
-                    new ModuleProvides_attribute.Export(index,
-                            ModuleProvides_attribute.Export.PACKAGE, 
-                            moduleIndex);
+                exportsCpIds[i++] = index;
             }
             
-            views[0] = new ModuleProvides_attribute.View(0,
-                            entryPointIndex, 
-                            new int[0],
-                            new ModuleProvides_attribute.Service[0],
-                            providesAttrExports,
-                            new int[0]);
+            views[0] = 
+                new ModuleProvides_attribute.View(0,
+                                                  entryPointIndex, 
+                                                  new int[0],
+                                                  new ModuleProvides_attribute.Service[0],
+                                                  exportsCpIds,
+                                                  new int[0]);
            
             cpinfos.add(cpidx, new CONSTANT_Utf8_info(Attribute.ModuleProvides));
             Attribute attr = new ModuleProvides_attribute(cpidx, views);
@@ -213,16 +229,6 @@ class ModuleInfo {
             cpinfos.add(cpidx+1, new CONSTANT_Class_info(null, cpidx));
             int index = cpidx+1;
             cpidx += 2;
-            return index;
-        }
-        
-        int addModuleId(ModuleIdQuery query) {
-            String version = query.versionQuery().toString();
-            cpinfos.add(cpidx, new CONSTANT_Utf8_info(query.name()));
-            cpinfos.add(cpidx + 1, new CONSTANT_Utf8_info(version));
-            cpinfos.add(cpidx + 2, new CONSTANT_ModuleId_info(null, cpidx, cpidx + 1));
-            int index = cpidx + 2;
-            cpidx += 3;
             return index;
         }
 

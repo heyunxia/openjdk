@@ -78,7 +78,7 @@ for v in 1 1.2 2 3; do
   m=org.multi@$v
   mk z.src.$m/org.multi/module-info.java <<EOF
 module org.multi @ $v {
-  exports org.multi.*;
+  exports org.multi;
 }
 EOF
 mk z.src.$m/org.multi/org/multi/Tudinous.java <<EOF
@@ -99,7 +99,9 @@ EOF
 
 mk z.src/net.baz.aar/net/baz/aar/Ness.java <<EOF
 package net.baz.aar;
-public class Ness { }
+public class Ness {
+    public static void main(String[] argv) { }
+}
 EOF
 
 OS=`uname -s`

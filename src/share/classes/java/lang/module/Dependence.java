@@ -31,7 +31,7 @@ import java.util.Set;
 
 public class Dependence {
 
-    public static enum Modifier { LOCAL, OPTIONAL, PUBLIC, SYNTHETIC; }
+    public static enum Modifier { LOCAL, OPTIONAL, PUBLIC, SYNTHETIC, SYNTHESIZED; }
 
     private final Set<Modifier> mods;
 

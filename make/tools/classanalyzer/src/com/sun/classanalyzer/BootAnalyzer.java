@@ -174,7 +174,8 @@ public class BootAnalyzer {
             long total = 0L;
             int count = 0;
             summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
-            for (PackageInfo info : m.packages()) {
+            Set<PackageInfo> pkgs = new TreeSet<>(m.packages());
+            for (PackageInfo info : pkgs) {
                 summary.format("%10d\t%10d\t%s%n",
                         info.classBytes, info.classCount, info.pkgName);
                 total += info.classBytes;
@@ -818,6 +819,11 @@ public class BootAnalyzer {
             }
 
             public String visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+                // skip
+                return null;
+            }
+            
+            public String visitModuleQuery(CONSTANT_ModuleQuery_info c, Void p) {
                 // skip
                 return null;
             }

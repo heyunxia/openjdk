@@ -53,7 +53,9 @@ module M @ 1.0 {
 }
 
 package M.X.Y;
-public class Main { }
+public class Main {
+    public static void main(String[] args) { }
+}
 
 module N @ 9.0 { 
     permits M;

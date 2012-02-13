@@ -40,7 +40,7 @@ public class X {
 }
 
 module y @ 1 {
-    exports y.*;
+    exports y;
 }
 
 package y;
@@ -59,7 +59,7 @@ package x;
 public class X { }
 
 module y @ 2 {
-    exports y.*;
+    exports y;
 }
 
 package y;
@@ -80,7 +80,7 @@ public class X {
 }
 
 module y @ 1 {
-    exports y.*;
+    exports y;
 }
 
 package y;

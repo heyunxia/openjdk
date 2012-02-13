@@ -150,6 +150,7 @@ public class ClassInfo {
     private final static int CONSTANT_MethodType = 16;
     private final static int CONSTANT_InvokeDynamic = 18;
     private final static int CONSTANT_ModuleId = 19;
+    private final static int CONSTANT_ModuleQuery = 20;
 
     private Object[] constantPool;
 
@@ -187,6 +188,7 @@ public class ClassInfo {
                 bb.getShort();
                 break;
             case CONSTANT_ModuleId:
+            case CONSTANT_ModuleQuery:
                 int ni = bb.getShort() & 0xffff;
                 int vi = bb.getShort() & 0xffff;
                 cp[i] = new int[] { ni, vi };

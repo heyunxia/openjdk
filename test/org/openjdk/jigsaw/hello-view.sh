@@ -42,9 +42,9 @@ public class Hello {
 }
 
 module org.astro @ 1.2 {
-    exports org.astro.*;
+    exports org.astro;
     view org.astro.internal {
-        exports org.astro.internal.*;
+        exports org.astro.internal;
         permits com.greetings;
     }
     view org.astro.main {
@@ -93,9 +93,9 @@ module foo @ 1 {
 }
 
 module org.astro @ 1.2 {
-    exports org.astro.*;
+    exports org.astro;
     view org.astro.internal {
-        exports org.astro.internal.*;
+        exports org.astro.internal;
     }
 }
 
@@ -136,9 +136,9 @@ public class Main {
 }
 
 module bar @ 1.2 {
-    exports bar.*;
+    exports bar;
     view baz {
-        exports baz.*;
+        exports baz;
     }
 }
 

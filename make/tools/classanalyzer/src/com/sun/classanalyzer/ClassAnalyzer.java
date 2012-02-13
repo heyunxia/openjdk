@@ -302,7 +302,8 @@ public class ClassAnalyzer {
             long resBytes = 0;
             int resCount = 0;
             summary.format("%10s\t%10s\t%s%n", "Bytes", "Classes", "Package name");
-            for (PackageInfo info : m.packages()) {
+            Set<PackageInfo> pkgs = new TreeSet<>(m.packages());
+            for (PackageInfo info : pkgs) {
                 summary.format("%10d\t%10d\t%s%n",
                         info.classBytes, info.classCount, info.pkgName);
                 total += info.classBytes;

@@ -57,7 +57,7 @@ EOF
 
 mk z.src/org.astro/module-info.java <<EOF
 module org.astro @ 1.2 {
-    exports org.astro.*;
+    exports org.astro;
 }
 EOF
 

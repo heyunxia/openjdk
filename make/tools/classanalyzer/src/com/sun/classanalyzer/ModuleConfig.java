@@ -523,7 +523,7 @@ public class ModuleConfig {
                     } else if (keyword.equals("exports")) {
                         // only support one class/package/wildcard in each export statement
                         String n = s[1].trim();
-                        if (s.length != 2 || (!n.equals("**;") && !n.endsWith(".*;"))) {
+                        if (s.length != 2 || (!n.equals("**;") && n.endsWith("*;"))) {
                             throw new RuntimeException(file + ", line "
                                     + lineNumber + ", is malformed");
                         }

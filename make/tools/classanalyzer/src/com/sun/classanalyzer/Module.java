@@ -550,7 +550,7 @@ public class Module implements Comparable<Module> {
             return modules.get(name);
         }
 
-        public final Module findModuleForView(String name) {
+        public final Module getModuleForView(String name) {
             Module m = findModule(name);
             if (m != null)
                 return m;
@@ -567,7 +567,7 @@ public class Module implements Comparable<Module> {
                     }
                 }
             }
-            return null;
+            throw new RuntimeException("module " + name + " doesn't exist");
         }
         
         public final Module baseModule() {

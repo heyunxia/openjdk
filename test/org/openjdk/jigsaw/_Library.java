@@ -157,7 +157,6 @@ public class _Library {
         // FIXME: need to filter the contexts due to jdk modules
         // eq(cf.contexts().size(), 2);
         Context cx = cf.getContext("+com.foo.bar");
-        //ModuleId jdkmid = ms.parseModuleId("jdk@7-ea");
         eq(cx.modules(), Arrays.asList(foomid));
         eq(cx.localClasses(), Arrays.asList("com.foo.bar.Main",
                                             "com.foo.bar.Internal",

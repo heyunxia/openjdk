@@ -26,10 +26,6 @@
 package org.openjdk.jigsaw;
 
 import java.lang.module.*;
-import java.util.*;
-
-import static java.lang.module.Dependence.Modifier;
-import static org.openjdk.jigsaw.Trace.*;
 
 
 public final class Platform {
@@ -39,19 +35,12 @@ public final class Platform {
     private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
-    private static final ModuleId DEFAULT_PLATFORM_MID
-        = jms.parseModuleId("jdk@8-ea");
-
-    public static ModuleId defaultPlatformModule() {
-        return DEFAULT_PLATFORM_MID;
-    }
-
     private static final ModuleId BASE_MID
         = jms.parseModuleId("jdk.base@8-ea");
 
     public static ModuleId baseModule() { return BASE_MID; }
 
-    public static boolean isPlatformModuleName(String mn) {
+    private static boolean isPlatformModuleName(String mn) {
         return (mn.equals("jdk") || mn.startsWith("jdk.") ||
             mn.startsWith("sun."));
     }
@@ -73,23 +62,4 @@ public final class Platform {
         }
         return false;
     }
-
-    // ## Workaround: Compiler should add synthesized dependence
-    // ## for platform modules except jdk.base
-    //
-    public static void adjustPlatformDependences(ModuleInfo mi) {
-        if (!isPlatformModuleName(mi.id().name()))
-            return;
-        for (Iterator<ViewDependence> i = mi.requiresModules().iterator();
-             i.hasNext();)
-        {
-            ViewDependence d = i.next();
-            if (d.modifiers().contains(Modifier.SYNTHETIC)) {
-                if (tracing)
-                    trace(1, "removing %s -> %s", mi.id(), d);
-                i.remove();
-            }
-        }
-    }
-
 }

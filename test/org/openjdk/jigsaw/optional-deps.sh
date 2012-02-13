@@ -42,10 +42,9 @@ rm -rf z.*
 
 mk z.src/org.foo/module-info.java <<EOF
 module org.foo @ 1 {
-    requires jdk.base;
     requires optional net.bar;
-    exports org.foo.*;
-    exports org.foo.spi.*;
+    exports org.foo;
+    exports org.foo.spi;
     class org.foo.Main;
 }
 EOF
@@ -105,9 +104,8 @@ EOF
 
 mk z.src/net.bar/module-info.java <<EOF
 module net.bar @ 2 {
-    requires jdk.base;
     requires org.foo;
-    exports net.bar.*;
+    exports net.bar;
     class net.bar.Ness;
 }
 EOF
@@ -137,7 +135,6 @@ EOF
 mk z.src/com.foo.bar/module-info.java <<EOF
 module com.foo.bar @ 1.2.3
 {
-    requires jdk.base;
     requires org.foo;
     requires net.bar;
     class com.foo.bar.Main;

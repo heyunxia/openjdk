@@ -118,7 +118,6 @@ class Commands {
                     out.format("%s%n", mi.id());
                     n++;
                     if (verbose) {
-                        Platform.adjustPlatformDependences(mi); // ##
                         for (ViewDependence d : mi.requiresModules()) {
                             out.format("  %s%n", d);
                         }

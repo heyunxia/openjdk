@@ -59,17 +59,17 @@ module jdk.base {
     requires optional sun.localedata;
     requires optional sun.charsets;
 
-/* ### uncomment below when javac NPE bug is fixed
     view jdk.base.oracle {
-        exports com.oracle.nio.*;
-        exports com.oracle.net.*;
-        exports com.oracle.util.*;
+        exports com.oracle.nio;
+        exports com.oracle.net;
+        exports com.oracle.util;
     }
 
     view jdk.base.unsafe {
-        exports sun.misc.Unsafe;
+        // ## intended to export only sun.misc.Unsafe
+        // ## what about the public sun.misc types?
+        exports sun.misc;
     }
-*/
 
     view jdk.jmod {
         class org.openjdk.jigsaw.cli.Librarian;
@@ -429,15 +429,19 @@ module jdk.devtools {
     include tools.javadoc;
 
     view jdk.javac {
+        exports com.sun.tools.javac;
         class com.sun.tools.javac.Main;
     }
     view jdk.javah {
+        exports com.sun.tools.javah;
         class com.sun.tools.javah.Main;
     }
     view jdk.javap {
+        exports com.sun.tools.javap;
         class com.sun.tools.javap.Main;
     }
     view jdk.javadoc {
+        exports com.sun.tools.javadoc;
         class com.sun.tools.javadoc.Main;
     }
 }
@@ -529,8 +533,8 @@ module jdk.tools {
     include tools.serialver;
 
     view jdk.attach {
-        exports com.sun.tools.attach.*;
-        exports com.sun.tools.attach.spi.*;
+        exports com.sun.tools.attach;
+        exports com.sun.tools.attach.spi;
 
         // ## workaround javac NPE
         class org.openjdk.jigsaw.Hi;
@@ -541,7 +545,7 @@ module jdk.tools {
     }
 
     view jdk.jconsole {
-        exports com.sun.tools.jconsole.*;
+        exports com.sun.tools.jconsole;
         class sun.tools.jconsole.JConsole;
     }
 

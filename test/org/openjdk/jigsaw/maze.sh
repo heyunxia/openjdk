@@ -46,7 +46,7 @@ public class Are {
 
 module in @ 1 {
     requires public maze @ 1;
-    exports in.*;
+    exports in;
 }
 
 package in;
@@ -56,7 +56,7 @@ public class A {
 
 module maze @ 1 {
     requires public twisty @ 1;
-    exports maze.*;
+    exports maze;
 }
 
 package maze;
@@ -72,7 +72,7 @@ public class Alike {
 module twisty @ 1 {
     requires local passages @ 1;
     requires all @ 1;
-    exports twisty.*;
+    exports twisty;
 }
 
 package twisty;
@@ -93,7 +93,7 @@ package twisty;
 
 module all @ 1 {
     requires in @ 1;
-    exports all.*;
+    exports all;
 }
 
 package all;

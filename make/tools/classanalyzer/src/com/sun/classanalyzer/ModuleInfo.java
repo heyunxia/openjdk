@@ -107,7 +107,7 @@ public class ModuleInfo {
                 // exports all local packages
                 for (PackageInfo p : dm.packages()) {
                     if (p.isExported) {
-                        reexports.add(p.pkgName + ".*");
+                        reexports.add(p.pkgName);
                     }
                 }
                 reexports.addAll(dm.getModuleInfo().reexports());
@@ -272,7 +272,7 @@ public class ModuleInfo {
                     }
                 }
             }
-            formatList(sb, level+1, "exports %s.*;%n", exports, newline);
+            formatList(sb, level+1, "exports %s;%n", exports, newline);
             newline = true;
         }
 

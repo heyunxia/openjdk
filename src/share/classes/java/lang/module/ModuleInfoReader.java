@@ -96,7 +96,7 @@ import java.lang.module.Dependence.Modifier;
                 throw new IllegalArgumentException("bad #methods");
 
             readAttributes();
-            
+
             if (defaultView == null) {
                 defaultView =
                     new ModuleViewImpl(moduleId,
@@ -127,6 +127,11 @@ import java.lang.module.Dependence.Modifier;
     private static final String MODULE_PROVIDES = "ModuleProvides";
     private static final String MODULE_REQUIRES = "ModuleRequires";
     private static final String MODULE_DATA = "ModuleData";
+    private static final int ACC_OPTIONAL    = 0x1;
+    private static final int ACC_LOCAL       = 0x2;
+    private static final int ACC_REEXPORT    = 0x4;
+    private static final int ACC_SYNTHETIC   = 0x1000;
+    private static final int ACC_SYNTHESIZED = 0x10000;
     
     private void readAttributes() throws IOException {
         int count = in.readUnsignedShort();
@@ -159,17 +164,22 @@ import java.lang.module.Dependence.Modifier;
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
             int index = in.readUnsignedShort();
-            int flags = in.readUnsignedShort();
+            int flags = in.readInt();
             EnumSet<Modifier> mods = EnumSet.noneOf(Modifier.class);
-
-            if ((flags & 0x0001) != 0) {
+            if ((flags & ACC_OPTIONAL) != 0) {
                 mods.add(Modifier.OPTIONAL);
             }
-            if ((flags & 0x0002) != 0) {
+            if ((flags & ACC_LOCAL) != 0) {
                 mods.add(Modifier.LOCAL);
             }
-            if ((flags & 0x0004) != 0) {
+            if ((flags & ACC_REEXPORT) != 0) {
                 mods.add(Modifier.PUBLIC);
+            }
+            if ((flags & ACC_SYNTHETIC) != 0) {
+                mods.add(Modifier.SYNTHETIC);
+            }
+            if ((flags & ACC_SYNTHESIZED) != 0) {
+                mods.add(Modifier.SYNTHESIZED);
             }
             requiresModules.add(new ViewDependence(mods, cpool.getModuleIdQuery(index)));
         }
@@ -177,10 +187,18 @@ import java.lang.module.Dependence.Modifier;
         count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
             String cn = readClassName();
-            int flags = in.readUnsignedShort();
-            boolean optional = (flags & 0x0001) != 0;
-
-            requiresServices.add(new ServiceDependence(cn, optional));
+            int flags = in.readInt();
+            EnumSet<Modifier> mods = EnumSet.noneOf(Modifier.class);
+            if ((flags & ACC_OPTIONAL) != 0) {
+                mods.add(Modifier.OPTIONAL);
+            }
+            if ((flags & ACC_SYNTHETIC) != 0) {
+                mods.add(Modifier.SYNTHETIC);
+            }
+            if ((flags & ACC_SYNTHESIZED) != 0) {
+                mods.add(Modifier.SYNTHESIZED);
+            }
+            requiresServices.add(new ServiceDependence(mods, cn));
         }
     }
 
@@ -192,8 +210,7 @@ import java.lang.module.Dependence.Modifier;
             Map<String,Set<String>> services = new LinkedHashMap<>();
             Set<String> permits = new LinkedHashSet<>();
 
-            int index = in.readUnsignedShort();
-            String viewname = index == 0 ? moduleId.name() : cpool.getUtf8(index);
+            String viewname = readViewName();
             ModuleId id = new ModuleId(viewname, moduleId.version());
             String mainClass = readClassName();
 
@@ -202,24 +219,17 @@ import java.lang.module.Dependence.Modifier;
             readModuleExports(exports);
             readModulePermits(permits);
             
-            // ## workaround javac bug
-            // ## inherit exports from the default view to the non-default views
             ModuleView view = new ModuleViewImpl(id,
                                                  mainClass,
                                                  aliases,
                                                  exports,
                                                  permits,
                                                  services);
-            if (index == 0) {
-                defaultView = view;
-                // ## see workaround above
-                assert views.isEmpty();
-            } else if (defaultView != null) {
-                // ## REMOVE this workaround when javac fixes its exports
-                exports.addAll(defaultView.exports());
-            }
             views.add(view);
-        }
+            if (id.equals(moduleId)) {
+                defaultView = view;
+            }
+        }    
     }
     
     private String readClassName() throws IOException {
@@ -230,13 +240,19 @@ import java.lang.module.Dependence.Modifier;
         return cpool.getClassName(index).replace('/', '.');
     }
     
+    private String readViewName() throws IOException {
+        int index = in.readUnsignedShort();
+        if (index == 0)
+            return moduleId.name();
+        
+        return cpool.getUtf8(index).replace('/', '.');
+    }
+        
     private void readModuleExports(Set<String> exports) throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
             int index = in.readUnsignedShort();
-            int flags = in.readUnsignedShort();
-            int source = in.readUnsignedShort();
-            exports.add(cpool.getUtf8(index));
+            exports.add(cpool.getUtf8(index).replace('/', '.'));
         }
     }
         
@@ -270,6 +286,11 @@ import java.lang.module.Dependence.Modifier;
         for (int i = 0; i < count; i++) {
             aliases.add(cpool.getModuleId(in.readUnsignedShort()));
         }
+    }
+    
+    private String readModuleData() throws IOException {
+        int index = in.readUnsignedShort();
+        return cpool.getUtf8(index);
     }
 
     static class ModuleInfoImpl
@@ -445,6 +466,7 @@ import java.lang.module.Dependence.Modifier;
         private final static int CONSTANT_MethodType = 16;
         private final static int CONSTANT_InvokeDynamic = 18;
         private final static int CONSTANT_ModuleId = 19;
+        private final static int CONSTANT_ModuleQuery = 20;
 
         private final ModuleSystem ms;
 
@@ -474,6 +496,7 @@ import java.lang.module.Dependence.Modifier;
                     case CONSTANT_InterfaceMethodref:
                     case CONSTANT_Methodref:
                     case CONSTANT_ModuleId:
+                    case CONSTANT_ModuleQuery:
                     case CONSTANT_NameAndType:
                         int index1 = in.readUnsignedShort();
                         int index2 = in.readUnsignedShort();
@@ -519,19 +542,21 @@ import java.lang.module.Dependence.Modifier;
             Entry e = pool[index];
             assert e.tag == CONSTANT_ModuleId;
             Index2Entry i2e = (Index2Entry) e;
-            // ## Why do module names use '/' instead of '.'?
+            // module name is in internal form (JVMS 4.2.1)
             String name = getUtf8(i2e.index1).replace('/', '.');
-            String version = (i2e.index2 == 0 ? null : getUtf8(i2e.index2));
+            String version = (i2e.index2 == 0 ? null :getUtf8(i2e.index2));
             return new ModuleId(name, ms.parseVersion(version));
         }
 
         private ModuleIdQuery getModuleIdQuery(int index) {
             Entry e = pool[index];
-            assert e.tag == CONSTANT_ModuleId;
+            assert e.tag == CONSTANT_ModuleQuery;
             Index2Entry i2e = (Index2Entry) e;
-            String name = getUtf8(i2e.index1);
-            VersionQuery vq
-                = (i2e.index2 == 0 ? null : ms.parseVersionQuery(getUtf8(i2e.index2)));
+            // module name is in internal form (JVMS 4.2.1)
+            String name = getUtf8(i2e.index1).replace('/', '.');
+            VersionQuery vq = (i2e.index2 == 0
+                                   ? null
+                                   : ms.parseVersionQuery(getUtf8(i2e.index2)));
             return new ModuleIdQuery(name, vq);
         }
 

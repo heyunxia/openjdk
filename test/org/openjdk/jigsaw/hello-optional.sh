@@ -52,7 +52,7 @@ public class Hello {
 }
 
 module org.astro @ 1.2 {
-    exports org.astro.*;
+    exports org.astro;
 }
 
 package org.astro;
@@ -63,7 +63,7 @@ public class World {
 }
 
 module com.foo @ 2.0 {
-    exports com.foo.*;
+    exports com.foo;
 }
 
 package com.foo;
@@ -109,7 +109,7 @@ public class Hello {
 }
 
 module org.astro @ 1.2 {
-    exports org.astro.*;
+    exports org.astro;
 }
 
 package org.astro;
@@ -140,7 +140,7 @@ public class Hello {
 
 module org.astro @ 2.0 {
     requires optional com.foo;
-    exports org.astro.*;
+    exports org.astro;
 }
 
 package org.astro;
@@ -154,7 +154,7 @@ public class World {
 }
 
 module com.foo @ 2.0 {
-    exports com.foo.*;
+    exports com.foo;
 }
 
 package com.foo;

@@ -77,7 +77,7 @@ public class X {
 }
 
 module y @ 1 {
-    exports y.*;
+    exports y;
 }
 
 package y;

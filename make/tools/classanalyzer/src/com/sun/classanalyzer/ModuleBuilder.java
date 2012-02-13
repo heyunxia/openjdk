@@ -284,7 +284,7 @@ public class ModuleBuilder {
         Module base = getFactory().baseModule();
         boolean requiresBase = true;
         for (Dependence d : m.configRequires()) {
-            Module dm = getFactory().findModuleForView(d.module);
+            Module dm = getFactory().getModuleForView(d.module);
             
             // check if the base module is listed in the config
             if (base != null && dm == base)
@@ -334,7 +334,7 @@ public class ModuleBuilder {
             }
 
             for (String name : v.permitNames()) {
-                Module pm = getFactory().findModuleForView(name);
+                Module pm = getFactory().getModuleForView(name);
                 if (pm != null) {
                     v.addPermit(pm.group());
                 } else {
@@ -386,7 +386,7 @@ public class ModuleBuilder {
     }
 
     private void addDependence(Map<Module, Dependence> requires, Dependence d) {
-        Module dm = getFactory().findModuleForView(d.module);
+        Module dm = getFactory().getModuleForView(d.module);
         // not a dependence if it's an empty module and not aggregating modules
         if (!dm.isTopLevel())
             return;

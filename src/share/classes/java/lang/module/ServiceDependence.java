@@ -25,7 +25,7 @@
 package java.lang.module;
 
 import java.lang.module.Dependence.Modifier;
-import java.util.EnumSet;
+import java.util.Set;
 
 /**
  * Information about a service dependence specified in a {@link ModuleInfo}.
@@ -34,24 +34,18 @@ public final class ServiceDependence extends Dependence {
     private final String service;
 
     /**
-     * Constructs a {@code ServiceDependence} of a given name.
+     * Constructs a {@code ServiceDependence} on the given service.
      *
-     * @param name the fully-qualified name of a service
+     * @param mods    modifiers
+     * @param service the fully-qualified name of a service
+     * 
+     * @throws IllegalArgumentException if mods contains the {@link Modifier#LOCAL
+     *         LOCAL} or {@link Modifier#PUBLIC PUBLIC} modifier which is 
+     *         invalid for a {@code ServiceDependence}.
      */
-    public ServiceDependence(String name) {
-        this(name, false);
-    }
-
-    /**
-     * Constructs a {@code ServiceDependence} of a given name.
-     *
-     * @param name the fully-qualified name of a service
-     * @param optional {@code true} if the dependence is optional.
-     */
-    public ServiceDependence(String name, boolean optional) {
-        super(optional ? EnumSet.of(Modifier.OPTIONAL)
-                       : null);
-        this.service = name;
+    public ServiceDependence(Set<Modifier> mods, String service) {
+        super(mods);
+        this.service = service;
     }
 
     /**
