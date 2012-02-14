@@ -150,23 +150,25 @@ public class RemoteRepository
         throws IOException
     {
         File newfn = new File(dir, "meta.new");
-        FileOutputStream fout = new FileOutputStream(newfn);
-        DataOutputStream out
-            = new DataOutputStream(new BufferedOutputStream(fout));
-        try {
-            try {
-                fileHeader().write(out);
-                out.writeUTF(uri.toString());
-                out.writeLong(mtime);
-                out.writeUTF(etag == null ? "" : etag);
-            } finally {
-                out.close();
-            }
+        try (FileOutputStream fos = new FileOutputStream(newfn);
+             DataOutputStream out = new DataOutputStream(new BufferedOutputStream(fos))) 
+        {
+            fileHeader().write(out);
+            out.writeUTF(uri.toString());
+            out.writeLong(mtime);
+            out.writeUTF(etag == null ? "" : etag);
+            
         } catch (IOException x) {
-            newfn.delete();
+            deleteAfterException(newfn, x);
             throw x;
         }
-        Files.move(newfn.toPath(), metaFile.toPath(), ATOMIC_MOVE);
+        // move meta data into place
+        try {
+            Files.move(newfn.toPath(), metaFile.toPath(), ATOMIC_MOVE);
+        } catch (IOException x) {
+            deleteAfterException(newfn, x);
+            throw x;
+        }
     }
 
     public static RemoteRepository create(File dir, URI u, long id)
@@ -175,12 +177,17 @@ public class RemoteRepository
         if (u.isOpaque())
             throw new IllegalArgumentException(u + ": Opaque URIs not supported");
         RemoteRepository rr = new RemoteRepository(dir, id, null);
+        rr.uri = canonicalize(u.normalize());
         if (dir.exists())
             throw new IllegalStateException(dir + ": Already exists");
         if (!dir.mkdir())
             throw new IOException(dir + ": Cannot create directory");
-        rr.uri = canonicalize(u.normalize());
-        rr.storeMeta();
+        try {
+            rr.storeMeta();  
+        } catch (IOException x) {
+            deleteAfterException(dir, x);
+            throw x;
+        }
         return rr;
     }
 
@@ -214,13 +221,22 @@ public class RemoteRepository
     {
         return open(dir, -1);
     }
+    
+    /**
+     * Deletes this remote repository, including the directory.
+     */
+    public void delete() throws IOException {
+        Files.deleteIfExists(catFile.toPath());
+        Files.deleteIfExists(metaFile.toPath());
+        Files.deleteIfExists(dir.toPath());
+    }
 
     private RepositoryCatalog cat = null;
 
     private boolean fetchCatalog(boolean head, boolean force)
         throws IOException
     {
-
+        
         URI u = uri.resolve("%25catalog");
         if (tracing)
             trace(1, "fetching catalog %s (head %s, force %s)", u, head, force);
@@ -353,6 +369,19 @@ public class RemoteRepository
         if (e == null)
             throw new IllegalArgumentException(mid.toString());
         return new ModuleSize(e.csize, e.usize);
+    }
+    
+    
+    /**
+     * Attempts to delete {@code f}. If the delete fails then the exception is
+     * added as a suppressed exception to the given exception.
+     */
+    private static void deleteAfterException(File f, Exception x) {
+        try {
+            Files.deleteIfExists(f.toPath());
+        } catch (IOException x2) {
+            x.addSuppressed(x2);
+        }
     }
 
 }

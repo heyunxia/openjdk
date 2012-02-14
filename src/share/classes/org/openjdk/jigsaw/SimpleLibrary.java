@@ -1680,7 +1680,8 @@ public final class SimpleLibrary
             try {
                 rr.updateCatalog(true);
             } catch (IOException x) {
-                repoDir(id).delete();
+                rr.delete();
+                nextRepoId--;
                 throw x;
             }
 
