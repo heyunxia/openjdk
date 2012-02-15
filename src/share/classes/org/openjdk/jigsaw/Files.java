@@ -28,6 +28,8 @@ package org.openjdk.jigsaw;
 import java.io.*;
 import java.util.jar.*;
 import java.util.zip.*;
+import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public final class Files {
 
@@ -37,7 +39,7 @@ public final class Files {
     static String convertSeparator(String path) {
         return path.replace(File.separatorChar, '/');
     }
-    
+
     static String platformSeparator(String path) {
         return path.replace('/', File.separatorChar);
     }
@@ -107,35 +109,11 @@ public final class Files {
         delete(dst);
     }
 
-    private static void copy(File src, OutputStream out)
-        throws IOException
-    {
-        ensureIsFile(src);
-        byte[] buf = new byte[8192];
-        FileInputStream in = new FileInputStream(src);
-        try {
-            try {
-                int n;
-                while ((n = in.read(buf)) > 0) {
-                    out.write(buf, 0, n);
-                }
-            } finally {
-                out.close();
-            }
-        } finally {
-            in.close();
-        }
-    }
-
     private static void copy(File src, File dst)
         throws IOException
     {
-        if (dst.exists())
-            ensureIsFile(dst);
-        copy(src, new FileOutputStream(dst));
-        dst.setLastModified(src.lastModified());
-        if (src.canExecute())
-            dst.setExecutable(true, false);
+        java.nio.file.Files.copy(src.toPath(), dst.toPath(),
+                                 COPY_ATTRIBUTES, REPLACE_EXISTING);
     }
 
     public static interface Filter<T> {
@@ -189,7 +167,10 @@ public final class Files {
             if (sf.isDirectory()) {
                 storeTree(sf, dst, deflate, filter, dp);
             } else {
-                copy(sf, newOutputStream(dst, deflate, dp));
+                ensureIsFile(sf);
+                try (OutputStream out = newOutputStream(dst, deflate, dp)) {
+                    java.nio.file.Files.copy(sf.toPath(), out);
+                }
             }
         }
     }

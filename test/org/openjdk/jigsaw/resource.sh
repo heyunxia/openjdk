@@ -45,19 +45,21 @@ mk z.test/modules/z/inf/a 'and a three!'
 
 echo; echo "Direct install"
 $BIN/jmod create -L z.lib
+$BIN/jmod install -L z.lib z.test/modules empty
 $BIN/jmod install -L z.lib z.test/modules z
 $BIN/jmod install -L z.lib z.test/modules y
 $BIN/jmod install -L z.lib z.test/modules x
-$BIN/java -ea -L z.lib -m x
+$BIN/java -ea -esa -L z.lib -m x
 
 echo; echo "Module-file install"
+$BIN/jpkg -m z.test/modules/empty jmod empty
 $BIN/jpkg -m z.test/modules/z jmod z
 $BIN/jpkg -m z.test/modules/y jmod y
 $BIN/jpkg -m z.test/modules/x jmod x
 rm -rf z.lib
 $BIN/jmod create -L z.lib
-$BIN/jmod install -L z.lib x@1.jmod y@1.jmod z@1.jmod
-$BIN/java -ea -L z.lib -m x
+$BIN/jmod install -L z.lib x@1.jmod y@1.jmod z@1.jmod empty@1.jmod
+$BIN/java -ea -esa -L z.lib -m x
 
 exit 0
 
@@ -65,8 +67,11 @@ exit 0
 
 : setup pass compile
 
+module empty @ 1 { }
+
 module x @ 1 {
   requires y @ 1;
+  requires empty @ 1;
   class x.X;
 }
 

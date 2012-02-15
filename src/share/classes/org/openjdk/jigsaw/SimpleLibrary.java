@@ -29,6 +29,7 @@ import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.*;
 import java.security.cert.*;
 import java.util.*;
@@ -179,7 +180,7 @@ public final class SimpleLibrary
             this.opts = new HashSet<>(opts);
         }
 
-        private void storePath(File p, DataOutputStream out) throws IOException {  
+        private void storePath(File p, DataOutputStream out) throws IOException {
             if (p != null) {
                 out.writeByte(1);
                 out.writeUTF(Files.convertSeparator(p.toString()));
@@ -193,14 +194,14 @@ public final class SimpleLibrary
             if (isDeflated())
                 flags |= DEFLATED;
             out.writeShort(flags);
-            
+
             storePath(parent, out);
             storePath(natlibs, out);
             storePath(natcmds, out);
             storePath(configs, out);
         }
-        
-        private File loadPath(DataInputStream in) throws IOException {  
+
+        private File loadPath(DataInputStream in) throws IOException {
             if (in.readByte() != 0)
                 return new File(Files.platformSeparator(in.readUTF()));
             return null;
@@ -257,10 +258,9 @@ public final class SimpleLibrary
                 + ", v" + hd.majorVersion + "." + hd.minorVersion + "]");
     }
 
-
     private static File resolveAndEnsurePath(File path) throws IOException {
         if (path == null) { return null; }
-        
+
         File p = path.getCanonicalFile();
         if (!p.exists()) {
             Files.mkdirs(p, p.toString());
@@ -283,7 +283,7 @@ public final class SimpleLibrary
         canonicalRoot = root.getCanonicalFile();
         Files.ensureIsDirectory(root);
         hd = Header.load(root);
-        
+
         parentPath = hd.parent();
         parent = parentPath != null ? open(parentPath) : null;
 
@@ -681,7 +681,7 @@ public final class SimpleLibrary
         if (!(v instanceof JigsawVersion))
             throw new IllegalArgumentException(mid + ": Not a Jigsaw module id");
     }
-        
+
     private File moduleDir(File root, ModuleId mid) {
         Version v = mid.version();
         String vs = (v != null) ? v.toString() : "default";
@@ -705,7 +705,7 @@ public final class SimpleLibrary
         if (!md.exists())
             return null;
         checkModuleDir(md);
-                
+
         // mid may be a view or alias of a module
         byte[] mib = Files.load(new File(md, "info"));
         ModuleInfo mi = jms.parseModuleInfo(mib);
@@ -735,7 +735,7 @@ public final class SimpleLibrary
 
         return moduleDir(root, mi.id());
     }
-    
+
     private void deleteModuleDir(File root, ModuleInfo mi)
         throws IOException
     {
@@ -891,7 +891,6 @@ public final class SimpleLibrary
                 return null;
             return f.toURI();
         }
-        assert false;
         return null;
     }
 
@@ -1009,6 +1008,22 @@ public final class SimpleLibrary
         }
     }
 
+    private List<Path> listFiles(Path dir) throws IOException {
+        final List<Path> files = new ArrayList<>();
+        java.nio.file.Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                throws IOException
+            {
+                if (!file.endsWith("module-info.class"))
+                    files.add(file);
+
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        return files;
+    }
+
     private void install(Manifest mf, File dst, boolean strip)
         throws IOException
     {
@@ -1076,28 +1091,32 @@ public final class SimpleLibrary
                     }});
             ix.store();
         } else {
-            try (FileOutputStream fos = new FileOutputStream(new File(mdst, "classes"));
-                 JarOutputStream jos = new JarOutputStream(new BufferedOutputStream(fos)))
-            {
-                // Copy class files and build index
-                final Index ix = new Index(mdst);
-                Files.storeTree(src, jos, isDeflated(), new Files.Filter<File>() {
-                        public boolean accept(File f) throws IOException {
-                            if (f.isDirectory())
-                                return true;
-                            if (f.getName().endsWith(".class")) {
-                                return addToIndex(ClassInfo.read(f), ix);
-                            } else {
-                                return true;
-                            }
-                        }});
-                ix.store();
-                copyModuleInfo(dst, mi, bs);
+            // Copy class/resource files and build index
+            Index ix = new Index(mdst);
+            Path srcPath = src.toPath();
+            List<Path> files = listFiles(srcPath);
+
+            if (!files.isEmpty()) {
+                try (FileOutputStream fos = new FileOutputStream(new File(mdst, "classes"));
+                     JarOutputStream jos = new JarOutputStream(new BufferedOutputStream(fos)))
+                {
+                    boolean deflate = isDeflated();
+                    for (Path path : files) {
+                        File file = path.toFile();
+                        String jp = Files.convertSeparator(srcPath.relativize(path).toString());
+                        try (OutputStream out = Files.newOutputStream(jos, deflate, jp)) {
+                            java.nio.file.Files.copy(path, out);
+                        }
+                        if (file.getName().endsWith(".class"))
+                            addToIndex(ClassInfo.read(file), ix);
+                    }
+                }
             }
+            ix.store();
+            copyModuleInfo(dst, mi, bs);
             if (strip)
                 strip(mdst);
         }
-
     }
 
     private void install(Collection<Manifest> mfs, File dst, boolean strip)
@@ -1130,7 +1149,7 @@ public final class SimpleLibrary
         ModuleInfo mi = null;
         try (ModuleFile.Reader mr = new ModuleFile.Reader(in)) {
             byte[] mib = mr.readStart();
-            mi = jms.parseModuleInfo(mib);        
+            mi = jms.parseModuleInfo(mib);
             File md = makeModuleDir(root, mi);
             if (verifySignature && mr.hasSignature()) {
                 ModuleFileVerifier mfv = new SignedModule.PKCS7Verifier(mr);
@@ -1203,7 +1222,7 @@ public final class SimpleLibrary
                 while (entries.hasMoreElements()) {
                     JarEntry je = entries.nextElement();
                     try (InputStream is = jf.getInputStream(je)) {
-                        if (je.getName().equals(JarFile.MODULEINFO_NAME)) {                            
+                        if (je.getName().equals(JarFile.MODULEINFO_NAME)) {
                             java.nio.file.Files.copy(is, md.toPath().resolve("info"));
                         } else {
                             writeJarEntry(is, je, jos);
@@ -1232,7 +1251,7 @@ public final class SimpleLibrary
             if (strip)
                 strip(md);
             reIndex(mid);
-            
+
             // copy module-info.class to each view
             byte[] mib = java.nio.file.Files.readAllBytes(md.toPath().resolve("info"));
             copyModuleInfo(root, mi, mib);
