@@ -643,6 +643,7 @@ module jdk.jre {
     requires public jdk.sunpkcs11;
     requires public jdk.sunmscapi;
     requires public jdk.tls;
+    requires public jdk.ucrypto;
     requires public jdk.xmldsig;
     requires public jdk.zipfs;
 
