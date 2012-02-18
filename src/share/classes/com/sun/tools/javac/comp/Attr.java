@@ -3127,7 +3127,7 @@ public class Attr extends JCTree.Visitor {
             boolean hasPublicNoArgsConstructor = false;
             for (Scope.Entry e = impl.members().lookup(names.init); e.scope != null; e = e.next()) {
                 if (e.sym.kind == MTH && ((e.sym.flags() & PUBLIC) != 0)
-                        && ((MethodSymbol) e.sym).params.isEmpty()) {
+                        && ((MethodSymbol) e.sym).params().isEmpty()) {
                     hasPublicNoArgsConstructor = true;
                     break;
                 }
