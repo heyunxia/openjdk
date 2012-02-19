@@ -76,18 +76,18 @@ public class ModuleContext {
     }
 
     Collection<Directive> getDirectives(Directive.Kind kind, Name name) {
-        Set<Directive> set = directiveIndex.get(name);
-        if (set == null) 
-            return Collections.emptySet();
         List<Directive> list = null;
-        for (Directive d: set) {
-            if (d.getKind() == kind) {
-                if (list == null)
-                    list = new ArrayList<Directive>();
-                list.add(d);
+        Set<Directive> set = directiveIndex.get(name);
+        if (set != null) {
+            for (Directive d: set) {
+                if (d.getKind() == kind) {
+                    if (list == null)
+                        list = new ArrayList<Directive>();
+                    list.add(d);
+                }
             }
         }
-        return list;
+        return (list == null) ? Collections.<Directive>emptySet() : list; 
     }
 
 
