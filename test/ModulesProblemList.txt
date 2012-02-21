@@ -259,9 +259,14 @@ java/util/logging/LoggerWeakRefLeak.sh                  generic-all
 # Can't find rt.jar or classes directory
 java/util/zip/InterruptibleZip.java                     generic-all
 
+# Assumes JAR files in JDK's lib directory
+java/util/zip/ZipFile/FinalizeZipFile.java		generic-all
+
 # java.util.ConcurrentModificationException - need investigation
 java/util/Locale/Bug6989440.java                        generic-all
 
+# requires attach provider to be present
+java/util/concurrent/locks/Lock/TimedAcquireLeak.java	generic-all
 
 ############################################################################
 
