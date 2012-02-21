@@ -254,6 +254,44 @@ public class Loader
         return cx == context ||
             context.remoteContexts().contains(cx.name());
     }
+   
+    /**
+     * If this loader's context implements the given service then add it to
+     * the given map.
+     */    
+    private void putLocalServices(String service, 
+                                  Map<ClassLoader,Set<String>> result) 
+    {
+        // local implementations of service
+        Set<String> impls = context.services().get(service);
+        if (impls != null)
+            result.put(this, impls);
+    }
+    
+    /**
+     * Returns a map of the service implementations. The returned map will
+     * contain the service implementations that are in this loader's context or 
+     * remote contexts that supply services to this loader's context. The
+     * keys in the returned map is the class loader; the values are the set of
+     * implementation classes.
+     */
+    public Map<ClassLoader,Set<String>> findServices(Class<?> clazz) {
+        String cn = clazz.getName();
+        Map<ClassLoader,Set<String>> result = new HashMap<>();
+        
+        // local implementations
+        this.putLocalServices(cn, result);
+        
+        // remote implementations
+        Set<String> remotes = context.serviceSuppliers().get(cn);
+        if (remotes != null) {
+            for (String rcxn: remotes) {
+                pool.findLoader(rcxn).putLocalServices(cn, result);
+            }
+        }
+
+        return result;
+    }
 
     public String toString() {
         return context.name();

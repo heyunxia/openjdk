@@ -81,6 +81,10 @@ final class Resolver {
 
     private long spaceRequired = 0;
     private long downloadRequired = 0;
+    
+    // cache of dependencies synthesized for services
+    private Map<ModuleId,List<ViewDependence>> synthesizedDeps = new HashMap<>();
+    
 
     private static void fail(String fmt, Object ... args) // cf. Linker.fail
         throws ConfigurationException
@@ -105,7 +109,7 @@ final class Resolver {
         }
         return ps.contains(rmi.id().name());
     }
-
+     
     // A choice which remains to be made.  Choices are arranged in a stack,
     // using the next field.  Initially the stack is primed with the choice of
     // which module to assign as the root module.  When a candidate module is
@@ -128,7 +132,7 @@ final class Resolver {
     // Resolve the given choice
     //
     private boolean resolve(int depth, Choice choice)
-        throws IOException
+        throws ConfigurationException, IOException
     {
 
         if (choice == null) {
@@ -142,7 +146,7 @@ final class Resolver {
         if (tracing)
             trace(1, depth, "resolving %s %s",
                   rmi != null ? rmi.id() : "ROOT", dep);
-
+        
         String mn = dep.query().name();
 
         // First check to see whether we've already resolved a module with
@@ -219,7 +223,7 @@ final class Resolver {
     private boolean resolve(int depth, Choice nextChoice,
                             ModuleInfo rmi, ViewDependence dep,
                             Catalog cat, ModuleId mid)
-        throws IOException
+        throws ConfigurationException, IOException
     {
 
         if (tracing) {
@@ -304,7 +308,39 @@ final class Resolver {
         Collections.reverse(dl);
         for (ViewDependence d : dl)
             ch = new Choice(mi, d, ch);
-
+        
+        // Push an optional dependency onto the choice stack for each module
+        // that is a potential supplier to this module.
+        // ## Include service implementations in remote repositories? 
+        //
+        Set<ServiceDependence> serviceDeps = mi.requiresServices();
+        if (!serviceDeps.isEmpty()) {
+            // use synthesized dependencies if previously generated
+            List<ViewDependence> viewDeps = synthesizedDeps.get(mi.id());
+            if (viewDeps == null) {
+                viewDeps = new ArrayList<>();
+                for (ServiceDependence sd: mi.requiresServices()) {
+                    String sn = sd.service();
+                    for (ModuleId other: cat.listModuleIds()) { 
+                        for (ModuleView view: cat.readModuleInfo(other).views()) {
+                            Set<String> providers = view.services().get(sn); 
+                            if (providers != null) {
+                                ModuleIdQuery q = 
+                                    new ModuleIdQuery(view.id().name(), null);
+                                ViewDependence vd =
+                                    new ViewDependence(EnumSet.of(Modifier.OPTIONAL), q);
+                                viewDeps.add(vd);
+                            }
+                        }
+                    }
+                }
+                Collections.reverse(viewDeps);
+                synthesizedDeps.put(mi.id(), viewDeps);
+            }                
+            for (ViewDependence vd: viewDeps)
+                ch = new Choice(mi, vd, ch);   
+        }
+        
         // Recursively examine the next choice
         //
         if (!resolve(depth + 1, ch)) {
@@ -330,16 +366,44 @@ final class Resolver {
         return true;
     }
 
+    // Checks that chosen modules that require a service have at least one
+    // implementation in the chosen set.
+    //
+    private void ensureServicesPresent() throws ConfigurationException {
+        Set<String> serviceTypes = new HashSet<>();
+        for (ModuleInfo mi: modules) {
+            for (ModuleView view: mi.views()) {
+                Map<String,Set<String>> services = view.services();
+                serviceTypes.addAll(services.keySet());
+            }   
+        }
+        for (ModuleInfo mi: modules) {
+            for (ServiceDependence sd: mi.requiresServices()) {
+                if (!sd.modifiers().contains((Modifier.OPTIONAL))) {
+                    String sn = sd.service();
+                    if (!serviceTypes.contains(sn)) {
+                        fail("No implementations of service %s, required by %s", 
+                             sn, mi.id());
+                    }
+
+                }
+            }
+        }    
+    }
+
     private boolean run()
-        throws IOException
+        throws ConfigurationException, IOException
     {
         Choice ch = null;
         for (ModuleIdQuery midq : rootQueries) {
             ViewDependence dep = new ViewDependence(EnumSet.noneOf(Modifier.class),
-                                            midq);
+                                                    midq);
             ch = new Choice(null, dep,  ch);
         }
-        return resolve(0, ch);
+        boolean resolved = resolve(0, ch);
+        if (resolved)
+            ensureServicesPresent();
+        return resolved;
     }
 
     // Entry point
@@ -352,7 +416,7 @@ final class Resolver {
             fail("%s: Cannot resolve",
                  (rootQueries.size() == 1
                   ? rootQueries.iterator().next()
-                  : rootQueries));
+                  : rootQueries)); 
         return new Resolution(rootQueries, r.modules,
                               r.moduleViewForName,
                               r.locationForName,

@@ -29,6 +29,7 @@ import java.lang.module.ModuleId;
 import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.zip.*;
 import java.util.jar.*;
@@ -606,6 +607,7 @@ class Main {
              ZipOutputStream zos = new JarOutputStream(out)) {
             ZipEntry e = null;
             Manifest mf = null;
+            Map<String,Set<String>> providers = new HashMap<>();
 
             if (entryMap.containsKey(MODULEINFO_NAME) && moduleid != null) {
                 error(getMsg("error.bad.moduleid"));
@@ -621,6 +623,13 @@ class Main {
                 String name = e.getName();
 
                 boolean isManifestEntry = equalsIgnoreCase(name, MANIFEST_NAME);
+
+                String service = null;
+                if (moduleid != null && !e.isDirectory()
+                        && name.startsWith("META-INF/services/")) {
+                    int last = name.lastIndexOf("/");
+                    service = name.substring(last + 1);
+                }
 
                 if (jarIndex != null && equalsIgnoreCase(name, INDEX_NAME)) {
                     continue;
@@ -662,9 +671,18 @@ class Main {
 
                 if (!entryMap.containsKey(name)) { // copy the old stuff
                     if (!name.equals(MODULEINFO_NAME) || moduleid == null) {
-                        // add exports in the generated module-info.java
                         copyZipEntry(e, zos);
-                        copy(e, zis, zos, minfo);   // copy the content
+
+			// when generating a module-info file and this entry is 
+                        // a service configuration file then parse it to get the
+                        // names of the service implementations.
+                        if (service != null) {
+                            byte[] bytes = readAllBytes(zis);
+                            providers.put(service, parseServicesEntry(bytes));
+                            zos.write(bytes);   // copy the content
+                        } else {
+                            copy(e, zis, zos, minfo);   // copy the content
+                        }     
                         zos.closeEntry();
                     }
                 } else { // replace with the new files
@@ -695,6 +713,15 @@ class Main {
                 // -I is specified
                 minfo.setMainClass(getMainClass(mf));
                 addModuleRequires(minfo, getClassPath(mf));
+                
+                // service providers
+                for (Map.Entry<String,Set<String>> entry: providers.entrySet()) {
+                    String service = entry.getKey();
+                    for (String impl: entry.getValue()) {
+                        minfo.addProvidesService(service, impl);
+                    }                    
+                }
+                
                 writeModuleInfo(minfo, zos, System.currentTimeMillis());
                 if (vflag) {
                     output(getMsg("out.update.moduleinfo"));
@@ -747,6 +774,25 @@ class Main {
             output(getMsg("out.update.manifest"));
         }
     }
+    
+    /**
+     * Parse the given byte array as the raw bytes of a services configuration
+     * file, returning the names of the entries.
+     */
+    private Set<String> parseServicesEntry(byte[] bytes) throws IOException {
+        ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+        BufferedReader reader =
+            new BufferedReader(new InputStreamReader(bis, Charset.forName("UTF-8")));
+        // preserve order, no dups
+        Set<String> result = new LinkedHashSet<>();
+        String s;
+        while ((s = reader.readLine()) != null) {
+            s = s.trim();
+            if (s.length() > 0 && !s.startsWith("#"))
+                result.add(s);
+        }
+        return result;
+    }    
 
     private void writeModuleInfo(ModuleInfo minfo, ZipOutputStream zos, long ts)
         throws IOException
@@ -938,6 +984,37 @@ class Main {
         }
     }
     
+    /**
+     * Read all bytes from the input stream, returning them in a byte array.
+     */
+    private byte[] readAllBytes(InputStream from) throws IOException {
+        int capacity = 8192;
+        byte[] buf = new byte[capacity];
+        int nread = 0;
+        int rem = buf.length;
+        int n;
+        // read to EOF which may read more or less than initialSize (eg: file
+        // is truncated while we are reading)
+        while ((n = from.read(buf, nread, rem)) > 0) {
+            nread += n;
+            rem -= n;
+            assert rem >= 0;
+            if (rem == 0) {
+                // need larger buffer
+                int newCapacity = capacity << 1;
+                if (newCapacity < 0) {
+                    if (capacity == Integer.MAX_VALUE)
+                        throw new OutOfMemoryError("Required array size too large");
+                    newCapacity = Integer.MAX_VALUE;
+                }
+                rem = newCapacity - capacity;
+                buf = Arrays.copyOf(buf, newCapacity);
+                capacity = newCapacity;
+            }
+        }
+        return (capacity == nread) ? buf : Arrays.copyOf(buf, nread);
+    }    
+    
     private ByteStreamHelper helper = new ByteStreamHelper();
     class ByteStreamHelper extends ByteArrayOutputStream {
         void copyFrom(InputStream from) throws IOException {
@@ -965,11 +1042,8 @@ class Main {
      * @throws IOException if an I/O error occurs
      */
     private void copy(File from, OutputStream to) throws IOException {
-        InputStream in = new FileInputStream(from);
-        try {
+        try (InputStream in = new FileInputStream(from)) {
             copy(in, to);
-        } finally {
-            in.close();
         }
     }
 
@@ -982,11 +1056,8 @@ class Main {
      * @throws IOException if an I/O error occurs
      */
     private void copy(InputStream from, File to) throws IOException {
-        OutputStream out = new FileOutputStream(to);
-        try {
+        try (OutputStream out = new FileOutputStream(to)) {
             copy(from, out);
-        } finally {
-            out.close();
         }
     }
 

@@ -33,11 +33,24 @@ public class ModuleInfo {
 
     private final Module module;
     private final Set<Dependence> requires;
+    private final Map<String,Boolean> requiresServices;
+    private final Map<String,List<String>> providesServices;
 
     ModuleInfo(Module m,
-               Collection<Dependence> reqs) {
+               Collection<Dependence> reqs,
+               Map<String,Boolean> requiresServices,
+               Map<String,Set<String>> providesServices)
+    {
         this.module = m;
-        this.requires = new TreeSet<Dependence>(reqs);
+        this.requires = new TreeSet<>(reqs);
+        this.requiresServices = new TreeMap<>(requiresServices);
+        this.providesServices = new TreeMap<>();
+        for (Map.Entry<String,Set<String>> entry: providesServices.entrySet()) {
+            String sn = entry.getKey();
+            // preserve order, assume no dups in input
+            List<String> impls = new ArrayList<>(entry.getValue());
+            this.providesServices.put(sn, impls);
+        }
     }
 
     public Module getModule() {
@@ -143,6 +156,25 @@ public class ModuleInfo {
             if (v == null)
                 throw new RuntimeException("module " + module + " requires " + d + " has null view");
             sb.append(format(1, "requires %s%s;%n", mods, d.getModuleView().id()));
+        }
+        
+        for (Map.Entry<String,Boolean> entry: requiresServices.entrySet()) {
+            String s = entry.getKey();
+            boolean optional = entry.getValue();
+            sb.append(String.format("%srequires %sservice %s;%n", 
+                      INDENT, 
+                      (optional ? "optional " : ""),
+                      s));
+        }
+
+        for (Map.Entry<String,List<String>> entry: providesServices.entrySet()) {
+            String sn = entry.getKey();
+            for (String cn: entry.getValue()) {
+                sb.append(String.format("%sprovides service %s with %s;%n", 
+                          INDENT, 
+                          sn,
+                          cn));
+            }
         }
 
         for (Module.View v : module.views()) {

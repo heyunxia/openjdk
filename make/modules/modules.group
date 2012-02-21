@@ -57,7 +57,6 @@ module jdk.base {
     requires optional jdk.desktop;
     requires optional sun.resources;
     requires optional sun.localedata;
-    requires optional sun.charsets;
 
     view jdk.base.oracle {
         exports com.oracle.nio;

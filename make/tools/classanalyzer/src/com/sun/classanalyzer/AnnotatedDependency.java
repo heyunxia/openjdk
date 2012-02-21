@@ -24,7 +24,6 @@
 package com.sun.classanalyzer;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -33,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -223,20 +223,21 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
     }
 
     static class Provider extends AnnotatedDependency {
+        static final String META_INF_SERVICES = "META-INF/services/";
+        
+        private String service;
 
-        private List<String> services = new ArrayList<String>();
-
-        Provider(Klass klass) {
-            super(klass, true /* optional */);
+        Provider(Klass klass, boolean optional) {
+            super(klass, optional);
+        }
+        
+        String serviceName() {
+            return service;
         }
 
         @Override
         boolean isDynamic() {
             return true;
-        }
-
-        public List<String> services() {
-            return services;
         }
 
         @Override
@@ -245,7 +246,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
                 List<String> configFiles = new ArrayList<String>();
                 for (String s : value) {
                     if ((s = s.trim()).length() > 0) {
-                        configFiles.add(metaInfPath + s);
+                        configFiles.add(META_INF_SERVICES + s);
                     }
                 }
                 addValue(configFiles);
@@ -256,8 +257,10 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         void addValue(List<String> value) {
             for (String s : value) {
                 if ((s = s.trim()).length() > 0) {
-                    if (s.startsWith("META-INF")) {
-                        services.add(s);
+                    if (s.startsWith(META_INF_SERVICES)) {
+                        if (service != null)
+                            throw new RuntimeException("services configuration file already set");
+                        service = s.substring(META_INF_SERVICES.length());
                         readServiceConfiguration(s, classes);
                     } else {
                         throw new RuntimeException("invalid value" + s);
@@ -265,12 +268,6 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
                 }
             }
         }
-
-        boolean isEmpty() {
-            return services.isEmpty();
-        }
-        static final String metaInfPath =
-                "META-INF" + File.separator + "services" + File.separator;
 
         static void readServiceConfiguration(String config, List<String> names) {
             BufferedReader br = null;
@@ -337,35 +334,33 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
 
         @Override
         public boolean equals(Object obj) {
-            if (!(obj instanceof AnnotatedDependency)) {
+            if (!(obj instanceof Provider))
                 return false;
+            Provider other = (Provider)obj;
+            if (!this.from.equals(other.from))
+                return false;
+            if (this.service == null) {
+                return other.service == null;
+            } else {
+                return this.service.equals(other.service);
             }
-            Provider other = (Provider) obj;
-            boolean ret = this.from.equals(other.from) &&
-                    this.services.size() == other.services.size();
-            if (ret == true) {
-                for (int i = 0; i < this.services.size(); i++) {
-                    ret = ret && this.services.get(i).equals(other.services.get(i));
-                }
-            }
-            return ret;
         }
 
         @Override
         public int hashCode() {
-            int hashcode = 7 + 73 * from.hashCode();
-            for (String s : services) {
-                hashcode ^= s.hashCode();
-            }
-            return hashcode;
+            int h =  from.hashCode();
+            if (service != null)
+                h ^= service.hashCode();
+            return h;
         }
 
         @Override
         public List<String> getValue() {
             List<String> result = new ArrayList<String>();
-            result.addAll(services);
+            result.add(META_INF_SERVICES + service);
             return result;
         }
+        
         static final String TYPE = "sun.annotation.Provider";
         static final String TAG = "@Provider";
     }
@@ -536,7 +531,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         } else if (type.equals(NativeFindClass.TYPE) || type.equals(NativeFindClass.TAG)) {
             dep = new NativeFindClass(klass, optional);
         } else if (type.equals(Provider.TYPE) || type.equals(Provider.TAG)) {
-            dep = new Provider(klass);
+            dep = new Provider(klass, optional);
         } else if (type.equals(CompilerInline.TYPE) || type.equals(CompilerInline.TAG)) {
             dep = new CompilerInline(klass);
         } else {
@@ -567,6 +562,59 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         }
         return result;
     }
+   
+    /**
+     * Returns a map of the services required by the given module. The map's
+     * key is the service name and the value indicates where it is an optional
+     * dependency.
+     */
+    static Map<String,Boolean> getServiceDependencies(Module m) {
+        // ensure it's initialized
+        initDependencies();
+        
+        Map<String,Boolean> result = new HashMap<String,Boolean>();
+        for (AnnotatedDependency dep: annotatedDependencies) {
+            if (dep instanceof Provider) {
+                Provider p = (Provider)dep;
+                if (m.contains(p.from)) {
+                    result.put(p.serviceName(), p.isOptional());
+                }
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Returns a map of the services provided by the given module. The map's
+     * key is the service name and the value is a set of implementation that
+     * this module provides.
+     */
+    static Map<String,Set<String>> getServiceProvides(Module m) {
+        // ensure it's initialized
+        initDependencies();
+        
+        Map<String,Set<String>> result = new HashMap<>();
+        for (AnnotatedDependency dep: annotatedDependencies) {
+            if (dep instanceof Provider) {
+                Provider p = (Provider)dep;
+                for (String cn: p.classes) {
+                    if (m.contains(Klass.getKlass(cn))) {
+                        String sn = p.serviceName();
+                        Set<String> impls = result.get(sn);
+                        if (impls == null) {
+                            // preserve order, no dups
+                            impls = new LinkedHashSet<>();
+                            impls.add(cn);
+                            result.put(sn, impls);
+                        } else {
+                            impls.add(cn);
+                        }
+                    }
+                }
+            }
+        }
+        return result;        
+    }    
 
     static Set<Dependence> getDependencies(Module m) {
         // ensure it's initialized
@@ -577,11 +625,17 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
             if (m.contains(ref.referrer())) {
                 Module other = m.getRequiresModule(ref.referree());
                 if (other != null) {
+                    boolean requires = false;
                     boolean optional = false;
                     for (AnnotatedDependency ad : annotatedDepsMap.get(ref)) {
-                        optional = optional || ad.isOptional();
+                        // ignore provides
+                        if (!(ad instanceof Provider)) {
+                            requires = true;
+                            optional = optional || ad.isOptional();
+                        }
                     }
-                    deps.add(Dependence.newDependence(ref.referree(), optional));
+                    if (requires)
+                        deps.add(Dependence.newDependence(ref.referree(), optional));
                 }
             }
         }
@@ -592,6 +646,8 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         if (annotatedDepsMap != null) {
             return;
         }
+        
+        // ## for efficiency it would be better to separate the providers
 
         // Build a map of references to its dependencies
         annotatedDepsMap = new HashMap<Reference, Set<AnnotatedDependency>>();

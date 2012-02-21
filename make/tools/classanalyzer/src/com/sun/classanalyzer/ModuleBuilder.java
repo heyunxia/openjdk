@@ -364,7 +364,10 @@ public class ModuleBuilder {
             }
         }
 
-        ModuleInfo mi = new ModuleInfo(m, requires.values());
+        ModuleInfo mi = new ModuleInfo(m, 
+                                       requires.values(),
+                                       AnnotatedDependency.getServiceDependencies(m),
+                                       AnnotatedDependency.getServiceProvides(m));
         return mi;
     }
 

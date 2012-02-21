@@ -43,6 +43,7 @@ class ModuleInfo {
     private static ModuleSystem ms = ModuleSystem.base();
     private final ModuleId moduleId;
     private final Set<ViewDependence> requiresModules;
+    private final Map<String,Set<String>> providers;
     private final Set<String> exports;
     private final ModuleInfoWriter writer;
     private String mainClass;
@@ -51,6 +52,7 @@ class ModuleInfo {
     ModuleInfo(String mid) {
         this.moduleId = ms.parseModuleId(mid);
         this.requiresModules = new HashSet<>();
+        this.providers = new HashMap<>();
         this.exports = new TreeSet<>();
         this.writer = new ModuleInfoWriter();
         addRequires(ms.parseModuleIdQuery("jdk.jre"),
@@ -79,6 +81,16 @@ class ModuleInfo {
 
     void addRequires(ModuleIdQuery midq, Set<Modifier> mods) {
         requiresModules.add(new ViewDependence(mods, midq));
+    }
+    
+    void addProvidesService(String service, String impl) {
+        Set<String> impls = providers.get(service);
+        if (impls == null) {
+            // preserve order, no dups
+            impls = new LinkedHashSet<>();
+            providers.put(service, impls);
+        }
+        impls.add(impl);
     }
 
     void write(OutputStream os) throws IOException {
@@ -202,7 +214,20 @@ class ModuleInfo {
             int entryPointIndex = mainClass() == null ? 0 : addClassInfo(mainClass());
             int[] exportsCpIds = new int[exports.size()];
             
+            ModuleProvides_attribute.Service[] service_table =
+                new ModuleProvides_attribute.Service[providers.size()];
             int i = 0;
+            for (Map.Entry<String,Set<String>> entry: providers.entrySet()) {
+                String sn = entry.getKey();
+                for (String impl: entry.getValue()) {
+                    int service_index = addClassInfo(sn);
+                    int impl_index = addClassInfo(impl);
+                    service_table[i++] = 
+                        new ModuleProvides_attribute.Service(service_index, impl_index);
+                }
+            }
+            
+            i = 0;
             for (String pn : exports) {
                 int index = cpidx++;
                 cpinfos.add(index, new CONSTANT_Utf8_info(pn));
@@ -213,7 +238,7 @@ class ModuleInfo {
                 new ModuleProvides_attribute.View(0,
                                                   entryPointIndex, 
                                                   new int[0],
-                                                  new ModuleProvides_attribute.Service[0],
+                                                  service_table,
                                                   exportsCpIds,
                                                   new int[0]);
            

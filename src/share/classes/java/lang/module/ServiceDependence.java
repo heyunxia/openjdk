@@ -76,6 +76,7 @@ public final class ServiceDependence extends Dependence {
         StringBuilder sb = new StringBuilder();
         sb.append("requires service");
         for (Modifier m : modifiers()) {
+            sb.append(' ');
             sb.append(m.toString().toLowerCase());
         }
         sb.append(" ").append(service);

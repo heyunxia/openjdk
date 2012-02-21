@@ -72,23 +72,14 @@ class Commands {
                         view.aliases());
         formatCommaList(out, indent + "permits",
                         view.permits());
-        Map<String, Set<String>> services = view.services();
-        if (!services.isEmpty()) {
-            Set<String> names = new HashSet<>();
-            StringBuilder sb = new StringBuilder();
-            for (Map.Entry<String, Set<String>> e : services.entrySet()) {
-                String s = e.getKey();
-                for (String impl : e.getValue()) {
-                    sb.append(s);
-                    sb.append(" with ");
-                    sb.append(impl);
-                }
+        Map<String,Set<String>> services = view.services();
+        for (Map.Entry<String,Set<String>> entry: services.entrySet()) {
+            String sn = entry.getKey();
+            for (String impl: entry.getValue()) {
+                out.format("%s  provides service %s with %s%n", indent, sn, impl);
             }
-            names.add(sb.toString());
-            formatCommaList(out,
-                            indent + "provides service",
-                            names);
         }
+        
         if (!view.exports().isEmpty()) {
             out.format("  %sexports%n", indent);
             Set<String> exports = new TreeSet<>(view.exports());

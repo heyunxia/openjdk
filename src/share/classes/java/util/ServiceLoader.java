@@ -210,7 +210,19 @@ public final class ServiceLoader<S>
      */
     public void reload() {
         providers.clear(); 
-        lookupIterator = new LazyIterator(service, loader);
+
+        // In module mode then iterate over the service implementations that
+        // supply the module loader.
+        //
+        // In legacy mode, or where the class loader is not a module loader, 
+        // then create the iterator to locate services via legacy service
+        // configuration files.
+
+        if (loader instanceof Loader) {
+            lookupIterator = new LazyIterator1(((Loader)loader).findServices(service));
+        } else {
+            lookupIterator = new LazyIterator2(service, loader);
+        }
     }
 
     private ServiceLoader(Class<S> svc, ClassLoader cl) {
@@ -311,9 +323,62 @@ public final class ServiceLoader<S>
         return names.iterator();
     }
     
-    // Private inner class implementing fully-lazy provider lookup
+    // Private inner class implementing lazy provider instantiation of services
+    // provided by modules.
     //
-    private class LazyIterator
+    private class LazyIterator1
+        implements Iterator<S>
+    {    
+        final Iterator<Map.Entry<ClassLoader,Set<String>>> entries;
+        ClassLoader loader;
+        Iterator<String> impls;
+        
+        LazyIterator1(Map<ClassLoader,Set<String>> providers) {
+            entries = providers.entrySet().iterator();
+        }
+        
+        public boolean hasNext() {
+            if (impls == null || !impls.hasNext()) {
+                // move onto the next loader if possible
+                if (!entries.hasNext())
+                    return false;
+                Map.Entry<ClassLoader,Set<String>> entry = entries.next();
+                loader = entry.getKey();
+                impls = entry.getValue().iterator();
+                assert impls.hasNext();
+            }
+            return impls.hasNext();
+        }
+
+        public S next() {
+            if (!hasNext())
+                throw new NoSuchElementException();
+            String cn = impls.next();
+            try {
+                S p = service.cast(Class.forName(cn, true, loader)
+                                   .newInstance());
+                providers.put(cn, p);
+                return p;
+            } catch (ClassNotFoundException x) {
+                fail(service,
+                     "Provider " + cn + " not found");
+            } catch (Throwable x) {
+                fail(service,
+                     "Provider " + cn + " could not be instantiated: " + x,
+                     x);
+            }
+            throw new Error();          // This cannot happen
+        }
+        
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
+    }    
+
+    // Private inner class implementing fully-lazy provider lookup of services
+    // identified in provider-configuration files.
+    //
+    private class LazyIterator2
         implements Iterator<S>
     {
 
@@ -323,7 +388,7 @@ public final class ServiceLoader<S>
         Iterator<String> pending = null;
         String nextName = null;
 
-        private LazyIterator(Class<S> service, ClassLoader loader) {
+        private LazyIterator2(Class<S> service, ClassLoader loader) {
             this.service = service;
             this.loader = loader;
         }

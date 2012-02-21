@@ -498,6 +498,30 @@ public final class SimpleLibrary
                 for (String cxn : cx.remoteContexts()) {
                     out.writeUTF(cxn);
                 }
+                
+                // Local service implementations
+                Map<String,Set<String>> services = cx.services();
+                out.writeInt(services.size());
+                for (Map.Entry<String,Set<String>> me: services.entrySet()) {
+                    out.writeUTF(me.getKey());
+                    Set<String> values = me.getValue();
+                    out.writeInt(values.size());
+                    for (String value: values) {
+                        out.writeUTF(value);
+                    }
+                }
+                
+                // Remote service suppliers
+                Map<String,Set<String>> serviceSuppliers = cx.serviceSuppliers();
+                out.writeInt(serviceSuppliers.size());
+                for (Map.Entry<String,Set<String>> entry: serviceSuppliers.entrySet()) {
+                    out.writeUTF(entry.getKey());
+                    Set<String> remotes = entry.getValue();
+                    out.writeInt(remotes.size());
+                    for (String rcxn: remotes) {
+                        out.writeUTF(rcxn);
+                    }
+                }                
 
             }
         }
@@ -552,7 +576,29 @@ public final class SimpleLibrary
                 // Suppliers
                 int nSuppliers = in.readInt();
                 for (int j = 0; j < nSuppliers; j++)
-                    cx.addSupplier(in.readUTF());
+                    cx.addSupplier(in.readUTF());             
+                
+                // Local service implementations
+                int nServices = in.readInt();
+                for (int j = 0; j < nServices; j++) {
+                    String sn = in.readUTF();
+                    int nImpl = in.readInt();
+                    for (int k = 0; k < nImpl; k++) {
+                        String cn = in.readUTF();                     
+                        cx.putService(sn, cn);
+                    }
+                }        
+                
+                // Remote service suppliers
+                int nRemoteServices = in.readInt();
+                for (int j = 0; j < nRemoteServices; j++) {
+                    String sn = in.readUTF();
+                    int nRemotes = in.readInt();
+                    for (int k = 0; k < nRemotes; k++) {
+                        String rcxn = in.readUTF();
+                        cx.addServiceSupplier(sn, rcxn);
+                    } 
+                } 
             }
 
         }

@@ -59,7 +59,7 @@ public class Context
     protected void putLibraryPathForModule(ModuleId mid, File path) {
         libraryForModule.put(mid, path);
     }
-
+    
     // For each type defined by this context,
     // the id of the module that defines it
     //
@@ -158,6 +158,72 @@ public class Context
     private Set<String> suppliers = new HashSet<String>();
     protected void addSupplier(String cxn) {
         suppliers.add(cxn);
+    }
+   
+    // Services provided by this context (service name -> implementation types)
+    //
+    private Map<String,Set<String>> services = new HashMap<>();
+
+    // returns an unmodifiable map of the services provided by this context
+    private Map<String,Set<String>> unmodifiableServices() {
+        Map<String,Set<String>> result = new HashMap<>();
+        for (Map.Entry<String,Set<String>> entry: services.entrySet()) {
+            String cn = entry.getKey();
+            Set<String> impls = entry.getValue();
+            result.put(cn, Collections.unmodifiableSet(impls));
+        }
+        return Collections.unmodifiableMap(result);
+    }
+    
+    /** 
+     * Returns the map of the services implementations supplied by this context.
+     * The key is the service name, the value is the set of implementation
+     * classes.
+     */
+    public final Map<String,Set<String>> services() {
+        return unmodifiableServices();
+    }
+    
+    public final void putService(String sn, String impl) {
+        Set<String> impls = services.get(sn);
+        if (impls != null) {
+            impls.add(impl);
+        } else {
+            impls = new LinkedHashSet<>();
+            impls.add(impl);
+            services.put(sn, impls);
+        }
+    }    
+    
+    // Service suppliers (service name -> names of remote contexts)
+    //
+    private Map<String,Set<String>> serviceSuppliers = new HashMap<>();
+    
+    // returns an unmodifiable map of the contexts that supply services
+    private Map<String,Set<String>> unmodifiableServiceSuppliers() {
+        Map<String,Set<String>> result = new HashMap<>();
+        for (Map.Entry<String,Set<String>> entry: serviceSuppliers.entrySet()) {
+            String cn = entry.getKey();
+            Set<String> impls = entry.getValue();
+            result.put(cn, Collections.unmodifiableSet(impls));
+        }
+        return Collections.unmodifiableMap(result);
+    }
+    
+    public final void addServiceSupplier(String sn, String cxn) {
+        Set<String> remotes = serviceSuppliers.get(sn);
+        if (remotes != null) {
+            remotes.add(cxn);
+        } else {
+            // preserve order, no dups
+            remotes = new LinkedHashSet<>();
+            remotes.add(cxn);
+            serviceSuppliers.put(sn, remotes);
+        }
+    }
+    
+    public final Map<String,Set<String>> serviceSuppliers() {
+        return unmodifiableServiceSuppliers();
     }
 
     /**

@@ -160,6 +160,17 @@ final class Linker {
                     }
                     cx.putModuleForLocalClass(cn, mi.id());
                 }
+
+                // services
+                for (ModuleView v: mi.views()) {               
+                    for (Map.Entry<String,Set<String>> services: v.services().entrySet()) {
+                        String service = services.getKey();
+                        Set<String> impls = services.getValue();
+                        for (String impl: impls) {
+                            cx.putService(service, impl);
+                        }
+                    }
+                }
             }
         }
     }
@@ -280,6 +291,24 @@ final class Linker {
                     if (d.modifiers().contains(Modifier.PUBLIC)) {
                         // Required publicly, so re-export it
                         cx.reExportedSuppliers.add(scxv);
+                    }
+                }
+                
+                
+                // Service suppliers
+                for (ServiceDependence sd : mi.requiresServices()) {
+                    String sn = sd.service();
+                    for (Context scx : cxs.contexts) {
+                        if (scx != cx) {
+                            for (ModuleInfo info : scx.moduleInfos) {
+                                for (ModuleView v : info.views()) {
+                                    Set<String> providers = v.services().get(sn);
+                                    if (providers != null) {
+                                        cx.addServiceSupplier(sn, scx.name());
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
