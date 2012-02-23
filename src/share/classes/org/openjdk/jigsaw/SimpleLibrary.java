@@ -1486,9 +1486,7 @@ public final class SimpleLibrary
 
         // Configure
         //
-        Configuration<Context> cf
-            = Configurator.configure(this, res);
-        new StoredConfiguration(findModuleDir(root.id()), cf).store();
+       configure(res.modulesNeeded());
     }
 
     @Override
@@ -1538,7 +1536,7 @@ public final class SimpleLibrary
      *          {@code null} if the configuration of every root module
      *          should be (re)computed
      */
-    public void configure(List<ModuleId> mids)
+    public void configure(Collection<ModuleId> mids)
         throws ConfigurationException, IOException
     {
         // ## mids not used yet
