@@ -854,13 +854,13 @@ endif
 MODULES_REGEX="all|base|desktop|management|enterprise|misc|tools"
 sane-build_modules:
 ifdef BUILD_MODULES
-        @for m in $(BUILD_MODULES) ; do \
-            valid=`$(ECHO) $$m | $(EGREP) $(MODULES_REGEX)`; \
-            if [ "x$$valid" = "x" ] ; then \
-                $(ECHO) "ERROR: $$m set in the BUILD_MODULES variable is invalid.\n" \
-                "" >> $(ERROR_FILE); \
-            fi \
-        done
+	@for m in $(BUILD_MODULES) ; do \
+	    valid=`$(ECHO) $$m | $(EGREP) $(MODULES_REGEX)`; \
+	    if [ "x$$valid" = "x" ] ; then \
+		$(ECHO) "ERROR: $$m set in the BUILD_MODULES variable is invalid.\n" \
+		"" >> $(ERROR_FILE); \
+	    fi \
+	done
 endif
 
 ######################################################
