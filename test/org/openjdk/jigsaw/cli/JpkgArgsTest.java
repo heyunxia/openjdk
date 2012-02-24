@@ -120,6 +120,11 @@ public class JpkgArgsTest {
     private void testIfFileArgIsNotReadable(boolean natlib,
                                             boolean natcmd, boolean config)
         throws Exception {
+        // File readability cannot be set to false in Windows
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            return;
+        }
+
         setUp("NPE if file argument is not readable: "
               + (natlib? " --natlib " : "")
               + (natcmd? " --natcmd " : "")
@@ -170,7 +175,7 @@ public class JpkgArgsTest {
         throws Exception {
         setUp("Check if module path argument is not a directory");
 
-        File aFile = new File("tmp", "aFile");
+        File aFile = new File(testDir, "aFile");
         aFile.createNewFile();
         try {
             String [] args = {"-m", aFile.toString(), "jmod", "hello"};
@@ -217,12 +222,15 @@ public class JpkgArgsTest {
 
     private void testIfModulePathArgIsNotReadable()
         throws Exception {
+        // File readability cannot be set to false in Windows
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            return;
+        }
         setUp("Check if module path argument is not readable");
 
-        File dir = new File("tmp", "notReadableDir");
+        File dir = new File(testDir, "notReadableDir");
         if (! (dir.mkdir() && dir.setReadable(false)))
             throw new Exception("Can't set up test");
-
         try {
             String [] args = {"-m", dir.toString(), "jmod", "hello"};
             Packager.run(args);
@@ -420,10 +428,10 @@ public class JpkgArgsTest {
 
     private int count;
     private int errors;
-    // use "tmp" to help avoid accidents
-    private File srcDir = new File("tmp", "src");
-    private File classesDir = new File("tmp", "classes");
-    private File moduleDir = new File("tmp", "modules");
+    private File testDir = new File(System.getProperty("test.dir", "tmp"));
+    private File srcDir = new File(testDir, "src");
+    private File classesDir = new File(testDir, "classes");
+    private File moduleDir = new File(testDir, "modules");
     private File natlibDir = new File(srcDir, "natlib");
     private File natcmdDir = new File(srcDir, "natcmd");
     private File configDir = new File(srcDir, "config");

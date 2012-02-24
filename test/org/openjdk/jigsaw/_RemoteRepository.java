@@ -105,6 +105,9 @@ public class _RemoteRepository {
         check(rr, pr);
         ModuleId mid = mids.iterator().next();
         mids.remove(mid);
+        // Ensure time stamp of catalog after removal is at least one second >
+        // This is the minimum increment represented by the Last-modified header
+        Thread.sleep(2000);
         pr.remove(mid);
         rr.updateCatalog(false);
         check(rr, pr);

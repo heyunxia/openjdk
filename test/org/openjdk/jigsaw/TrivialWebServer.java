@@ -27,18 +27,19 @@ import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.net.*;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 import com.sun.net.httpserver.*;
 
 import static java.lang.System.out;
-import static java.lang.System.err;
 import static java.net.HttpURLConnection.*;
+import static java.util.concurrent.TimeUnit.*;
 
 
 public class TrivialWebServer {
-
+    
     private boolean debug = System.getenv("TWS_DEBUG") != null;
 
     private final PrintStream log;
@@ -55,14 +56,17 @@ public class TrivialWebServer {
             log.format("  %s : %s%n", e.getKey(), e.getValue());
         }
     }
-
-    private static final SimpleDateFormat HTTP_DATE;
-
-    static {
-        HTTP_DATE = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'",
-                                           Locale.US);
-        HTTP_DATE.setTimeZone(TimeZone.getTimeZone("GMT"));
-    }
+    
+    private static final String pattern = "EEE, dd MMM yyyy HH:mm:ss zzz";
+    private static final TimeZone gmtTZ = TimeZone.getTimeZone("GMT");
+    private static final ThreadLocal<DateFormat> HTTP_DATE =
+         new ThreadLocal<DateFormat>() {
+            @Override protected DateFormat initialValue() {
+                DateFormat df = new SimpleDateFormat(pattern, Locale.US);
+                df.setTimeZone(gmtTZ);
+                return df;
+            }
+        };
 
     private class Handler
         implements HttpHandler
@@ -80,6 +84,8 @@ public class TrivialWebServer {
         private void notFound(HttpExchange hx, URI hxu)
             throws IOException
         {
+            if (debug)
+                log.format("HTTP_NOT_FOUND");
             byte[] err
                 = ("<b>Not found: " + hxu + "</b>").getBytes("ASCII");
             hx.sendResponseHeaders(HTTP_NOT_FOUND, err.length);
@@ -100,7 +106,7 @@ public class TrivialWebServer {
                 URI u = root.resolve(BARE_ROOT.relativize(hxu));
                 Path p = Paths.get(u);
                 if (debug) {
-                    log.format("%s --> %s%n", hxu, p);
+                    log.format("%s %s --> %s%n", hx.getRequestMethod(), hxu, p);
                     dump("req", hx.getRequestHeaders());
                 }
                 if (!Files.exists(p)) {
@@ -117,6 +123,8 @@ public class TrivialWebServer {
                     if (!us.endsWith("/")) {
                         Headers ahs = hx.getResponseHeaders();
                         ahs.put("Location", Arrays.asList(us + "/"));
+                        if (debug)
+                            dump("HTTP_MOVED_PERM", ahs);
                         hx.sendResponseHeaders(HTTP_MOVED_PERM, -1);
                         return;
                     }
@@ -132,7 +140,8 @@ public class TrivialWebServer {
 
                 // Check Last-Modified/ETag headers
                 //
-                long mtime = ba.lastModifiedTime().toMillis();
+                DateFormat df = HTTP_DATE.get();
+                long mtime = ba.lastModifiedTime().to(TimeUnit.SECONDS);
                 String etag = etag(ba.fileKey());
                 Headers rhs = hx.getRequestHeaders();
                 String rmtime = rhs.getFirst("If-Modified-Since");
@@ -140,16 +149,18 @@ public class TrivialWebServer {
                 boolean sendit = false;
                 if (rmtime != null) {
                     condget = true;
-                    long rmt = HTTP_DATE.parse(rmtime).getTime();
+                    long rmt = SECONDS.convert(df.parse(rmtime).getTime(),
+                                               MILLISECONDS);
                     sendit = mtime > rmt;
                 }
                 String retag = rhs.getFirst("If-None-Match");
-                boolean tagChanged = true;
                 if (retag != null) {
                     condget = true;
                     sendit = sendit || !retag.equals(etag);
                 }
                 if (condget && !sendit) {
+                    if (debug)
+                        out.format("HTTP_NOT_MODIFIED%n");
                     hx.sendResponseHeaders(HTTP_NOT_MODIFIED, -1);
                     return;
                 }
@@ -159,14 +170,19 @@ public class TrivialWebServer {
                 Headers ahs = hx.getResponseHeaders();
                 ahs.set("Content-Type", "application/octet-stream");
                 ahs.set("Last-Modified",
-                        HTTP_DATE.format(new Date(mtime)));
+                        df.format(new Date(MILLISECONDS.convert(mtime, SECONDS))));
                 if (etag != null)
                     ahs.set("ETag", etag);
                 if (debug)
-                    dump("ans", hx.getResponseHeaders());
-                hx.sendResponseHeaders(HTTP_OK, ba.size());
-                Files.copy(p, hx.getResponseBody());
-
+                    dump("HTTP_OK", ahs);
+                if ("HEAD".equalsIgnoreCase(hx.getRequestMethod())) {
+                    // HEAD: manually set the c-l and write no response body
+                    ahs.set("Content-length", Long.toString(ba.size()));
+                    hx.sendResponseHeaders(HTTP_OK, -1);
+                } else {
+                    hx.sendResponseHeaders(HTTP_OK, ba.size());
+                    Files.copy(p, hx.getResponseBody());
+                }
             } catch (Exception x) {
                 x.printStackTrace(out);
             } finally {

@@ -124,7 +124,7 @@ public class _RemoteRepositoryList {
 
     static URI local(int port, String path) throws Exception {
         if (localHost == null)
-            localHost = InetAddress.getLocalHost().getHostName();
+            localHost = InetAddress.getLocalHost().getCanonicalHostName();
         return URI.create("http://" + localHost + ":" + port + path);
     }
 

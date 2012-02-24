@@ -71,9 +71,20 @@ public class GetProperty {
 }
 EOF
 
+mk ToURL.java <<EOF
+public class ToURL {
+    public static void main(String[] args) throws Exception {
+        System.out.print((new java.io.File(args[0])).toURI());
+    }
+}
+EOF
+
+$BIN/javac -source 8 -d . ToURL.java
+KEYSTOREPASSWORDURL=`$BIN/java ToURL "${SRC}/keystore.pw"`
+
 mk signed-module.policy <<EOF
 keystore "keystore.jks";
-keystorePasswordURL "${SRC}/keystore.pw";
+keystorePasswordURL "${KEYSTOREPASSWORDURL}";
 grant signedBy "signer" {
     permission java.util.PropertyPermission "user.home", "read";
 };

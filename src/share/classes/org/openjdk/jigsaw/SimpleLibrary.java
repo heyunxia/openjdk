@@ -498,7 +498,7 @@ public final class SimpleLibrary
                 for (String cxn : cx.remoteContexts()) {
                     out.writeUTF(cxn);
                 }
-                
+
                 // Local service implementations
                 Map<String,Set<String>> services = cx.services();
                 out.writeInt(services.size());
@@ -510,7 +510,7 @@ public final class SimpleLibrary
                         out.writeUTF(value);
                     }
                 }
-                
+
                 // Remote service suppliers
                 Map<String,Set<String>> serviceSuppliers = cx.serviceSuppliers();
                 out.writeInt(serviceSuppliers.size());
@@ -521,7 +521,7 @@ public final class SimpleLibrary
                     for (String rcxn: remotes) {
                         out.writeUTF(rcxn);
                     }
-                }                
+                }
 
             }
         }
@@ -576,19 +576,19 @@ public final class SimpleLibrary
                 // Suppliers
                 int nSuppliers = in.readInt();
                 for (int j = 0; j < nSuppliers; j++)
-                    cx.addSupplier(in.readUTF());             
-                
+                    cx.addSupplier(in.readUTF());
+
                 // Local service implementations
                 int nServices = in.readInt();
                 for (int j = 0; j < nServices; j++) {
                     String sn = in.readUTF();
                     int nImpl = in.readInt();
                     for (int k = 0; k < nImpl; k++) {
-                        String cn = in.readUTF();                     
+                        String cn = in.readUTF();
                         cx.putService(sn, cn);
                     }
-                }        
-                
+                }
+
                 // Remote service suppliers
                 int nRemoteServices = in.readInt();
                 for (int j = 0; j < nRemoteServices; j++) {
@@ -597,8 +597,8 @@ public final class SimpleLibrary
                     for (int k = 0; k < nRemotes; k++) {
                         String rcxn = in.readUTF();
                         cx.addServiceSupplier(sn, rcxn);
-                    } 
-                } 
+                    }
+                }
             }
 
         }
@@ -1010,16 +1010,18 @@ public final class SimpleLibrary
                 }
             });
         } else if (cd.isFile()) {
-            FileInputStream fis = new FileInputStream(cd);
-            ZipInputStream zis = new ZipInputStream(fis);
-            ZipEntry ze;
-            while ((ze = zis.getNextEntry()) != null) {
-                if (!ze.getName().endsWith(".class"))
-                    continue;
-                addToIndex(ClassInfo.read(Files.nonClosingStream(zis),
-                                          ze.getSize(),
-                                          mid + ":" + ze.getName()),
-                           ix);
+            try (FileInputStream fis = new FileInputStream(cd);
+                 ZipInputStream zis = new ZipInputStream(fis))
+            {
+                ZipEntry ze;
+                while ((ze = zis.getNextEntry()) != null) {
+                    if (!ze.getName().endsWith(".class"))
+                        continue;
+                    addToIndex(ClassInfo.read(Files.nonClosingStream(zis),
+                                              ze.getSize(),
+                                              mid + ":" + ze.getName()),
+                               ix);
+                }
             }
         }
 

@@ -78,8 +78,6 @@ public class TimestampTest {
     };
 
     private String[] jpkgArgs = {
-        "-L",
-        "z.lib",
         "-m",
         "z.modules/" + MNAME,
         "jmod",
@@ -145,7 +143,8 @@ public class TimestampTest {
 
     void reset() {
         if (moduleDir.exists())
-            deleteAll(moduleDir);
+            if (!deleteAll(moduleDir))
+                throw new RuntimeException("FATAL: removal of " + moduleDir + " failed.");
     }
 
     /**
@@ -268,7 +267,7 @@ public class TimestampTest {
                 Calendar cal = Calendar.getInstance();
                 tst.putGeneralizedTime(cal.getTime());
             } else {
-                // expired-signed is Valid from: Sat Jan 01 11:32:36 EST 2005 
+                // expired-signed is Valid from: Sat Jan 01 11:32:36 EST 2005
                 // until: Sun Jan 01 11:32:36 EST 2006
                 // timestamp with a date within that validity period
                 tst.putGeneralizedTime(new Date(1120190400000l)); // 07/01/2005

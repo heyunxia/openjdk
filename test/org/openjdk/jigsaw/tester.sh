@@ -103,6 +103,7 @@ $AWK -v sep="$FS" -v dash_p="$DASH_P" '
     close(efile);
     msdir = toPath(tdir, "src");
     mkdir(msdir);
+    moduleclassFound = 0;
   }
 
   /^module / {
@@ -147,7 +148,12 @@ $AWK -v sep="$FS" -v dash_p="$DASH_P" '
   /^./ {
     if (module) {
       print $0 >>mfile;
-      if (match($0, /^ +class +([a-zA-Z.]+) *;/)) print module >toPath(tdir, "main");
+      if (match($0, /^ +class +([a-zA-Z.]+) *;/)) {
+          if (moduleclassFound == 0) {
+              print module >toPath(tdir, "main");
+              moduleclassFound = 1;
+         }
+      }
     }
     if (class) print $0 >>cfile;
     next;
@@ -244,9 +250,11 @@ else
     BIN=../$BIN;
   fi
   for t in *; do
-    cd $t
-    run `echo $t | cut -c4-` || /bin/true
-    cd ..
+    if [ -d $t ] ; then
+      cd $t
+      run `echo $t | cut -c4-` || /bin/true
+      cd ..
+    fi
   done
 fi
 
