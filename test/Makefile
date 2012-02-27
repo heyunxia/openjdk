@@ -395,6 +395,7 @@ MODULE_IMAGE_PROBLEM_LIST=ModulesProblemList.txt
 ifeq ($(MODULE_BUILD),true)
 ifndef NO_EXCLUDES_MODULES
 PROBLEM_LISTS += $(MODULE_IMAGE_PROBLEM_LIST)
+PROBLEM_LISTS += $(wildcard closed/$(MODULE_IMAGE_PROBLEM_LIST))
 endif
 endif
 
@@ -630,7 +631,7 @@ jdk_util: $(call TestDirs, java/util sun/util)
 	$(call RunAgentvmBatch)
 
 # jdk_jigsaw is included in jprt.properties but we only want to
-# run them when testing the jdk-module-image. 
+# run them when testing the jdk-module-image.
 # java/lang/module and java/lang/reflect/Module tests are tagged
 # with the "modules" keyword so that they are excluded when testing
 # legacy image.
@@ -651,10 +652,6 @@ jdk_default: $(JDK_DEFAULT_TARGETS)
 
 # Run all tests
 jdk_all: $(JDK_ALL_TARGETS)
-ifeq ($(MODULE_BUILD),false)
-   FILTER_OUT_LIST+=jdk_jigsaw
-endif
-
 	@$(SummaryInfo)
 
 # These are all phony targets

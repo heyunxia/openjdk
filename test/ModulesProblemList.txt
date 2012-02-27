@@ -25,7 +25,7 @@
 #
 
 ############################################################################
-# This file is intended to temporarily exclude test failures due 
+# This file is intended to temporarily exclude test failures due
 # to jdk modularization.  We will remove this file when the major
 # known issues of the jdk modularization are fixed.
 #
@@ -56,12 +56,6 @@ sun/management/jmxremote/bootstrap/JvmstatCountersTest.java generic-all
 
 # Could not determine codeBase for java.home
 javax/management/MBeanInfo/NotificationInfoTest.java        generic-all
-
-#Caused by: java.security.NoSuchAlgorithmException: SunTlsRsaPremasterSecret KeyGenerator not available
-closed/javax/management/remote/mandatory/sslStub/SSLSocketParametersTest.sh generic-all
-
-closed/sun/management/snmp/generic/GenericTest.sh              generic-all
-closed/sun/management/snmp/snmpCounter64/SnmpCounter64Test.sh  generic-all
 
 ############################################################################
 
@@ -108,7 +102,6 @@ java/nio/MappedByteBuffer/Force.java                    windows-i586
 # This test sets to Turkish language without resetting it when exit
 # that causes other tests to fail.  Exclude for now.
 sun/nio/cs/Test4206507.java                             generic-all
-closed/sun/nio/cs/sunio/Test4206507.java                generic-all
 
 ############################################################################
 
@@ -227,7 +220,7 @@ sun/tools/jstatd/jstatdExternalRegistry.sh      generic-all
 com/sun/tools/extcheck/TestExtcheckArgs.java   	generic-all
 tools/launcher/ExecutionEnvironment.java   	generic-all
 
-# Test bugs - should file a CR 
+# Test bugs - should file a CR
 tools/launcher/VersionCheck.java   	        generic-all
 # /var/tmp  not writeable
 tools/jar/ChangeDir.java                        generic-all
