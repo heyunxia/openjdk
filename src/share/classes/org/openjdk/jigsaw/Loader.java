@@ -38,7 +38,10 @@ import java.security.CodeSigner;
 import java.security.CodeSource;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.security.PermissionCollection;
+import java.security.Permissions;
 import java.util.*;
+import sun.security.util.SecurityConstants;
 
 import static org.openjdk.jigsaw.Trace.*;
 
@@ -208,9 +211,17 @@ public class Loader
                         byte[] bs = l.readLocalModuleInfoBytes(modid);
                         if (bs == null)
                             throw new AssertionError();
+
+                        URL url;
+                        try {
+                            // for now the module version is not included
+                            url = new URL("module:///" + modid.name());
+                        } catch (Exception x) {
+                            throw new AssertionError(x);
+                        }
                         CodeSigner[] cs = l.readLocalCodeSigners(modid);
                         return defineModule(modid, bs,
-                                            new CodeSource(null, cs));
+                                            new CodeSource(url, cs));
                     }
                 }
             );
@@ -245,6 +256,20 @@ public class Loader
             throw cnf(m.getName(), cn, (IOException) x.getException());
         }
 
+    }
+
+    protected PermissionCollection getPermissions(CodeSource cs) {
+        URL u;
+        if (cs != null && ((u = cs.getLocation()) != null)) {
+            String path = u.getPath();
+            // For now we grant all permissions to jdk.* modules
+            if (path.startsWith("/jdk.")) {
+                Permissions perms = new Permissions();
+                perms.add(SecurityConstants.ALL_PERMISSION);
+                return perms;
+            }
+        }
+        return super.getPermissions(cs);
     }
 
     public boolean isModulePresent(String mn) {

@@ -116,6 +116,7 @@ FILES_java = \
 	sun/net/www/protocol/jar/JarFileFactory.java \
 	sun/net/www/protocol/jar/JarURLConnection.java \
 	sun/net/www/protocol/netdoc/Handler.java \
+	sun/net/www/protocol/module/Handler.java \
 	sun/net/www/content/image/gif.java \
 	sun/net/www/content/image/jpeg.java \
 	sun/net/www/content/image/x_xbitmap.java \
