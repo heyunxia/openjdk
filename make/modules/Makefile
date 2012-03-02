@@ -181,7 +181,12 @@ $(MODULEPATH_DIR)/%/classes/module-info.class: $(MODULEPATH_DIR)/%/module-info.c
 
 #
 # Modularize JDK and install the modules in the jigsaw library
-modularize: $(MODULES_LIST)
+#
+# This "modularize" target can be used as an interim solution
+# for incremental build when there is no class added or removed
+# since the last run of classanalyzer.
+#
+modularize:
 	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
 	$(HOST_JAVA_CMD) \
                 -cp $(CLASSANALYZER_JAR_FILE) \
@@ -189,8 +194,10 @@ modularize: $(MODULES_LIST)
                 -jdkhome $(OUTPUTDIR) \
                 -classlistdir $(MODULE_CLASSLIST_DIR) \
                 -modulepath $(ABS_MODULEPATH_DIR)
+	@$(RM) -rf $(JIGSAW_MODULE_LIB)
+	@$(HOST_JMOD_CMD) create -N $(JMOD_CREATE_ARGS) -L $(JIGSAW_MODULE_LIB)
 	@$(java-vm-cleanup)
-	$(MAKE) `$(NAWK) '{print "$(JIGSAW_MODULE_LIB)/" $$1 "/$(MODULE_VERSION)/info" }' $<` || exit 1
+	$(MAKE) `$(NAWK) '{print "$(JIGSAW_MODULE_LIB)/" $$1 "/$(MODULE_VERSION)/info" }' $(MODULES_LIST)` || exit 1
 	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
 
 

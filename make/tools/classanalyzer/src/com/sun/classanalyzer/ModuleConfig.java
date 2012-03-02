@@ -441,6 +441,7 @@ public class ModuleConfig {
             boolean inPermits = false;
             boolean inRequires = false;
             boolean inProvides = false;
+            boolean inExports = false;
             boolean inView = false;
             boolean optional = false;
             boolean reexport = false;
@@ -474,7 +475,7 @@ public class ModuleConfig {
 
                 String values;
                 if (inRoots || inIncludes || inExcludes || inAllows ||
-                        inPermits || inRequires) {
+                        inPermits || inRequires || inExports ) {
                     values = line;
                 } else {
                     String[] s = line.split("\\s+");
@@ -499,6 +500,7 @@ public class ModuleConfig {
                         inRequires = false;
                         inPermits = false;
                         inProvides = false;
+                        inExports = false;
                         inView = false;
                         continue;
                     } else if (keyword.equals("class")) {
@@ -521,16 +523,7 @@ public class ModuleConfig {
                     } else if (keyword.equals("provides")) {
                         inProvides = true;
                     } else if (keyword.equals("exports")) {
-                        // only support one class/package/wildcard in each export statement
-                        String n = s[1].trim();
-                        if (s.length != 2 || (!n.equals("**;") && n.endsWith("*;"))) {
-                            throw new RuntimeException(file + ", line "
-                                    + lineNumber + ", is malformed");
-                        }
-                        // remove ".*" and ';'
-                        String e = n.equals("**;") ? "*" : n.substring(0, n.length() - 3);
-                        view.exports.add(e);
-                        continue;
+                        inExports = true;
                     } else if (keyword.equals("requires")) {
                         inRequires = true;
                         optional = false;
@@ -619,6 +612,9 @@ public class ModuleConfig {
                             view.permits.add(s);
                         } else if (inProvides) {
                             view.aliases.add(s);
+                        } else if (inExports) {
+                            String e = s.equals("**") ? "*" : s;
+                            view.exports.add(e);
                         } else if (inRequires) {
                             if (config.requires.containsKey(s)) {
                                 throw new RuntimeException(file + ", line " +
@@ -637,7 +633,7 @@ public class ModuleConfig {
                     inPermits = false;
                     inProvides = false;
                     inRequires = false;
-                    inView = false;
+                    inExports = false;
                 }
             }
 

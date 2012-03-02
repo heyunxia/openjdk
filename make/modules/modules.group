@@ -427,27 +427,29 @@ module jdk.devtools {
     include tools.javap;
     include tools.javadoc;
 
+    // ## temporary: exports this package so that jdk.tools.base
+    // ##     requires public jdk.devtools;
+    // ## to workaround its dependency by the jar tool that causes the
+    // ## ClassAnalyzer to generate "requires public jdk.devtools.internal;"
+    exports com.sun.tools.classfile;
+
     view jdk.javac {
-        exports com.sun.tools.javac;
         class com.sun.tools.javac.Main;
     }
     view jdk.javah {
-        exports com.sun.tools.javah;
         class com.sun.tools.javah.Main;
     }
     view jdk.javap {
-        exports com.sun.tools.javap;
         class com.sun.tools.javap.Main;
     }
     view jdk.javadoc {
-        exports com.sun.tools.javadoc;
         class com.sun.tools.javadoc.Main;
     }
 }
 
 // developer tools to be included in the jdk-base-image
 module jdk.tools.base {
-    requires jdk.devtools;
+    requires public jdk.devtools;
 
     include tools.jar;
     include tools.jarsigner;
@@ -456,7 +458,6 @@ module jdk.tools.base {
     include tools.jsign;
     include tools.keytool;
     include tools.pack200;
-
 
     view jdk.jar {
         class sun.tools.jar.Main;
