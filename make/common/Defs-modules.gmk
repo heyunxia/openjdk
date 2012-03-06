@@ -114,13 +114,25 @@ ifndef MODULE
 endif
 override MODULE_DEST_DIR = $(SUBMODULES_DIR)/$(strip $(MODULE))
 
-MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
-                      -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
-                      -e 's%.*\/lib\/%lib\/%' \
-                      -e 's%.*\/bin\/%bin\/%' \
-                      -e 's%.*\/include\/%include\/%' \
-                      -e 's%.*\/demo\/%demo\/%' \
-                      -e 's%.*\/sample\/%sample\/%'
+ifeq ($(PLATFORM), windows)
+    MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
+                          -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
+                          -e 's%.*\/lib\/%etc\/%' \
+                          -e 's%.*\/bin\/%lib\/%' \
+                          -e 's%.*\/include\/%include\/%' \
+                          -e 's%.*\/demo\/%demo\/%' \
+                          -e 's%.*\/sample\/%sample\/%'
+
+else
+    MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
+                          -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
+                          -e 's%.*\/lib\/$(LIBARCH)\/%lib\/%' \
+                          -e 's%.*\/lib\/%etc\/%' \
+                          -e 's%.*\/bin\/%bin\/%' \
+                          -e 's%.*\/include\/%include\/%' \
+                          -e 's%.*\/demo\/%demo\/%' \
+                          -e 's%.*\/sample\/%sample\/%'
+endif
 
 # Gets the module destination corresponding to the specified directory
 define GetModuleDest

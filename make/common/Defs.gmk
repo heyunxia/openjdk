@@ -470,6 +470,14 @@ $(CP) -f $@ $$dest; \
 $(TouchModule)
 endef
 
+# Install a cmd to its module
+define install-module-cmd-file
+dest=$(MODULE_DEST_DIR)/bin ; \
+$(MKDIR) -p $$dest; \
+$(CP) -f $@ $$dest; \
+$(TouchModule)
+endef
+
 # Install all files from the directory to its module
 define install-module-dir
 dest=$(call GetModuleDest, $(@D)/) ; \
@@ -520,6 +528,12 @@ define install-file
 $(prep-target)
 $(CP) $< $@
 @$(install-module-file)
+endef
+
+define install-cmd-file
+$(prep-target)
+$(CP) $< $@
+@$(install-module-cmd-file)
 endef
 
 # Include header files always belongs the base module

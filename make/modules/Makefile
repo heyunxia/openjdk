@@ -95,8 +95,8 @@ OPTIONAL_DEP_CONFIG = optional.depconfig
 #
 #    c. Install each module in the jigsaw module library
 #
-ORB_IDL=$(MODULEPATH_DIR)/$(IDLJ_MODULE)/lib/orb.idl
-IR_IDL=$(MODULEPATH_DIR)/$(IDLJ_MODULE)/lib/ir.idl
+ORB_IDL=$(MODULEPATH_DIR)/$(IDLJ_MODULE)/etc/orb.idl
+IR_IDL=$(MODULEPATH_DIR)/$(IDLJ_MODULE)/etc/ir.idl
 
 
 all: $(MODULES_LIST) module-info-classes $(ORB_IDL) $(IR_IDL) modularize
@@ -270,7 +270,7 @@ $(JIGSAW_MODULE_LIB)/%/$(MODULE_VERSION)/info: $(MODULEPATH_DIR)/%/classes/modul
 #
 # A better fix would be in make/common/internal/ImportComponents.gmk
 # to install imported files in a module
-$(MODULEPATH_DIR)/$(IDLJ_MODULE)/lib/%.idl : $(LIBDIR)/%.idl
+$(MODULEPATH_DIR)/$(IDLJ_MODULE)/etc/%.idl : $(LIBDIR)/%.idl
 	$(install-non-module-file)
 
 clean clobber:: classes.clean
