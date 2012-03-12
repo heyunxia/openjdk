@@ -180,19 +180,26 @@ public class Module implements Comparable<Module> {
     
     Module.View getView(Klass k) {
         String pn = k.getPackageName();
+        View view = internalView;
         for (View v : views.values()) {
-            if (v.exports.contains(pn))
-                return v;
+            if (v.exports.contains(pn)) {
+                view = v;
+                break;
+            }
         }
+        // make sure a package referenced by other modules
+        // is exported either in the default view or internal view
         PackageInfo pinfo = packageForClass.get(pn);
-        if (contains(k) && !pinfo.isExported) {
-            internalView.exports.add(pn);
-            return internalView;
+        if (contains(k) && !defaultView.exports.contains(pn)) {
+            if (!pinfo.isExported && !internalView.exports.contains(pn)) {
+                internalView.exports.add(pn);
+            }
         }
+        assert view.exports.contains(pn);
         
-        throw new RuntimeException("No view found for " + k +
-                (contains(k) ? " exists" : " does not exists") +
-                " in " + name);
+        return view;
+        
+        
     }
 
     boolean contains(Klass k) {

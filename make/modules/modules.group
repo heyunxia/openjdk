@@ -58,6 +58,14 @@ module jdk.base {
     requires optional sun.resources;
     requires optional sun.localedata;
 
+    // ## workaround for reflection
+    //
+    // ## reflection generated code is a subclass of sun.reflect.MethodAccessorImpl
+    // ## ConstructorAccessorImpl, or SerializationConstructorAccessorImpl
+    // ## The generated code is defined by a new loader that delegates to
+    // ## the defining loader of the declaring class
+    exports sun.reflect;
+
     view jdk.base.oracle {
         exports com.oracle.nio;
         exports com.oracle.net;
