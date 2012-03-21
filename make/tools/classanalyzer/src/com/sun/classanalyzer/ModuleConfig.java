@@ -91,7 +91,7 @@ public class ModuleConfig {
     }
 
     static ModuleConfig moduleConfigForUnknownModule() {
-        ModuleConfig mc = new ModuleConfig("?", "unknown");
+        ModuleConfig mc = new ModuleConfig("unknown", "unknown");
         mc.includes.add("**");
         return mc;
     }
