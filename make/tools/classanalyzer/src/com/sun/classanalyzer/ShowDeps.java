@@ -34,17 +34,19 @@ import java.util.*;
 public class ShowDeps {
 
     private final ClassPath cpath;
-    private final Set<String> classes = new TreeSet<String>();
+    private final Set<String> classes = new TreeSet<>();
+    private final Set<Module.View> requires = new TreeSet<>();
+    private final Map<String, Module> packages = new TreeMap<>();
 
     public ShowDeps(ClassPath cpath) {
         this.cpath = cpath;
     }
 
-    public void run() throws IOException {
+    public void run(Set<Module> modules, boolean showClassDeps) throws IOException {
         cpath.parse();
 
         // find the classes that don't exist
-        Set<Klass> unresolved = new TreeSet<Klass>();
+        Set<Klass> unresolved = new TreeSet<>();
         for (Klass k : Klass.getAllClasses()) {
             if (k.getFileSize() == 0) {
                 unresolved.add(k);
@@ -55,49 +57,112 @@ public class ShowDeps {
         for (Klass k : Klass.getAllClasses()) {
             for (Klass other : k.getReferencedClasses()) {
                 if (unresolved.contains(other)) {
-                    String name = other.toString();
-                    if (!ignore.contains(name)) {
-                        System.out.format("%s -> %s\n", k, other);
+                    String cn = other.getClassName();
+                    String pn = other.getPackageName();
+                    Module m = other.getModule();
+                    Module sm = packages.get(pn);
+                    if (m == null) {
+                        m = Module.getFactory().unknownModule();
+                    }
+                    if (!packages.containsKey(pn)) {
+                        packages.put(pn, m);
+                    } else if (sm != m) {
+                        String mn = m == null ? "?" : m.name();
+                        String pn1 = pn + " (" + mn + ")";
+                        packages.put(pn1, m);
+                    }
+                    Module.View mv = null;
+                    if (m.defaultView().exports().contains(pn)) {
+                        mv = m.defaultView();
+                    } else {
+                        for (Module.View v : m.views()) {
+                            if (v.exports().contains(pn)) {
+                                mv = v;
+                                break;
+                            }
+                        }
+                    }
+                    if (mv != null) {
+                        requires.add(mv);
+                    } else if (m != Module.getFactory().unknownModule()) {
+                        System.out.format("Non-exported: %s -> %s (%s)%n",
+                                k, other, m);
+                    }
+                    if (!ignore.contains(cn) && showClassDeps) {
+                        System.out.format("%s -> %s (%s)%n", k, other, m);
                     }
                 }
             }
         }
     }
 
+    public void printPackageDeps(PrintStream out) {
+        out.format("%-40s  %s%n", "package", "from module");
+        out.format("%-40s  %s%n", "-------", "-----------");
+        for (Map.Entry<String,Module> e : packages.entrySet()) {
+            String pn = e.getKey();
+            Module m = e.getValue();
+            out.format("%-40s  %s%n", pn, m);
+        }
+    }
+
+    public void printModuleInfo(PrintStream out, String mid) {
+        out.format("module %s {%n", mid);
+        for (Module.View mv : requires) {
+            out.format("    requires %s;%n", mv.name);
+        }
+        out.println("}");
+    }
+
     static void usage() {
-        System.out.println("java ShowDeps [-ignore <classlist>] file...");
+        System.out.println("java ShowDeps [-L <module-lib>] [-id <moduleId>] [-v] file...");
         System.out.println("   where <file> is a class or JAR file, or a directory");
-        System.out.println();
+        System.out.println("By default, it shows the packages dependencies and class");
+        System.out.println("dependencies if -v option is specified.  If the id option");
+        System.out.println("is specified, it will print the module declaration instead.");
+        System.out.println("");
         System.out.println("Example usages:");
         System.out.println("  java ShowDeps Foo.jar");
+        System.out.println("  java ShowDeps -id \"foo@1.0\" Foo.jar");
+        System.out.println("  java ShowDeps -L modulelibrary Foo.jar");
         System.out.println("  java ShowDeps -ignore base.classlist Foo.jar");
         System.out.println("  java ShowDeps -ignore base.classlist -ignore " +
                 "jaxp-parsers.classlist <dir>");
         System.exit(-1);
     }
-    private static Set<String> ignore = new HashSet<String>();
+    private static Set<String> ignore = new HashSet<>();
 
     public static void main(String[] args) throws IOException {
-        // process -ignore options
         int argi = 0;
-        while (argi < args.length && args[argi].equals("-ignore")) {
-            argi++;
-            Scanner s = new Scanner(new File(args[argi++]));
-            try {
-                while (s.hasNextLine()) {
-                    String line = s.nextLine();
-                    if (!line.endsWith(".class")) {
-                        continue;
+        File lib = null;
+        String mid = null;
+        boolean verbose = false;
+        while (argi < args.length) {
+            String arg = args[argi];
+            if (arg.equals("-ignore")) {
+                // process -ignore options
+                try (Scanner s = new Scanner(new File(args[++argi]))) {
+                    while (s.hasNextLine()) {
+                        String line = s.nextLine();
+                        if (!line.endsWith(".class")) {
+                            continue;
+                        }
+                        int len = line.length();
+                        // convert to class names
+                        String clazz = line.replace('\\', '.').replace('/', '.').substring(0, len - 6);
+                        ignore.add(clazz);
                     }
-                    int len = line.length();
-                    // convert to class names
-                    String clazz = line.replace('\\', '.').replace('/', '.')
-                        .substring(0, len - 6);
-                    ignore.add(clazz);
                 }
-            } finally {
-                s.close();
+            } else if (arg.equals("-id")) {
+                mid = args[++argi];
+            } else if (arg.equals("-L")) {
+                lib = new File(args[++argi]);
+            } else if (arg.equals("-v")) {
+                verbose = true;
+            } else {
+                break;
             }
+            argi++;
         }
 
         if (argi >= args.length) {
@@ -107,6 +172,27 @@ public class ShowDeps {
         // parse all classes
         ClassPath cpath = new ClassPath(Arrays.copyOfRange(args, argi, args.length));
         ShowDeps instance = new ShowDeps(cpath);
-        instance.run();
+        instance.run(getPlatformModules(lib), verbose);
+
+        if (mid == null) {
+            if (!verbose)
+                instance.printPackageDeps(System.out);
+        } else {
+            instance.printModuleInfo(System.out, mid);
+        }
+    }
+
+    static Set<Module> getPlatformModules(File lib) throws IOException {
+        String javahome = System.getProperty("java.home");
+        if (lib == null) {
+            lib = new File(new File(javahome,"lib"), "modules");
+        }
+
+        if (lib.exists()) {
+            JigsawModuleBuilder mb = new JigsawModuleBuilder(lib);
+            return mb.run();
+        } else {
+            return Collections.emptySet();
+        }
     }
 }

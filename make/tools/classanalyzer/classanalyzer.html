@@ -28,9 +28,43 @@
 
 <html>
 <head>
-  <title>ClassAnalyzer</title>
+  <title>ClassAnalyzer and ShowDeps</title>
 </head>
 <body>
+
+<h1>ShowDeps</h1>
+ShowDeps is a simple tool to print out the static dependenices
+for a given set of JAR, class files, or combinations of. This
+tool supports a <b>-id</b> option to specify the given module identifier
+and it will generate the module declaration (<code>module-info</code>).
+It also supports an <b>-ignore</b> option to ignore references to classes 
+listed in the file (including .classlists created by the ClassAnalyzer tool).
+
+<pre>
+java ShowDeps [-L <module-lib>] [-id <moduleId>] file...
+   where <file> is a class or JAR file, or a directory
+If -id option is specified, it will generate the module declaration.
+
+Example usages:
+  java ShowDeps Foo.jar
+  java ShowDeps -id "foo@1.0" Foo.jar
+  java ShowDeps -L modulelibrary Foo.jar
+  java ShowDeps -ignore base.classlist Foo.jar
+  java ShowDeps -ignore base.classlist -ignore jaxp-parsers.classlist &lt;dir&gt;
+</pre>
+
+For example, to generate module declaration for SwingSet3:
+<pre>
+$ java ShowDeps -id "swingset3 @ 1.0" swingx.jar swing-worker.jar AnimatedTransitions.jar TimingFramework.jar AppFramework.jar          
+module swingset3 @ 1.0 {
+    requires jdk.base;
+    requires jdk.desktop;
+    requires jdk.jdbc;
+    requires jdk.jndi;
+    requires jdk.logging;
+    requires jdk.prefs;
+}
+</pre>
 
 <h1>ClassAnalyzer</h1>
 The ClassAnalyzer tool analyzes the class dependencies among
@@ -39,7 +73,9 @@ all class references, assigns classes to modules per the
 specified configuration files and then generates a set
 of reports for each module, including the list of classes,
 the list of resource files, and its dependencies on 
-classes from another module.
+classes from another module.  This tool supports a <b>-config</b>
+option to group classes in more than one modules and also 
+a <b>-moduleinfo</b> option to generate module-info.java source files.
 
 <p>
 <em>Input:</em>

@@ -112,14 +112,12 @@ public class Module implements Comparable<Module> {
 
         this.views = new LinkedHashMap<>();
         for (ModuleConfig.View mcv : config.viewForName.values()) {
-            View v = new View(this, mcv, mcv.name);
-            views.put(mcv.name, v);
+            addView(mcv.name, mcv);
         }
         this.defaultView = views.get(name);
 
         // create an internal view
-        this.internalView = View.getInternalView(this, name + ".internal");
-        views.put(internalView.name, internalView);
+        this.internalView = addView(name + ".internal");
     }
 
     String name() {
@@ -174,6 +172,18 @@ public class Module implements Comparable<Module> {
         return views.values();
     }
 
+    View addView(String name) {
+        View v = new View(this, name);
+        views.put(name, v);
+        return v;
+    }
+        
+    private View addView(String name, ModuleConfig.View mcv) {
+        View v = new View(this, mcv, name);
+        views.put(name, v);
+        return v;
+    }
+    
     Module.View getView(String name) {
         return views.get(name);
     }
@@ -448,7 +458,7 @@ public class Module implements Comparable<Module> {
         }
     }
 
-    public static class View {
+    public static class View implements Comparable<View> {
         final Module module;
         final String name;
         private final Set<String> exports;
@@ -456,15 +466,10 @@ public class Module implements Comparable<Module> {
         private final Set<String> aliases;
         private String mainClass;
         private final Set<Module> permits;
-        private int refCount;
+        int refCount;
 
-        static View getInternalView(Module m, String name) {
-            View v = new View(m, null, name);
-            v.refCount = -1;  // internal view is initialized to be -1
-            return v;
-        }
-
-        public View(Module m, ModuleConfig.View mcv, String name) {
+        // specified in modules.config; always include it in module-info.java
+        View(Module m, ModuleConfig.View mcv, String name) {
             this.module = m;
             this.name = name;
             this.refCount = 0;
@@ -478,6 +483,17 @@ public class Module implements Comparable<Module> {
                 aliases.addAll(mcv.aliases);
                 this.mainClass = mcv.mainClass;
             }
+        }
+
+        // only show up in module-info.java if there is a reference to it. 
+        View(Module m, String name) {
+            this.module = m;
+            this.name = name;
+            this.refCount = -1;
+            this.exports = new HashSet<>();
+            this.permits = new HashSet<>();
+            this.permitNames = new HashSet<>();
+            this.aliases = new HashSet<>();
         }
 
         boolean isEmpty() {
@@ -509,6 +525,10 @@ public class Module implements Comparable<Module> {
             permits.add(m);
         }
 
+        void addExports(Set<String> packages) {
+            exports.addAll(packages);
+        }
+
         void merge(View v) {
             // main class is not propagated to the default view            
             this.aliases.addAll(v.aliases);
@@ -531,6 +551,17 @@ public class Module implements Comparable<Module> {
 
         public String toString() {
             return id();
+        }
+
+        public int compareTo(Module.View o) {
+            if (o == null) {
+                return -1;
+            }
+            int rc = module.compareTo(o.module);
+            if (rc == 0) {
+                return name.compareTo(o.name);
+            }
+            return rc;
         }
     }
 

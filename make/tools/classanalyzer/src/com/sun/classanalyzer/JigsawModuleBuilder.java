@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.util.*;
 
 import java.lang.module.ModuleId;
+import java.lang.module.ModuleInfo;
+import java.lang.module.ModuleView;
 import org.openjdk.jigsaw.*;
 
 /**
@@ -37,12 +39,11 @@ import org.openjdk.jigsaw.*;
  * from the jigsaw build.
  */
 public class JigsawModuleBuilder extends ClassListReader {
-    private static JigsawFactory factory = new JigsawFactory();
     private static String DEFAULT_VERSION = "8-ea";
 
     private final File path;
     public JigsawModuleBuilder(File path) {
-        super(factory, path, DEFAULT_VERSION);
+        super(JigsawFactory.factory, path, DEFAULT_VERSION);
         this.path = path;
     }
 
@@ -55,16 +56,19 @@ public class JigsawModuleBuilder extends ClassListReader {
             // create modules from the input class lists
             super.run();
         }
-        return factory.getAllModules();
+        return JigsawFactory.factory.jigsawModules();
     }
 
     private void loadModulesFromLibrary() throws IOException {
         Library lib = SimpleLibrary.open(path);
         List<ModuleId> mids = lib.listLocalModuleIds();
         for (ModuleId mid : mids) {
-            java.lang.module.ModuleInfo minfo = lib.readLocalModuleInfo(mid);
-            Module m = factory.newModule(mid.name(), mid.version().toString());
-            factory.addModule(m);
+            ModuleInfo minfo = lib.readLocalModuleInfo(mid);
+            // skip non-default views
+            if (!minfo.id().equals(mid)) {
+                continue;
+            }
+            Module m = JigsawFactory.newModule(minfo);
 
             // ## probably list only exported classes??
             for (String cn : lib.listLocalClasses(mid, true)) {
@@ -78,8 +82,27 @@ public class JigsawModuleBuilder extends ClassListReader {
         }
     }
 
-
     private static class JigsawFactory extends Factory {
+        static JigsawFactory factory = new JigsawFactory();
+
+        static Module newModule(ModuleInfo mi) {
+            JigsawModule m = new JigsawModule(mi);
+            factory.addModule(m);
+            
+            for (ModuleView mv : mi.views()) {
+                Set<String> exports = mv.exports();
+                if (mv == mi.defaultView()) {
+                    m.defaultView().addExports(exports);
+                } else if (mv.permits().isEmpty()) {
+                    // only add the views with no permits
+                    m.addView(mv.id().name()).addExports(exports);
+                }
+            }
+            return m;
+        }
+        Set<Module> jigsawModules() {
+            return new LinkedHashSet<>(modules.values());
+        }
 
         @Override
         public Module newModule(String name, String version) {
@@ -93,35 +116,12 @@ public class JigsawModuleBuilder extends ClassListReader {
     };
 
     private static class JigsawModule extends Module {
-        Module altgroup;
+        JigsawModule(ModuleInfo mi) {
+            this(new ModuleConfig(mi.id().name(), mi.id().version().toString()));
+        }
 
         JigsawModule(ModuleConfig config) {
             super(config);
-        }
-
-        /*
-         * Only present the "jdk." modules for application
-         * to use.
-         */
-        @Override
-        public synchronized Module group() {
-            if (altgroup == null) {
-                altgroup = this;
-                String n = name();
-                if (n.startsWith("sun.")) {
-                    String mn = "jdk." + n.substring(4);
-                    Module pm = factory.findModule(mn);
-                    if (pm != null) {
-                        altgroup = pm;
-                    }
-                } else if (n.equals("jdk.boot")) {
-                    altgroup = factory.findModule("jdk.base");
-                    if (altgroup == null) {
-                        throw new RuntimeException("jdk.base not found");
-                    }
-                }
-            }
-            return altgroup;
         }
 
         @Override
