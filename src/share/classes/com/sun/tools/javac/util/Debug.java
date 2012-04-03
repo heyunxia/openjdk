@@ -65,7 +65,7 @@ public class Debug {
 
         try {
             if (opts == null && ALLOW_ENVVAR)
-                setOpts(System.getenv("_JAVAC_" + name.toUpperCase() + "_DEBUG"));
+                setOpts(System.getenv("JAVAC_" + name.toUpperCase() + "_DEBUG"));
         } catch (SecurityException e) {
             // ignore
         }
