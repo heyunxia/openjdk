@@ -494,6 +494,10 @@ public class SignerInfo implements DerEncoder {
         // while verifying the content
         SignerInfo[] tsa = tsToken.verify(encTsTokenInfo);
         // Expect only one signer
+        if (tsa.length != 1) {
+            throw new SignatureException("The time-stamp token must only "
+                                         + "contain one signature");
+        }
         ArrayList<X509Certificate> chain = tsa[0].getCertificateChain(tsToken);
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
         CertPath tsaChain = cf.generateCertPath(chain);

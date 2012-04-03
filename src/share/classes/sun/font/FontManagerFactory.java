@@ -78,7 +78,8 @@ public final class FontManagerFactory {
                     String fmClassName =
                             System.getProperty("sun.font.fontmanager",
                                                DEFAULT_CLASS);
-                    ClassLoader cl = ClassLoader.getSystemClassLoader();
+                    // ## for now use boot loader in module mode
+                    ClassLoader cl = org.openjdk.jigsaw.BootLoader.getSystemLoader();
                     Class fmClass = Class.forName(fmClassName, true, cl);
                     instance = (FontManager) fmClass.newInstance();
                 } catch (ClassNotFoundException |

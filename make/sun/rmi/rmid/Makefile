@@ -31,6 +31,7 @@
 BUILDDIR = ../../..
 JAVAC_MAX_WARNINGS = true
 JAVAC_WARNINGS_FATAL = true
+MODULE  = rmi
 PACKAGE = sun.rmi.activation
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk
@@ -78,4 +79,4 @@ stubs: $(FILES_stubs)
 include $(BUILDDIR)/common/Classes.gmk
 
 rmid:
-	$(call make-launcher, rmid, sun.rmi.server.Activation, , )
+	$(call make-launcher, rmid, sun.rmi.server.Activation, , , $(RMI_TOOLS_MODULE))

@@ -25,11 +25,15 @@
 
 package sun.reflect;
 
+import java.lang.module.ModuleInfo;
+import java.lang.module.ModuleClassLoader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Module;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.security.AccessController;
+import java.security.CodeSource;
 import java.security.Permission;
 import java.security.PrivilegedAction;
 
@@ -267,6 +271,13 @@ public class ReflectionFactory {
                                                   signature,
                                                   annotations,
                                                   parameterAnnotations);
+    }
+
+    /** Creates a new java.lang.reflect.Module. */
+    public Module newModule(ModuleInfo mi, ModuleClassLoader ld,
+                            CodeSource cs)
+    {
+        return langReflectAccess().newModule(mi, ld, cs);
     }
 
     /** Gets the MethodAccessor object for a java.lang.reflect.Method */

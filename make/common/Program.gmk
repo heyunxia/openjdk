@@ -130,7 +130,7 @@ endif
 #
 FILES_o = $(OBJDIR)/main.$(OBJECT_SUFFIX)
 
-$(ACTUAL_PROGRAM):: classes $(INIT) 
+$(ACTUAL_PROGRAM):: classes $(INIT)
 
 #
 # Windows only
@@ -149,15 +149,15 @@ ifeq ($(PLATFORM), windows)
 
   $(OBJDIR)/$(PROGRAM).lcf: $(OBJDIR)/$(PROGRAM).res $(FILES_o)
 	@$(prep-target)
-	@$(ECHO) $(FILES_o) > $@ 
+	@$(ECHO) $(FILES_o) > $@
   ifndef LOCAL_RESOURCE_FILE
 	@$(ECHO) $(OBJDIR)/$(PROGRAM).res >> $@
   endif
 	@$(ECHO) setargv.obj >> $@
-	@$(ECHO) Created $@ 
+	@$(ECHO) Created $@
 
-  $(ACTUAL_PROGRAM):: $(OBJDIR)/$(PROGRAM)$(EXE_SUFFIX)
-	@$(install-file)
+$(ACTUAL_PROGRAM):: $(OBJDIR)/$(PROGRAM)$(EXE_SUFFIX)
+	@$(install-cmd-file)
 
   ifeq ($(ARCH_DATA_MODEL), 32)
     STACK_SIZE=327680
@@ -228,9 +228,11 @@ else
 	-codesign -s openjdk_codesign $@
   endif
 	@$(call binary_file_verification,$@)
+	$(install-module-file)
+
 endif # PLATFORM
 
-clean:: 
+clean::
 ifeq ($(PLATFORM), windows)
 	$(RM) $(OBJDIR)/$(PROGRAM).rc
 	$(RM) $(OBJDIR)/$(PROGRAM).ico
@@ -244,7 +246,7 @@ ifeq ($(PLATFORM), windows)
 endif
 
 
-clobber:: 
+clobber::
 	$(RM) $(ACTUAL_PROGRAM)
 
 #
@@ -262,6 +264,11 @@ endif
 ifdef JAVA_ARGS
   OTHER_CPPFLAGS += -DJAVA_ARGS='$(JAVA_ARGS)'
   OTHER_CPPFLAGS += -DLAUNCHER_NAME='"$(LAUNCHER_NAME)"'
+endif
+
+ifdef PROGRAM_MODULE
+OTHER_CPPFLAGS += -DMODULE_NAME='"$(PROGRAM_MODULE)"'
+OTHER_CPPFLAGS += -DMODULE_VERSION='"$(MODULE_VERSION)"'
 endif
 
 ifeq ($(PLATFORM), windows)

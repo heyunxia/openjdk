@@ -437,7 +437,7 @@ public abstract class ResourceBundle {
     private static native Class[] getClassContext();
 
     /**
-     * A wrapper of ClassLoader.getSystemClassLoader().
+     * A wrapper for a class loader to load the system classes. 
      */
     private static class RBClassLoader extends ClassLoader {
         private static final RBClassLoader INSTANCE = AccessController.doPrivileged(
@@ -446,7 +446,16 @@ public abstract class ResourceBundle {
                             return new RBClassLoader();
                         }
                     });
-        private static final ClassLoader loader = ClassLoader.getSystemClassLoader();
+
+        // For legacy JDK, RBClassLoader just delegates to 
+        // ClassLoader.getSystemClassLoader() that always delegates to
+        // the null class loader.
+        // 
+        // For modular JDK, the BootLoader is the module class loader
+        // loading classes & resource files in the java.base module.
+        // 
+        private static final ClassLoader loader =
+            org.openjdk.jigsaw.BootLoader.getSystemLoader();
 
         private RBClassLoader() {
         }

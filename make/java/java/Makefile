@@ -29,6 +29,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = base
 PACKAGE = java.lang
 LIBRARY = java
 PRODUCT = java
@@ -152,6 +153,7 @@ vpath %.c $(SHARE_SRC)/native/sun/reflect
 vpath %.c $(SHARE_SRC)/native/java/sql
 vpath %.c $(SHARE_SRC)/native/java/util
 vpath %.c $(SHARE_SRC)/native/java/util/concurrent/atomic
+vpath %.c $(SHARE_SRC)/native/org/openjdk/jigsaw
 vpath %.c $(PLATFORM_SRC)/native/common
 vpath %.c $(PLATFORM_SRC)/native/java/util
 vpath %.c $(PLATFORM_SRC)/native/sun/security/provider
@@ -272,7 +274,7 @@ PLATFORM_UNIX_PROCESS = \
 endif
 
 $(GENSRCDIR)/java/lang/UNIXProcess.java: $(PLATFORM_UNIX_PROCESS)
-	$(install-file)
+	$(install-non-module-file)
 
 clean:: 
 	$(RM) $(GENSRCDIR)/java/lang/UNIXProcess.java
@@ -346,6 +348,7 @@ $(CURDATA): \
 	$(BOOT_JAVA_CMD) -jar $(GENERATECURRENCYDATA_JARFILE) -o $@.temp \
 		< $(SHARE_SRC)/classes/java/util/CurrencyData.properties
 	$(MV) $@.temp $@
+	$(install-module-file)
 	$(call chmod-file, 444)
 
 clean:: 
@@ -405,7 +408,7 @@ $(GENSRCDIR)/java/lang/CharacterDataLatin1.java \
 		-usecharforbyte 11 4 1
 
 $(GENSRCDIR)/java/lang/%.java : $(CHARACTERDATA)/%.java.template
-	$(install-file)
+	$(install-non-module-file)
 
 clean::
 	$(RM) $(GENSRCDIR)/java/lang/CharacterDataLatin1.java 

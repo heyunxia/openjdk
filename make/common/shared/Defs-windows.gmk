@@ -604,12 +604,31 @@ endif
 HOTSPOT_IMPORT_PATH:=$(call AltCheckSpaces,HOTSPOT_IMPORT_PATH)
 HOTSPOT_IMPORT_PATH:=$(call AltCheckValue,HOTSPOT_IMPORT_PATH)
 
+# check if the HOTSPOT_IMPORT_PATH is a modules image or not
+HOTSPOT_IMPORT_MODULES_IMAGE := $(shell \
+      if [ -d $(HOTSPOT_IMPORT_PATH)/jre/$(ARCH_VM_SUBDIR) ] ; then \
+        echo "false"; \
+      elif [ -d $(HOTSPOT_IMPORT_PATH)/lib/modules ] ; then \
+        echo "true"; \
+      else \
+        echo "false"; \
+      fi \
+      )
+
+ifeq ($(HOTSPOT_IMPORT_MODULES_IMAGE),true)
+  HOTSPOT_ARCH_VM_SUBDIR=$(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)
+else
+  HOTSPOT_ARCH_VM_SUBDIR=$(HOTSPOT_IMPORT_PATH)/jre/$(ARCH_VM_SUBDIR)
+endif
+
+HOTSPOT_SALIB_PATH=$(HOTSPOT_ARCH_VM_SUBDIR)
+
 # HOTSPOT_CLIENT_PATH: location of client jvm library file.
 ifeq ($(ARCH_DATA_MODEL), 32)
   ifdef ALT_HOTSPOT_CLIENT_PATH
     HOTSPOT_CLIENT_PATH :=$(call FullPath,$(ALT_HOTSPOT_CLIENT_PATH))
   else
-    HOTSPOT_CLIENT_PATH   =$(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/client
+    HOTSPOT_CLIENT_PATH   =$(HOTSPOT_ARCH_VM_SUBDIR)/client
   endif
   HOTSPOT_CLIENT_PATH:=$(call AltCheckSpaces,HOTSPOT_CLIENT_PATH)
   HOTSPOT_CLIENT_PATH:=$(call AltCheckValue,HOTSPOT_CLIENT_PATH)
@@ -619,7 +638,7 @@ endif
 ifdef ALT_HOTSPOT_SERVER_PATH
   HOTSPOT_SERVER_PATH :=$(call FullPath,$(ALT_HOTSPOT_SERVER_PATH))
 else
-  HOTSPOT_SERVER_PATH   =$(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/server
+  HOTSPOT_SERVER_PATH   =$(HOTSPOT_ARCH_VM_SUBDIR)/server
 endif
 HOTSPOT_SERVER_PATH:=$(call AltCheckSpaces,HOTSPOT_SERVER_PATH)
 HOTSPOT_SERVER_PATH:=$(call AltCheckValue,HOTSPOT_SERVER_PATH)

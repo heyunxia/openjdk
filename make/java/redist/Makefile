@@ -35,6 +35,7 @@
 # 
 
 BUILDDIR = ../..
+MODULE   = base
 PRODUCT  = java
 include $(BUILDDIR)/common/Defs.gmk
 
@@ -146,29 +147,35 @@ $(LIBDIR)/$(JVMLIB_NAME): $(HOTSPOT_LIB_PATH)/$(JVMLIB_NAME)
 $(LIB_LOCATION)/$(CLIENT_LOCATION)/$(JVMMAP_NAME):
 	@$(prep-target)
 	-$(CP) $(HOTSPOT_CLIENT_PATH)/$(JVMMAP_NAME)  $@
+	@$(install-module-file)
 
 $(LIB_LOCATION)/$(KERNEL_LOCATION)/$(JVMMAP_NAME):
 	@$(prep-target)
 	-$(CP) $(HOTSPOT_KERNEL_PATH)/$(JVMMAP_NAME)  $@
+	@$(install-module-file)
 
 ifndef BUILD_CLIENT_ONLY
 $(LIB_LOCATION)/$(SERVER_LOCATION)/$(JVMMAP_NAME):
 	@$(prep-target)
 	-$(CP) $(HOTSPOT_SERVER_PATH)/$(JVMMAP_NAME) $@
+	@$(install-module-file)
 endif
 
 $(LIB_LOCATION)/$(CLIENT_LOCATION)/$(JVMPDB_NAME):
 	@$(prep-target)
 	-$(CP) $(HOTSPOT_CLIENT_PATH)/$(JVMPDB_NAME)  $@
+	@$(install-module-file)
 
 $(LIB_LOCATION)/$(KERNEL_LOCATION)/$(JVMPDB_NAME):
 	@$(prep-target)
 	-$(CP) $(HOTSPOT_KERNEL_PATH)/$(JVMPDB_NAME)  $@
+	@$(install-module-file)
 
 ifndef BUILD_CLIENT_ONLY
 $(LIB_LOCATION)/$(SERVER_LOCATION)/$(JVMPDB_NAME): 
 	@$(prep-target)
 	-$(CP) $(HOTSPOT_SERVER_PATH)/$(JVMPDB_NAME) $@
+	@$(install-module-file)
 endif
 
 #  Windows     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  Windows
@@ -178,7 +185,7 @@ else # PLATFORM
 IMPORT_LIST += $(LIB_LOCATION)/$(LIBJSIG_NAME) 
 ifneq ($(OBJCOPY),)
   # the import JDK may not contain .debuginfo files
-  ifneq ($(wildcard $(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)),)
+  ifneq ($(wildcard $(HOTSPOT_ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)),)
     IMPORT_LIST += $(LIB_LOCATION)/$(LIBJSIG_DEBUGINFO_NAME)
   endif
 endif
@@ -186,7 +193,7 @@ ifndef BUILD_CLIENT_ONLY
   IMPORT_LIST += $(LIB_LOCATION)/$(SERVER_LOCATION)/$(LIBJSIG_NAME)
   ifneq ($(OBJCOPY),)
     # the import JDK may not contain the target of the symlink
-    ifneq ($(wildcard $(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)),)
+    ifneq ($(wildcard $(HOTSPOT_ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)),)
       IMPORT_LIST += $(LIB_LOCATION)/$(SERVER_LOCATION)/$(LIBJSIG_DEBUGINFO_NAME)
     endif
   endif
@@ -222,7 +229,7 @@ ifeq ($(ARCH_DATA_MODEL), 32)
 IMPORT_LIST += $(LIB_LOCATION)/$(CLIENT_LOCATION)/$(LIBJSIG_NAME)
 ifneq ($(OBJCOPY),)
   # the import JDK may not contain the target of the symlink
-  ifneq ($(wildcard $(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)),)
+  ifneq ($(wildcard $(HOTSPOT_ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)),)
     IMPORT_LIST += $(LIB_LOCATION)/$(CLIENT_LOCATION)/$(LIBJSIG_DEBUGINFO_NAME)
   endif
 endif
@@ -313,12 +320,12 @@ $(LIB_LOCATION)/$(KERNEL_LOCATION)/$(JVM_NAME): $(HOTSPOT_KERNEL_PATH)/$(JVM_NAM
 	$(install-file)
 	@$(call binary_file_verification,$@)
 
-$(LIB_LOCATION)/$(LIBJSIG_NAME): $(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/$(LIBJSIG_NAME)
+$(LIB_LOCATION)/$(LIBJSIG_NAME): $(HOTSPOT_ARCH_VM_SUBDIR)/$(LIBJSIG_NAME)
 	$(install-import-file)
 	@$(call binary_file_verification,$@)
 
 ifneq ($(OBJCOPY),)
-$(LIB_LOCATION)/$(LIBJSIG_DEBUGINFO_NAME): $(HOTSPOT_IMPORT_PATH)/$(ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)
+$(LIB_LOCATION)/$(LIBJSIG_DEBUGINFO_NAME): $(HOTSPOT_ARCH_VM_SUBDIR)/$(LIBJSIG_DEBUGINFO_NAME)
 	$(install-import-file)
 endif
 
@@ -442,7 +449,7 @@ INTERNAL_IMPORT_LIST += \
 
 $(LIBDIR)/jce.jar: \
 	    $(BUILDDIR)/closed/tools/crypto/jce/jce.jar
-	$(install-file)
+	$(install-non-module-file)
 $(LIBDIR)/security/US_export_policy.jar: \
 	    $(BUILDDIR)/closed/tools/crypto/jce/US_export_policy.jar
 	$(install-file)
