@@ -49,7 +49,12 @@ ifeq ($(ALT_SA_CLASSPATH),)
       # A JDK from Apple doesn't have tools.jar; the JDI classes are
       # are in the regular classes.jar file.
       APPLE_JAR=$(BOOT_JAVA_HOME)/bundle/Classes/classes.jar
+      OJDK_JAR=$(BOOT_JAVA_HOME)/lib/sa-jdi.jar
       SA_CLASSPATH=$(shell test -f $(APPLE_JAR) && echo $(APPLE_JAR))
+      # MMM if above file doesn't exist, check for the openjdk version
+      ifeq ($(SA_CLASSPATH),)
+        SA_CLASSPATH=$(shell test -f $(OJDK_JAR) && echo $(OJDK_JAR))
+      endif
     endif
   endif
 else
