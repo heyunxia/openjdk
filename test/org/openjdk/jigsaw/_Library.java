@@ -144,9 +144,11 @@ public class _Library {
         List<String> pcns = lib.listLocalClasses(foomid, false);
         eq(pcns, Arrays.asList("com.foo.bar.Main"));
         List<String> acns = lib.listLocalClasses(foomid, true);
-        eq(acns, Arrays.asList("com.foo.bar.Main",
-                               "com.foo.bar.Internal",
-                               "com.foo.bar.Internal$Secret"));
+        List<String> comFooBarClasses =
+            Arrays.asList("com.foo.bar.Main",
+                          "com.foo.bar.Internal",
+                          "com.foo.bar.Internal$Secret");
+        eq(acns, comFooBarClasses);
 
         // Load configuration
         Configuration<Context> cf = lib.readConfiguration(foomid);
@@ -237,6 +239,12 @@ public class _Library {
         eq(lib2.findModuleIds("com.foo.bar"), Arrays.asList(foomid));
         eq(lib2.findModuleIds("net.baz.aar"), Arrays.asList(bazmid));
 
+        // find classes in its parent library
+        for (String cn : comFooBarClasses) {
+            bs = lib2.readClass(foomid, cn);
+            if (bs == null)
+                throw new RuntimeException(cn + " not found through delegration");
+        }
     }
 
 }

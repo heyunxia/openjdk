@@ -861,10 +861,10 @@ public final class SimpleLibrary
         throws IOException
     {
         Object o = contentForModule.get(mid);
-        if (o != null)
-            return o;
         if (o == NONE)
             return null;
+        if (o != null)
+            return o;
         File md = findModuleDir(mid);
         if (md == null) {
             contentForModule.put(mid, NONE);

@@ -132,4 +132,4 @@ esac
 $BIN/javac -source 8 -d z.modules -modulepath z.modules${PS}z.modules.org.multi@1 \
    `find z.src/net.baz.aar -name '*.java'`
 
-$BIN/java -ea -cp z.classes _Library
+$BIN/java -esa -ea -cp z.classes _Library
