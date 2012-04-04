@@ -67,7 +67,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.CompletionFailure;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
-import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.jvm.ClassReader;
@@ -466,6 +465,8 @@ public class Modules extends JCTree.Visitor {
             return false;
 
         DEBUG("Modules.resolve: resolve modules");
+        ModuleResolver mr = getModuleResolver();
+        DEBUG("Modules.resolve: module resolver: " + mr);
 
         DEBUG("Modules.resolve mode=" + mode + ", rootLocns=" + rootLocns + " (" + rootLocns.size() + ")" );
         if (mode == ModuleMode.SINGLE && rootLocns.isEmpty()) {
@@ -513,12 +514,12 @@ public class Modules extends JCTree.Visitor {
         }
 
         if (debug.isEnabled("resolve")) {
-            debug.println("Module resolver: " + moduleResolver.getClass().getSimpleName());
+            debug.println("Module resolver: " + mr.getClass().getSimpleName());
             showModules("Module resolution roots:", roots);
             showModules("Modules in compilation environment:", namedModules);
         }
 
-        Iterable<? extends ModuleElement> modules = moduleResolver.resolve(roots, namedModules);
+        Iterable<? extends ModuleElement> modules = mr.resolve(roots, namedModules);
         if (modules == null)
             return false;
 
@@ -640,10 +641,9 @@ public class Modules extends JCTree.Visitor {
 
                         }
                     }
-                    context.put(ModuleResolver.class, moduleResolver);
                     return;
                 } catch (ClassNotFoundException e) {
-                    // running in JDK 7 mode
+                    // running in JDK 6 mode
                     DEBUG("Modules.initModuleResolver: " + e);
                 } catch (IllegalAccessException e) {
                     // FIXME: fall through for now; should report error
@@ -681,7 +681,6 @@ public class Modules extends JCTree.Visitor {
             }
         });
         DEBUG("Modules.initModuleResolver: zeromod: " + moduleResolver);
-        context.put(ModuleResolver.class, moduleResolver);
     }
     // where
     private ModuleResolver moduleResolver;
@@ -1047,13 +1046,6 @@ public class Modules extends JCTree.Visitor {
             return results;
         }
 
-        @Override
-        public boolean isPackageVisible(ModuleSymbol msym, PackageSymbol psym) {
-            return true;
-        }
-
-        // TO BE DELETED
-        @Override
         public Iterable<? extends ModuleElement> getVisibleModules(ModuleElement elem) {
             ModuleSymbol sym = (ModuleSymbol) elem;
             DEBUG("ZeroMod getVisibleModules " + getNode(sym));

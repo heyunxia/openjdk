@@ -27,16 +27,15 @@ package com.sun.tools.javac.jigsaw;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.lang.module.Dependence;
 import java.lang.module.ModuleId;
 import java.lang.module.ModuleIdQuery;
 import java.lang.module.ModuleInfo;
 import java.lang.module.ModuleView;
 import java.lang.module.ServiceDependence;
+import java.lang.module.ViewDependence;
 import java.lang.module.Version;
 import java.lang.module.VersionQuery;
-import java.lang.module.ViewDependence;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -59,9 +58,10 @@ import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
 import com.sun.tools.javac.code.Directive.RequiresFlag;
 import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
 import com.sun.tools.javac.code.Directive.ViewDeclaration;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.jvm.ClassFile;
-import com.sun.tools.javac.util.Debug;
 import com.sun.tools.javac.util.Name;
 
 
@@ -77,7 +77,11 @@ public class JavacCatalog  extends Catalog {
     private Map<String, Map<Version, ModuleSymbol>> moduleMap =
             new HashMap<String, Map<Version, ModuleSymbol>>();
 
-    Debug debug = new Debug("JavacCatalog", null, new PrintWriter(System.out, true));
+    boolean DEBUG = (System.getProperty("javac.debug.modules") != null);
+    void DEBUG(String s) {
+        if (DEBUG)
+            System.err.println(s);
+    }
 
     JavacCatalog(File library) throws IOException/*FIXME*/ {
         jigsaw = JigsawModuleSystem.instance();
@@ -85,8 +89,7 @@ public class JavacCatalog  extends Catalog {
             this.library = Library.openSystemLibrary();
         else
             this.library = SimpleLibrary.open(library);
-        if (debug.isEnabled())
-            debug.println("library:" + library + " this.library:" + this.library);
+        DEBUG("JavacCatalog: library:" + library + " this.library:" + this.library);
     }
 
     @Override
@@ -100,16 +103,12 @@ public class JavacCatalog  extends Catalog {
     }
 
     void init(Iterable<? extends ModuleElement> modules) {
-        if (debug.isEnabled("init"))
-            debug.println("init: " + modules);
+        DEBUG("JavacCatalog.init: " + modules);
         for (ModuleElement me: modules) {
             ModuleSymbol msym = (ModuleSymbol) me;
-            if (debug.isEnabled("init"))
-                debug.println("init: msym:" + msym + " msym.fullname:" + msym.fullname + " msym.version:" + msym.version);
+            DEBUG("JavacCatalog.init: msym:" + msym + " msym.fullname:" + msym.fullname + " msym.version:" + msym.version);
             addModule(msym.fullname, msym.version, msym);
             for (ViewDeclaration v: msym.getViews()) {
-                if (debug.isEnabled("init"))
-                    debug.println("init: view:" + v);
                 if (v.name != null) {
                     addModule(v.name, msym.version, msym);
                 }
@@ -119,8 +118,7 @@ public class JavacCatalog  extends Catalog {
                 }
             }
         }
-        if (debug.isEnabled("init"))
-            debug.println("init: map:" + moduleMap);
+        DEBUG("JavacCatalog.init: map:" + moduleMap);
     }
 
     private void addModule(Name name, Name version, ModuleSymbol msym) {
@@ -134,8 +132,7 @@ public class JavacCatalog  extends Catalog {
 
     @Override
     protected void gatherLocalModuleIds(String moduleName, Set<ModuleId> mids) throws IOException {
-        if (debug.isEnabled("gatherLocalModuleIds"))
-            debug.println("gatherLocalModuleIds: " + moduleName);
+        DEBUG("JavacCatalog.gatherLocalModuleIds: " + moduleName);
         if (moduleName != null) {
             Map<Version,ModuleSymbol> syms = moduleMap.get(moduleName);
             if (syms == null)
@@ -146,8 +143,7 @@ public class JavacCatalog  extends Catalog {
                 addModuleIds(moduleMap.get(mn), moduleName, mids);
             }
         }
-        if (debug.isEnabled("gatherLocalModuleIds"))
-            debug.println("gatherLocalModuleIds: moduleName:" + moduleName + "--" + mids);
+        DEBUG("JavacCatalog.gatherLocalModuleIds: moduleName:" + moduleName + "--" + mids);
     }
     
     // add all ModuleIds of the given name
@@ -171,11 +167,9 @@ public class JavacCatalog  extends Catalog {
 
     @Override
     protected ModuleInfo readLocalModuleInfo(ModuleId mid) throws IOException {
-        if (debug.isEnabled("readLocalModuleInfo"))
-            debug.println("readLocalModuleInfo " + mid);
+        DEBUG("JavacCatalog.readLocalModuleInfo " + mid);
         ModuleSymbol msym = getModuleSymbol(mid);
-        if (debug.isEnabled("readLocalModuleInfo"))
-            debug.println("readLocalModuleInfo " + mid + "--" + ((msym == null) ? null : new JavacModuleInfo(msym)));
+        DEBUG("JavacCatalog.readLocalModuleInfo " + mid + "--" + ((msym == null) ? null : new JavacModuleInfo(msym)));
         return (msym == null) ? null : new JavacModuleInfo(msym);
     }
 
@@ -264,8 +258,7 @@ public class JavacCatalog  extends Catalog {
 
         JavacModuleInfo(ModuleSymbol msym) {
             msym.getClass(); // null check
-            if (debug.isEnabled("JavacModuleInfo"))
-                debug.println("JavacModuleInfo: msym: " + msym);
+            DEBUG("JavacModuleInfo: msym: " + msym);
 
             this.msym = msym;
             this.views = new HashMap<ModuleId, ModuleView>();
@@ -329,8 +322,7 @@ public class JavacCatalog  extends Catalog {
 
             requiresModules = new LinkedHashSet<ViewDependence>();
             for (RequiresModuleDirective r: msym.getRequiredModules()) {
-                if (debug.isEnabled("JavacModuleInfo"))
-                    debug.println("JavacModuleInfo: require " + r);
+                DEBUG("JavacModuleInfo: require " + r);
                 ModuleIdQuery q = getModuleQuery(r.moduleQuery);
                 EnumSet<Dependence.Modifier> mods = EnumSet.noneOf(Dependence.Modifier.class);
                 for (com.sun.tools.javac.code.Directive.RequiresFlag f: r.flags) {
@@ -338,8 +330,7 @@ public class JavacCatalog  extends Catalog {
                 }
                 requiresModules.add(new ViewDependence(mods, q));
             }
-            if (debug.isEnabled("JavacModuleInfo"))
-                debug.println("JavacModuleInfo: msym: " + msym + "[id:" + id + " views:" + views + " requires:" + requiresModules + "]");
+            DEBUG("JavacModuleInfo: msym: " + msym + "[id:" + id + " views:" + views + " requires:" + requiresModules + "]");
         }
 
         @Override

@@ -1275,7 +1275,7 @@ public class ClassReader implements Completer {
 
                             if (viewName != null) {
                                 ViewDeclaration d = new ViewDeclaration(viewName, directives.reverse());
-                                msym.directives = msym.directives.prepend(d);
+                                directives = directives.prepend(d);
                             }
                         }
                     }

@@ -25,7 +25,6 @@
 
 package com.sun.tools.javac.comp;
 
-import javax.lang.model.util.ModuleResolver;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -78,7 +77,6 @@ public class Resolve {
     TreeInfo treeinfo;
     Types types;
     JCDiagnostic.Factory diags;
-    ModuleResolver moduleResolver;
     public final boolean boxingEnabled; // = source.allowBoxing();
     public final boolean varargsEnabled; // = source.allowVarargs();
     public final boolean allowMethodHandles;
@@ -160,7 +158,6 @@ public class Resolve {
         verboseResolutionMode = VerboseResolutionMode.getVerboseResolutionMode(options);
         Target target = Target.instance(context);
         allowMethodHandles = target.hasMethodHandles();
-        moduleResolver = Modules.instance(context).getModuleResolver();
         polymorphicSignatureScope = new Scope(syms.noSymbol);
 
         inapplicableMethodException = new InapplicableMethodException(diags);
@@ -185,16 +182,6 @@ public class Resolve {
         return env.info.staticLevel > env.outer.info.staticLevel;
     }
 
-    public boolean isVisible(Env<AttrContext> env, TypeSymbol c) {
-        if (moduleResolver == null)
-            return true;
-
-        ModuleSymbol msym = c.modle();
-        return (msym == null)
-                || (msym == env.toplevel.modle)
-                || moduleResolver.isPackageVisible(env.toplevel.modle, c.packge());
-    }
-
     /** An environment is an "initializer" if it is a constructor or
      *  an instance initializer.
      */
@@ -207,7 +194,7 @@ public class Resolve {
             (owner.flags() & STATIC) == 0;
     }
 
-    /** Is class accessible in given environment?
+    /** Is class accessible in given evironment?
      *  @param env    The current environment.
      *  @param c      The class whose accessibility is checked.
      */
@@ -216,7 +203,6 @@ public class Resolve {
     }
 
     public boolean isAccessible(Env<AttrContext> env, TypeSymbol c, boolean checkInner) {
-        if (!isVisible(env, c)) return false;
         boolean isAccessible = false;
         switch ((int)(c.flags() & AccessFlags)) {
             case PRIVATE:
@@ -281,7 +267,7 @@ public class Resolve {
             : isAccessible(env, t.tsym, checkInner);
     }
 
-    /** Is symbol accessible as a member of given type in given environment?
+    /** Is symbol accessible as a member of given type in given evironment?
      *  @param env    The current environment.
      *  @param site   The type of which the tested symbol is regarded
      *                as a member.

@@ -316,7 +316,6 @@ public abstract class Symbol implements Element {
 
     /** The module which indirectly owns this symbol.
      */
-    // TO BE DELETED?
     public ModuleSymbol modle() {
         ClassSymbol c = outermostClass();
         return c == null ? null : c.modle;
@@ -619,11 +618,6 @@ public abstract class Symbol implements Element {
         // TODO: getGenericElement() might not be needed
         public Symbol getGenericElement() {
             return owner;
-        }
-
-        @Override
-        public ModuleSymbol modle() {
-            return null;
         }
 
         public <R, P> R accept(ElementVisitor<R, P> v, P p) {
@@ -1060,11 +1054,6 @@ public abstract class Symbol implements Element {
                 return NestingKind.LOCAL;
             else
                 return NestingKind.MEMBER;
-        }
-
-        @Override
-        public ModuleSymbol modle() {
-            return modle;
         }
 
         /**

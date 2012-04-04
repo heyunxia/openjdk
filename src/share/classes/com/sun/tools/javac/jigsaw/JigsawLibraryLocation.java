@@ -25,13 +25,11 @@
 
 package com.sun.tools.javac.jigsaw;
 
-import com.sun.tools.javac.util.Debug;
 import com.sun.tools.javac.util.ListBuffer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.lang.module.ModuleId;
@@ -54,7 +52,13 @@ public class JigsawLibraryLocation implements ExtendedLocation {
     private Library library;
     private ModuleId mid;
 
-    private static Debug debug = new Debug("JigsawLibraryLocation", null, new PrintWriter(System.out, true));
+    // Quick and dirty temporary debug printing;
+    // this should all be removed prior to final integration
+    boolean DEBUG = (System.getProperty("javac.debug.modules") != null);
+    void DEBUG(String s) {
+        if (DEBUG)
+            System.err.println(s);
+    }
 
     JigsawLibraryLocation(Library library, ModuleId mid) {
         library.getClass(); // null check
@@ -93,10 +97,7 @@ public class JigsawLibraryLocation implements ExtendedLocation {
                 }
             }
         }
-        if (debug.isEnabled()) {
-            debug.println("JigsawLibraryLocation:" + library + ":" + mid + ": list " + packageName + "," + kinds
-                    + "--" + (results.size() < 5 ? results : (results.size() + " classes")));
-        }
+        DEBUG("JigsawLibraryLocation:" + library + ":" + mid + ": list " + packageName + "," + kinds + "--" + (results.size() < 5 ? results : (results.size() + " classes")));
         return results;
     }
 
@@ -162,20 +163,12 @@ public class JigsawLibraryLocation implements ExtendedLocation {
         }
 
         public InputStream openInputStream() throws IOException {
-            if (debug.isEnabled("openInputStream"))
-                debug.println("openInputStream: " + getName());
-            try {
             byte[] data;
             if (className.endsWith(".module-info")) // FIXME?
                 data = library.readModuleInfoBytes(mid);
             else
                 data = library.readClass(mid, className);
             return new ByteArrayInputStream(data);
-            } catch (AssertionError e) {
-                System.out.println("AssertionError reading " + getName());
-                System.err.println("AssertionError reading " + getName());
-                throw e;
-            }
         }
 
         public OutputStream openOutputStream() throws IOException {

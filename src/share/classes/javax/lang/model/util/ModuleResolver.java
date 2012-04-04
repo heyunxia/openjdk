@@ -24,12 +24,8 @@
  */
 
 package javax.lang.model.util;
-// TODO: reconsider this package 
-// -- perhaps it belongs in com.sun.tools.javac.api
-// or nested class in Modules
+// TODO: reconsider this package -- perhaps it belongs in com.sun.tools.javac.api
 
-import com.sun.tools.javac.code.Symbol.ModuleSymbol;
-import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import javax.lang.model.element.ModuleElement;
 
 /**
@@ -52,7 +48,6 @@ public interface ModuleResolver {
         Iterable<? extends ModuleElement> roots,
         Iterable<? extends ModuleElement> modules);
 
-    // TO BE DELETED
     /**
      * Get the set of visible modules for a module. This method may be called
      * after {@link #resolve} to get more specific information.
@@ -61,6 +56,4 @@ public interface ModuleResolver {
      */
     Iterable<? extends ModuleElement> getVisibleModules(ModuleElement module)
         throws IllegalStateException;
-
-    boolean isPackageVisible(ModuleSymbol msym, PackageSymbol psym);
 }
