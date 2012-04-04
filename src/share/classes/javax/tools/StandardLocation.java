@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -69,6 +69,12 @@ public enum StandardLocation implements Location {
     PLATFORM_CLASS_PATH,
 
     /**
+     * Location of new native header files.
+     * @since 1.8
+     */
+    NATIVE_HEADER_OUTPUT,
+
+    /**
      * Location to search for existing module class files.
      */
     MODULE_PATH;
@@ -102,6 +108,13 @@ public enum StandardLocation implements Location {
     public String getName() { return name(); }
 
     public boolean isOutputLocation() {
-        return this == CLASS_OUTPUT || this == SOURCE_OUTPUT;
+        switch (this) {
+            case CLASS_OUTPUT:
+            case SOURCE_OUTPUT:
+            case NATIVE_HEADER_OUTPUT:
+                return true;
+            default:
+                return false;
+        }
     }
 }

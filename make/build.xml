@@ -83,7 +83,7 @@
  - global property definitions
  - general top level targets
  - general diagnostic/debugging targets
- - groups of targets for each tool: javac, javadoc, doclets, javah, javap, apt
+ - groups of targets for each tool: javac, javadoc, doclets, javah, javap
     Within each group, the following targets are provided, where applicable
       build-bootstrap-TOOL      build the bootstrap version of the tool
       build-classes-TOOL        build the classes for the tool
@@ -294,11 +294,11 @@
     />
 
     <target name="build-all-tools"
-        depends="build-javac,build-javadoc,build-doclets,build-javah,build-javap,build-apt"
+        depends="build-javac,build-javadoc,build-doclets,build-javah,build-javap"
     />
 
     <target name="build-all-classes" depends="build-bootstrap-javac,-create-import-jdk-stubs">
-        <build-classes includes="${javac.includes} ${javadoc.includes} ${doclets.includes} ${javah.includes} ${javap.includes} ${apt.includes}"/>
+        <build-classes includes="${javac.includes} ${javadoc.includes} ${doclets.includes} ${javah.includes} ${javap.includes}"/>
     </target>
 
     <!-- clean -->
@@ -752,73 +752,6 @@
 
 
     <!--
-    **** apt targets.
-    -->
-
-    <target name="build-bootstrap-classes-apt"
-            depends="build-bootstrap-classes-javac">
-        <build-bootstrap-classes includes="${apt.includes}"/>
-    </target>
-
-    <target name="build-bootstrap-module-apt"
-            depends="build-bootstrap-classes-apt,build-bootstrap-module-mirror,build-bootstrap-module-langtools"
-            if="boot.java.provides.modules">
-        <build-bootstrap-module module.name="${apt.module.name}"
-            includes="${apt.module.includes}"
-            />
-    </target>
-
-    <target name="build-bootstrap-apt"
-            depends="build-bootstrap-classes-apt,build-bootstrap-module-apt,build-bootstrap-javac">
-        <build-bootstrap-jar     name="apt" includes="${apt.includes}"
-                                 jarclasspath="javac.jar"/>
-        <build-bootstrap-tool    name="apt"/>
-    </target>
-
-    <target name="build-classes-apt" depends="build-classes-javac">
-        <build-classes includes="${apt.includes}"/>
-    </target>
-
-    <target name="build-module-apt" depends="build-classes-apt,build-module-mirror,build-module-langtools"
-            if="target.java.provides.modules">
-        <build-module module.name="${apt.module.name}" includes="${apt.module.includes}"/>
-    </target>
-
-    <target name="build-apt" depends="build-javac,build-classes-apt,build-module-apt">
-        <build-jar  name="apt" includes="${apt.includes}" jarclasspath="javac.jar"/>
-        <build-tool name="apt"/>
-    </target>
-
-    <target name="javadoc-apt" depends="build-apt,-def-javadoc-tool">
-        <javadoc-tool name="apt" includes="${apt.includes}"/>
-    </target>
-
-
-    <target name="jtreg-apt" depends="build-apt,-def-jtreg">
-        <jtreg-tool name="apt" tests="${apt.tests}"/>
-    </target>
-
-    <target name="findbugs-apt" depends="build-apt,-def-findbugs">
-        <findbugs-tool name="apt"/>
-    </target>
-
-    <target name="apt" depends="build-apt,jtreg-apt,findbugs-apt"/>
-
-    <!-- mirror module targets -->
-
-    <target name="build-bootstrap-module-mirror"
-            depends="build-bootstrap-classes-javac,-def-build-bootstrap-module"
-            if="boot.java.provides.modules">
-        <build-bootstrap-module module.name="${mirror.module.name}" includes="${mirror.module.includes}"/>
-    </target>
-
-    <target name="build-module-mirror" depends="build-classes-javac,-def-build-module"
-            if="target.java.provides.modules">
-        <build-module module.name="${mirror.module.name}" includes="${mirror.module.includes}"/>
-    </target>
-
-
-    <!--
     **** Create import JDK stubs.
     -->
 
@@ -1103,7 +1036,8 @@
                source="${boot.javac.source}"
                target="${boot.javac.target}"
                executable="${boot.java.home}/bin/javac"
-               srcdir="${make.tools.dir}/CompileProperties"
+               srcdir="${make.tools.dir}"
+               includes="compileproperties/* anttasks/CompileProperties*"
                destdir="${build.toolclasses.dir}/"
                classpath="${ant.core.lib}"
                bootclasspath="${boot.java.home}/jre/lib/rt.jar"
@@ -1111,7 +1045,7 @@
             <compilerarg line="${javac.lint.opts}"/>
         </javac>
         <taskdef name="pcompile"
-                 classname="CompilePropertiesTask"
+                 classname="anttasks.CompilePropertiesTask"
                  classpath="${build.toolclasses.dir}/"/>
     </target>
 
@@ -1121,7 +1055,8 @@
                source="${boot.javac.source}"
                target="${boot.javac.target}"
                executable="${boot.java.home}/bin/javac"
-               srcdir="${make.tools.dir}/GenStubs"
+               srcdir="${make.tools.dir}"
+               includes="genstubs/* anttasks/GenStubs*"
                destdir="${build.toolclasses.dir}/"
                classpath="${ant.core.lib}"
                includeantruntime="false">
@@ -1129,7 +1064,7 @@
             <compilerarg line="${javac.lint.opts}"/>
         </javac>
         <taskdef name="genstubs"
-                 classname="GenStubs$$Ant"
+                 classname="anttasks.GenStubsTask"
                  classpath="${build.toolclasses.dir}/"/>
     </target>
 
@@ -1172,7 +1107,6 @@
                             <filename name="java/"/>
                             <filename name="javax/"/>
                             <filename name="com/sun/javadoc/"/>
-                            <filename name="com/sun/mirror/"/>
                             <filename name="com/sun/source/"/>
                         </or>
                     </packageset>
@@ -1210,7 +1144,7 @@
                     samevm="@{samevm}" verbose="@{verbose}"
                     failonerror="false" resultproperty="jtreg.@{name}.result"
                     javacoptions="-g"
-                    vmoptions="${coverage.options} -Xbootclasspath/p:${coverage.classpath}:${build.classes.dir} @{jpda.jvmargs}">
+                    vmoptions="${coverage.options} -Xbootclasspath/p:${coverage.classpath}${path.separator}${build.classes.dir} @{jpda.jvmargs}">
                     <arg line="@{keywords}"/>
                     <arg line="@{options}"/>
                     <arg line="@{tests}"/>
