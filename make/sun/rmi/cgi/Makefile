@@ -28,8 +28,9 @@
 #
 
 BUILDDIR = ../../..
-# java-rmi.cgi is a JDK tool but 6512052 states
-# that it should not be included in the jdk
+JAVAC_MAX_WARNINGS = true
+JAVAC_WARNINGS_FATAL = true
+# java-rmi.cgi is a JDK tool
 MODULE  = deprecated.tools
 PACKAGE = sun.rmi
 PRODUCT = sun

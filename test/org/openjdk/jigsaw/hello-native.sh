@@ -63,7 +63,7 @@ case "$OS" in
     (cd z.test/native/src;
      cc -G -o ../lib/libworld.so -I$TESTJAVA/include -I$TESTJAVA/include/solaris org_astro_World.c -lc)
     ;;
-  Linux )
+  Linux | Darwin )
     (cd z.test/native/src;
      gcc -o ../lib/libworld.so -I$TESTJAVA/include -I$TESTJAVA/include/linux -shared org_astro_World.c -static -lc)
     ;;

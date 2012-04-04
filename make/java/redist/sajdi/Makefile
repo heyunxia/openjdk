@@ -30,6 +30,8 @@ include $(BUILDDIR)/common/Defs.gmk
 
 ifeq ($(PLATFORM), windows)
   LIB_LOCATION = $(BINDIR)
+else ifeq ($(PLATFORM), macosx)
+  LIB_LOCATION = $(LIBDIR)
 else
   LIB_LOCATION = $(LIBDIR)/$(LIBARCH)
 endif

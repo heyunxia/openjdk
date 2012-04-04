@@ -198,7 +198,7 @@ examples_help:
 #
 # 'all' target intro
 #
-all:: 
+all::
 	@$(ECHO) $(PLATFORM) $(ARCH) $(RELEASE) build started: $(shell $(DATE) '+%y-%m-%d %H:%M')
 
 # Just in case anyone uses this old name, same as 'build'
@@ -234,7 +234,20 @@ import_product:
 all build:: sanity-all post-sanity-all
 
 SUBDIRS       = tools java javax sun com
-SUBDIRS_misc  = org sunw jpda mkdemo mksample
+ifeq ($(PLATFORM), macosx)
+  SUBDIRS += apple
+endif
+SUBDIRS_misc  = org sunw jpda
+
+# demos
+ifndef NO_DEMOS
+  SUBDIRS_misc += mkdemo
+endif
+
+# samples
+ifndef NO_SAMPLES
+  SUBDIRS_misc += mksample
+endif
 
 # Alternate classes implementation
 ifndef OPENJDK
@@ -399,4 +412,3 @@ include jprt.gmk
 .PHONY: all build clean clobber optimized debug fastdebug create_links \
 	import import_product import_fastdebug import_debug \
 	test test_run test_start test_clean test_summary
-

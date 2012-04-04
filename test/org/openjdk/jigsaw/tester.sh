@@ -36,6 +36,11 @@ case "$OS" in
     PS=":"
     FS="/"
     ;;
+  Darwin )
+    AWK=awk
+    PS=":"
+    FS="/"
+    ;;
   Windows* )
     AWK=awk
     DASH_P=""

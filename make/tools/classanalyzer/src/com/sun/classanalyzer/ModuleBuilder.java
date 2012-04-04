@@ -297,7 +297,7 @@ public class ModuleBuilder {
                 } else {
                     d.addView(dm.getView(d.module));
                 }
-                addDependence(requires, d);
+                addDependence(m, requires, d);
             }
         }
         
@@ -305,7 +305,7 @@ public class ModuleBuilder {
         if (!m.isBase() && base != null && requiresBase) {
             Dependence d = new Dependence(base.name(), false);
             d.addView(base.defaultView());
-            addDependence(requires, d);
+            addDependence(m, requires, d);
         }
 
         // add static dependences
@@ -314,7 +314,7 @@ public class ModuleBuilder {
                 if (m.requiresModuleDependence(to)) {
                     // is this dependence overridden as optional?
                     boolean optional = OptionalDependency.isOptional(from, to);
-                    addDependence(requires, to, optional);
+                    addDependence(m, requires, to, optional);
                 }
             }
         }
@@ -323,14 +323,14 @@ public class ModuleBuilder {
         for (Dependence d : AnnotatedDependency.getDependencies(m)) {
             // filter optional dependencies to the base module
             if (!m.isBase() || !d.isOptional())
-                addDependence(requires, d);
+                addDependence(m, requires, d);
         }
 
         // add dependency due to the main class
         for (Module.View v : m.views()) {
             Klass k = v.mainClass();
             if (k != null && m.requiresModuleDependence(k)) {
-                addDependence(requires, k, false);
+                addDependence(m, requires, k, false);
             }
 
             for (String name : v.permitNames()) {
@@ -371,7 +371,8 @@ public class ModuleBuilder {
         return mi;
     }
 
-    private void addDependence(Map<Module, Dependence> requires, Klass k, boolean optional) {
+    private void addDependence(Module m, Map<Module, Dependence> requires,
+                               Klass k, boolean optional) {
         Module dm = k.getModule().group();      
         Dependence dep = requires.get(dm);
         if (dep == null) {
@@ -388,7 +389,7 @@ public class ModuleBuilder {
         dep.addView(view);
     }
 
-    private void addDependence(Map<Module, Dependence> requires, Dependence d) {
+    private void addDependence(Module m, Map<Module, Dependence> requires, Dependence d) {
         Module dm = getFactory().getModuleForView(d.module);
         // not a dependence if it's an empty module and not aggregating modules
         if (!dm.isTopLevel())
@@ -398,15 +399,19 @@ public class ModuleBuilder {
         if (dep == null) {
             requires.put(dm, d);
         } else if (!dep.equals(d)) {
-            if (dep.module.equals(d.module) &&
-                !dep.isOptional() &&
-                !d.isLocal() && !d.isPublic() &&
-                dep.views.containsAll(d.views)) {
-                // the static dependence can override the optional dependence
-                return;
+            if (dep.module.equals(d.module) && !dep.isOptional()) {
+                if (!d.isLocal() && !d.isPublic()) {
+                    // the static dependence can override the optional dependence
+                    if (dep.views.containsAll(d.views))
+                        return;
+                    if (d.views.size() == 1 &&
+                        d.views.contains(dm.defaultView()) && 
+                        dep.views.contains(dm.internalView()))
+                        return;
+                }
             }
-            throw new RuntimeException("mismatch input requires: "
-                    + dep + " and " + d);
+            throw new RuntimeException("Add dependence " + d + " to module " + 
+                    m.name() + " " + dep);
         }
     }
 }

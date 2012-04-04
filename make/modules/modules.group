@@ -147,6 +147,16 @@ module jdk.management {
     include management;
 
     requires optional jdk.management.iiop;
+
+    // ## temporary: need discussion with JFR team
+    // ## this adds a dependency on jaxp
+    include jfr;
+
+    view oracle.jfr {
+        exports com.oracle.jrockit.jfr;
+        exports com.oracle.jrockit.jfr.client;
+        exports com.oracle.jrockit.jfr.management;
+    }
 }
 
 // JMX RMI-IIOP connector
@@ -425,10 +435,6 @@ module jdk.httpserver {
     include httpserver;
 }
 
-module jdk.apt {
-    include tools.apt;
-}
-
 module jdk.devtools {
     include tools.javac;
     include tools.javah;
@@ -647,6 +653,7 @@ module jdk.jre {
     requires public jdk.sctp;
     requires public jdk.security.acl;
     requires public jdk.smartcardio;
+    requires public jdk.snmp;
     requires public jdk.sunec;
     requires public jdk.sunpkcs11;
     requires public jdk.sunmscapi;

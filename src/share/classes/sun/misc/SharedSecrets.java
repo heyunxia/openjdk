@@ -53,6 +53,7 @@ public class SharedSecrets {
     private static JavaIOFileDescriptorAccess javaIOFileDescriptorAccess;
     private static JavaSecurityProtectionDomainAccess javaSecurityProtectionDomainAccess;
     private static JavaSecurityAccess javaSecurityAccess;
+    private static JavaAWTAccess javaAWTAccess;
 
     public static JavaUtilJarAccess javaUtilJarAccess() {
         if (javaUtilJarAccess == null) {
@@ -158,5 +159,15 @@ public class SharedSecrets {
             unsafe.ensureClassInitialized(AccessController.class);
         }
         return javaSecurityAccess;
+    }
+
+    public static void setJavaAWTAccess(JavaAWTAccess jaa) {
+        javaAWTAccess = jaa;
+    }
+
+    public static JavaAWTAccess getJavaAWTAccess() {
+        // this may return null in which case calling code needs to
+        // provision for.
+        return javaAWTAccess;
     }
 }
