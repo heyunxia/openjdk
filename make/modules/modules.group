@@ -146,6 +146,10 @@ module jdk.management {
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include management;
 
+    // ## temporary: need discussion with JFR team
+    // ## this adds a dependency on jaxp
+    include jfr;
+
     requires optional jdk.management.iiop;
 }
 
@@ -647,6 +651,7 @@ module jdk.jre {
     requires public jdk.sctp;
     requires public jdk.security.acl;
     requires public jdk.smartcardio;
+    requires public jdk.snmp;
     requires public jdk.sunec;
     requires public jdk.sunpkcs11;
     requires public jdk.sunmscapi;

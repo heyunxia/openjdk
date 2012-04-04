@@ -35,6 +35,10 @@ case "$OS" in
     AWK=gawk
     PS=":"
     FS="/"
+  Darwin )
+    AWK=awk
+    PS=":"
+    FS="/"
     ;;
   Windows* )
     AWK=awk
