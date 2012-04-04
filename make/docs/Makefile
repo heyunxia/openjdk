@@ -362,9 +362,9 @@ $(COREAPI_PACKAGES_FILE): $(DIRECTORY_CACHE) $(call PackageDependencies,$(CORE_P
 #
 
 # Part of langtools
-ifdef LANGTOOLS_DIST
-  ALL_OTHER_TARGETS += mirrordocs
-endif
+#ifdef LANGTOOLS_DIST
+#  ALL_OTHER_TARGETS += mirrordocs
+#endif
 
 MIRROR_DOCDIR      := $(JDK_API_DOCSDIR)/apt/mirror
 MIRROR2COREAPI     := ../../$(JDKJRE2COREAPI)
