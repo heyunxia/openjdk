@@ -30,6 +30,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 cat $SRC/maze.sh \
 | sed -e 's/^: zork pass/: zork pass compile/' \
@@ -43,8 +44,9 @@ echo $mns
 
 mkdir -p z.test/module-files
 for mn in $mns; do
-  $BIN/jpkg -d z.test/module-files --fast -m z.test/modules/$mn jmod $mn
+  $BIN/jpkg ${TESTTOOLVMOPTS} -d z.test/module-files \
+            --fast -m z.test/modules/$mn jmod $mn
 done
 
 rm -rf z.repo
-$BIN/java -ea -cp z.classes _PublishedRepository z.test/module-files/*
+$BIN/java ${VMOPTS} -cp z.classes _PublishedRepository z.test/module-files/*

@@ -30,6 +30,7 @@ set -e
 
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../../build}/bin
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -43,7 +44,7 @@ importCert() {
 }
 
 importPrivateKey() {
-  $BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey $1 $1-prikey.pem \
+  $BIN/java ${VMOPTS} -Dtest.src=${TESTSRC} ImportPrivateKey $1 $1-prikey.pem \
             $2 $1-cert.pem
 }
 
@@ -54,7 +55,7 @@ importCert ca
 importCert tsca
 
 # Import the signer's private key and cert
-$BIN/javac -source 8 -d  . ${TESTSRC}/ImportPrivateKey.java
+$BIN/javac -source 8 -d . ${TESTSRC}/ImportPrivateKey.java
 importPrivateKey signer RSA
 # Import the TSA's private key and cert
 importPrivateKey tsa DSA
@@ -88,4 +89,4 @@ $BIN/javac -source 8 -d z.modules -modulepath z.modules `find z.src -name '*.jav
 
 # Check timestamping support
 $BIN/javac -d . ${TESTSRC}/TimestampTest.java
-$BIN/java -Dtest.src=${TESTSRC} TimestampTest < ${TESTSRC}/keystore.pw
+$BIN/java ${VMOPTS} -Dtest.src=${TESTSRC} TimestampTest < ${TESTSRC}/keystore.pw

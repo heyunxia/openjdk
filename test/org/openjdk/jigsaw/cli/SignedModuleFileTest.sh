@@ -31,19 +31,20 @@ set -e
 
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../../build}/bin
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 rm -rf keystore.jks
 
 # Create the keystore file and import the root CA cert
 $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
-  -noprompt -storepass test123 -alias ca-cert
+             -noprompt -storepass test123 -alias ca-cert
 
 # Import the signer's private key and cert
 $BIN/javac -source 8 -d . ${TESTSRC}/ImportPrivateKey.java
-$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer \
+$BIN/java ${VMOPTS} -Dtest.src=${TESTSRC} ImportPrivateKey signer \
           signer-prikey.pem RSA signer-cert.pem
 
 $BIN/javac -source 8 -d . ${TESTSRC}/ModuleFileTest.java
-$BIN/java -Dorg.openjdk.system.security.cacerts=keystore.jks \
+$BIN/java ${VMOPTS} -Dorg.openjdk.system.security.cacerts=keystore.jks \
           -Dtest.src=${TESTSRC} ModuleFileTest "test signed module file" \
           < ${TESTSRC}/keystore.pw

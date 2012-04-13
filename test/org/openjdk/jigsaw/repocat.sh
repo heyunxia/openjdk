@@ -30,6 +30,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 cat $SRC/maze.sh \
 | sed -e 's/^: zork pass/: zork pass compile/' \
@@ -41,4 +42,4 @@ $BIN/javac -d z.classes $SRC/_RepositoryCatalog.java
 mis=`find z.test/modules -name module-info.class`
 echo $mis
 
-$BIN/java -ea -cp z.classes _RepositoryCatalog $mis
+$BIN/java ${VMOPTS} -cp z.classes _RepositoryCatalog $mis

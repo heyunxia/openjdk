@@ -71,13 +71,13 @@ testjmod() {
   createargs=$1
   installargs=$2
   rm -rf $JAVA_MODULES
-  $BIN/jmod create $createargs
-  $BIN/jmod id
-  $BIN/jmod install $installargs z.modules com.foo.bar
-  $BIN/jmod install $installargs z.modules com.foo.byz
-  $BIN/jmod list
-  $BIN/jmod list -v
-  $BIN/jmod dump-class com.foo.bar@1.2.3_01-4a com.foo.bar.Main z
+  $BIN/jmod ${TESTTOOLVMOPTS} create $createargs
+  $BIN/jmod ${TESTTOOLVMOPTS} id
+  $BIN/jmod ${TESTTOOLVMOPTS} install $installargs z.modules com.foo.bar
+  $BIN/jmod ${TESTTOOLVMOPTS} install $installargs z.modules com.foo.byz
+  $BIN/jmod ${TESTTOOLVMOPTS} list
+  $BIN/jmod ${TESTTOOLVMOPTS} list -v
+  $BIN/jmod ${TESTTOOLVMOPTS} dump-class com.foo.bar@1.2.3_01-4a com.foo.bar.Main z
   if [ "$installargs" = "" ]; then
     cmp z z.modules/com.foo.bar/com/foo/bar/Main.class 
   fi

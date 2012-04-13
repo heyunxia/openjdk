@@ -44,6 +44,7 @@ public class Hello {
 }
 
 module org.astro @ 2.0 {
+    requires jdk.jaxp;
     exports org.astro;
 }
 

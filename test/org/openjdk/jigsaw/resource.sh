@@ -26,6 +26,7 @@
 set -e
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../build}/bin
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 sh ${TESTSRC:-.}/tester.sh $0
 
@@ -44,22 +45,22 @@ mk z.test/modules/z/baz/z 'Hola!'
 mk z.test/modules/z/inf/a 'and a three!'
 
 echo; echo "Direct install"
-$BIN/jmod create -L z.lib
-$BIN/jmod install -L z.lib z.test/modules empty
-$BIN/jmod install -L z.lib z.test/modules z
-$BIN/jmod install -L z.lib z.test/modules y
-$BIN/jmod install -L z.lib z.test/modules x
-$BIN/java -ea -esa -L z.lib -m x
+$BIN/jmod ${TESTTOOLVMOPTS} create -L z.lib
+$BIN/jmod ${TESTTOOLVMOPTS} install -L z.lib z.test/modules empty
+$BIN/jmod ${TESTTOOLVMOPTS} install -L z.lib z.test/modules z
+$BIN/jmod ${TESTTOOLVMOPTS} install -L z.lib z.test/modules y
+$BIN/jmod ${TESTTOOLVMOPTS} install -L z.lib z.test/modules x
+$BIN/java ${VMOPTS} -L z.lib -m x
 
 echo; echo "Module-file install"
-$BIN/jpkg -m z.test/modules/empty jmod empty
-$BIN/jpkg -m z.test/modules/z jmod z
-$BIN/jpkg -m z.test/modules/y jmod y
-$BIN/jpkg -m z.test/modules/x jmod x
+$BIN/jpkg ${TESTTOOLVMOPTS} -m z.test/modules/empty jmod empty
+$BIN/jpkg ${TESTTOOLVMOPTS} -m z.test/modules/z jmod z
+$BIN/jpkg ${TESTTOOLVMOPTS} -m z.test/modules/y jmod y
+$BIN/jpkg ${TESTTOOLVMOPTS} -m z.test/modules/x jmod x
 rm -rf z.lib
-$BIN/jmod create -L z.lib
-$BIN/jmod install -L z.lib x@1.jmod y@1.jmod z@1.jmod empty@1.jmod
-$BIN/java -ea -esa -L z.lib -m x
+$BIN/jmod ${TESTTOOLVMOPTS} create -L z.lib
+$BIN/jmod ${TESTTOOLVMOPTS} install -L z.lib x@1.jmod y@1.jmod z@1.jmod empty@1.jmod
+$BIN/java ${VMOPTS} -L z.lib -m x
 
 exit 0
 

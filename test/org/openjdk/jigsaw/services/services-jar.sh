@@ -32,6 +32,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -103,12 +104,12 @@ $BIN/jar cfm z.jars/bar.jar z.src/bar.mf -C z.src META-INF/services -C z.classes
 $BIN/jar ufI z.jars/foo.jar foo@1.0
 $BIN/jar ufI z.jars/bar.jar bar@1.0
 
-$BIN/jmod -J-esa -L z.lib create
-$BIN/jmod -J-esa -L z.lib install `find z.jars -name "*.jar"`
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib create
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib install `find z.jars -name "*.jar"`
 
 $BIN/javac -L z.lib -d z.modules -modulepath z.modules \
-  `find z.src/gus -name '*.java'`
-$BIN/jmod -J-esa -L z.lib install z.modules gus
-$BIN/jmod -J-esa -L z.lib ls -v
-$BIN/java -esa -L z.lib -m gus 1
+    `find z.src/gus -name '*.java'`
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib install z.modules gus
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib ls -v
+$BIN/java ${VMOPTS} -L z.lib -m gus 1
 

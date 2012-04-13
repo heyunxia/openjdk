@@ -29,10 +29,11 @@ set -e
 sh ${TESTSRC:-.}/tester.sh $0
 
 BIN=${TESTJAVA:-../../../../build}/bin
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mkdir -p z.test/native/src z.test/native/lib
-$BIN/javah -classpath z.test/modules/org.astro -d z.test/native/src \
-  org.astro.World
+$BIN/javah ${TESTTOOLVMOPTS} -classpath z.test/modules/org.astro \
+    -d z.test/native/src org.astro.World
 
 cat >z.test/native/src/org_astro_World.c <<___
 
@@ -63,9 +64,13 @@ case "$OS" in
     (cd z.test/native/src;
      cc -G -o ../lib/libworld.so -I$TESTJAVA/include -I$TESTJAVA/include/solaris org_astro_World.c -lc)
     ;;
-  Linux | Darwin )
+  Linux )
     (cd z.test/native/src;
      gcc -o ../lib/libworld.so -I$TESTJAVA/include -I$TESTJAVA/include/linux -shared org_astro_World.c -static -lc)
+    ;;
+  Darwin )
+    (cd z.test/native/src;
+     gcc -o ../lib/libworld.so -I$TESTJAVA/include -I$TESTJAVA/include/darwin -shared org_astro_World.c -static -lc)
     ;;
   Windows* )
     (cd z.test/native/src;
@@ -82,16 +87,18 @@ esac
 
 
 mkdir -p z.test/module-files
-$BIN/jpkg -d z.test/module-files -m z.test/modules/com.greetings \
-          jmod com.greetings
-$BIN/jpkg -d z.test/module-files -m z.test/modules/org.astro \
+$BIN/jpkg ${TESTTOOLVMOPTS} -d z.test/module-files \
+          -m z.test/modules/com.greetings jmod com.greetings
+$BIN/jpkg ${TESTTOOLVMOPTS} -d z.test/module-files \
+          -m z.test/modules/org.astro \
           --natlib z.test/native/lib jmod org.astro
-$BIN/jmod -L z.lib create
-$BIN/jmod -L z.lib install z.test/module-files/*
-$BIN/java -L z.lib -m com.greetings
-$BIN/jmod -L z.libImageLib create --natlib z.libSpecifyLib_libs
-$BIN/jmod -L z.libImageLib install z.test/module-files/*
-$BIN/java -L z.libImageLib -m com.greetings
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib create
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib install z.test/module-files/*
+$BIN/java ${VMOPTS} -L z.lib -m com.greetings
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.libImageLib create \
+          --natlib z.libSpecifyLib_libs
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.libImageLib install z.test/module-files/*
+$BIN/java ${VMOPTS} -L z.libImageLib -m com.greetings
 
 exit 0
 

@@ -31,6 +31,7 @@ set -e
 
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../../build}/bin
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -45,8 +46,8 @@ $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
              -noprompt -storepass test123 -alias ca 
 
 # Import the signer's private key and cert
-$BIN/javac -source 8 -d  . ${TESTSRC}/ImportPrivateKey.java
-$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer signer-prikey.pem \
+$BIN/javac -source 8 -d . ${TESTSRC}/ImportPrivateKey.java
+$BIN/java ${VMOPTS} -Dtest.src=${TESTSRC} ImportPrivateKey signer signer-prikey.pem \
           RSA signer-cert.pem
 
 mk z.src/test.security/module-info.java <<EOF
@@ -100,7 +101,8 @@ $BIN/jar cf z.jarfiles/GetProperty.jar -C z.modules/test.security .
 $BIN/jarsigner -keystore keystore.jks z.jarfiles/GetProperty.jar signer < ${SRC}/keystore.pw
 
 # Install and run the signed jar
-$BIN/jmod -L z.lib create
-$BIN/jmod -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
-          -L z.lib install z.jarfiles/GetProperty.jar
-$BIN/java -L z.lib -m test.security signed-module.policy
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib create
+$BIN/jmod ${TESTTOOLVMOPTS} \
+    -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
+    -L z.lib install z.jarfiles/GetProperty.jar
+$BIN/java ${VMOPTS} -L z.lib -m test.security signed-module.policy

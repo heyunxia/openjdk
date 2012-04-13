@@ -190,9 +190,9 @@ compile() {
 
 install() {
   mlist=`cd modules; echo *`
-  $BIN/jmod create -L z.mlib \
-  && $BIN/jmod -J-esa $VM_FLAGS_INSTALL install modules $mlist -L z.mlib
-#  && $BIN/jmod list -L z.mlib
+  $BIN/jmod ${TESTTOOLVMOPTS} create -L z.mlib \
+  && $BIN/jmod ${TESTTOOLVMOPTS} install modules $mlist -L z.mlib
+##  && $BIN/jmod list -L z.mlib
 }
 
 catfile() {
@@ -202,9 +202,9 @@ catfile() {
 invoke() {
   if [ -f main ] ; then
     modulename=`catfile main`
-    $BIN/java $VM_FLAGS -esa \
+    $BIN/java ${VMOPTS} \
               -Dtest.src=${TESTSRC} -Dtest.classes=${TESTCLASSES} \
-              -ea -L z.mlib -m $modulename
+              -L z.mlib -m $modulename
   else
     true 
   fi

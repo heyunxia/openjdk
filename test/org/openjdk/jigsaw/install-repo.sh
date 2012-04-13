@@ -30,6 +30,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 ## Share setup code with pubrepo.sh
 
@@ -48,9 +49,10 @@ echo $mns
 
 mkdir -p z.test/module-files
 for mn in $mns; do
-  $BIN/jpkg -d z.test/module-files --fast -m z.test/modules/$mn jmod $mn
+  $BIN/jpkg ${TESTTOOLVMOPTS} -d z.test/module-files \
+            --fast -m z.test/modules/$mn jmod $mn
 done
 
 rm -rf z.lib z.repo
-$BIN/java -ea -cp z.classes InstallFromRepo z.test/module-files/*
-$BIN/java -ea -L z.lib -m you
+$BIN/java ${VMOPTS} -cp z.classes InstallFromRepo z.test/module-files/*
+$BIN/java ${VMOPTS} -L z.lib -m you

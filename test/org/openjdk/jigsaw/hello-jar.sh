@@ -28,6 +28,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -115,49 +116,49 @@ Main-Class: com.greetings.Hello
 EOF
 mkdir z.modules z.jarfiles
 
-$BIN/javac -d z.modules -modulepath z.modules \
-   `find z.src -name '*.java'`
+$BIN/javac -d z.modules -modulepath z.modules `find z.src -name '*.java'`
 
 run() {
    rm -rf z.lib
    DIR=$1
    # launch in legacy mode
-   $BIN/java -jar $DIR/hello.jar
+   $BIN/java ${VMOPTS} -jar $DIR/hello.jar
 
    # launch in module mode
-   $BIN/jmod -L z.lib create
-   $BIN/jmod -L z.lib install $DIR/test.jar $DIR/world.jar $DIR/hello.jar
-   $BIN/java -L z.lib -m com.greetings
+   $BIN/jmod ${TESTTOOLVMOPTS} -L z.lib create
+   $BIN/jmod ${TESTTOOLVMOPTS} -L z.lib install $DIR/test.jar $DIR/world.jar $DIR/hello.jar
+   $BIN/java ${VMOPTS} -L z.lib -m com.greetings
    # validate module-info.class in hello.jar
-   $BIN/java -L z.lib -m test $DIR/hello.jar
+   $BIN/java ${VMOPTS} -L z.lib -m test $DIR/hello.jar
 }
 
 # Test jar file in both store-only mode and compressed mode
-$BIN/jar c0fe z.modules/test.jar test.Test -C z.modules/test .
-$BIN/jar c0f z.modules/world.jar -C z.modules/org.astro .
-$BIN/jar cfm z.modules/hello.jar z.src/manifest -C z.modules/com.greetings .
+JAR="$BIN/jar ${TESTTOOLVMOPTS}" 
+$JAR c0fe z.modules/test.jar test.Test -C z.modules/test .
+$JAR c0f z.modules/world.jar -C z.modules/org.astro .
+$JAR cfm z.modules/hello.jar z.src/manifest -C z.modules/com.greetings .
 
 # modular jars with module-info.class entry
 run z.modules
 
 
 # modular jars without module-info.class entry but use -I option
-$BIN/jar c0fIe z.jarfiles/test.jar test@1.0 test.Test \
-             -C z.modules/test test 
-$BIN/jar cfI z.jarfiles/world.jar org.astro@1.2 \
-             -C z.modules/org.astro org
-$BIN/jar c0fmI z.jarfiles/hello.jar z.src/manifest com.greetings@0.1 \
-             -C z.modules/com.greetings com
+$JAR c0fIe z.jarfiles/test.jar test@1.0 test.Test \
+         -C z.modules/test test 
+$JAR cfI z.jarfiles/world.jar org.astro@1.2 \
+         -C z.modules/org.astro org
+$JAR c0fmI z.jarfiles/hello.jar z.src/manifest com.greetings@0.1 \
+         -C z.modules/com.greetings com
 
 # Run in legacy mode and module mode
 run z.jarfiles
 
 # Update z.jarfiles 
-$BIN/jar ufI z.jarfiles/test.jar test@1.0
-$BIN/jar u0f z.jarfiles/world.jar \
-             -C z.modules/org.astro module-info.class
-$BIN/jar u0fm z.jarfiles/hello.jar z.src/manifest \
-             -C z.modules/com.greetings com
+$JAR ufI z.jarfiles/test.jar test@1.0
+$JAR u0f z.jarfiles/world.jar \
+         -C z.modules/org.astro module-info.class
+$JAR u0fm z.jarfiles/hello.jar z.src/manifest \
+         -C z.modules/com.greetings com
 
 # Run in legacy mode and module mode
 run z.jarfiles

@@ -31,6 +31,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -72,7 +73,7 @@ mkdir z.modules z.classes
 $BIN/javac -source 8 -d z.classes $SRC/_Library.java
 
 $BIN/javac -source 8 -d z.modules -modulepath z.modules \
-  `find z.src -name '*.java'`
+    `find z.src -name '*.java'`
 
 for v in 1 1.2 2 3; do
   m=org.multi@$v
@@ -128,4 +129,4 @@ esac
 $BIN/javac -source 8 -d z.modules -modulepath z.modules${PS}z.modules.org.multi@1 \
    `find z.src/net.baz.aar -name '*.java'`
 
-$BIN/java -esa -ea -cp z.classes _Library
+$BIN/java ${VMOPTS} -cp z.classes _Library

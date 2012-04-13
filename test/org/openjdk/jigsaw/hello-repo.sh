@@ -29,6 +29,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -61,17 +62,17 @@ EOF
 
 mkdir z.mods
 $BIN/javac -source 8 -d z.mods -modulepath z.modules \
-  `find z.src -name '*.java'`
+    `find z.src -name '*.java'`
 
 mkdir z.pkgs
-$BIN/jpkg -d z.pkgs -m z.mods/app jmod app
-$BIN/jpkg -d z.pkgs -m z.mods/foolib jmod foolib
+$BIN/jpkg ${TESTTOOLVMOPTS} -d z.pkgs -m z.mods/app jmod app
+$BIN/jpkg ${TESTTOOLVMOPTS} -d z.pkgs -m z.mods/foolib jmod foolib
 
-$BIN/jrepo z.repo create
-$BIN/jrepo z.repo add z.pkgs/*.jmod
+$BIN/jrepo ${TESTTOOLVMOPTS} z.repo create
+$BIN/jrepo ${TESTTOOLVMOPTS} z.repo add z.pkgs/*.jmod
 
-$BIN/jmod create -L z.mlib
-$BIN/jmod add-repo -L z.mlib z.repo
-$BIN/jmod -L z.mlib install -n app
-$BIN/jmod -L z.mlib install app
-$BIN/java -L z.mlib -m app
+$BIN/jmod ${TESTTOOLVMOPTS} create -L z.mlib
+$BIN/jmod ${TESTTOOLVMOPTS} add-repo -L z.mlib z.repo
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.mlib install -n app
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.mlib install app
+$BIN/java ${VMOPTS} -L z.mlib -m app

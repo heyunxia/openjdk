@@ -30,6 +30,7 @@ set -e
 
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../../build}/bin
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -39,13 +40,13 @@ mk() {
 
 create() {
   rm -rf z.lib
-  $BIN/jmod create
-  $BIN/jmod id
+  $BIN/jmod ${TESTTOOLVMOPTS} create
+  $BIN/jmod ${TESTTOOLVMOPTS} id
 }
 
 compare() {
-  $BIN/jmod list -v
-  $BIN/jmod dump-class com.foo.signed@1.0 com.foo.signed.Main z
+  $BIN/jmod ${TESTTOOLVMOPTS} list -v
+  $BIN/jmod ${TESTTOOLVMOPTS} dump-class com.foo.signed@1.0 com.foo.signed.Main z
   # Check the class file packaged in the jmod file
   # As pack200 modifies the class file during compression, 
   # we need to compare with a 'pack200-unpack200' version 
@@ -61,11 +62,12 @@ rm -rf z.src keystore.jks
 
 # Create the keystore file and import the root CA cert
 $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
-  -noprompt -storepass test123 -alias ca-cert
+             -noprompt -storepass test123 -alias ca-cert
 
 # Import the signer's private key and cert
-$BIN/javac -source 8 -d  . ${TESTSRC}/ImportPrivateKey.java
-$BIN/java -Dtest.src=${TESTSRC} ImportPrivateKey signer signer-prikey.pem \
+$BIN/javac -source 8 -d . ${TESTSRC}/ImportPrivateKey.java
+$BIN/java ${VMOPTS} -Dtest.src=${TESTSRC} \
+          ImportPrivateKey signer signer-prikey.pem \
           RSA signer-cert.pem
 
 mk z.src/com.foo.signed/module-info.java <<EOF
@@ -94,19 +96,21 @@ create
 
 # Test the installation of a signed module
 #
-$BIN/jpkg \
+$BIN/jpkg ${TESTTOOLVMOPTS} \
     -v \
     -m z.modules/com.foo.signed \
     -d z.modules \
     jmod com.foo.signed
-$BIN/jsign -v --keystore keystore.jks \
-           z.modules/com.foo.signed@1.0.jmod signer < ${TESTSRC}/keystore.pw
+$BIN/jsign ${TESTTOOLVMOPTS} \
+    -v --keystore keystore.jks \
+    z.modules/com.foo.signed@1.0.jmod signer < ${TESTSRC}/keystore.pw
 # Test installation without verifying module
-$BIN/jmod install --noverify z.modules/com.foo.signed@1.0.jmod
+$BIN/jmod ${TESTTOOLVMOPTS} install --noverify z.modules/com.foo.signed@1.0.jmod
 compare
 
 create
 # Test installation and verification and supply an alternative 'cacerts' file
-$BIN/jmod install -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
-                  z.modules/com.foo.signed@1.0.jmod
+$BIN/jmod ${TESTTOOLVMOPTS} install \
+    -J-Dorg.openjdk.system.security.cacerts=keystore.jks \
+    z.modules/com.foo.signed@1.0.jmod
 compare

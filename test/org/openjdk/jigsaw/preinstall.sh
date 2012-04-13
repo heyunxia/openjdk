@@ -26,6 +26,8 @@
 set -e
 SRC=${TESTSRC:-.}
 BIN=${TESTJAVA:-../../../../build}/bin
+VMOPTS="${TESTVMOPTS} -esa -ea"
+
 alias jmod=$BIN/jmod
 
 sh ${TESTSRC:-.}/tester.sh $0
@@ -33,8 +35,8 @@ sh ${TESTSRC:-.}/tester.sh $0
 mkdir -p z.test/modules/x/foo
 echo '<hello/>' >z.test/modules/x/foo/x.xml
 
-$BIN/jmod create -L z.lib
-$BIN/jmod preinstall -L z.lib z.test/modules z.pre x y
+$BIN/jmod ${TESTTOOLVMOPTS} create -L z.lib
+$BIN/jmod ${TESTTOOLVMOPTS} preinstall -L z.lib z.test/modules z.pre x y
 cp -r z.pre/* z.lib
 # Need to truncate \r and \n on windows
 ms=`$BIN/jmod list -L z.lib | grep -v jdk@ | sort | tr -s '\r' '\n' | tr -s '\n' ' '`
@@ -42,8 +44,8 @@ if [ "$ms" != "x@1 y@1 " ]; then
   echo Wrong modules: "$ms"
   exit 1
 fi
-$BIN/jmod config -L z.lib
-$BIN/java -ea -L z.lib -m x
+$BIN/jmod ${TESTTOOLVMOPTS} config -L z.lib
+$BIN/java ${VMOPTS} -L z.lib -m x
 exit 0
 
 

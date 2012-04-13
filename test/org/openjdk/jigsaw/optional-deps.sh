@@ -31,6 +31,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 mk() {
   d=`dirname $1`
@@ -161,21 +162,21 @@ EOF
 
 mkdir z.modules z.classes
 
-$BIN/javac -d z.modules -modulepath z.modules \
+$BIN/javac -source 8 -d z.modules -modulepath z.modules \
    `find z.src -name '*.java'`
 
 # optional module is not installed
-$BIN/jmod -L z.lib create
-$BIN/jmod -L z.lib install z.modules org.foo
-$BIN/java -ea -L z.lib -m org.foo
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib create
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib install z.modules org.foo
+$BIN/java ${VMOPTS} -L z.lib -m org.foo
 
 
 # install the optional module 
-$BIN/jmod -L z.lib install z.modules net.bar
-$BIN/java -L z.lib -m net.bar
-$BIN/java -L z.lib -m org.foo net.bar.Provider
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib install z.modules net.bar
+$BIN/java ${VMOPTS} -L z.lib -m net.bar
+$BIN/java ${VMOPTS} -L z.lib -m org.foo net.bar.Provider
 
 # find class from the system class loader
-$BIN/jmod -L z.lib install z.modules com.foo.bar
-$BIN/java -L z.lib -m com.foo.bar
+$BIN/jmod ${TESTTOOLVMOPTS} -L z.lib install z.modules com.foo.bar
+$BIN/java ${VMOPTS} -L z.lib -m com.foo.bar
 

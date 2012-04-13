@@ -29,6 +29,7 @@ set -e
 
 BIN=${TESTJAVA:-../../../../build}/bin
 SRC=${TESTSRC:-.}
+VMOPTS="${TESTVMOPTS} -esa -ea"
 
 rm -rf z.*
 
@@ -36,7 +37,7 @@ sh $SRC/../../../org/openjdk/jigsaw/tester.sh $0
 
 mkdir z.classes
 $BIN/javac -d z.classes $SRC/_ModuleInfoReader.java
-$BIN/java -cp z.classes _ModuleInfoReader
+$BIN/java ${VMOPTS} -cp z.classes _ModuleInfoReader
 exit 0
 
 : setup pass compile
