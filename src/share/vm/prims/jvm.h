@@ -448,6 +448,12 @@ JVM_DefineClassWithSourceCond(JNIEnv *env, const char *name,
                               jboolean verify);
 
 /*
+ * Append a path to the boot class path
+ */
+JNIEXPORT void JNICALL
+JVM_ExtendBootClassPath(JNIEnv *env, const char *path);
+
+/*
  * Reflection support functions
  */
 

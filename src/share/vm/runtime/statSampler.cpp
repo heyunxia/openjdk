@@ -337,6 +337,19 @@ void StatSampler::create_misc_perfdata() {
   PerfDataManager::create_string_constant(SUN_RT, "javaCommand",
                                           Arguments::java_command(), CHECK);
 
+  // only create the sun.rt.javaMain perf counter if java_main is set
+  // when the VM is launched by the java launcher.
+  if (Arguments::java_main() != NULL) {
+    PerfDataManager::create_string_constant(SUN_RT, "javaMain",
+                                            Arguments::java_main(), CHECK);
+  }
+
+  // module name
+  if (Arguments::sun_java_launcher_module() != NULL) {
+    PerfDataManager::create_string_constant(SUN_RT, "javaModule",
+                                            Arguments::sun_java_launcher_module(), CHECK);
+  }
+
   // the Java VM Internal version string
   PerfDataManager::create_string_constant(SUN_RT, "internalVersion",
                                          VM_Version::internal_vm_info_string(),
