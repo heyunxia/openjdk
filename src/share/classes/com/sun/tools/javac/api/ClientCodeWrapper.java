@@ -391,7 +391,63 @@ public class ClientCodeWrapper {
         }
     }
 
-    protected class WrappedFileObject implements FileObject {
+    protected class WrappedModuleFileManager extends WrappedJavaFileManager implements ModuleFileManager {
+        protected ModuleFileManager clientModuleFileManager;
+        WrappedModuleFileManager(JavaFileManager clientJavaFileManager) {
+            super(clientJavaFileManager);
+            this.clientModuleFileManager = (ModuleFileManager) clientJavaFileManager;
+        }
+
+        public ModuleMode getModuleMode() {
+            try {
+                return ((clientModuleFileManager).getModuleMode());
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Location getModuleLocation(Location location, JavaFileObject fo, String packageName) throws IllegalArgumentException {
+            try {
+                return ((clientModuleFileManager).getModuleLocation(location, unwrap(fo), packageName));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Iterable<? extends Location> getModuleLocations(Location location) {
+            try {
+                return ((clientModuleFileManager).getModuleLocations(location));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Location join(Iterable<? extends Location> locations) {
+            try {
+                return ((clientModuleFileManager).join(locations));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+    }
+
+    protected class WrappedFileObject implements FileObject, FileObject.Locatable {
         protected FileObject clientFileObject;
         WrappedFileObject(FileObject clientFileObject) {
             clientFileObject.getClass(); // null check
@@ -516,63 +572,24 @@ public class ClientCodeWrapper {
         }
 
         @Override
+        public Location getLocation() {
+            try {
+                if (clientFileObject instanceof Locatable)
+                    return ((Locatable) clientFileObject).getLocation();
+                else
+                    return null;
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        @Override
         public String toString() {
             return wrappedToString(getClass(), clientFileObject);
-        }
-    }
-    protected class WrappedModuleFileManager extends WrappedJavaFileManager implements ModuleFileManager {
-        protected ModuleFileManager clientModuleFileManager;
-        WrappedModuleFileManager(JavaFileManager clientJavaFileManager) {
-            super(clientJavaFileManager);
-            this.clientModuleFileManager = (ModuleFileManager) clientJavaFileManager;
-        }
-
-        public ModuleMode getModuleMode() {
-            try {
-                return ((clientModuleFileManager).getModuleMode());
-            } catch (ClientCodeException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw new ClientCodeException(e);
-            } catch (Error e) {
-                throw new ClientCodeException(e);
-            }
-        }
-
-        public Location getModuleLocation(Location location, JavaFileObject fo, String packageName) throws IllegalArgumentException {
-            try {
-                return ((clientModuleFileManager).getModuleLocation(location, unwrap(fo), packageName));
-            } catch (ClientCodeException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw new ClientCodeException(e);
-            } catch (Error e) {
-                throw new ClientCodeException(e);
-            }
-        }
-
-        public Iterable<? extends Location> getModuleLocations(Location location) {
-            try {
-                return ((clientModuleFileManager).getModuleLocations(location));
-            } catch (ClientCodeException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw new ClientCodeException(e);
-            } catch (Error e) {
-                throw new ClientCodeException(e);
-            }
-        }
-
-        public Location join(Iterable<? extends Location> locations) {
-            try {
-                return ((clientModuleFileManager).join(locations));
-            } catch (ClientCodeException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw new ClientCodeException(e);
-            } catch (Error e) {
-                throw new ClientCodeException(e);
-            }
         }
     }
 

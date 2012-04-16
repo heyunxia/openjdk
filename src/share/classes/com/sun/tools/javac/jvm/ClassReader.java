@@ -2761,7 +2761,7 @@ public class ClassReader implements Completer {
         private Name flatname;
 
         public SourceFileObject(Name name, Name flatname) {
-            super(null); // no file manager; never referenced for this file object
+            super(null, null); // no file manager or location; never referenced for this file object
             this.name = name;
             this.flatname = flatname;
         }

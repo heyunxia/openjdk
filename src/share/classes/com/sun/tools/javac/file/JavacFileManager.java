@@ -171,7 +171,7 @@ public class JavacFileManager
     }
 
     public JavaFileObject getRegularFile(File file) {
-        return new RegularFileObject(this, file);
+        return new RegularFileObject(this, null, file);
     }
 
     public JavaFileObject getFileForOutput(String classname,
@@ -258,7 +258,7 @@ public class JavacFileManager
      * Insert all files in subdirectory subdirectory of directory directory
      * which match fileKinds into resultList
      */
-    private void listDirectory(File directory,
+    private void listDirectory(Location location, File directory,
                                RelativeDirectory subdirectory,
                                Set<JavaFileObject.Kind> fileKinds,
                                boolean recurse,
@@ -278,7 +278,8 @@ public class JavacFileManager
             String fname = f.getName();
             if (f.isDirectory()) {
                 if (recurse && SourceVersion.isIdentifier(fname)) {
-                    listDirectory(directory,
+                    listDirectory(location,
+                                  directory,
                                   new RelativeDirectory(subdirectory, fname),
                                   fileKinds,
                                   recurse,
@@ -287,7 +288,7 @@ public class JavacFileManager
             } else {
                 if (isValidFile(fname, fileKinds)) {
                     JavaFileObject fe =
-                        new RegularFileObject(this, fname, new File(d, fname));
+                        new RegularFileObject(this, location, fname, new File(d, fname));
                     resultList.append(fe);
                 }
             }
@@ -330,7 +331,7 @@ public class JavacFileManager
      * Insert all files in subdirectory subdirectory of container which
      * match fileKinds into resultList
      */
-    private void listContainer(File container,
+    private void listContainer(Location location, File container,
                                RelativeDirectory subdirectory,
                                Set<JavaFileObject.Kind> fileKinds,
                                boolean recurse,
@@ -339,7 +340,8 @@ public class JavacFileManager
         if (archive == null) {
             // archives are not created for directories.
             if  (fsInfo.isDirectory(container)) {
-                listDirectory(container,
+                listDirectory(location,
+                              container,
                               subdirectory,
                               fileKinds,
                               recurse,
@@ -349,7 +351,7 @@ public class JavacFileManager
 
             // Not a directory; either a file or non-existant, create the archive
             try {
-                archive = openArchive(container);
+                archive = openArchive(location, container);
             } catch (IOException ex) {
                 log.error("error.reading.file",
                           container, getMessage(ex));
@@ -633,12 +635,12 @@ public class JavacFileManager
      * fail over to the platform zip, and allow it to deal with a potentially
      * non compliant zip file.
      */
-    protected Archive openArchive(File zipFilename) throws IOException {
+    protected Archive openArchive(Location location, File zipFilename) throws IOException {
         try {
-            return openArchive(zipFilename, contextUseOptimizedZip);
+            return openArchive(location, zipFilename, contextUseOptimizedZip);
         } catch (IOException ioe) {
             if (ioe instanceof ZipFileIndex.ZipFormatException) {
-                return openArchive(zipFilename, false);
+                return openArchive(location, zipFilename, false);
             } else {
                 throw ioe;
             }
@@ -647,7 +649,7 @@ public class JavacFileManager
 
     /** Open a new zip file directory, and cache it.
      */
-    private Archive openArchive(File zipFileName, boolean useOptimizedZip) throws IOException {
+    private Archive openArchive(Location location, File zipFileName, boolean useOptimizedZip) throws IOException {
         File origZipFileName = zipFileName;
         if (!ignoreSymbolFile && locations.isDefaultBootClassPathRtJar(zipFileName)) {
             File file = zipFileName.getParentFile().getParentFile(); // ${java.home}
@@ -699,9 +701,9 @@ public class JavacFileManager
 
             if (origZipFileName == zipFileName) {
                 if (!useOptimizedZip) {
-                    archive = new ZipArchive(this, zdir);
+                    archive = new ZipArchive(this, location, zdir);
                 } else {
-                    archive = new ZipFileIndexArchive(this,
+                    archive = new ZipFileIndexArchive(this, location,
                                     zipFileIndexCache.getZipFileIndex(zipFileName,
                                     null,
                                     usePreindexedCache,
@@ -710,9 +712,9 @@ public class JavacFileManager
                 }
             } else {
                 if (!useOptimizedZip) {
-                    archive = new SymbolArchive(this, origZipFileName, zdir, symbolFilePrefix);
+                    archive = new SymbolArchive(this, location, origZipFileName, zdir, symbolFilePrefix);
                 } else {
-                    archive = new ZipFileIndexArchive(this,
+                    archive = new ZipFileIndexArchive(this, location,
                                     zipFileIndexCache.getZipFileIndex(zipFileName,
                                     symbolFilePrefix,
                                     usePreindexedCache,
@@ -806,7 +808,7 @@ public class JavacFileManager
         ListBuffer<JavaFileObject> results = new ListBuffer<JavaFileObject>();
 
         for (File file: files) {
-            listContainer(file, subdirectory, kinds, recurse, results);
+            listContainer(location, file, subdirectory, kinds, recurse, results);
         }
 
         return results.toList();
@@ -912,11 +914,11 @@ public class JavacFileManager
                 if (fsInfo.isDirectory(file)) {
                     File f = name.getFile(file);
                     if (f.exists())
-                        return new RegularFileObject(this, f);
+                        return new RegularFileObject(this, location, f);
                     continue;
                 }
                 // Not a directory, create the archive
-                a = openArchive(file);
+                a = openArchive(location, file);
             }
             // Process the archive
             if (a.contains(name)) {
@@ -975,7 +977,7 @@ public class JavacFileManager
                 if (sibling != null && sibling instanceof RegularFileObject) {
                     siblingDir = ((RegularFileObject)sibling).file.getParentFile();
                 }
-                return new RegularFileObject(this, new File(siblingDir, fileName.basename()));
+                return new RegularFileObject(this, location, new File(siblingDir, fileName.basename()));
             }
         } else if (location == SOURCE_OUTPUT) {
             dir = (getSourceOutDir() != null ? getSourceOutDir() : getClassOutDir());
@@ -992,7 +994,7 @@ public class JavacFileManager
         }
 
         File file = fileName.getFile(dir); // null-safe
-        return new RegularFileObject(this, file);
+        return new RegularFileObject(this, location, file);
 
     }
 
@@ -1006,7 +1008,7 @@ public class JavacFileManager
         else
             result = new ArrayList<RegularFileObject>();
         for (File f: files)
-            result.add(new RegularFileObject(this, nullCheck(f)));
+            result.add(new RegularFileObject(this, null, nullCheck(f)));
         return result;
     }
 

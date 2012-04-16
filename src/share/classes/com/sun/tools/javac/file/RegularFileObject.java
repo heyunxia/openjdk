@@ -39,7 +39,7 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharsetDecoder;
-import java.util.Arrays;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 
 /**
@@ -59,12 +59,12 @@ class RegularFileObject extends BaseFileObject {
     final File file;
     private Reference<File> absFileRef;
 
-    public RegularFileObject(JavacFileManager fileManager, File f) {
-        this(fileManager, f.getName(), f);
+    public RegularFileObject(JavacFileManager fileManager, Location location, File f) {
+        this(fileManager, location, f.getName(), f);
     }
 
-    public RegularFileObject(JavacFileManager fileManager, String name, File f) {
-        super(fileManager);
+    public RegularFileObject(JavacFileManager fileManager, Location location, String name, File f) {
+        super(fileManager, location);
         if (f.isDirectory()) {
             throw new IllegalArgumentException("directories not supported");
         }

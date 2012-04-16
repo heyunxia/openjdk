@@ -25,7 +25,6 @@
 
 package com.sun.tools.javac.jigsaw;
 
-import com.sun.tools.javac.util.ListBuffer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,13 +36,18 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
 import javax.tools.ExtendedLocation;
-
+import javax.tools.FileObject;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
+
 import org.openjdk.jigsaw.Library;
+
+import com.sun.tools.javac.util.ListBuffer;
 
 /**
  * A location to represent a Jigsaw module in a Jigsaw module library.
@@ -67,15 +71,18 @@ public class JigsawLibraryLocation implements ExtendedLocation {
         this.mid = mid;
     }
 
+    @Override
     public String getName() {
         return mid.toString();
     }
 
+    @Override
     public boolean isOutputLocation() {
         // only input locations supported
         return false;
     }
 
+    @Override
     public Iterable<JavaFileObject> list(String packageName, Set<Kind> kinds, boolean recurse)
             throws IOException {
         // only Kind.CLASS supported
@@ -127,7 +134,7 @@ public class JigsawLibraryLocation implements ExtendedLocation {
         return (sep == -1) ? className : className.substring(sep + 1);
     }
 
-    static class LibraryFileObject implements JavaFileObject {
+    class LibraryFileObject implements JavaFileObject, FileObject.Locatable {
         Library library;
         ModuleId mid;
         String className;
@@ -198,6 +205,27 @@ public class JigsawLibraryLocation implements ExtendedLocation {
         @Override
         public String toString() {
             return getName();
+        }
+
+        @Override
+        public Location getLocation() {
+            return JigsawLibraryLocation.this;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof LibraryFileObject))
+                return false;
+            LibraryFileObject o = (LibraryFileObject) other;
+            return (library == o.library)
+                    && mid.equals(o.mid)
+                    && className.equals(o.className);
+
+        }
+
+        @Override
+        public int hashCode() {
+            return library.hashCode() + mid.hashCode() + className.hashCode();
         }
     }
 }
