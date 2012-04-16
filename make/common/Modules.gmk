@@ -137,7 +137,12 @@ endif
 ifeq ($(PLATFORM), windows)
     NATLIBS_DIR=bin
 else
-    NATLIBS_DIR=lib/$(LIBARCH)
+    # On Mac then dynamic libraries are installed in the lib directory
+    ifeq ($(PLATFORM), macosx)
+        NATLIBS_DIR=lib
+    else
+        NATLIBS_DIR=lib/$(LIBARCH)
+    endif
 endif
 
 #
