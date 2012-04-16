@@ -43,8 +43,6 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import javax.lang.model.element.ModuleElement;
-import javax.lang.model.util.ModuleResolver;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
@@ -67,6 +65,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.CompletionFailure;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
+import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.jvm.ClassReader;
@@ -465,8 +464,6 @@ public class Modules extends JCTree.Visitor {
             return false;
 
         DEBUG("Modules.resolve: resolve modules");
-        ModuleResolver mr = getModuleResolver();
-        DEBUG("Modules.resolve: module resolver: " + mr);
 
         DEBUG("Modules.resolve mode=" + mode + ", rootLocns=" + rootLocns + " (" + rootLocns.size() + ")" );
         if (mode == ModuleMode.SINGLE && rootLocns.isEmpty()) {
@@ -514,12 +511,12 @@ public class Modules extends JCTree.Visitor {
         }
 
         if (debug.isEnabled("resolve")) {
-            debug.println("Module resolver: " + mr.getClass().getSimpleName());
+            debug.println("Module resolver: " + moduleResolver.getClass().getSimpleName());
             showModules("Module resolution roots:", roots);
             showModules("Modules in compilation environment:", namedModules);
         }
 
-        Iterable<? extends ModuleElement> modules = mr.resolve(roots, namedModules);
+        Iterable<? extends ModuleSymbol> modules = moduleResolver.resolve(roots, namedModules);
         if (modules == null)
             return false;
 
@@ -533,8 +530,8 @@ public class Modules extends JCTree.Visitor {
         // ClassReader.
 
         List<ModuleSymbol> msyms = List.nil();
-        for (ModuleElement me: modules)
-            msyms = msyms.prepend((ModuleSymbol) me);
+        for (ModuleSymbol sym: modules)
+            msyms = msyms.prepend(sym);
 
         if (debug.isEnabled("resolve"))
             showModules("Resolved modules: ", msyms);
@@ -641,9 +638,10 @@ public class Modules extends JCTree.Visitor {
 
                         }
                     }
+                    context.put(ModuleResolver.class, moduleResolver);
                     return;
                 } catch (ClassNotFoundException e) {
-                    // running in JDK 6 mode
+                    // running in JDK 7 mode
                     DEBUG("Modules.initModuleResolver: " + e);
                 } catch (IllegalAccessException e) {
                     // FIXME: fall through for now; should report error
@@ -681,6 +679,7 @@ public class Modules extends JCTree.Visitor {
             }
         });
         DEBUG("Modules.initModuleResolver: zeromod: " + moduleResolver);
+        context.put(ModuleResolver.class, moduleResolver);
     }
     // where
     private ModuleResolver moduleResolver;
@@ -1011,6 +1010,29 @@ public class Modules extends JCTree.Visitor {
         void report(ModuleSymbol msym, ModuleQuery mq, String key, Object... args);
     }
 
+    /**
+     * Module resolver for modules defined in the Java&trade; Programming Language.
+     *
+     * Given a set of root modules, and an overall set of modules, the resolver determines
+     * which modules are visible from the root modules.
+     */
+    public interface ModuleResolver {
+
+        /**
+         * Resolve a set of modules. The resolution may take additional modules into
+         * account, such as may be found in a system module library.
+         * Returns null if the modules cannot be resolved.
+         * @param roots The root modules whose dependencies need to be resolved
+         * @param modules A set of modules in which to find any dependencies.
+         * @throws ResolutionException if the resolution cannot be successfully completed.
+         */
+        Iterable<? extends ModuleSymbol> resolve(
+                Iterable<? extends ModuleSymbol> roots,
+                Iterable<? extends ModuleSymbol> modules);
+
+        boolean isPackageVisible(ModuleSymbol msym, PackageSymbol psym);
+    }
+
     class ZeroMod implements ModuleResolver {
         private ErrorHandler errorHandler;
 
@@ -1018,9 +1040,9 @@ public class Modules extends JCTree.Visitor {
             errorHandler = e;
         }
 
-        public Iterable<? extends ModuleElement> resolve(
-                Iterable<? extends ModuleElement> roots,
-                Iterable<? extends ModuleElement> modules)
+        public Iterable<? extends ModuleSymbol> resolve(
+                Iterable<? extends ModuleSymbol> roots,
+                Iterable<? extends ModuleSymbol> modules)
         {
             DEBUG("ZeroMod: roots: " + Modules.toString(roots));
             DEBUG("ZeroMod: modules: " + Modules.toString(modules));
@@ -1046,13 +1068,9 @@ public class Modules extends JCTree.Visitor {
             return results;
         }
 
-        public Iterable<? extends ModuleElement> getVisibleModules(ModuleElement elem) {
-            ModuleSymbol sym = (ModuleSymbol) elem;
-            DEBUG("ZeroMod getVisibleModules " + getNode(sym));
-            SCC scc = getNode(sym).scc;
-            ListBuffer<ModuleSymbol> results = new ListBuffer<ModuleSymbol>();
-            getVisibleModules(scc, results);
-            return results.toList();
+        @Override
+        public boolean isPackageVisible(ModuleSymbol msym, PackageSymbol psym) {
+            return true;
         }
 
         private void getVisibleModules(SCC scc, ListBuffer<ModuleSymbol> results) {
@@ -1063,11 +1081,10 @@ public class Modules extends JCTree.Visitor {
         }
 
         private Map<Name, Map<Name, ModuleSymbol>> buildModuleTable(
-                Iterable<? extends ModuleElement> modules) {
+                Iterable<? extends ModuleSymbol> modules) {
             Map<Name, Map<Name, ModuleSymbol>> table = new HashMap<Name, Map<Name, ModuleSymbol>>();
             // build module index
-            for (ModuleElement elem: modules) {
-                ModuleSymbol sym = (ModuleSymbol) elem;
+            for (ModuleSymbol sym: modules) {
                 add(table, sym, new ModuleId(sym.name, sym.version));
                 for (ViewDeclaration v : sym.getViews()) {
                     for (ProvidesModuleDirective d : v.getAliases())
@@ -1136,23 +1153,9 @@ public class Modules extends JCTree.Visitor {
             final ModuleQuery moduleQuery;
         }
 
-////////        List<Node> getNodes(Iterable<? extends ModuleElement.ModuleQuery> queries) {
-////////            ListBuffer<Node> nodes = new ListBuffer<Node>();
-////////            for (ModuleElement.ModuleQuery midq: queries) {
-////////                ModuleId mid = (ModuleId) midq;
-////////                try {
-////////                    nodes.add(getNode(getModule(mid)));
-////////                } catch (ModuleException e) {
-////////                    errorHandler.report(null, e.moduleId, e.key, e.moduleId);
-////////                }
-////////            }
-////////            return nodes.toList();
-////////        }
-
-        List<Node> getNodes(Iterable<? extends ModuleElement> elems) {
+        List<Node> getNodes(Iterable<? extends ModuleSymbol> syms) {
             ListBuffer<Node> lb = new ListBuffer<Node>();
-            for (ModuleElement elem: elems) {
-                ModuleSymbol sym = (ModuleSymbol) elem;
+            for (ModuleSymbol sym: syms) {
                 lb.add(getNode(sym));
             }
             return lb.toList();
