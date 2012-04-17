@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -61,15 +60,12 @@ import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.ModuleId;
 import com.sun.tools.javac.code.ModuleQuery;
 import com.sun.tools.javac.code.Scope;
-import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.code.Symbol.CompletionFailure;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.jvm.ClassReader;
-import com.sun.tools.javac.jvm.Target;
 import com.sun.tools.javac.main.Option;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -117,11 +113,6 @@ public class Modules extends JCTree.Visitor {
 
     ModuleMode mode;
 
-    ModuleId baseModule;
-    ModuleQuery baseModuleQuery;
-    ModuleId jdkLegacyModule;
-    ModuleQuery jdkLegacyQuery;
-
     /**
      * The set of module locations for entered trees.
      * In single module compilation mode, it is a composite of class path and
@@ -130,10 +121,9 @@ public class Modules extends JCTree.Visitor {
      * for the files on the command line (i.e. the directories above each
      * source files package hierarchy.)
      */
-    Set<Location> rootLocns = new LinkedHashSet<Location>();
+    final Set<Location> rootLocns = new LinkedHashSet<Location>();
 
-    // The following should be moved to Symtab, with possible reference in ClassReader
-    Map<Location,ModuleSymbol> allModules = new LinkedHashMap<Location,ModuleSymbol>();
+    final Map<Location,ModuleSymbol> allModules;
 
     /** The symbol currently being analyzed. */
     ModuleSymbol currSym;
@@ -159,6 +149,7 @@ public class Modules extends JCTree.Visitor {
         fileManager = context.get(JavaFileManager.class);
         names = Names.instance(context);
         syms = Symtab.instance(context);
+        allModules = syms.allModules;
         Options options = Options.instance(context);
         debug = new Debug("modules", options, log);
 
@@ -175,14 +166,6 @@ public class Modules extends JCTree.Visitor {
             mode = moduleFileManager.getModuleMode();
         } else
             mode = ModuleMode.SINGLE;
-
-        Target target = Target.instance(context);
-        Name v = names.fromString(target.name.replaceAll("^1.", ""));
-        baseModule = new ModuleId(names.java_base, v);
-        jdkLegacyModule = new ModuleId(names.jdk_legacy, v);
-        Name q = names.fromString(">=" + v);
-        baseModuleQuery = new ModuleQuery(names.java_base, q);
-        jdkLegacyQuery = new ModuleQuery(names.jdk_legacy, q);
     }
 
     <T extends JCTree> void acceptAll(List<T> trees) {
@@ -210,7 +193,7 @@ public class Modules extends JCTree.Visitor {
             }
         }
 
-        ModuleSymbol sym = enterModule(env.toplevel.locn);
+        ModuleSymbol sym = reader.enterModule(env.toplevel.locn);
         if (sym.name != null) {
             log.error(tree.pos(), "mdl.already.defined", sym.module_info.sourcefile);
             sym = new ModuleSymbol(TreeInfo.fullName(tree.id.qualId), syms.rootModule);
@@ -248,7 +231,7 @@ public class Modules extends JCTree.Visitor {
 
             DEBUG("Modules.visitModuleDef requiresBaseModule:" + env.info.requiresBaseModule);
             if (env.info.requiresBaseModule) {
-                env.info.directives.add(new RequiresModuleDirective(baseModuleQuery,
+                env.info.directives.add(new RequiresModuleDirective(syms.baseModuleQuery,
                         EnumSet.of(Directive.RequiresFlag.SYNTHESIZED)));
             }
         } finally {
@@ -403,62 +386,6 @@ public class Modules extends JCTree.Visitor {
     @Override
     public void visitTree(JCTree tree) { }
 
-    ModuleSymbol enterModule(Location locn) {
-        ModuleSymbol sym = allModules.get(locn);
-        if (sym == null) {
-            sym = new ModuleSymbol(null, syms.rootModule);
-            sym.location = locn;
-            sym.module_info = new ClassSymbol(0, names.module_info, sym);
-            sym.module_info.modle = sym;
-            sym.completer = new Symbol.Completer() {
-                public void complete(Symbol sym) throws CompletionFailure {
-                    readModule((ModuleSymbol) sym);
-                }
-            };
-            allModules.put(locn, sym);
-        }
-        return sym;
-    }
-
-    void readModule(ModuleSymbol sym) {
-        Location locn = sym.location;
-        JavaFileObject srcFile = getModuleInfo(locn, JavaFileObject.Kind.SOURCE);
-        JavaFileObject classFile = getModuleInfo(locn, JavaFileObject.Kind.CLASS);
-        DEBUG("Modules.readModule: locn:" + locn.getName());
-        DEBUG("Modules.readModule: src:" + srcFile + " class:" + classFile);
-        JavaFileObject file;
-        if (srcFile == null) {
-            if (classFile == null) {
-                sym.name = sym.fullname = names.empty; // unnamed module
-                DEBUG("Modules.readModule: (" + sym.hashCode() + ") no module info found for " + locn );
-                RequiresModuleDirective d = new RequiresModuleDirective(jdkLegacyQuery,
-                        EnumSet.of(Directive.RequiresFlag.SYNTHESIZED));
-                sym.directives = List.<Directive>of(d);
-                return;
-            }
-            file = classFile;
-        } else if (classFile == null)
-            file = srcFile;
-        else
-            file = reader.preferredFileObject(srcFile, classFile);
-        DEBUG("Modules.readModule: select:" + file);
-
-        sym.module_info.classfile = file;
-        DEBUG("Modules.readModule: complete:" + sym + " " + sym.module_info.classfile);
-        reader.complete(sym);
-        assert sym.name != null;
-        DEBUG("Modules.readModule: finished:" + sym + " name:" + sym.name + " fullname:" + sym.fullname + " flatName():" + sym.flatName());
-    }
-
-    JavaFileObject getModuleInfo(Location locn, JavaFileObject.Kind kind) {
-        try {
-            DEBUG("Modules.getModuleInfo: locn:" + locn + " kind:" + kind);
-            return fileManager.getJavaFileForInput(locn, "module-info", kind);
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
     private boolean resolve(List<JCCompilationUnit> trees) {
         if (moduleFileManagerUnavailable)
             return false;
@@ -483,7 +410,7 @@ public class Modules extends JCTree.Visitor {
         List<ModuleSymbol> roots = List.nil();
         for (Location locn: rootLocns) {
             DEBUG("Modules.resolve: building roots: locn: " + locn);
-            ModuleSymbol msym = enterModule(locn);
+            ModuleSymbol msym = reader.enterModule(locn);
             DEBUG("Modules.resolve: building roots: msym: " + msym);
             msym.complete();
             DEBUG("Modules.resolve: building roots: completed: " + msym);
@@ -501,7 +428,7 @@ public class Modules extends JCTree.Visitor {
                 ? MODULE_PATH : moduleFileManager.join(List.of(MODULE_PATH, SOURCE_PATH));
         for (Location locn: moduleFileManager.getModuleLocations(l)) {
             DEBUG("Modules.resolve: ensuring module-info for " + locn);
-            enterModule(locn).complete();
+            reader.enterModule(locn).complete();
         }
 
         ListBuffer<ModuleSymbol> namedModules = new ListBuffer<ModuleSymbol>();
@@ -569,7 +496,7 @@ public class Modules extends JCTree.Visitor {
     }
 
     boolean isBaseModuleName(Name name) {
-        return name.equals(baseModule.name);
+        return name.equals(syms.baseModule.name);
     }
 
     boolean isPlatformModule(ModuleSymbol msym) {
@@ -1093,7 +1020,7 @@ public class Modules extends JCTree.Visitor {
             }
 
             // Add entry for default platform module if needed
-            for (ModuleId p: Arrays.asList(baseModule, jdkLegacyModule)) {
+            for (ModuleId p: Arrays.asList(syms.baseModule, syms.jdkLegacyModule)) {
                 Map<Name,ModuleSymbol> versions = table.get(p.name);
                 ModuleSymbol psym = (versions == null) ? null : versions.get(p.version);
                 if (psym == null) {

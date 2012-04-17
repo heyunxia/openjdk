@@ -299,6 +299,8 @@ public class Enter extends JCTree.Visitor {
 
     @Override
     public void visitTopLevel(JCCompilationUnit tree) {
+        Assert.checkNonNull(tree.modle, tree.sourcefile.toString());
+        
         JavaFileObject prev = log.useSource(tree.sourcefile);
         boolean addEnv = false;
 
@@ -453,6 +455,8 @@ public class Enter extends JCTree.Visitor {
 
         // Recursively enter all member classes.
         classEnter(tree.defs, localEnv);
+
+        Assert.checkNonNull(c.modle, c.sourcefile.toString());
 
         result = c.type;
     }

@@ -190,6 +190,11 @@ public class ClassReader implements Completer {
      */
     private Map<Name, PackageSymbol> packages;
 
+    /** A hashtable giving the module for each module location.
+     *
+     */
+    private Map<Location, ModuleSymbol> allModules;
+
     /** The current scope where type variables are entered.
      */
     protected Scope typevars;
@@ -263,9 +268,11 @@ public class ClassReader implements Completer {
             packages = syms.packages;
             Assert.check(classes == null || classes == syms.classes);
             classes = syms.classes;
+            allModules = syms.allModules;
         } else {
             packages = new HashMap<Name, PackageSymbol>();
             classes = new HashMap<Name, ClassSymbol>();
+            allModules = new HashMap<Location, ModuleSymbol>();
         }
 
         packages.put(names.empty, syms.rootPackage);
@@ -323,6 +330,7 @@ public class ClassReader implements Completer {
             c.members_field.enter(sym);
     }
 
+    // <editor-fold defaultstate="collapsed" desc="Error diagnoses">
 /************************************************************************
  * Error Diagnoses
  ***********************************************************************/
@@ -348,7 +356,9 @@ public class ClassReader implements Completer {
             currentClassFile,
             diagFactory.fragment(key, args));
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="Buffer access">
 /************************************************************************
  * Buffer Access
  ***********************************************************************/
@@ -428,6 +438,9 @@ public class ClassReader implements Completer {
             throw new AssertionError(e);
         }
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Constant Pool Access">
 
 /************************************************************************
  * Constant Pool Access
@@ -640,6 +653,9 @@ public class ClassReader implements Completer {
         assert tag == CONSTANT_Class;
         return readInternalName(getChar(index+1));
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Reading Types">
 
 /************************************************************************
  * Reading Types
@@ -956,6 +972,9 @@ public class ClassReader implements Completer {
             throw badClassFile("undecl.type.var", name);
         }
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Reading Attributes">
 
 /************************************************************************
  * Reading Attributes
@@ -1326,8 +1345,6 @@ public class ClassReader implements Completer {
             printCCF("ccf.unrecognized.attribute", attrName);
     }
 
-
-
     void readEnclosingMethodAttr(Symbol sym) {
         // sym is a nested class with an "Enclosing Method" attribute
         // remove sym from it's current owners scope and place it in
@@ -1477,6 +1494,9 @@ public class ClassReader implements Completer {
         readMemberAttrs(owner);
         return null;
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Reading Java-language annotations">
 
 /************************************************************************
  * Reading Java-language annotations
@@ -1877,7 +1897,9 @@ public class ClassReader implements Completer {
             }
         }
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="Reading Symbols">
 
 /************************************************************************
  * Reading Symbols
@@ -2199,6 +2221,9 @@ public class ClassReader implements Completer {
         }
         readClass(c);
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Adjusting flags">
 
 /************************************************************************
  * Adjusting flags
@@ -2223,6 +2248,9 @@ public class ClassReader implements Completer {
     long adjustClassFlags(long flags) {
         return flags & ~ACC_SUPER; // SUPER and SYNCHRONIZED bits overloaded
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Loading Classes">
 
 /************************************************************************
  * Loading Classes
@@ -2416,6 +2444,15 @@ public class ClassReader implements Completer {
                         foundTypeVariables = List.nil();
                         filling = false;
                     }
+
+                    if (allowModules) {
+                        if (!(classfile instanceof JavaFileObject.Locatable))
+                            throw new CompletionFailure(c, "cannot determine module");
+                        Location l = ((JavaFileObject.Locatable) classfile).getLocation();
+                        c.modle = enterModule(l);
+                    } else {
+                        c.modle = syms.noModule;
+                    }
                 } else {
                     if (sourceCompleter != null) {
                         sourceCompleter.complete(c);
@@ -2424,6 +2461,7 @@ public class ClassReader implements Completer {
                                                         + classfile.toUri());
                     }
                 }
+                Assert.checkNonNull(c.modle);
                 return;
             } catch (IOException ex) {
                 throw badClassFile("unable.to.access.file", ex.getMessage());
@@ -2514,6 +2552,9 @@ public class ClassReader implements Completer {
         }
         return c;
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Loading Packages">
 
 /************************************************************************
  * Loading Packages
@@ -2733,6 +2774,64 @@ public class ClassReader implements Completer {
                 }
             }
         }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Loading Modules">
+
+/************************************************************************
+ * Loading Modules
+ ***********************************************************************/
+
+    public ModuleSymbol enterModule(Location locn) {
+        ModuleSymbol sym = allModules.get(locn);
+        if (sym == null) {
+            sym = new ModuleSymbol(null, syms.rootModule);
+            sym.location = locn;
+            sym.module_info = new ClassSymbol(0, names.module_info, sym);
+            sym.module_info.modle = sym;
+            sym.completer = new Symbol.Completer() {
+                public void complete(Symbol sym) throws CompletionFailure {
+                    readModule((ModuleSymbol) sym);
+                }
+
+                void readModule(ModuleSymbol sym) {
+                    Location locn = sym.location;
+                    JavaFileObject srcFile = getModuleInfo(locn, JavaFileObject.Kind.SOURCE);
+                    JavaFileObject classFile = getModuleInfo(locn, JavaFileObject.Kind.CLASS);
+                    JavaFileObject file;
+                    if (srcFile == null) {
+                        if (classFile == null) {
+                            sym.name = sym.fullname = names.empty; // unnamed module
+                            RequiresModuleDirective d = new RequiresModuleDirective(syms.jdkLegacyQuery,
+                                    EnumSet.of(Directive.RequiresFlag.SYNTHESIZED));
+                            sym.directives = List.<Directive>of(d);
+                            return;
+                        }
+                        file = classFile;
+                    } else if (classFile == null)
+                        file = srcFile;
+                    else
+                        file = preferredFileObject(srcFile, classFile);
+
+                    sym.module_info.classfile = file;
+                    ClassReader.this.complete(sym);
+                    assert sym.name != null;
+                }
+
+                JavaFileObject getModuleInfo(Location locn, JavaFileObject.Kind kind) {
+                    try {
+                        return fileManager.getJavaFileForInput(locn, "module-info", kind);
+                    } catch (IOException e) {
+                        return null;
+                    }
+                }
+            };
+            allModules.put(locn, sym);
+        }
+        return sym;
+    }
+
+    // </editor-fold>
 
     /** Output for "-checkclassfile" option.
      *  @param key The key to look up the correct internationalized string.
@@ -2747,6 +2846,9 @@ public class ClassReader implements Completer {
         void complete(ClassSymbol sym)
             throws CompletionFailure;
     }
+
+    // <editor-fold defaultstate="collapsed" desc="SourceFileObject">
+
     /**
      * A subclass of JavaFileObject for the sourcefile attribute found in a classfile.
      * The attribute is only the last component of the original filename, so is unlikely
@@ -2863,4 +2965,5 @@ public class ClassReader implements Completer {
             return name.hashCode();
         }
     }
+    // </editor-fold>
 }
