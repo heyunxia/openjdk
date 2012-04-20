@@ -634,7 +634,6 @@ module jdk.jre {
     requires public jdk.crypto;
     requires public jdk.deploy;
     requires public jdk.desktop;
-    requires public jdk.httpserver;
     requires public jdk.instrument;
     requires public jdk.jaxp;
     requires public jdk.jaxws;
@@ -660,7 +659,6 @@ module jdk.jre {
     requires public jdk.tls;
     requires public jdk.ucrypto;
     requires public jdk.xmldsig;
-    requires public jdk.zipfs;
 
     // charsets, resource bundles and data for other locales 
     requires sun.charsets;
@@ -671,4 +669,6 @@ module jdk.jre {
 module jdk {
     requires public jdk.jre;
     requires public jdk.tools;
+    requires public jdk.httpserver;
+    requires jdk.zipfs;
 }
