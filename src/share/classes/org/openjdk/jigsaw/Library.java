@@ -78,28 +78,6 @@ public abstract class Library
     public abstract int minorVersion();
 
     public abstract Library parent();
-
-    /**
-     * <p> List all of the root module views installed in this library.  A root
-     * module view is any module view that declares a main class. </p>
-     *
-     * <p> This method does not include root module views installed in this
-     * library's parent, if any. </p>
-     *
-     * @return  An unsorted list of {@link ModuleView} objects
-     */
-    public List<ModuleView> listLocalRootModuleViews()
-        throws IOException
-    {
-        final List<ModuleView> mvs = new ArrayList<>();
-        for (ModuleId mid : listLocalModuleIds()) {
-            ModuleView mv = readModuleView(mid);
-            if (mv.mainClass() != null) {
-                mvs.add(mv);
-            }   
-        }
-        return mvs;
-    }
     
     /**
      * <p> Read the module-info class bytes for the module with the given

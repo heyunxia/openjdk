@@ -152,6 +152,13 @@ public class PublishedRepository
         cat.gatherModuleIds(moduleName, mids);
     }
 
+    protected void gatherLocalDeclaringModuleIds(Set<ModuleId> mids)
+        throws IOException
+    {
+        RepositoryCatalog cat = loadCatalog();
+        cat.gatherDeclaringModuleIds(mids);
+    }
+
     protected ModuleInfo readLocalModuleInfo(ModuleId mid)
         throws IOException
     {
@@ -346,7 +353,7 @@ public class PublishedRepository
 
             StreamedRepositoryCatalog cat = loadCatalog();
             Set<ModuleId> cmids = new HashSet<>();
-            cat.gatherModuleIds(cmids);
+            cat.gatherDeclaringModuleIds(cmids);
 
             Set<ModuleId> fmids = new HashSet<>();
             gatherModuleIdsFromDirectoryWhileLocked(fmids);
@@ -401,5 +408,4 @@ public class PublishedRepository
         }
 
     }
-
 }

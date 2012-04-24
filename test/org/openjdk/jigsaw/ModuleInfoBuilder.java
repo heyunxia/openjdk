@@ -133,8 +133,8 @@ public class ModuleInfoBuilder {
         return requires(EnumSet.of(Modifier.PUBLIC), mnvq);
     }
    
-    public ModuleInfoBuilder aliases(String mnv) {
-        defaultView.aliases(mnv);
+    public ModuleInfoBuilder alias(String mnv) {
+        defaultView.alias(mnv);
         return this;
     }
 
@@ -179,7 +179,7 @@ public class ModuleInfoBuilder {
             return mvb;
         }
         
-        public ModuleViewBuilder aliases(String mnv) {
+        public ModuleViewBuilder alias(String mnv) {
             aliases.add(jms.parseModuleId(mnv));
             return this;
         }

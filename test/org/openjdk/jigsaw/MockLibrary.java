@@ -123,6 +123,10 @@ class MockLibrary
     protected void gatherLocalModuleIds(String mn, Set<ModuleId> mids) {
         throw new UnsupportedOperationException();
     }
+    
+    protected void gatherLocalDeclaringModuleIds(Set<ModuleId> set) {
+        throw new UnsupportedOperationException();
+    }
 
     public List<ModuleId> findModuleIds(String moduleName) {
         List<ModuleId> ls = idsForName.get(moduleName);
@@ -219,5 +223,4 @@ class MockLibrary
 
         };
     }
-
 }

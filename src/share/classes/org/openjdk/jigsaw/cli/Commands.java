@@ -95,34 +95,42 @@ class Commands {
     {
         int n = 0;
         try {
-            List<ModuleId> mids
-                = parents ? cat.listModuleIds() : cat.listLocalModuleIds();
+            List<ModuleId> mids;
+            if (midq == null) {
+                mids = parents ? cat.listDeclaringModuleIds() : cat.listLocalDeclaringModuleIds();
+            } else { 
+                List<ModuleId> list = parents ? cat.listModuleIds()
+                                              : cat.listLocalModuleIds();
+                mids = new ArrayList<>();
+                for (ModuleId mid : list) {
+                    if (midq.matches(mid))
+                        mids.add(mid);
+                }
+            }
             for (ModuleId mid : mids) {
-                if (midq != null && !midq.matches(mid))
-                    continue;
                 ModuleInfo mi = cat.readModuleInfo(mid);
-                if (mid.equals(mi.id())) {
-                    if (verbose)
-                        out.format("%n");
-                    
-                    // print module and its views
-                    out.format("%s%n", mi.id());
-                    n++;
-                    if (verbose) {
-                        for (ViewDependence d : mi.requiresModules()) {
-                            out.format("  %s%n", d);
-                        }
-                        for (ServiceDependence sd: mi.requiresServices()) {
-                            out.format("  %s%n", sd);
-                        }
-                        formatModuleView(out, mi.defaultView(), "");
-                        
-                        for (ModuleView mv : mi.views()) {
-                            if (mv == mi.defaultView())
-                                continue;
-                            out.format("  view %s%n", mv.id().name());
-                            formatModuleView(out, mv, "  ");
-                        }
+                if (verbose) {
+                    out.format("%n");
+                }
+
+                // print module and its views
+                out.format("%s%n", mi.id());
+                n++;
+                if (verbose) {
+                    for (ViewDependence d : mi.requiresModules()) {
+                        out.format("  %s%n", d);
+                    }
+                    for (ServiceDependence sd: mi.requiresServices()) {
+                        out.format("  %s%n", sd);
+                    }
+                    formatModuleView(out, mi.defaultView(), "");
+
+                    for (ModuleView mv : mi.views()) {
+                        if (mv == mi.defaultView())
+                            continue;
+
+                        out.format("  view %s%n", mv.id().name());
+                        formatModuleView(out, mv, "  ");
                     }
                 }
             }
@@ -138,15 +146,22 @@ class Commands {
         throws IOException
     {
 
+        final Set<ModuleId> modules = new HashSet<>();
         final Map<ModuleId,ModuleInfo> mods = new HashMap<>();
         for (Catalog c : cats) {
-            List<ModuleId> mids = ((midq == null)
-                                   ? c.listModuleIds()
-                                   : c.findModuleIds(midq));
+            List<ModuleId> mids = c.listDeclaringModuleIds();
+            modules.addAll(mids);
             for (ModuleId mid : mids) {
                 if (mods.containsKey(mid))
                     continue;
-                mods.put(mid, c.readModuleInfo(mid));
+                
+                ModuleInfo mi = c.readModuleInfo(mid);
+                for (ModuleView mv : mi.views()) {
+                    mods.put(mid, mi);
+                    for (ModuleId alias : mv.aliases()) {
+                        mods.put(alias, mi);
+                    }
+                }
             }
         }
 
@@ -163,6 +178,12 @@ class Commands {
                 ids.addAll(mods.keySet());
             }
 
+            protected void gatherLocalDeclaringModuleIds(Set<ModuleId> mids)
+                throws IOException
+            {
+                mids.addAll(modules);
+            }
+            
             protected ModuleInfo readLocalModuleInfo(ModuleId mid)
                 throws IOException
             {

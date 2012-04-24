@@ -45,7 +45,8 @@ public final class FileConstants {
         STREAM_CATALOG(4),
         REMOTE_REPO_META(5),
         REMOTE_REPO_LIST(6),
-        LIBRARY_MODULE_SIGNER(7);
+        LIBRARY_MODULE_SIGNER(7),
+        LIBRARY_MODULE_IDS(8);
 
         private final int value;
         public int value() { return value; }

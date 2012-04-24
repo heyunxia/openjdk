@@ -47,7 +47,6 @@ import static org.openjdk.jigsaw.Trace.*;
 // of the dependence graph since different versions of the same module can
 // have completely different dependences.
 
-// ## TODO: Implement provides
 // ## TODO: Improve error messages
 
 final class Resolver {
@@ -75,16 +74,16 @@ final class Resolver {
     private Map<String,ModuleView> moduleViewForName
         = new HashMap<>();
     private Map<String,URI> locationForName = new HashMap<>();
-    
+
     // modules needs to be downloaded from remote repository
     private Set<ModuleId> modulesNeeded = new HashSet<>();
 
     private long spaceRequired = 0;
     private long downloadRequired = 0;
-    
+
     // cache of dependencies synthesized for services
     private Map<ModuleId,List<ViewDependence>> synthesizedDeps = new HashMap<>();
-    
+
 
     private static void fail(String fmt, Object ... args) // cf. Linker.fail
         throws ConfigurationException
@@ -92,11 +91,48 @@ final class Resolver {
         throw new ConfigurationException(fmt, args);
     }
 
+    // ## Open issue: should aliases have versions?
+    //
+    // ## If alias has no version, a query matches an alias only if
+    // ## the query does not specify a version (i.e. requires java.base;)
+    // ## However, this conflicts with the current spec of the
+    // ## synthesized dependence on java.base with a version constraint of
+    // ## >= N version constraint is inserted in the module-info.class
+    // ## at compile time if the module doesn't declare an explicit
+    // ## dependence on java.base or not the java.base module itself.
+    private boolean matchesQuery(ViewDependence dep, ModuleId mid) {
+        boolean rv = dep.query().matches(mid);
+        if (!rv) {
+            // Allow this synthesized dependence for now until this issue
+            // is resolved.
+            String mn = dep.query().name();
+            if (dep.modifiers().contains(Modifier.SYNTHESIZED) && mn.equals("java.base")) {
+                return mid.name().equals(mn);
+            }
+        }
+
+        return rv;
+    }
+
+    private ModuleId getModuleId(String mn, ModuleView mv) {
+        if (mv.id().name().equals(mn)) {
+            return mv.id();
+        } else {
+            for (ModuleId alias : mv.aliases()) {
+                // ## if alias has version, multiple aliases matching the given name?
+                if (alias.name().equals(mn)) {
+                    return alias;
+                }
+            }
+        }
+        return null;
+    }
+
     // Does the supplying module smi permit the requesting module rmi
     // to require it?
     //
     private boolean permits(ModuleInfo rmi, ViewDependence dep, ModuleView smv) {
-        assert dep.query().matches(smv.id());
+        assert matchesQuery(dep, getModuleId(dep.query().name(), smv));
         if (rmi == null) {
             // Special case: Synthetic root dependence
             return true;
@@ -109,7 +145,7 @@ final class Resolver {
         }
         return ps.contains(rmi.id().name());
     }
-     
+
     // A choice which remains to be made.  Choices are arranged in a stack,
     // using the next field.  Initially the stack is primed with the choice of
     // which module to assign as the root module.  When a candidate module is
@@ -128,7 +164,7 @@ final class Resolver {
             next = ch;
         }
     }
-    
+
     // Resolve the given choice
     //
     private boolean resolve(int depth, Choice choice)
@@ -146,7 +182,7 @@ final class Resolver {
         if (tracing)
             trace(1, depth, "resolving %s %s",
                   rmi != null ? rmi.id() : "ROOT", dep);
-        
+
         String mn = dep.query().name();
 
         // First check to see whether we've already resolved a module with
@@ -156,7 +192,7 @@ final class Resolver {
         ModuleView mv = moduleViewForName.get(mn);
         ModuleInfo mi = mv != null ? mv.moduleInfo() : null;
         if (mi != null) {
-            boolean rv = (dep.query().matches(mv.id())
+            boolean rv = (matchesQuery(dep, getModuleId(mn, mv))
                           && permits(rmi, dep, mv));
             if (!rv) {
                 if (tracing)
@@ -175,7 +211,7 @@ final class Resolver {
         List<ModuleId> candidates = cat.findModuleIds(mn);
         Collections.sort(candidates, Collections.reverseOrder());
         for (ModuleId mid : candidates) {
-            if (!dep.query().matches(mid))
+            if (!matchesQuery(dep, mid))
                 continue;
             if (resolve(depth + 1, choice.next, rmi, dep, cat, mid))
                 return true;
@@ -203,7 +239,7 @@ final class Resolver {
                           "considering candidates from repos of %s: %s",
                           lib.name(), candidates);
                 for (ModuleId mid : candidates) {
-                    if (!dep.query().matches(mid))
+                    if (!matchesQuery(dep, mid))
                         continue;
                     if (resolve(depth + 1, choice.next, rmi, dep, rr, mid))
                         return true;
@@ -233,8 +269,8 @@ final class Resolver {
             trace(1, depth, "trying %s%s", mid, loc);
         }
 
-        assert dep.query().matches(mid);
-        
+        assert matchesQuery(dep, mid);
+
         assert moduleViewForName.get(mid.name()) == null;
 
         // Find and read the ModuleInfo, saving its location
@@ -259,15 +295,17 @@ final class Resolver {
             throw new AssertionError("No ModuleInfo for " + mid
                                      + "; initial catalog " + cat.name());
 
-        // Check this module's permits constraints
-        //
+        // Find the supplying module view
         ModuleView smv = null;
         for (ModuleView mv : mi.views()) {
-            if (mv.id().equals(mid)) {
+            if (mv.id().equals(mid) || mv.aliases().contains(mid)) {
                 smv = mv;
                 break;
             }
         }
+        
+        // Check this module's permits constraints
+        //
         if (!permits(rmi, dep, smv)) {
             if (tracing)
                 trace(1, depth, "fail: permits %s", smv.permits());
@@ -279,10 +317,13 @@ final class Resolver {
         //
         String smn = mi.id().name();
         modules.add(mi);
-        
-        // add module views
+
+        // add module views to the map
         for (ModuleView mv : mi.views()) {
             moduleViewForName.put(mv.id().name(), mv);
+            for (ModuleId alias : mv.aliases()) {
+                moduleViewForName.put(alias.name(), mv);
+            }
         }
 
         // Save the module's location, if known
@@ -308,10 +349,10 @@ final class Resolver {
         Collections.reverse(dl);
         for (ViewDependence d : dl)
             ch = new Choice(mi, d, ch);
-        
+
         // Push an optional dependency onto the choice stack for each module
         // that is a potential supplier to this module.
-        // ## Include service implementations in remote repositories? 
+        // ## Include service implementations in remote repositories?
         //
         Set<ServiceDependence> serviceDeps = mi.requiresServices();
         if (!serviceDeps.isEmpty()) {
@@ -321,11 +362,11 @@ final class Resolver {
                 viewDeps = new ArrayList<>();
                 for (ServiceDependence sd: mi.requiresServices()) {
                     String sn = sd.service();
-                    for (ModuleId other: cat.listModuleIds()) { 
+                    for (ModuleId other: cat.listDeclaringModuleIds()) {
                         for (ModuleView view: cat.readModuleInfo(other).views()) {
-                            Set<String> providers = view.services().get(sn); 
+                            Set<String> providers = view.services().get(sn);
                             if (providers != null) {
-                                ModuleIdQuery q = 
+                                ModuleIdQuery q =
                                     new ModuleIdQuery(view.id().name(), null);
                                 ViewDependence vd =
                                     new ViewDependence(EnumSet.of(Modifier.OPTIONAL), q);
@@ -336,11 +377,11 @@ final class Resolver {
                 }
                 Collections.reverse(viewDeps);
                 synthesizedDeps.put(mi.id(), viewDeps);
-            }                
+            }
             for (ViewDependence vd: viewDeps)
-                ch = new Choice(mi, vd, ch);   
+                ch = new Choice(mi, vd, ch);
         }
-        
+
         // Recursively examine the next choice
         //
         if (!resolve(depth + 1, ch)) {
@@ -349,6 +390,9 @@ final class Resolver {
             modules.remove(mi);
             for (ModuleView mv : mi.views()) {
                 moduleViewForName.remove(mv.id().name());
+                for (ModuleId alias : mv.aliases()) {
+                    moduleViewForName.remove(alias.name());
+                }
             }
             if (ml != null)
                 locationForName.remove(smn);
@@ -375,20 +419,20 @@ final class Resolver {
             for (ModuleView view: mi.views()) {
                 Map<String,Set<String>> services = view.services();
                 serviceTypes.addAll(services.keySet());
-            }   
+            }
         }
         for (ModuleInfo mi: modules) {
             for (ServiceDependence sd: mi.requiresServices()) {
                 if (!sd.modifiers().contains((Modifier.OPTIONAL))) {
                     String sn = sd.service();
                     if (!serviceTypes.contains(sn)) {
-                        fail("No implementations of service %s, required by %s", 
+                        fail("No implementations of service %s, required by %s",
                              sn, mi.id());
                     }
 
                 }
             }
-        }    
+        }
     }
 
     private boolean run()
@@ -416,7 +460,7 @@ final class Resolver {
             fail("%s: Cannot resolve",
                  (rootQueries.size() == 1
                   ? rootQueries.iterator().next()
-                  : rootQueries)); 
+                  : rootQueries));
         return new Resolution(rootQueries, r.modules,
                               r.moduleViewForName,
                               r.locationForName,

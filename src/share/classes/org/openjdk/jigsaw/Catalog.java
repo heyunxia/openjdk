@@ -77,8 +77,8 @@ public abstract class Catalog {
 
     /**
      * <p> Gather the {@link java.lang.module.ModuleId ModuleIds} of the
-     * module views available locally in this catalog, ignoring any parent
-     * catalogs. </p>
+     * module views and aliases available locally in this catalog, 
+     * ignoring any parent catalogs. </p>
      *
      * @param  name
      *         The name of the module being sought; if {@code null} then all
@@ -91,8 +91,19 @@ public abstract class Catalog {
                                                  Set<ModuleId> mids)
         throws IOException;
     
+   /**
+     * <p> Gather the {@link java.lang.module.ModuleId ModuleIds} of all
+     * declaring modules available locally in this catalog, ignoring any parent
+     * catalogs. </p>
+     *
+     * @param  mids
+     *         A mutable set to which the gathered ids will be added
+     */
+    protected abstract void gatherLocalDeclaringModuleIds(Set<ModuleId> mids)
+        throws IOException;
+
     /**
-     * <p> List all of the module views present locally in this catalog,
+     * <p> List all of the module views and aliases present locally in this catalog,
      * without regard to any parent catalogs. </p>
      *
      * @return  The list of requested module ids, sorted in their natural
@@ -109,8 +120,8 @@ public abstract class Catalog {
     }
 
     /**
-     * <p> List all of the module views present in this catalog and in
-     * any parent catalogs. </p>
+     * <p> List all of the module views and aliases present in this catalog 
+     * and in any parent catalogs. </p>
      *
      * @return  The list of requested module ids, sorted in their natural
      *          order
@@ -118,20 +129,58 @@ public abstract class Catalog {
     public List<ModuleId> listModuleIds()
         throws IOException
     {
-        Set<ModuleId> mids = new HashSet<ModuleId>();
+        Set<ModuleId> mids = new HashSet<>();
         Catalog c = this;
         while (c != null) {
             c.gatherLocalModuleIds(null, mids);
             c = c.parent();
         }
-        List<ModuleId> rv = new ArrayList<ModuleId>(mids);
+        List<ModuleId> rv = new ArrayList<>(mids);
+        Collections.sort(rv);
+        return rv;
+    }
+    
+    /**
+     * <p> List all of the declaring modules present locally in this catalog,
+     * without regard to any parent catalogs. 
+     *
+     * @return  The list of requested module ids, sorted in their natural
+     *          order
+     */
+    public List<ModuleId> listLocalDeclaringModuleIds()
+        throws IOException
+    {
+        Set<ModuleId> mids = new HashSet<>();
+        gatherLocalDeclaringModuleIds(mids);
+        List<ModuleId> rv = new ArrayList<>(mids);
+        Collections.sort(rv);
+        return rv;
+    }
+    
+    /**
+     * <p> List all of the declaring modules present in this catalog and in
+     * any parent catalogs. </p>
+     *
+     * @return  The list of requested module ids, sorted in their natural
+     *          order
+     */
+    public List<ModuleId> listDeclaringModuleIds()
+        throws IOException
+    {
+        Set<ModuleId> mids = new HashSet<>();
+        Catalog c = this;
+        while (c != null) {
+            c.gatherLocalDeclaringModuleIds(mids);
+            c = c.parent();
+        }
+        List<ModuleId> rv = new ArrayList<>(mids);
         Collections.sort(rv);
         return rv;
     }
 
     /**
-     * <p> Find all module views with the given name in this catalog and in any
-     * parent catalogs. </p>
+     * <p> Find all module views and aliases with the given name in this catalog
+     * and in any parent catalogs. </p>
      *
      * @param   name
      *          The name of the modules being sought
@@ -155,8 +204,8 @@ public abstract class Catalog {
     }
 
     /**
-     * <p> Find all module views matching the given query in this catalog and
-     * in any parent catalogs. </p>
+     * <p> Find all module views and aliases matching the given query in this
+     * catalog and in any parent catalogs. </p>
      *
      * @param   midq
      *          The query to match against
@@ -249,40 +298,6 @@ public abstract class Catalog {
             ModuleInfo mi = c.readLocalModuleInfo(mid);
             if (mi != null)
                 return mi;
-            c = c.parent();
-        }
-        return null;
-    }
-    
-    /**
-     * <p> Find the {@link java.lang.module.ModuleView ModuleView} object for
-     * the module with the given identifier, in this catalog or in any parent
-     * catalogs. </p>
-     *
-     * @param   mid
-     *          The identifier of the module view being sought
-     *
-     * @return  The requested {@link java.lang.module.ModuleView ModuleView},
-     *          or {@code null} if no such module is present in this catalog
-     *
-     * @throws  IllegalArgumentException
-     *          If the given module identifier is not a Jigsaw module
-     *          identifier
-     */
-    public ModuleView readModuleView(ModuleId mid)
-        throws IOException
-    {
-        Catalog c = this;
-        while (c != null) {
-            ModuleInfo mi = c.readLocalModuleInfo(mid);
-            if (mi != null) {
-                for (ModuleView mv : mi.views()) {
-                    if (mv.id().equals(mid)) {
-                        return mv;
-                    }
-                }
-                throw new InternalError("Should not reach here");
-            }
             c = c.parent();
         }
         return null;

@@ -43,7 +43,7 @@ public abstract class RepositoryCatalog {
     private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
-    public abstract void gatherModuleIds(Set<ModuleId> mids)
+    public abstract void gatherDeclaringModuleIds(Set<ModuleId> mids)
         throws IOException;
     
     public abstract void gatherModuleIds(String moduleName, Set<ModuleId> mids)
@@ -93,7 +93,7 @@ public abstract class RepositoryCatalog {
         private Map<ModuleId,Entry> modules = new HashMap<>();
         private Map<ModuleId,ModuleId> moduleForViewId= new HashMap<>();
 
-        public void gatherModuleIds(Set<ModuleId> mids) {
+        public void gatherDeclaringModuleIds(Set<ModuleId> mids) {
             mids.addAll(modules.keySet());
         }
         
@@ -112,14 +112,19 @@ public abstract class RepositoryCatalog {
         public void add(Entry e) {
             ModuleInfo mi = jms.parseModuleInfo(e.mibs); // ## Need fast path
             modules.put(mi.id(), e);
-            for (ModuleView mv : mi.views())
+            for (ModuleView mv : mi.views()) {
                 moduleForViewId.put(mv.id(), mi.id());
+                for (ModuleId alias : mv.aliases()) {
+                    moduleForViewId.put(alias, mi.id());
+                }
+            }
         }
 
         public boolean remove(ModuleId mid) {
             for (Iterator<ModuleId> i = moduleForViewId.values().iterator();
                  i.hasNext();)
             {
+                // remove views/aliases defined in the module be removed
                 ModuleId id = i.next();
                 if (id.equals(mid)) {
                     i.remove();

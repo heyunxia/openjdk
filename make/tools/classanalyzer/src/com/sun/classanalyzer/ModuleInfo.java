@@ -279,7 +279,7 @@ public class ModuleInfo {
             sb.append(format(level, "view %s {%n", view.name));
         }
 
-        formatList(sb, level+1, "provides %s @ 8;%n", view.aliases());
+        formatList(sb, level+1, "provides %s;%n", view.aliases());
         if (view.mainClass() != null) {
             sb.append(format(level+1, "class %s;%n", view.mainClass()));
         }

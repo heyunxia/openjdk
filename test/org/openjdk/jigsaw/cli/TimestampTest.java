@@ -63,6 +63,7 @@ import org.openjdk.jigsaw.cli.Signer;
 public class TimestampTest {
     private static final String BASE_DIR = System.getProperty("test.src", ".");
     private static final String MNAME = "test.security";
+    private static final String ZLIB = "z.lib";
     private int port;
     private String[] jsignArgs = {
         "-v",
@@ -72,7 +73,7 @@ public class TimestampTest {
 
     private String[] jmodArgs = {
         "-L",
-        "z.lib",
+        ZLIB,
         "install",
         MNAME + "@0.1.jmod"
     };
@@ -83,8 +84,6 @@ public class TimestampTest {
         "jmod",
         MNAME
     };
-
-    private File moduleDir = new File("z.lib", MNAME);
 
     public static void main(String[] args) throws Exception {
         new TimestampTest().run();
@@ -110,20 +109,19 @@ public class TimestampTest {
     }
 
     void test() throws Exception {
-        Librarian.main(new String[] { "-L", "z.lib", "create" });
         testExpiredWithValidTimestamp();
         testNonExpiredWithValidTimestamp();
         testExpiredWithInvalidTimestamp();
     }
 
     void testNonExpiredWithValidTimestamp() throws Exception {
-        reset();
+        newLibrary();
         sign("signer", 0);
         install();
     }
 
     void testExpiredWithInvalidTimestamp() throws Exception {
-        reset();
+        newLibrary();
         sign("expired-signer", 0);
         try {
             install();
@@ -136,15 +134,18 @@ public class TimestampTest {
     }
 
     void testExpiredWithValidTimestamp() throws Exception {
-        reset();
+        newLibrary();
         sign("expired-signer", 1);
         install();
     }
 
-    void reset() {
-        if (moduleDir.exists())
-            if (!deleteAll(moduleDir))
-                throw new RuntimeException("FATAL: removal of " + moduleDir + " failed.");
+    void newLibrary() {
+        File zlib = new File(ZLIB);
+        if (zlib.exists()) {
+            if (!deleteAll(zlib))
+                throw new RuntimeException("FATAL: removal of " + zlib + " failed.");
+        }
+        Librarian.main(new String[]{"-L", ZLIB, "create"});
     }
 
     /**

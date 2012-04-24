@@ -102,9 +102,9 @@ public class Test {
             throw new RuntimeException("requires.length != 3");
         for (ViewDependence d : mi.requiresModules()) {
             String n = d.query().name();
-            if (n.startsWith("jdk")) continue;
+            if (n.startsWith("jdk") || n.startsWith("java.")) continue;
             if (!n.equals("org.astro") && !n.equals("test"))
-                throw new RuntimeException("Unexpected requires " + d);
+                throw new RuntimeException("Unexpected dependence:" + d);
         }
     }
 }

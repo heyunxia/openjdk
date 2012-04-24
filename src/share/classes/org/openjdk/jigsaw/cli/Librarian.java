@@ -273,6 +273,8 @@ public class Librarian {
         }
     }
 
+    // ## preinstall is used by jpkg for creating debian package.
+    // ## need to revisit this
     static class PreInstall extends Command<SimpleLibrary> {
         protected void go(SimpleLibrary lib)
             throws Command.Exception
@@ -462,6 +464,10 @@ public class Librarian {
         {
             finishArgs();
             try {
+                // refresh the module directory
+                lib.refresh();
+                
+                // refresh the repository catalog
                 RemoteRepositoryList rl = lib.repositoryList();
                 int n = 0;
                 for (RemoteRepository rr : rl.repositories()) {

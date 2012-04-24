@@ -84,6 +84,10 @@ final class Linker {
             for (ModuleView mv : mi.views()) {
                 ContextView cxv = new ContextView(this, mv);
                 views.put(mv.id().name(), cxv);
+                for (ModuleId alias : mv.aliases()) {
+                    views.put(alias.name(), cxv);
+                }
+
             }
         }
     }
@@ -293,7 +297,6 @@ final class Linker {
                         cx.reExportedSuppliers.add(scxv);
                     }
                 }
-                
                 
                 // Service suppliers
                 for (ServiceDependence sd : mi.requiresServices()) {

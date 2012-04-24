@@ -333,6 +333,12 @@ public class RemoteRepository
         catalog().gatherModuleIds(moduleName, mids);
     }
 
+    protected void gatherLocalDeclaringModuleIds(Set<ModuleId> mids)
+        throws IOException
+    {
+        catalog().gatherDeclaringModuleIds(mids);
+    }
+    
     protected ModuleInfo readLocalModuleInfo(ModuleId mid)
         throws IOException
     {
@@ -383,5 +389,4 @@ public class RemoteRepository
             x.addSuppressed(x2);
         }
     }
-
 }

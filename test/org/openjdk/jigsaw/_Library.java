@@ -50,12 +50,23 @@ public class _Library {
     private static <T> boolean eq(Collection<T> c1, Collection<T> c2) {
         return c1.containsAll(c2) && c2.containsAll(c1);
     }
-
+    
     private static void checkFooModuleInfo(ModuleInfo mi) {
         eq(mi.id().name(), "com.foo.bar");
         Version v = ms.parseVersion("1.2.3_04-5a");
         eq(mi.id().version(), v);
         eq(mi.id().version().toString(), v.toString());
+        eq(mi.defaultView().permits(), Arrays.asList("com.foo.buz", "com.oof.byz"));
+        eq(mi.defaultView().mainClass(), "com.foo.bar.Main");
+        
+        List<String> aliases = new ArrayList<>();
+        List<String> aliasNames = new ArrayList<>();
+        for (ModuleId mid : mi.defaultView().aliases()) {
+            aliases.add(mid.toString());
+            aliasNames.add(mid.name().toString());
+        }
+        eq(aliases, Arrays.asList("com.foo.baz@2.0", "com.foo.bez@3.4a-9"));
+        eq(aliasNames, Arrays.asList("com.foo.baz", "com.foo.bez"));
     }
 
     public static void main(String[] args)
@@ -83,8 +94,10 @@ public class _Library {
         lib = SimpleLibrary.open(libPath);
         int n = 0;
         for (ModuleId mid : lib.listLocalModuleIds()) {
-            checkFooModuleInfo(lib.readModuleInfo(mid));
-            n++;
+            ModuleInfo mi = lib.readModuleInfo(mid);
+            checkFooModuleInfo(mi);
+            if (mi.id().equals(mid))
+                n++;
         }
         if (n != 1)
             throw new RuntimeException("Wrong number of modules: " + n);

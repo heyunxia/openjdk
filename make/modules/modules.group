@@ -86,6 +86,7 @@ module jdk.base {
 }
 
 module jdk.instrument {
+    provides java.instrument;
     requires local jdk.base;
     include instrument;
 }
@@ -108,6 +109,7 @@ module jdk.instrument {
  */
 
 module jdk.desktop {
+    provides java.desktop;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
 
     include beans;
@@ -138,11 +140,13 @@ module jdk.desktop {
 // ## once we eliminate the Preferences implementation for Unix
 // ## to XML (currently stored as a XML file).
 module jdk.prefs {
+    provides java.prefs;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include prefs;
 }
 
 module jdk.management {
+    provides java.management;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include management;
 
@@ -172,6 +176,7 @@ module jdk.snmp {
 }
 
 module jdk.corba {
+    provides java.corba;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
 
     include corba;
@@ -202,11 +207,13 @@ module jdk.corba {
 }
 
 module jdk.jdbc {
+    provides java.jdbc;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include jdbc;
 }
 
 module jdk.jdbc.rowset {
+    provides java.jdbc.rowset;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include jdbc-rowset;
 }
@@ -232,11 +239,13 @@ module jdk.compat {
 
 // Deprecated APIs used by snmp
 module jdk.security.acl {
+    provides java.security.acl;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-acl;
 }
 
 module jdk.kerberos {
+    provides java.auth.kerberos;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-kerberos;
     include sun.auth.kerberos;
@@ -282,11 +291,12 @@ module jdk.sunmscapi {
 }
 
 module jdk.xmldsig {
+    provides javax.xmldsig;
     include security-xmldsig;
 }
 
-// ## TODO: make sun.security.smartcardio.** module-private
 module jdk.smartcardio {
+    provides javax.smartcardio;
     include security-smartcardio;
 }
 
@@ -304,6 +314,8 @@ module sun.xerces {
 }
 
 module jdk.jaxp {
+    provides javax.xml;
+
     // ## VM has an optimization to load classes directly 
     // ## from the null class loader; java.util.Properties fails
     // ## to load classes from this module if not local 
@@ -320,6 +332,8 @@ module jdk.jaxp {
 }
 
 module jdk.jndi {
+    provides javax.naming;
+
     requires local jdk.base;   // loaded by bootstrap class loader
     include jndi;
 
@@ -338,6 +352,8 @@ module jdk.cosnaming {
 }
 
 module jdk.rmi {
+    provides java.rmi;
+
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include rmi;
     include rmi-activation;
@@ -357,6 +373,7 @@ module jdk.rmi {
 }
 
 module jdk.auth {
+    provides java.auth;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-auth;
     include sun.callback.text;
@@ -367,6 +384,7 @@ module jdk.auth {
 }
 
 module jdk.tls {
+    provides java.tls;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-jsse;
 }
@@ -376,16 +394,19 @@ module jdk.deploy {
 }
 
 module jdk.jaxws {
+    provides javax.jaxws;
     include jaxws;
 }
 
 // standalone technology (JSR-250) 
 module jdk.jx.annotations {
+    provides javax.annotation;
     include common-annotations;
 }
 
 // standalone technology (JSR-223)
 module jdk.scripting {
+    provides javax.script;
     include scripting;
     include scripting-rhino;
 }
@@ -394,11 +415,13 @@ module jdk.scripting {
 // ## jigsaw resolver fails if any of its transitive dependencies
 // ## doesn't require jdk.boot
 module jdk.jta {
+    provides javax.transaction;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include jta;
 }
 
 module jdk.logging {
+    provides java.logging;
     requires local jdk.base;   // loaded by bootstrap class loader
     include logging;
     include tracing;

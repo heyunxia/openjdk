@@ -596,7 +596,7 @@ public class ModuleConfig {
                 for (String s : values.split(",")) {
                     s = s.trim();
                     if (s.length() > 0) {
-                        if (!classNamePattern.matcher(s).matches()) {
+                        if (!classNamePattern.matcher(s).matches() && !inProvides) {
                             throw new RuntimeException(file + ", line " +
                                     lineNumber + ", is malformed: \"" + s + "\"");
                         }

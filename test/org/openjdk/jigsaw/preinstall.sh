@@ -37,7 +37,12 @@ echo '<hello/>' >z.test/modules/x/foo/x.xml
 
 $BIN/jmod ${TESTTOOLVMOPTS} create -L z.lib
 $BIN/jmod ${TESTTOOLVMOPTS} preinstall -L z.lib z.test/modules z.pre x y
+
+# copy the preinstalled module content requiring a refresh
+# to update the module directory
 cp -r z.pre/* z.lib
+$BIN/jmod refresh -L z.lib
+
 # Need to truncate \r and \n on windows
 ms=`$BIN/jmod list -L z.lib | grep -v jdk@ | sort | tr -s '\r' '\n' | tr -s '\n' ' '`
 if [ "$ms" != "x@1 y@1 " ]; then

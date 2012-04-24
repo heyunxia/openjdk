@@ -48,10 +48,16 @@ public final class Launcher {
         if (mid == null)
             throw new Error(midq + ": No installed module"
                             + " satisfies this query");
-        ModuleView mv = lb.readModuleView(mid);
-        if (mv == null)
+        ModuleInfo mi = lb.readModuleInfo(mid);
+        if (mi == null)
             throw new InternalError(midq + ": Can't read module-info");
-        String cn = mv.mainClass();
+        String cn = null;
+        for (ModuleView mv : mi.views()) {
+            if (mv.id().equals(mid)) {
+                cn = mv.mainClass();
+                break;
+            }
+        }
         if (cn == null)
             throw new Error(mid + ": Module does not specify"
                             + " a main class");

@@ -28,6 +28,7 @@ package org.openjdk.jigsaw;
 import java.lang.module.*;
 import java.io.*;
 import java.net.URI;
+import java.nio.channels.FileChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.*;
@@ -37,6 +38,7 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 import static java.nio.file.StandardCopyOption.*;
+import static java.nio.file.StandardOpenOption.*;
 
 /**
  * A simple module library which stores data directly in the filesystem
@@ -233,6 +235,8 @@ public final class SimpleLibrary
     private final File configs;
     private final SimpleLibrary parent;
     private final Header hd;
+    private final ModuleDictionary moduleDictionary;
+    private final File lockf;
 
     public String name() { return root.toString(); }
     public File root() { return canonicalRoot; }
@@ -293,6 +297,9 @@ public final class SimpleLibrary
             new File(canonicalRoot, hd.natcmds().toString()).getCanonicalFile();
         configs = hd.configs() == null ? null :
             new File(canonicalRoot, hd.configs().toString()).getCanonicalFile();
+
+        lockf = new File(root, FileConstants.META_PREFIX + "lock");
+        moduleDictionary = new ModuleDictionary(root);
     }
 
     // Creates a new library
@@ -320,6 +327,11 @@ public final class SimpleLibrary
         hd = new Header(canonicalRoot, this.parentPath, relativize(this.natlibs),
                         relativize(this.natcmds), relativize(this.configs), opts);
         hd.store();
+
+        lockf = new File(root, FileConstants.META_PREFIX + "lock");
+        lockf.createNewFile();
+        moduleDictionary = new ModuleDictionary(canonicalRoot);
+        moduleDictionary.store();
     }
 
     public static SimpleLibrary create(File path, File parent, File natlibs,
@@ -684,40 +696,17 @@ public final class SimpleLibrary
         }
     }
 
-    private void gatherLocalModuleIds(File mnd, Set<ModuleId> mids)
-        throws IOException
-    {
-        if (!mnd.isDirectory())
-            throw new IOException(mnd + ": Not a directory");
-        if (!mnd.canRead())
-            throw new IOException(mnd + ": Not readable");
-        for (String v : mnd.list()) {
-            mids.add(jms.parseModuleId(mnd.getName(), v));
-        }
-    }
-
-    private void gatherLocalModuleIds(Set<ModuleId> mids)
-        throws IOException
-    {
-        File[] mnds = root.listFiles();
-        for (File mnd : mnds) {
-            if (mnd.getName().startsWith(FileConstants.META_PREFIX))
-                continue;
-            gatherLocalModuleIds(mnd, mids);
-        }
-    }
-
     protected void gatherLocalModuleIds(String moduleName,
                                         Set<ModuleId> mids)
         throws IOException
     {
-        if (moduleName == null) {
-            gatherLocalModuleIds(mids);
-            return;
-        }
-        File mnd = new File(root, moduleName);
-        if (mnd.exists())
-            gatherLocalModuleIds(mnd, mids);
+        moduleDictionary.gatherLocalModuleIds(moduleName, mids);
+    }
+
+    protected void gatherLocalDeclaringModuleIds(Set<ModuleId> mids)
+        throws IOException
+    {
+        mids.addAll(moduleDictionary.modules());
     }
 
     private void checkModuleId(ModuleId mid) {
@@ -728,13 +717,13 @@ public final class SimpleLibrary
             throw new IllegalArgumentException(mid + ": Not a Jigsaw module id");
     }
 
-    private File moduleDir(File root, ModuleId mid) {
+    private static File moduleDir(File root, ModuleId mid) {
         Version v = mid.version();
         String vs = (v != null) ? v.toString() : "default";
         return new File(new File(root, mid.name()), vs);
     }
 
-    private void checkModuleDir(File md)
+    private static void checkModuleDir(File md)
         throws IOException
     {
         if (!md.isDirectory())
@@ -743,96 +732,21 @@ public final class SimpleLibrary
             throw new IOException(md + ": Not readable");
     }
 
-    private File findModuleDir(ModuleId mid)
-        throws IOException
-    {
-        checkModuleId(mid);
-        File md = moduleDir(root, mid);
-        if (!md.exists())
-            return null;
-        checkModuleDir(md);
-
-        // mid may be a view or alias of a module
-        byte[] mib = Files.load(new File(md, "info"));
-        ModuleInfo mi = jms.parseModuleInfo(mib);
-        if (!mid.equals(mi.id())) {
-            md = moduleDir(root, mi.id());
-            if (!md.exists())
-                throw new IOException(mid + ": " + md + " does not exist");
-            checkModuleDir(md);
+    private File preinstallModuleDir(File dst, ModuleInfo mi) throws IOException {
+        File md = moduleDir(dst, mi.id());
+        if (md.exists()) {
+            Files.deleteTree(md);
+        }
+        if (!md.mkdirs()) {
+            throw new IOException(md + ": Cannot create");
         }
         return md;
     }
 
-    private File makeModuleDir(File root, ModuleInfo mi)
-        throws ConfigurationException, IOException
-    {
-        // view name is unique
-        for (ModuleView mv : mi.views()) {
-            File md = moduleDir(root, mv.id());
-            if (md.exists()) {
-                throw new ConfigurationException("module view " +
-                    mv.id() + " already installed");
-            }
-            if (!md.mkdirs()) {
-                throw new IOException(md + ": Cannot create");
-            }
-        }
-
-        return moduleDir(root, mi.id());
-    }
-
-    private void deleteModuleDir(File root, ModuleInfo mi)
-        throws IOException
-    {
-        // delete the default view and the module content
-        ModuleId mid = mi.defaultView().id();
-        File md = moduleDir(root, mid);
-        if (md.exists())
-            ModuleFile.Reader.remove(md);
-        // delete all views
-        for (ModuleView mv : mi.views()) {
-            md = moduleDir(root, mv.id());
-            if (md.exists()) {
-                Files.deleteTree(md);
-            }
-        }
-    }
-
-    private void deleteModuleDir(ModuleId mid)
-        throws IOException
-    {
-        checkModuleId(mid);
-        File md = moduleDir(root, mid);
-        if (!md.exists())
-            return;
-        checkModuleDir(md);
-
-        // mid may be a view or alias of a module
-        byte[] mib = Files.load(new File(md, "info"));
-        ModuleInfo mi = jms.parseModuleInfo(mib);
-        if (!mid.equals(mi.id())) {
-            throw new IOException(mi.id() + " found in the module directory for " + mid);
-        }
-        deleteModuleDir(root, mi);
-    }
-
-    private void copyModuleInfo(File root, ModuleInfo mi, byte[] mib)
-        throws IOException
-    {
-        for (ModuleView mv : mi.views()) {
-            if (mv.id().equals(mi.id())) {
-                continue;
-            }
-
-            File mvd = moduleDir(root, mv.id());
-            Files.store(mib, new File(mvd, "info"));
-        }
-    }
     public byte[] readLocalModuleInfoBytes(ModuleId mid)
         throws IOException
     {
-        File md = findModuleDir(mid);
+        File md = moduleDictionary.findDeclaringModuleDir(mid);
         if (md == null)
             return null;
         return Files.load(new File(md, "info"));
@@ -841,9 +755,10 @@ public final class SimpleLibrary
     public CodeSigner[] readLocalCodeSigners(ModuleId mid)
         throws IOException
     {
-        File md = findModuleDir(mid);
+        File md = moduleDictionary.findDeclaringModuleDir(mid);
         if (md == null)
             return null;
+
         // Only one signer is currently supported
         File f = new File(md, "signer");
         // ## concurrency issues : what is the expected behavior if file is
@@ -860,12 +775,13 @@ public final class SimpleLibrary
     private Object findContent(ModuleId mid)
         throws IOException
     {
-        Object o = contentForModule.get(mid);
+        ModuleId dmid = moduleDictionary.getDeclaringModule(mid);
+        Object o = contentForModule.get(dmid);
         if (o == NONE)
             return null;
         if (o != null)
             return o;
-        File md = findModuleDir(mid);
+        File md = moduleDictionary.findDeclaringModuleDir(dmid);
         if (md == null) {
             contentForModule.put(mid, NONE);
             return null;
@@ -949,7 +865,7 @@ public final class SimpleLibrary
     public List<String> listLocalClasses(ModuleId mid, boolean all)
         throws IOException
     {
-        File md = findModuleDir(mid);
+        File md = moduleDictionary.findDeclaringModuleDir(mid);
         if (md == null)
             return null;
         Index ix = Index.load(md);
@@ -965,10 +881,11 @@ public final class SimpleLibrary
     public Configuration<Context> readConfiguration(ModuleId mid)
         throws IOException
     {
-        File md = findModuleDir(mid);
+        File md = moduleDictionary.findDeclaringModuleDir(mid);
         if (md == null) {
-            if (parent != null)
+            if (parent != null) {
                 return parent.readConfiguration(mid);
+            }
             return null;
         }
         StoredConfiguration scf = StoredConfiguration.load(md);
@@ -996,7 +913,7 @@ public final class SimpleLibrary
         throws IOException
     {
 
-        File md = findModuleDir(mid);
+        File md = moduleDictionary.findDeclaringModuleDir(mid);
         if (md == null)
             throw new IllegalArgumentException(mid + ": No such module");
         File cd = new File(md, "classes");
@@ -1072,7 +989,7 @@ public final class SimpleLibrary
         return files;
     }
 
-    private void install(Manifest mf, File dst, boolean strip)
+    private ModuleId installWhileLocked(Manifest mf, File dst, boolean strip)
         throws IOException
     {
         if (mf.classes().size() > 1)
@@ -1103,31 +1020,29 @@ public final class SimpleLibrary
         String m = mi.id().name();
         JigsawVersion v = (JigsawVersion)mi.id().version();
         String vs = (v == null) ? "default" : v.toString();
-        deleteModuleDir(dst, mi);
 
-         // view name is unique
-        for (ModuleView mv : mi.views()) {
-            File md = moduleDir(dst, mv.id());
-            if (!md.mkdirs()) {
-                throw new IOException(md + ": Cannot create");
+        try {
+            File mdst;
+            if (dst.equals(root)) {
+                mdst = moduleDictionary.add(mi);
+            } else {
+                mdst = preinstallModuleDir(dst, mi);
             }
-        }
+            Files.store(bs, new File(mdst, "info"));
+            File cldst = new File(mdst, "classes");
 
-        File mdst = moduleDir(dst, mi.id());
-        Files.store(bs, new File(mdst, "info"));
-        File cldst = new File(mdst, "classes");
+            // Delete the config file, if one exists
+            StoredConfiguration.delete(mdst);
 
-        // Delete the config file, if one exists
-        StoredConfiguration.delete(mdst);
+            if (false) {
 
-        if (false) {
+                // ## Retained for now in case we later want to add an option
+                // ## to install into a tree rather than a zip file
 
-            // ## Retained for now in case we later want to add an option
-            // ## to install into a tree rather than a zip file
+                // Copy class files and build index
+                final Index ix = new Index(mdst);
+                Files.copyTree(src, cldst, new Files.Filter<File>() {
 
-            // Copy class files and build index
-            final Index ix = new Index(mdst);
-            Files.copyTree(src, cldst, new Files.Filter<File>() {
                     public boolean accept(File f) throws IOException {
                         if (f.isDirectory())
                             return true;
@@ -1136,49 +1051,82 @@ public final class SimpleLibrary
                         } else {
                             return true;
                         }
-                    }});
-            ix.store();
-        } else {
-            // Copy class/resource files and build index
-            Index ix = new Index(mdst);
-            Path srcPath = src.toPath();
-            List<Path> files = listFiles(srcPath);
+                    }
+                });
+                ix.store();
+            } else {
+                // Copy class/resource files and build index
+                Index ix = new Index(mdst);
+                Path srcPath = src.toPath();
+                List<Path> files = listFiles(srcPath);
 
-            if (!files.isEmpty()) {
-                try (FileOutputStream fos = new FileOutputStream(new File(mdst, "classes"));
-                     JarOutputStream jos = new JarOutputStream(new BufferedOutputStream(fos)))
-                {
-                    boolean deflate = isDeflated();
-                    for (Path path : files) {
-                        File file = path.toFile();
-                        String jp = Files.convertSeparator(srcPath.relativize(path).toString());
-                        try (OutputStream out = Files.newOutputStream(jos, deflate, jp)) {
-                            java.nio.file.Files.copy(path, out);
+                if (!files.isEmpty()) {
+                    try (FileOutputStream fos = new FileOutputStream(new File(mdst, "classes"));
+                         JarOutputStream jos = new JarOutputStream(new BufferedOutputStream(fos)))
+                    {
+                        boolean deflate = isDeflated();
+                        for (Path path : files) {
+                            File file = path.toFile();
+                            String jp = Files.convertSeparator(srcPath.relativize(path).toString());
+                            try (OutputStream out = Files.newOutputStream(jos, deflate, jp)) {
+                                java.nio.file.Files.copy(path, out);
+                            }
+                            if (file.getName().endsWith(".class"))
+                                addToIndex(ClassInfo.read(file), ix);
                         }
-                        if (file.getName().endsWith(".class"))
-                            addToIndex(ClassInfo.read(file), ix);
                     }
                 }
+                ix.store();
+                if (strip) {
+                    strip(mdst);
+                }
             }
-            ix.store();
-            copyModuleInfo(dst, mi, bs);
-            if (strip)
-                strip(mdst);
+        } catch (ConfigurationException x) {
+            // module already exists
+            throw new IOException(x);
+        } catch (IOException x) {
+            try {
+                moduleDictionary.remove(mi);
+            } catch (IOException y) {
+                x.addSuppressed(y);
+            }
+            throw x;
         }
-    }
-
-    private void install(Collection<Manifest> mfs, File dst, boolean strip)
-        throws IOException
-    {
-        for (Manifest mf : mfs)
-            install(mf, dst, strip);
+        return mi.id();
     }
 
     public void installFromManifests(Collection<Manifest> mfs, boolean strip)
         throws ConfigurationException, IOException
     {
-        install(mfs, root, strip);
-        configure(null);
+        boolean complete = false;
+        List<ModuleId> mids = new ArrayList<>();
+        FileChannel fc = FileChannel.open(lockf.toPath(), WRITE);
+        try {
+            fc.lock();
+            moduleDictionary.load();
+            for (Manifest mf : mfs) {
+                mids.add(installWhileLocked(mf, root, strip));
+            }
+            configureWhileModuleDirectoryLocked(null);
+            complete = true;
+        } catch (ConfigurationException | IOException x) {
+            try {
+                for (ModuleId mid : mids) {
+                    ModuleInfo mi = readLocalModuleInfo(mid);
+                    if (mi != null) {
+                        moduleDictionary.remove(mi);
+                    }
+                }
+            } catch (IOException y) {
+                x.addSuppressed(y);
+            }
+            throw x;
+        } finally {
+            if (complete) {
+                moduleDictionary.store();
+            }
+            fc.close();
+        }
     }
 
     @Override
@@ -1189,7 +1137,7 @@ public final class SimpleLibrary
     }
 
     private ModuleFileVerifier.Parameters mfvParams;
-    private ModuleId install(InputStream is, boolean verifySignature, boolean strip)
+    private ModuleId installWhileLocked(InputStream is, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
         BufferedInputStream bin = new BufferedInputStream(is);
@@ -1198,7 +1146,7 @@ public final class SimpleLibrary
         try (ModuleFile.Reader mr = new ModuleFile.Reader(in)) {
             byte[] mib = mr.readStart();
             mi = jms.parseModuleInfo(mib);
-            File md = makeModuleDir(root, mi);
+            File md = moduleDictionary.add(mi);
             if (verifySignature && mr.hasSignature()) {
                 ModuleFileVerifier mfv = new SignedModule.PKCS7Verifier(mr);
                 if (mfvParams == null) {
@@ -1228,17 +1176,14 @@ public final class SimpleLibrary
                 strip(md);
             reIndex(mi.id());         // ## Could do this while reading module file
 
-            // copy module-info.class to each view
-            copyModuleInfo(root, mi, mib);
             return mi.id();
 
-        } catch (IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException x) {
             if (mi != null) {
                 try {
-                    deleteModuleDir(root, mi);
+                    moduleDictionary.remove(mi);
                 } catch (IOException y) {
-                    y.initCause(x);
-                    throw y;
+                    x.addSuppressed(y);
                 }
             }
             throw x;
@@ -1254,7 +1199,7 @@ public final class SimpleLibrary
             if (mi == null)
                 throw new ConfigurationException(mf + ": not a modular JAR file");
 
-            File md = makeModuleDir(root, mi);
+            File md = moduleDictionary.add(mi);
             ModuleId mid = mi.id();
 
             boolean signed = false;
@@ -1300,17 +1245,13 @@ public final class SimpleLibrary
                 strip(md);
             reIndex(mid);
 
-            // copy module-info.class to each view
-            byte[] mib = java.nio.file.Files.readAllBytes(md.toPath().resolve("info"));
-            copyModuleInfo(root, mi, mib);
             return mid;
-        } catch (IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException x) {
             if (mi != null) {
                 try {
-                    deleteModuleDir(root, mi);
+                    moduleDictionary.remove(mi);
                 } catch (IOException y) {
-                    y.initCause(x);
-                    throw y;
+                    x.addSuppressed(y);
                 }
             }
             throw x;
@@ -1402,7 +1343,7 @@ public final class SimpleLibrary
         }
     }
 
-    private ModuleId install(File mf, boolean verifySignature, boolean strip)
+    private ModuleId installWhileLocked(File mf, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
         if (mf.getName().endsWith(".jar"))
@@ -1410,7 +1351,7 @@ public final class SimpleLibrary
         else {
             // Assume jmod file
             try (FileInputStream in = new FileInputStream(mf)) {
-                return install(in, verifySignature, strip);
+                return installWhileLocked(in, verifySignature, strip);
             }
         }
     }
@@ -1420,26 +1361,31 @@ public final class SimpleLibrary
     {
         List<ModuleId> mids = new ArrayList<>();
         boolean complete = false;
-        Throwable ox = null;
+        FileChannel fc = FileChannel.open(lockf.toPath(), WRITE);
         try {
+            fc.lock();
+            moduleDictionary.load();
             for (File mf : mfs)
-                mids.add(install(mf, verifySignature, strip));
-            configure(mids);
+                mids.add(installWhileLocked(mf, verifySignature, strip));
+            configureWhileModuleDirectoryLocked(mids);
             complete = true;
-        } catch (IOException|ConfigurationException x) {
-            ox = x;
+        } catch (ConfigurationException | IOException | SignatureException x) {
+            try {
+                for (ModuleId mid : mids) {
+                    ModuleInfo mi = readLocalModuleInfo(mid);
+                    if (mi != null) {
+                        moduleDictionary.remove(mi);
+                    }
+                }
+            } catch (IOException y) {
+                x.addSuppressed(y);
+            }
             throw x;
         } finally {
-            if (!complete) {
-                try {
-                    for (ModuleId mid : mids)
-                        deleteModuleDir(mid);
-                } catch (IOException x) {
-                    if (ox != null)
-                        x.initCause(ox);
-                    throw x;
-                }
+            if (complete) {
+                moduleDictionary.store();
             }
+            fc.close();
         }
     }
 
@@ -1455,40 +1401,68 @@ public final class SimpleLibrary
     public Resolution resolve(Collection<ModuleIdQuery> midqs)
         throws ConfigurationException, IOException
     {
-        return Resolver.run(this, midqs);
+        try (FileChannel fc = FileChannel.open(lockf.toPath(), WRITE)) {
+            fc.lock();
+            return Resolver.run(this, midqs);
+        }
     }
 
     public void install(Resolution res, boolean verifySignature, boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
-        // ## Handle case of installing multiple root modules
-        assert res.rootQueries.size() == 1;
-        ModuleIdQuery midq = res.rootQueries.iterator().next();
-        ModuleInfo root = null;
-        for (String mn : res.moduleViewForName.keySet()) {
-            ModuleView mv = res.moduleViewForName.get(mn);
-            if (midq.matches(mv.id())) {
-                root = mv.moduleInfo();
-                break;
+        boolean complete = false;
+        FileChannel fc = FileChannel.open(lockf.toPath(), WRITE);
+        try {
+            fc.lock();
+            moduleDictionary.load();
+
+            // ## Handle case of installing multiple root modules
+            assert res.rootQueries.size() == 1;
+            ModuleIdQuery midq = res.rootQueries.iterator().next();
+            ModuleInfo root = null;
+            for (String mn : res.moduleViewForName.keySet()) {
+                ModuleView mv = res.moduleViewForName.get(mn);
+                if (midq.matches(mv.id())) {
+                    root = mv.moduleInfo();
+                    break;
+                }
             }
-        }
-        assert root != null;
+            assert root != null;
 
-        // Download
-        //
-        for (ModuleId mid : res.modulesNeeded()) {
-            URI u = res.locationForName.get(mid.name());
-            assert u != null;
-            RemoteRepository rr = repositoryList().firstRepository();
-            assert rr != null;
-            install(rr.fetch(mid), verifySignature, strip);
-            res.locationForName.put(mid.name(), location());
-            // ## If something goes wrong, delete all our modules
-        }
+            // Download
+            //
+            for (ModuleId mid : res.modulesNeeded()) {
+                URI u = res.locationForName.get(mid.name());
+                assert u != null;
+                RemoteRepository rr = repositoryList().firstRepository();
+                assert rr != null;
+                installWhileLocked(rr.fetch(mid), verifySignature, strip);
+                res.locationForName.put(mid.name(), location());
+                // ## If something goes wrong, delete all our modules
+            }
 
-        // Configure
-        //
-       configure(res.modulesNeeded());
+            // Configure
+            //
+            configureWhileModuleDirectoryLocked(res.modulesNeeded());
+            complete = true;
+        } catch (ConfigurationException | IOException | SignatureException x) {
+            try {
+                for (ModuleId mid : res.modulesNeeded()) {
+                    ModuleInfo mi = readLocalModuleInfo(mid);
+                    if (mi != null) {
+                        moduleDictionary.remove(mi);
+                    }
+                }
+            } catch (IOException y) {
+                x.addSuppressed(y);
+            }
+            throw x;
+        } finally {
+            if (complete) {
+                moduleDictionary.store();
+            }
+            fc.close();
+        }
     }
 
     @Override
@@ -1519,13 +1493,30 @@ public final class SimpleLibrary
         throws IOException
     {
         Files.mkdirs(dst, "module destination");
-        install(mfs, dst, false);
+        try (FileChannel fc = FileChannel.open(lockf.toPath(), WRITE)) {
+            fc.lock();
+            for (Manifest mf : mfs) {
+                installWhileLocked(mf, dst, false);
+            }
+            // no update to the module directory
+        }
     }
 
     public void preInstall(Manifest mf, File dst)
         throws IOException
     {
         preInstall(Collections.singleton(mf), dst);
+    }
+
+    /**
+     * Refresh the module library.
+     */
+    public void refresh() throws IOException {
+        try (FileChannel fc = FileChannel.open(lockf.toPath(), WRITE)) {
+            fc.lock();
+            moduleDictionary.refresh();
+            moduleDictionary.store();
+        }
     }
 
     /**
@@ -1541,20 +1532,35 @@ public final class SimpleLibrary
     public void configure(Collection<ModuleId> mids)
         throws ConfigurationException, IOException
     {
+        try (FileChannel fc = FileChannel.open(lockf.toPath(), WRITE)) {
+            fc.lock();
+            configureWhileModuleDirectoryLocked(mids);
+        }
+    }
+
+    private void configureWhileModuleDirectoryLocked(Collection<ModuleId> mids)
+        throws ConfigurationException, IOException
+    {
         // ## mids not used yet
         List<ModuleId> roots = new ArrayList<>();
-        for (ModuleView mv : listLocalRootModuleViews()) {
+        for (ModuleId mid : listLocalDeclaringModuleIds()) {
             // each module can have multiple entry points
             // only configure once for each module.
-            if (!roots.contains(mv.moduleInfo().id()))
-                roots.add(mv.moduleInfo().id());
+            ModuleInfo mi = readModuleInfo(mid);
+            for (ModuleView mv : mi.views()) {
+                if (mv.mainClass() != null) {
+                    roots.add(mid);
+                    break;
+                }
+            }
         }
 
         for (ModuleId mid : roots) {
             // ## We could be a lot more clever about this!
             Configuration<Context> cf
                 = Configurator.configure(this, mid.toQuery());
-            new StoredConfiguration(findModuleDir(mid), cf).store();
+            File md = moduleDictionary.findDeclaringModuleDir(mid);
+            new StoredConfiguration(md, cf).store();
         }
     }
 
@@ -1569,7 +1575,7 @@ public final class SimpleLibrary
     {
         File f = natlibs();
         if (f == null) {
-            f = findModuleDir(mid);
+            f = moduleDictionary.findDeclaringModuleDir(mid);
             if (f == null)
                 return null;
             f = new File(f, "lib");
@@ -1583,7 +1589,7 @@ public final class SimpleLibrary
     public File classPath(ModuleId mid)
         throws IOException
     {
-        File md = findModuleDir(mid);
+        File md = moduleDictionary.findDeclaringModuleDir(mid);
         if (md == null) {
             if (parent != null)
                 return parent.classPath(mid);
@@ -1614,6 +1620,247 @@ public final class SimpleLibrary
         configure(mids);
     }
 
+    private static final class ModuleDictionary
+    {
+        private static final String FILE
+            = FileConstants.META_PREFIX + "mids";
+
+        private static final int MAJOR_VERSION = 0;
+        private static final int MINOR_VERSION = 0;
+
+        private final File root;
+        private final File file;
+        private Map<String,Set<ModuleId>> moduleIdsForName;
+        private Map<ModuleId,ModuleId> providingModuleIds;
+        private Set<ModuleId> modules;
+        private long lastUpdated;
+
+        ModuleDictionary(File root) {
+            this.root = root;
+            this.file = new File(root, FileConstants.META_PREFIX + "mids");
+            this.providingModuleIds = new LinkedHashMap<>();
+            this.moduleIdsForName = new LinkedHashMap<>();
+            this.modules = new HashSet<>();
+            this.lastUpdated = -1;
+        }
+
+        private static FileHeader fileHeader() {
+            return (new FileHeader()
+                    .type(FileConstants.Type.LIBRARY_MODULE_IDS)
+                    .majorVersion(MAJOR_VERSION)
+                    .minorVersion(MINOR_VERSION));
+        }
+
+        void load() throws IOException {
+            if (lastUpdated == file.lastModified())
+                return;
+
+            providingModuleIds = new LinkedHashMap<>();
+            moduleIdsForName = new LinkedHashMap<>();
+            modules = new HashSet<>();
+            lastUpdated = file.lastModified();
+
+            try (FileInputStream fin = new FileInputStream(file);
+                 DataInputStream in = new DataInputStream(new BufferedInputStream(fin)))
+            {
+                FileHeader fh = fileHeader();
+                fh.read(in);
+                int nMids = in.readInt();
+                for (int j = 0; j < nMids; j++) {
+                    ModuleId mid = jms.parseModuleId(in.readUTF());
+                    ModuleId pmid = jms.parseModuleId(in.readUTF());
+                    providingModuleIds.put(mid, pmid);
+                    addModuleId(mid);
+                    addModuleId(pmid);
+                    if (mid.equals(pmid))
+                        modules.add(mid);
+                }
+            }
+        }
+
+        void store() throws IOException {
+            File newfn = new File(root, "mids.new");
+            FileOutputStream fout = new FileOutputStream(newfn);
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(fout));
+            try {
+                try {
+                    fileHeader().write(out);
+                    out.writeInt(providingModuleIds.size());
+                    for (Map.Entry<ModuleId, ModuleId> e : providingModuleIds.entrySet()) {
+                        out.writeUTF(e.getKey().toString());
+                        out.writeUTF(e.getValue().toString());
+                    }
+                } finally {
+                    out.close();
+                }
+            } catch (IOException x) {
+                newfn.delete();
+                throw x;
+            }
+            java.nio.file.Files.move(newfn.toPath(), file.toPath(), ATOMIC_MOVE);
+        }
+
+        void gatherLocalModuleIds(String moduleName, Set<ModuleId> mids)
+                throws IOException
+        {
+            if (lastUpdated != file.lastModified())
+                load();
+
+            if (moduleName == null) {
+                mids.addAll(providingModuleIds.keySet());
+            } else {
+                Set<ModuleId> res = moduleIdsForName.get(moduleName);
+                if (res != null)
+                    mids.addAll(res);
+            }
+        }
+
+        ModuleId getDeclaringModule(ModuleId mid) throws IOException {
+            if (lastUpdated != file.lastModified())
+                load();
+
+            ModuleId pmid = providingModuleIds.get(mid);
+            if (pmid != null && !pmid.equals(providingModuleIds.get(pmid))) {
+                // mid is an alias
+                pmid = providingModuleIds.get(pmid);
+            }
+            return pmid;
+        }
+
+        File findDeclaringModuleDir(ModuleId mid)
+                throws IOException
+        {
+            ModuleId dmid = getDeclaringModule(mid);
+            if (dmid == null)
+                return null;
+
+            File md = moduleDir(root, dmid);
+            assert md.exists();
+            checkModuleDir(md);
+            return md;
+        }
+
+        Set<ModuleId> modules() throws IOException {
+            if (lastUpdated != file.lastModified())
+                load();
+            return modules;
+        }
+
+        void addModuleId(ModuleId mid) {
+            Set<ModuleId> mids = moduleIdsForName.get(mid.name());
+            if (mids == null) {
+                mids = new HashSet<>();
+                moduleIdsForName.put(mid.name(), mids);
+            }
+            mids.add(mid);
+        }
+
+        File add(ModuleInfo mi)
+                throws ConfigurationException, IOException
+        {
+            File md = ensureNewModule(mi);
+            addToDirectory(mi);
+            return md;
+        }
+
+        private void addToDirectory(ModuleInfo mi) {
+            modules.add(mi.id());
+            for (ModuleView view : mi.views()) {
+                providingModuleIds.put(view.id(), mi.id());
+                addModuleId(view.id());
+                for (ModuleId alias : view.aliases()) {
+                    providingModuleIds.put(alias, view.id());
+                    addModuleId(alias);
+                }
+            }
+        }
+
+        void remove(ModuleInfo mi) throws IOException {
+            modules.remove(mi.id());
+            for (ModuleView view : mi.views()) {
+                providingModuleIds.remove(view.id());
+                Set<ModuleId> mids = moduleIdsForName.get(view.id().name());
+                if (mids != null)
+                    mids.remove(view.id());
+                for (ModuleId alias : view.aliases()) {
+                    providingModuleIds.remove(alias);
+                    mids = moduleIdsForName.get(alias.name());
+                    if (mids != null)
+                        mids.remove(view.id());
+                }
+            }
+            File md = moduleDir(root, mi.id());
+            delete(md);
+        }
+
+        private void delete(File md) throws IOException {
+            if (!md.exists())
+                return;
+
+            checkModuleDir(md);
+            ModuleFile.Reader.remove(md);
+            File parent = md.getParentFile();
+            if (parent.list().length == 0)
+                parent.delete();
+        }
+        
+        void refresh() throws IOException {
+            providingModuleIds = new LinkedHashMap<>();
+            moduleIdsForName = new LinkedHashMap<>();
+            modules = new HashSet<>();
+
+            try (DirectoryStream<Path> ds = java.nio.file.Files.newDirectoryStream(root.toPath())) {
+                for (Path mnp : ds) {
+                    String mn = mnp.toFile().getName();
+                    if (mn.startsWith(FileConstants.META_PREFIX)) {
+                        continue;
+                    }
+
+                    try (DirectoryStream<Path> mds = java.nio.file.Files.newDirectoryStream(mnp)) {
+                        for (Path versionp : mds) {
+                            File v = versionp.toFile();
+                            if (!v.isDirectory()) {
+                                throw new IOException(versionp + ": Not a directory");
+                            }
+                            modules.add(jms.parseModuleId(mn, v.getName()));
+                        }
+                    }
+                }
+            }
+            for (ModuleId mid : modules) {
+                byte[] bs = Files.load(new File(moduleDir(root, mid), "info"));
+                ModuleInfo mi = jms.parseModuleInfo(bs);
+                addToDirectory(mi);
+            }
+        }
+
+        private File ensureNewModule(ModuleInfo mi)
+                throws ConfigurationException, IOException
+        {
+            for (ModuleView view : mi.views()) {
+                if (providingModuleIds.containsKey(view.id())) {
+                    throw new ConfigurationException("module view " + view.id()
+                            + " already installed");
+                }
+                for (ModuleId alias : view.aliases()) {
+                    ModuleId mid = alias;
+                    if (providingModuleIds.containsKey(mid)) {
+                        throw new ConfigurationException("alias " + alias
+                                + " already installed");
+                    }
+                }
+            }
+            File md = moduleDir(root, mi.id());
+            if (md.exists()) {
+                throw new ConfigurationException("module " + mi.id()
+                        + " already installed");
+            }
+            if (!md.mkdirs()) {
+                throw new IOException(md + ": Cannot create");
+            }
+            return md;
+        }
+    }
 
     // -- Repositories --
 

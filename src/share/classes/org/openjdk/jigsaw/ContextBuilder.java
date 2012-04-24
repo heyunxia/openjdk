@@ -104,6 +104,13 @@ final class ContextBuilder<Cx extends BaseContext> {
     private Map<String,Cx> contextForModuleView
         = new HashMap<>();
     
+    private void addContextForModuleView(Cx cx, ModuleView mv) {
+        contextForModuleView.put(mv.id().name(), cx);
+        for (ModuleId alias : mv.aliases()) {
+            contextForModuleView.put(alias.name(), cx);
+        }
+    }
+    
     // Add the given module view to the given context, or create a new context for
     // that module view if none is given, and then add all the other modules in the
     // module's locally-connected component to the same context
@@ -135,9 +142,9 @@ final class ContextBuilder<Cx extends BaseContext> {
                     ((Context) cx).putLibraryPathForModule(mi.id(), new File(lp));
                 }
             }
-            contextForModuleView.put(mi.id().name(), cx);
+            addContextForModuleView(cx, mi.defaultView());
         }
-        contextForModuleView.put(mv.id().name(), cx);
+        addContextForModuleView(cx, mv);
 
         // Forward edges
         for (ViewDependence d : mi.requiresModules()) {
@@ -211,7 +218,6 @@ final class ContextBuilder<Cx extends BaseContext> {
         Set<Cx> rehashedContexts = new HashSet<>(cb.contexts);
         return new ContextSet<Cx>(res, rehashedContexts,
                                   cb.contextForModuleView);
-
     }
 
 }
