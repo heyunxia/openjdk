@@ -73,9 +73,10 @@ import com.sun.tools.javac.util.Name;
 public class JavacCatalog  extends Catalog {
     final JigsawModuleSystem jigsaw;
     final Library library;
-
+    
     private Map<String, Map<Version, ModuleSymbol>> moduleMap =
             new HashMap<String, Map<Version, ModuleSymbol>>();
+    private Version nullVersion;   // used in the moduleMap
 
     boolean DEBUG = (System.getProperty("javac.debug.modules") != null);
     void DEBUG(String s) {
@@ -85,6 +86,7 @@ public class JavacCatalog  extends Catalog {
 
     JavacCatalog(File library) throws IOException/*FIXME*/ {
         jigsaw = JigsawModuleSystem.instance();
+        nullVersion = jigsaw.parseVersion("0");
         if (library == null)
             this.library = Library.openSystemLibrary();
         else
@@ -101,7 +103,7 @@ public class JavacCatalog  extends Catalog {
     public Catalog parent() {
         return library;
     }
-
+    
     void init(Iterable<? extends ModuleElement> modules) {
         DEBUG("JavacCatalog.init: " + modules);
         for (ModuleElement me: modules) {
@@ -113,21 +115,24 @@ public class JavacCatalog  extends Catalog {
                     addModule(v.name, msym.version, msym);
                 }
                 for (ProvidesModuleDirective d: v.getAliases()) {
-                    com.sun.tools.javac.code.ModuleId mid = d.moduleId;
-                    addModule(mid.name, mid.version, msym);
+                    com.sun.tools.javac.code.ModuleId alias = d.moduleId;
+                    addModule(alias.name, alias.version, msym);
                 }
             }
         }
         DEBUG("JavacCatalog.init: map:" + moduleMap);
     }
-
+    
     private void addModule(Name name, Name version, ModuleSymbol msym) {
         String n = name.toString();
         Version v = getVersion(version);
         Map<Version,ModuleSymbol> map = moduleMap.get(n);
         if (map == null)
             moduleMap.put(n, map = new HashMap<Version,ModuleSymbol>());
-        map.put(v, msym);
+        if (v != null)
+            map.put(v, msym);
+        else
+            map.put(nullVersion, msym);
     }
 
     @Override
@@ -146,6 +151,17 @@ public class JavacCatalog  extends Catalog {
         DEBUG("JavacCatalog.gatherLocalModuleIds: moduleName:" + moduleName + "--" + mids);
     }
     
+    protected void gatherLocalDeclaringModuleIds(Set<ModuleId> mids) throws IOException {
+        DEBUG("JavacCatalog.gatherLocalDeclaringModuleIds");
+        for (Map<Version,ModuleSymbol> map : moduleMap.values()) {
+            for (ModuleSymbol sym : map.values()) {
+                ModuleId mid = getModuleId(sym);
+                mids.add(mid);
+            }
+        }
+        DEBUG("JavacCatalog.gatherLocalDeclaringModuleIds: " + "--" + mids);
+    }
+    
     // add all ModuleIds of the given name
     private void addModuleIds(Map<Version,ModuleSymbol> map,
                               String mn, Set<ModuleId> mids) {
@@ -155,11 +171,15 @@ public class JavacCatalog  extends Catalog {
                 mids.add(mid);
             }
             for (ViewDeclaration v : sym.getViews()) {
-                if (v.name == null)
-                    continue;
-                
-                if (mn == null || mn.equals(v.name.toString())) {
-                    mids.add(getModuleId(v.name, sym.version));
+                Name n = v.name == null ? sym.fullname : v.name;
+                if (mn == null || mn.equals(n.toString())) {
+                    mid = getModuleId(n, sym.version);
+                    if (!mids.contains(mid))
+                        mids.add(mid);
+                }
+
+                for (ProvidesModuleDirective d : v.getAliases()) {
+                    mids.add(getModuleId(d.moduleId));
                 }
             }
         }
@@ -190,7 +210,9 @@ public class JavacCatalog  extends Catalog {
 //
     ModuleSymbol getModuleSymbol(ModuleId mid) {
         Map<Version,ModuleSymbol> map = moduleMap.get(mid.name());
-        return (map == null) ? null : map.get(mid.version());
+        if (map == null)
+            return null;
+        return (mid.version() == null) ? map.get(nullVersion) : map.get(mid.version());
     }
 
     Version getVersion(Name v) {

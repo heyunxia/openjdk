@@ -279,7 +279,7 @@ public class Names {
         java_lang = fromString("java.lang");
 
         // module names
-        java_base = fromString("jdk.base");   // FIXME: update when alias support working
+        java_base = fromString("java.base");
         jdk_legacy = fromString("jdk");       // FIXME: update when alias support working
 
         // attribute names
