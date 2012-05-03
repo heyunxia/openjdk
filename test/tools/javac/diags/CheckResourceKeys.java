@@ -273,7 +273,9 @@ public class CheckResourceKeys {
             "compiler.misc.",
             "count.",
             "illegal.",
+            "java.",
             "javac.",
+            "javac.debug.modules",
             "verbose."
     ));
 

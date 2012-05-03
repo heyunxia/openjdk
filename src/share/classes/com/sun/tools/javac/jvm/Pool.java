@@ -28,6 +28,7 @@ package com.sun.tools.javac.jvm;
 import java.util.*;
 
 import com.sun.tools.javac.code.Symbol.*;
+import com.sun.tools.javac.util.Assert;
 
 /** An internal structure that corresponds to the constant pool of a classfile.
  *
@@ -96,6 +97,7 @@ public class Pool {
      *  package.  Return the object's index in the pool.
      */
     public int put(Object value) {
+        Assert.checkNonNull(value);
         if (value instanceof MethodSymbol)
             value = new Method((MethodSymbol)value);
         else if (value instanceof VarSymbol)

@@ -3,7 +3,7 @@
  * @bug 6199153
  * @summary Generic throws and overriding
  * @author  mcimadamore
- * @compile/fail/ref=T6199153.out -Xlint -Werror -XDrawDiagnostics T6199153.java
+ * @compile/fail/ref=T6199153.out -Xlint:all,-path -Werror -XDrawDiagnostics T6199153.java
  */
 
 import java.io.IOException;

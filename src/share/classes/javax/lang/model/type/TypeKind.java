@@ -134,6 +134,12 @@ public enum TypeKind {
     EXECUTABLE,
 
     /**
+     * A pseudo-type corresponding to a module element.
+     * @see NoType
+     */
+    MODULE,
+
+    /**
      * An implementation-reserved type.
      * This is not the type you are looking for.
      */

@@ -32,6 +32,8 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
 
+import javax.tools.JavaFileManager.Location;
+
 /**
  * File abstraction for tools.  In this context, <em>file</em> means
  * an abstraction of regular files and other sources of data.  For
@@ -49,6 +51,12 @@ import java.net.URI;
  * @since 1.6
  */
 public interface FileObject {
+    /**
+     * Interface to be provided by file objects that can return their location.
+     */
+    interface Locatable {
+        Location getLocation();
+    }
 
     /**
      * Returns a URI identifying this file object.

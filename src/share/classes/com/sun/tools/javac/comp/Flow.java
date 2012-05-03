@@ -1740,6 +1740,10 @@ public class Flow {
             unrefdResources.remove(sym);
         }
 
+    public void visitModuleDef(JCModuleDecl tree) {
+        // Do nothing for modules
+    }
+
         public void visitTopLevel(JCCompilationUnit tree) {
             // Do nothing for TopLevel since each class is visited individually
         }

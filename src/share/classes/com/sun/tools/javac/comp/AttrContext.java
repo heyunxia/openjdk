@@ -58,11 +58,11 @@ public class AttrContext {
      */
     boolean varArgs = false;
 
-    /** A list of type variables that are all-quantifed in current context.
+    /** A list of type variables that are all-quantified in current context.
      */
     List<Type> tvars = List.nil();
 
-    /** A record of the lint/SuppressWarnings currently in effect
+    /** A record of the lint/SuppressWarnings currently in effect.
      */
     Lint lint;
 
@@ -70,6 +70,9 @@ public class AttrContext {
      * useful for detecting self-references in variable initializers
      */
     Symbol enclVar = null;
+
+    /** The module context for the current module. */
+    ModuleContext modcon;
 
     /** Duplicate this context, replacing scope field and copying all others.
      */
@@ -83,6 +86,7 @@ public class AttrContext {
         info.tvars = tvars;
         info.lint = lint;
         info.enclVar = enclVar;
+        info.modcon = modcon == null ? null : modcon.dup();
         return info;
     }
 
@@ -98,6 +102,7 @@ public class AttrContext {
         return scope.getElements();
     }
 
+    @Override
     public String toString() {
         return "AttrContext[" + scope.toString() + "]";
     }

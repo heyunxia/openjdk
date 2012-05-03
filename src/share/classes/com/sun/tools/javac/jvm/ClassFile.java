@@ -83,6 +83,8 @@ public class ClassFile {
     public final static int CONSTANT_MethodHandle = 15;
     public final static int CONSTANT_MethodType = 16;
     public final static int CONSTANT_InvokeDynamic = 18;
+    public final static int CONSTANT_ModuleId = 19;
+    public final static int CONSTANT_ModuleQuery = 20;
 
     public final static int MAX_PARAMETERS = 0xff;
     public final static int MAX_DIMENSIONS = 0xff;
@@ -94,7 +96,8 @@ public class ClassFile {
         V45_3(45, 3), // base level for all attributes
         V49(49, 0),   // JDK 1.5: enum, generics, annotations
         V50(50, 0),   // JDK 1.6: stackmaps
-        V51(51, 0);   // JDK 1.7
+        V51(51, 0),   // JDK 1.7: invokedynamic
+        V52(51, 0);   // JDK 1.8: Lambda, Jigsaw    !!!! FIXME -- the 51 is deliberate but temporary and should be corrected eventually
         Version(int major, int minor) {
             this.major = major;
             this.minor = minor;
@@ -162,6 +165,7 @@ public class ClassFile {
             this.type = type;
         }
 
+        @Override
         public boolean equals(Object other) {
             return
                 other instanceof NameAndType &&
@@ -169,6 +173,7 @@ public class ClassFile {
                 type.equals(((NameAndType) other).type);
         }
 
+        @Override
         public int hashCode() {
             return name.hashCode() * type.hashCode();
         }

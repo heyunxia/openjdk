@@ -27,7 +27,7 @@
  * @summary Javac performs flows analysis on already translated classes
  * @author Maurizio Cimadamore
  *
- * @compile/ref=T6734819b.out -XDrawDiagnostics -Xlint:all -XDverboseCompilePolicy T6734819b.java
+ * @compile/ref=T6734819b.out -XDrawDiagnostics -Xlint:all,-path -XDverboseCompilePolicy T6734819b.java
  */
 class A extends B {}
 class B {
