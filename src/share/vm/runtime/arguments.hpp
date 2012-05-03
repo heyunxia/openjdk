@@ -230,6 +230,8 @@ class Arguments : AllStatic {
   static int    _num_jvm_args;
   // string containing all java command (class/jarfile name and app args)
   static char* _java_command;
+  // string containing the module name or the main class name
+  static char* _java_main;
 
   // Property list
   static SystemProperty* _system_properties;
@@ -253,6 +255,14 @@ class Arguments : AllStatic {
   // sun.java.launcher, private property to provide information about
   // java/gamma launcher
   static const char* _sun_java_launcher;
+
+  // sun.java.launcher.module.boot, private property identifying
+  // the path from which to boot when in modular mode
+  static const char* _sun_java_launcher_module_boot;
+
+  // sun.java.launcher.module, private property identifying
+  // the module name shared with sun.launcher.LauncherHelper class 
+  static const char* _sun_java_launcher_module;
 
   // sun.java.launcher.pid, private property
   static int    _sun_java_launcher_pid;
@@ -425,6 +435,7 @@ class Arguments : AllStatic {
   static int num_jvm_args()                { return _num_jvm_args; }
   // return the arguments passed to the Java application
   static const char* java_command()        { return _java_command; }
+  static const char* java_main()           { return _java_main; }
 
   // print jvm_flags, jvm_args and java_command
   static void print_on(outputStream* st);
@@ -450,6 +461,18 @@ class Arguments : AllStatic {
   static bool created_by_gamma_launcher();
   // -Dsun.java.launcher.pid
   static int sun_java_launcher_pid()        { return _sun_java_launcher_pid; }
+  // -Dsun.java.launcher.module.boot
+  static const char* sun_java_launcher_module_boot() {
+    return _sun_java_launcher_module_boot;
+  }
+  // -Dsun.java.launcher.module
+  static const char* sun_java_launcher_module() {
+    return _sun_java_launcher_module;
+  }
+
+  static bool is_module_mode() {
+    return _sun_java_launcher_module != NULL;
+  }
 
   // -Xloggc:<file>, if not specified will be NULL
   static const char* gc_log_filename()      { return _gc_log_filename; }
