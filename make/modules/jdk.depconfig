@@ -138,7 +138,7 @@
 
 # private static java.util.List<java.nio.file.spi.FileTypeDetector> loadInstalledDetectors()
 @Provider(optional)
-  java.nio.file.Files$DefaultFileTypeDetectorHolder -> META-INF/services/java.nio.file.spi.FileTypeDetector
+  java.nio.file.Files$FileTypeDetectors$1 -> META-INF/services/java.nio.file.spi.FileTypeDetector
 
 # public static java.util.List<java.nio.file.spi.FileSystemProvider> installedProviders()
 @Provider(optional)
