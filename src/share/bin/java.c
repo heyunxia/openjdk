@@ -318,9 +318,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
 
     if (cpath != NULL && mode == LM_MODULE) {
         // CLASSPATH cannot be used with module mode
-        JLI_ReportErrorMessage(ARG_ERROR8);
-        printUsage = JNI_TRUE;
-        return(1);
+        JLI_ReportErrorMessage(ARG_WARN2);
     }
 
     /* Make adjustments based on what we parsed */
@@ -783,7 +781,7 @@ SetModulesBootClassPath(const char *jrepath)
     char *def, *s;
     int slen = 0;
     struct stat statbuf;
-
+    
     /* return if jre/lib/rt.jar exists */
     JLI_Snprintf(pathname, sizeof(pathname), "%s%slib%srt.jar", jrepath, separator, separator);
     if (stat(pathname, &statbuf) == 0) {
@@ -1184,7 +1182,7 @@ ParseArguments(int *pargc, char ***pargv,
                    JLI_StrCmp(arg, "-cs") == 0 ||
                    JLI_StrCmp(arg, "-noasyncgc") == 0) {
             /* No longer supported */
-            JLI_ReportErrorMessage(ARG_WARN, arg);
+            JLI_ReportErrorMessage(ARG_WARN1, arg);
         } else if (JLI_StrCCmp(arg, "-version:") == 0 ||
                    JLI_StrCmp(arg, "-no-jre-restrict-search") == 0 ||
                    JLI_StrCmp(arg, "-jre-restrict-search") == 0 ||
@@ -1196,14 +1194,14 @@ ParseArguments(int *pargc, char ***pargv,
              * if a problem is caused by module mode or not.
              */
             if (_module_name == NULL)
-                ARG_FAIL1(ARG_ERROR9, arg);
+                ARG_FAIL1(ARG_ERROR8, arg);
 
             if (JLI_StrCmp(arg, "-Xmode:legacy") == 0) {
                 legacy = JNI_TRUE;
             } else if (JLI_StrCmp(arg, "-Xmode:module") == 0) {
                 legacy = JNI_FALSE;
             } else
-                ARG_FAIL1(ARG_ERROR9, arg);
+                ARG_FAIL1(ARG_ERROR8, arg);
         } else if (ProcessPlatformOption(arg)) {
             ; /* Processing of platform dependent options */
         } else if (RemovableOption(arg)) {
@@ -1216,20 +1214,10 @@ ParseArguments(int *pargc, char ***pargv,
     if (_module_name != NULL && !legacy) {
         /* determine if jdk tool can run in module mode */
         if (SetLauncherModule(pmode, pwhat, jrepath)) {
-            /* module whose name is "jdk." + _program_name indicates
-             * that the tool's main class is the module's main entry point.
-             * Other module requires to pass the tool's main class as
-             * the first argument */
-            JLI_StrCpy(buf, "jdk.");
-            JLI_StrCat(buf, _program_name);
-            *pmain = *argv;     // the main class name is in the first argument
-            if (JLI_StrCmp(buf, _module_name) == 0) {
-                // module's entry point == main class name
-                // skip the main class name argument
-                argc--;
-                argv++;
-            }
-
+            // the main class name is in the first argument
+            *pmain = *argv;
+            argc--;
+            argv++;
             if (argc >= 0) {
                 *pargc = argc;
                 *pargv = argv;

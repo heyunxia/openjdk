@@ -34,7 +34,6 @@ import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.Charset;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ResourceBundle;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -537,35 +536,5 @@ public class LauncherHelper {
             abort(ostream, uee, null);
         }
         return null; // keep the compiler happy
-    }
-    /**
-     * ## Entry point for tool module that launches the JDK tools
-     * ## Temporary until multiple entry points is supported in modules
-     *
-     * @params argv the main classname of the tool at the first element
-     *     (argv[0]) and the remaining elements are the input arguments
-     *     to the tools.
-     */
-    public static void main(String[] argv) throws Throwable {
-        int argc = argv.length;
-
-        String cn = argv[0];
-        try {
-            // use the system class loader to find the tool's main class
-            Class<?> c = Class.forName(cn, true, ClassLoader.getSystemClassLoader());
-            Method m = getMainMethod(System.err, c);
-            String[] args = argc == 1 ?
-                                new String[0] :
-                                Arrays.copyOfRange(argv, 1, argc);
-            m.invoke(null, (Object) args);
-        } catch (ClassNotFoundException cnfe) {
-            System.err.println(getLocalizedMessage("java.launcher.cls.error1",
-                                                   cn));
-            NoClassDefFoundError ncdfe = new NoClassDefFoundError(cn);
-            ncdfe.initCause(cnfe);
-            throw ncdfe;
-        } catch (InvocationTargetException ite) {
-            throw ite.getCause();
-        }
     }
 }

@@ -55,4 +55,4 @@ include $(BUILDDIR)/common/Classes.gmk
 build: rmiregistry
 
 rmiregistry:
-	$(call make-launcher, rmiregistry, sun.rmi.registry.RegistryImpl, , , $(RMI_TOOLS_MODULE))
+	$(call make-launcher, rmiregistry, sun.rmi.registry.RegistryImpl, , )
