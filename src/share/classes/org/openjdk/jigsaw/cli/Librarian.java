@@ -44,7 +44,7 @@ import org.openjdk.internal.joptsimple.*;
 
 public class Librarian {
 
-    private static JigsawModuleSystem jms
+    private static final JigsawModuleSystem jms
         = JigsawModuleSystem.instance();
 
     private static final File homeLibrary = Library.systemLibraryPath();
@@ -200,6 +200,9 @@ public class Librarian {
                 while (hasArg())
                     mfs.add(Manifest.create(takeArg(), kf));
                 finishArgs();
+                if (mfs.isEmpty())
+                    throw new Command.Exception("%s: no module-name specified",
+                                                 command);
                 try {
                     lib.installFromManifests(mfs, strip);
                 } catch (ConfigurationException x) {
@@ -289,6 +292,39 @@ public class Librarian {
             try {
                 lib.preInstall(mfs, dst);
             } catch (IOException x) {
+                throw new Command.Exception(x);
+            }
+        }
+    }
+
+    static class Remove extends Command<SimpleLibrary> {
+        protected void go(SimpleLibrary lib)
+            throws Command.Exception
+        {
+            if (dry && force)
+                throw new Command.Exception("%s: specify only one of "
+                                        + "-n (--dry-run) or -f (--force)",
+                                        command);
+            List<ModuleId> mids = new ArrayList<ModuleId>();
+            try {
+                while (hasArg())
+                    mids.add(jms.parseModuleId(takeArg()));
+            } catch (IllegalArgumentException x) {
+                throw new Command.Exception(x.getMessage());
+            }
+            boolean quiet = false;  // ## Need -q
+            try {
+                if (force)
+                    lib.removeForcibly(mids);
+                else
+                    lib.remove(mids, dry);
+            } catch (ConfigurationException x) {
+                throw new Command.Exception(x);
+            } catch (IOException x) {                
+                if (!quiet) {
+                    for (Throwable t : x.getSuppressed())
+                        err.format("Warning: %s%n", t.getMessage());
+                }
                 throw new Command.Exception(x);
             }
         }
@@ -466,7 +502,7 @@ public class Librarian {
             try {
                 // refresh the module directory
                 lib.refresh();
-                
+
                 // refresh the repository catalog
                 RemoteRepositoryList rl = lib.repositoryList();
                 int n = 0;
@@ -488,7 +524,7 @@ public class Librarian {
         }
     }
 
-    private static Map<String,Class<? extends Command<SimpleLibrary>>> commands
+    private static final Map<String,Class<? extends Command<SimpleLibrary>>> commands
         = new HashMap<>();
 
     static {
@@ -507,6 +543,8 @@ public class Librarian {
         commands.put("preinstall", PreInstall.class);
         commands.put("refresh", Refresh.class);
         commands.put("reindex", ReIndex.class);
+        commands.put("remove", Remove.class);
+        commands.put("rm", Remove.class);
         commands.put("repos", Repos.class);
     }
 
@@ -522,13 +560,13 @@ public class Librarian {
     private void usage() {
         out.format("%n");
         out.format("usage: jmod add-repo [-i <index>] URL%n");
-        out.format("       jmod extract <module-file> ...%n");
         out.format("       jmod config [<module-id> ...]%n");
         out.format("       jmod create [-L <library>] [-P <parent>]" +
                 " [--natlib <natlib>] [--natcmd <natcmd>] [--config <config>]%n");
         out.format("       jmod del-repo URL%n");
         out.format("       jmod dump-class <module-id> <class-name> <output-file>%n");
         out.format("       jmod dump-config <module-id>%n");
+        out.format("       jmod extract <module-file> ...%n");
         out.format("       jmod identify%n");
         out.format("       jmod install [--noverify] [-n] <module-id-query> ...%n");
         out.format("       jmod install [--noverify] <module-file> ...%n");
@@ -537,6 +575,7 @@ public class Librarian {
         out.format("       jmod preinstall <classes-dir> <dst-dir> <module-name> ...%n");
         out.format("       jmod refresh [-f] [-n] [-v]%n");
         out.format("       jmod reindex [<module-id> ...]%n");
+        out.format("       jmod remove [-f] [-n] [<module-id> ...]%n");
         out.format("       jmod repos [-v]%n");
         out.format("%n");
         try {

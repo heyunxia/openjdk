@@ -65,7 +65,7 @@ class MockLibrary
     MockLibrary add(ModuleInfoBuilder.ModuleViewBuilder mvb) {
         return add(mvb.mib);
     }
-    
+
     private Map<ModuleId,List<String>> publicClassesForId
         = new HashMap<ModuleId,List<String>>();
 
@@ -123,7 +123,7 @@ class MockLibrary
     protected void gatherLocalModuleIds(String mn, Set<ModuleId> mids) {
         throw new UnsupportedOperationException();
     }
-    
+
     protected void gatherLocalDeclaringModuleIds(Set<ModuleId> set) {
         throw new UnsupportedOperationException();
     }
@@ -156,6 +156,14 @@ class MockLibrary
     }
 
     public byte[] readLocalClass(ModuleId mid, String className) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void remove(List<ModuleId> mids, boolean dry) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void removeForcibly(List<ModuleId> mids) {
         throw new UnsupportedOperationException();
     }
 

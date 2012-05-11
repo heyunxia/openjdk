@@ -78,7 +78,7 @@ public abstract class Library
     public abstract int minorVersion();
 
     public abstract Library parent();
-    
+
     /**
      * <p> Read the module-info class bytes for the module with the given
      * identifier, from this library only. </p>
@@ -281,6 +281,51 @@ public abstract class Library
         throws ConfigurationException, IOException, SignatureException;
 
     /**
+     * Remove one or more modules from this library.
+     *
+     * @param   mids
+     *          The module identifiers
+     * 
+     * @param   dry
+     *          Perform a dry run (no changes to the module library), if true.
+     *          Otherwise the modules may be removed.
+     *
+     * @throws  ConfigurationException
+     *          If the configuration of any root modules in the library
+     *          require any of the given modules
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library, or
+     *          removing any of the module's files. Any such exceptions are
+     *          caught internally. If only one is caught, then it is re-thrown.
+     *          If more than one exception is caught, then the second and
+     *          following exceptions are added as suppressed exceptions of the
+     *          first one caught, which is then re-thrown.
+     */
+    public abstract void remove(List<ModuleId> mids, boolean dry)
+        throws ConfigurationException, IOException;
+
+    /**
+     * Forcibly remove one or more modules from this library.
+     *
+     * <p> No regard is given to configuration of any root modules in the
+     * library that may require any of the given modules. </p>
+     *
+     * @param   mids
+     *          The module identifiers
+     *
+     * @throws  IOException
+     *          If an I/O error occurs while accessing the module library, or
+     *          removing any of the module's files. Any such exceptions are
+     *          caught internally. If only one is caught, then it is re-thrown.
+     *          If more than one exception is caught, then the second and
+     *          following exceptions are added as suppressed exceptions of the
+     *          first one caught, which is then re-thrown.
+     */
+    public abstract void removeForcibly(List<ModuleId> mids)
+        throws IOException;
+
+    /**
      * Find a resource within the given module in this library.
      *
      * @param   mid
@@ -333,7 +378,7 @@ public abstract class Library
     public abstract RemoteRepositoryList repositoryList() throws IOException;
 
     /**
-     * <p> Read the CodeSigners for the module with the given identifier, from 
+     * <p> Read the CodeSigners for the module with the given identifier, from
      * this library only. </p>
      *
      * @param   mid

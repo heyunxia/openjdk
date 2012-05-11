@@ -26,6 +26,7 @@
 package org.openjdk.jigsaw;
 
 import java.io.*;
+import java.nio.charset.Charset;
 import java.security.*;
 import java.util.*;
 import java.util.jar.*;
@@ -509,32 +510,41 @@ public final class ModuleFile {
             filesWriter.flush();
         }
 
-        void remove() throws IOException {
-            ModuleFile.Reader.remove(destination);
+        List<IOException> remove() {
+            return ModuleFile.Reader.remove(destination);
         }
 
         // Removes a module, given its module install directory
-        static void remove(File moduleDir) throws IOException {
+        static List<IOException> remove(File moduleDir) {
+            List<IOException> excs = new ArrayList<>();
             // Firstly remove any files installed outside of the module dir
             File files = new File(moduleDir, "files");
             if (files.exists()) {
-                try (FileInputStream fis = new FileInputStream(files);
-                     InputStreamReader isr = new InputStreamReader(fis, "UTF-8");
-                     BufferedReader in = new BufferedReader(isr)) {
-                    String filename;
-                    while ((filename = in.readLine()) != null)
-                        Files.delete(new File(moduleDir,
-                                              Files.platformSeparator(filename)));
+                try {
+                    List<String> filenames =
+                        java.nio.file.Files.readAllLines(files.toPath(),
+                                                         Charset.forName("UTF-8"));
+                    for (String fn : filenames) {
+                        try {
+                            Files.delete(new File(moduleDir,
+                                                  Files.platformSeparator(fn)));
+                        } catch (IOException x) {
+                            excs.add(x);
+                        }
+                    }
+                } catch (IOException x) {
+                    excs.add(x);
                 }
             }
 
-            Files.deleteTree(moduleDir);
+            excs.addAll(Files.deleteTreeUnchecked(moduleDir.toPath()));
+            return excs;
         }
 
         // Returns the absolute path of the given section type.
         private File getDirOfSection(SectionType type) {
             if (type == SectionType.NATIVE_LIBS)
-                return natlibs; 
+                return natlibs;
             else if (type == SectionType.NATIVE_CMDS)
                 return natcmds;
             else if (type == SectionType.CONFIG)

@@ -237,6 +237,7 @@ public final class SimpleLibrary
     private final Header hd;
     private final ModuleDictionary moduleDictionary;
     private final File lockf;
+    private final File trash;
 
     public String name() { return root.toString(); }
     public File root() { return canonicalRoot; }
@@ -299,6 +300,7 @@ public final class SimpleLibrary
             new File(canonicalRoot, hd.configs().toString()).getCanonicalFile();
 
         lockf = new File(root, FileConstants.META_PREFIX + "lock");
+        trash = new File(root, TRASH);
         moduleDictionary = new ModuleDictionary(root);
     }
 
@@ -330,6 +332,8 @@ public final class SimpleLibrary
 
         lockf = new File(root, FileConstants.META_PREFIX + "lock");
         lockf.createNewFile();
+        trash = new File(root, TRASH);
+        Files.mkdirs(trash, "module library trash");
         moduleDictionary = new ModuleDictionary(canonicalRoot);
         moduleDictionary.store();
     }
@@ -1472,6 +1476,127 @@ public final class SimpleLibrary
 	install(res, verifySignature, false);
     }
 
+    @Override
+    public void removeForcibly(List<ModuleId> mids)
+        throws IOException
+    {
+        try {
+            remove(mids, true, false);
+        } catch (ConfigurationException x) {
+            throw new Error("should not be thrown when forcibly removing", x);
+        }
+    }
+
+    @Override
+    public void remove(List<ModuleId> mids, boolean dry)
+        throws ConfigurationException, IOException
+    {
+        remove(mids, false,  dry);
+    }
+
+    private void remove(List<ModuleId> mids, boolean force, boolean dry)
+        throws ConfigurationException, IOException
+    {
+        IOException ioe = null;
+
+        try (FileChannel fc = FileChannel.open(lockf.toPath(), WRITE)) {
+            fc.lock();
+            for (ModuleId mid : mids) {
+                // ## Should we support alias and/or non-default view names??
+                if (moduleDictionary.findDeclaringModuleDir(mid) == null)
+                    throw new IllegalArgumentException(mid + ": No such module");
+            }
+            if (!force)
+                ensureNotInConfiguration(mids);
+            if (dry)
+                return;
+
+            // The library may be altered after this point, so the modules
+            // dictionary needs to be refreshed
+            List<IOException> excs = removeWhileLocked(mids);
+            try {
+                moduleDictionary.refresh();
+                moduleDictionary.store();
+            } catch (IOException x) {
+                excs.add(x);
+            }
+            if (!excs.isEmpty()) {
+                ioe = excs.remove(0);
+                for (IOException x : excs)
+                    ioe.addSuppressed(x);
+            }
+        } finally {
+            if (ioe != null)
+                throw ioe;
+        }
+    }
+
+    private void ensureNotInConfiguration(List<ModuleId> mids)
+        throws ConfigurationException, IOException
+    {
+        // ## We do not know if a root module in a child library depends on one
+        // ## of the 'to be removed' modules. We would break it's configuration.
+
+        // check each root configuration for reference to a module in mids
+        for (ModuleId rootid : libraryRoots()) {
+            // skip any root modules being removed
+            if (mids.contains(rootid))
+                continue;
+
+            Configuration<Context> cf = readConfiguration(rootid);
+            for (Context cx : cf.contexts()) {
+                for (ModuleId mid : cx.modules()) {
+                    if (mids.contains(mid))
+                        throw new ConfigurationException(mid +
+                                ": being used by " + rootid);
+                }
+            }  
+        }
+    }
+
+    private static final String TRASH = ".trash";
+    // lazy initialization of Random
+    private static class LazyInitialization {
+        static final Random random = new Random();
+    }
+    private static Path moduleTrashDir(File trash, ModuleId mid)
+        throws IOException
+    {
+        String mn = mid.name();
+        Version version = mid.version();
+        String v = (version != null) ? version.toString() : "default";
+        for (;;) {
+            long n = LazyInitialization.random.nextLong();
+            n = (n == Long.MIN_VALUE) ? 0 : Math.abs(n);
+            String modTrashName = mn + '_' + v + '_' + Long.toString(n);
+            File mtd = new File(trash, modTrashName);
+            if (!mtd.exists())
+                return mtd.toPath();
+        }
+    }
+
+    private List<IOException> removeWhileLocked(List<ModuleId> mids) {
+        List<IOException> excs = new ArrayList<>();
+        // First move the modules to the .trash dir
+        for (ModuleId mid : mids) {
+            try {
+                File md = moduleDir(root, mid);
+                java.nio.file.Files.move(md.toPath(),
+                                         moduleTrashDir(trash, mid),
+                                         ATOMIC_MOVE);
+                File p = md.getParentFile();
+                if (p.list().length == 0)
+                    java.nio.file.Files.delete(p.toPath());
+            } catch (IOException x) {
+                excs.add(x);
+            }
+        }
+        for (String tm : trash.list())
+            excs.addAll(ModuleFile.Reader.remove(new File(trash, tm)));
+
+        return excs;
+    }
+
     /**
      * <p> Pre-install one or more modules to an arbitrary destination
      * directory. </p>
@@ -1542,10 +1667,22 @@ public final class SimpleLibrary
         throws ConfigurationException, IOException
     {
         // ## mids not used yet
+        for (ModuleId mid : libraryRoots()) {
+            // ## We could be a lot more clever about this!
+            Configuration<Context> cf
+                = Configurator.configure(this, mid.toQuery());
+            File md = moduleDictionary.findDeclaringModuleDir(mid);
+            new StoredConfiguration(md, cf).store();
+        }
+    }
+
+    private List<ModuleId> libraryRoots()
+        throws IOException
+    {
         List<ModuleId> roots = new ArrayList<>();
         for (ModuleId mid : listLocalDeclaringModuleIds()) {
-            // each module can have multiple entry points
-            // only configure once for each module.
+            // each module can have multiple entry points, but
+            // only one configuration for each module.
             ModuleInfo mi = readModuleInfo(mid);
             for (ModuleView mv : mi.views()) {
                 if (mv.mainClass() != null) {
@@ -1554,14 +1691,7 @@ public final class SimpleLibrary
                 }
             }
         }
-
-        for (ModuleId mid : roots) {
-            // ## We could be a lot more clever about this!
-            Configuration<Context> cf
-                = Configurator.configure(this, mid.toQuery());
-            File md = moduleDictionary.findDeclaringModuleDir(mid);
-            new StoredConfiguration(md, cf).store();
-        }
+        return roots;
     }
 
     public URI findLocalResource(ModuleId mid, String name)
@@ -1803,7 +1933,7 @@ public final class SimpleLibrary
             if (parent.list().length == 0)
                 parent.delete();
         }
-        
+
         void refresh() throws IOException {
             providingModuleIds = new LinkedHashMap<>();
             moduleIdsForName = new LinkedHashMap<>();
@@ -1812,7 +1942,8 @@ public final class SimpleLibrary
             try (DirectoryStream<Path> ds = java.nio.file.Files.newDirectoryStream(root.toPath())) {
                 for (Path mnp : ds) {
                     String mn = mnp.toFile().getName();
-                    if (mn.startsWith(FileConstants.META_PREFIX)) {
+                    if (mn.startsWith(FileConstants.META_PREFIX) ||
+                        TRASH.equals(mn)) {
                         continue;
                     }
 

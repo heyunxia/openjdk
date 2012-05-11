@@ -26,6 +26,12 @@
 package org.openjdk.jigsaw;
 
 import java.io.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.FileVisitor;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.jar.*;
 import java.util.zip.*;
 import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
@@ -107,6 +113,44 @@ public final class Files {
             }
         }
         delete(dst);
+    }
+
+    static List<IOException> deleteTreeUnchecked(Path dir) {
+        final List<IOException> excs = new ArrayList<>();
+        try {
+            java.nio.file.Files.walkFileTree(dir, new FileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    try {
+                        java.nio.file.Files.delete(file);
+                    } catch (IOException x) {
+                        excs.add(x);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+                    try {
+                        java.nio.file.Files.delete(dir);
+                    } catch (IOException x) {
+                        excs.add(x);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    excs.add(exc);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException x) {
+            excs.add(x);
+        }
+        return excs;
     }
 
     private static void copy(File src, File dst)
