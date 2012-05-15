@@ -518,5 +518,8 @@
   com.sun.tools.jdi.VirtualMachineManagerImpl -> META-INF/services/com.sun.jdi.connect.Connector
 
 @Provider(optional)
+  com.sun.tools.jdi.VirtualMachineManagerImpl -> META-INF/services/com.sun.jdi.connect.spi.TransportService
+
+@Provider(optional)
   com.sun.tools.attach.spi.AttachProvider -> META-INF/services/com.sun.tools.attach.spi.AttachProvider
 
