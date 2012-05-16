@@ -28,11 +28,11 @@
 #   location into the OUTPUTDIR, and also primes the OUTPUTDIR with files
 #   that are provided inside this workspace.
 #
-# IMPORT_LIST contains the list of destination files that are copied 
+# IMPORT_LIST contains the list of destination files that are copied
 #     from external places (outside this workspace).
 #
 # INTERNAL_IMPORT_LIST is the list of destination files from BUILDDIR.
-# 
+#
 
 BUILDDIR = ../..
 MODULE   = base
@@ -52,6 +52,8 @@ else ifeq ($(PLATFORM), macosx)
 else
   LIB_LOCATION = $(LIBDIR)/$(LIBARCH)
 endif
+
+BDB_NAME               = $(LIB_PREFIX)db-rds.$(LIBRARY_SUFFIX)
 
 JVM_NAME               = $(LIB_PREFIX)jvm.$(LIBRARY_SUFFIX)
 JVMLIB_NAME            = $(LIB_PREFIX)jvm.$(LIB_SUFFIX)
@@ -129,6 +131,11 @@ ifeq ($(ARCH_DATA_MODEL), 32)
 endif
 endif
 
+ifndef USE_SYSTEM_BDB
+  IMPORT_LIST += $(LIB_LOCATION)/$(BDB_NAME)
+  IMPORT_LIST += $(GENNATIVESRCDIR)/bdb/db.h
+endif
+
 ifeq ($(PLATFORM), windows)
 #  Windows     vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv  Windows
 
@@ -158,8 +165,8 @@ ifndef BUILD_CLIENT_ONLY
   endif
 endif
 
-# Add .map and .pdb files to the import path for client and kernel VMs. 
-# These are only available on 32-bit windows builds. 
+# Add .map and .pdb files to the import path for client and kernel VMs.
+# These are only available on 32-bit windows builds.
 ifeq ($(ARCH_DATA_MODEL), 32)
   ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
     ifeq ($(ZIP_DEBUGINFO_FILES),1)
@@ -196,7 +203,7 @@ endif
 $(LIBDIR)/$(JVMLIB_NAME): $(HOTSPOT_LIB_PATH)/$(JVMLIB_NAME)
 	$(install-import-file)
 
-# it is OK for the .map and .pdb files to not exist, so do not force a 
+# it is OK for the .map and .pdb files to not exist, so do not force a
 # dependency on them from the bootstrap location, and allow the copy to fail.
 $(LIB_LOCATION)/$(CLIENT_LOCATION)/$(JVMMAP_NAME):
 	@$(prep-target)
@@ -236,7 +243,7 @@ $(LIB_LOCATION)/$(KERNEL_LOCATION)/$(JVM_DIZ_NAME):
 	@$(install-module-file)
 
 ifndef BUILD_CLIENT_ONLY
-$(LIB_LOCATION)/$(SERVER_LOCATION)/$(JVMPDB_NAME): 
+$(LIB_LOCATION)/$(SERVER_LOCATION)/$(JVMPDB_NAME):
 	@$(prep-target)
 	-$(CP) $(HOTSPOT_SERVER_PATH)/$(JVMPDB_NAME) $@
 	@$(install-module-file)
@@ -251,7 +258,7 @@ endif
 else # PLATFORM
 #  NOT Windows vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv  NOT Windows
 
-IMPORT_LIST += $(LIB_LOCATION)/$(LIBJSIG_NAME) 
+IMPORT_LIST += $(LIB_LOCATION)/$(LIBJSIG_NAME)
 ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
   ifeq ($(ZIP_DEBUGINFO_FILES),1)
     # the import JDK may not contain .diz files
@@ -317,8 +324,8 @@ ifeq ($(PLATFORM), solaris)
       endif
     else
       $(warning WARNING: $(HOTSPOT_SERVER_PATH)/$(JVMDB_NAME) not found!)
-    endif 
-  endif 
+    endif
+  endif
 endif
 
 ifneq ($(ZERO_BUILD), true)
@@ -442,6 +449,15 @@ endif # ZERO_BUILD
 #  NOT Windows ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ NOT Windows
 
 endif # PLATFORM
+
+ifndef USE_SYSTEM_BDB
+  $(LIB_LOCATION)/$(BDB_NAME): $(BDB_IMPORT_PATH)/lib/$(LIBARCH)/$(BDB_NAME)
+	$(install-import-file)
+	@$(call binary_file_verification,$@)
+
+  $(GENNATIVESRCDIR)/bdb/db.h: $(BDB_IMPORT_PATH)/header/db.h
+	$(install-file)
+endif
 
 $(LIB_LOCATION)/$(CLIENT_LOCATION)/$(JVM_NAME): $(HOTSPOT_CLIENT_PATH)/$(JVM_NAME)
 	$(install-import-file)

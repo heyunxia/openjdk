@@ -79,7 +79,7 @@ override INCREMENTAL_BUILD = false
 #   The ALT values should never really have spaces or use \.
 #   Suspect these environment variables to have spaces and/or \ characters:
 #     SYSTEMROOT, SystemRoot, WINDIR, windir, PROGRAMFILES, ProgramFiles,
-#     DXSDK_DIR, MSTOOLS, Mstools, MSSDK, MSSdk, VCnnCOMNTOOLS, 
+#     DXSDK_DIR, MSTOOLS, Mstools, MSSDK, MSSdk, VCnnCOMNTOOLS,
 #     MSVCDIR, MSVCDir.
 #     So use $(subst \,/,) on them first adding quotes and placing them in
 #         their own variable assigned with :=, then use FullPath.
@@ -335,7 +335,7 @@ endif
 
 ifneq ($(VS2010_EXISTS),true)
   x:=$(error ERROR: No VS2010 found on system.)
-endif 
+endif
 
 # VS2010 Compiler root directory
 _msvc_dir :=$(VS100COMNTOOLS)/../../Vc
@@ -589,6 +589,14 @@ else
 endif
 JDK_IMPORT_PATH:=$(call AltCheckSpaces,JDK_IMPORT_PATH)
 JDK_IMPORT_PATH:=$(call AltCheckValue,JDK_IMPORT_PATH)
+
+# BDB_IMPORT_PATH: location of bdb pre-built/generated files
+ifdef ALT_BDB_IMPORT_PATH
+  BDB_IMPORT_PATH :=$(call FullPath,$(ALT_BDB_IMPORT_PATH))
+else
+  BDB_IMPORT_PATH =  #$(JDK_IMPORT_PATH)   # Can't import from JDK
+endif
+#BDB_IMPORT_PATH:=$(call AltCheckValue,BDB_IMPORT_PATH) # TODO: disable for now
 
 # HOTSPOT_IMPORT_PATH: location of hotspot pre-built files
 ifdef ALT_HOTSPOT_IMPORT_PATH

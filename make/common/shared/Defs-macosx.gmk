@@ -103,7 +103,7 @@ else
   ifndef DEVELOPER_DIR
    DEVELOPER_DIR = $(shell /usr/bin/xcode-select -print-path)/usr/bin/
   endif
-  
+
   COMPILER_PATH  := $(call DirExists,$(DEVELOPER_DIR),/usr/bin/,/NOT-SET)
  else
   COMPILER_PATH  =/usr/bin/
@@ -143,10 +143,12 @@ else
   _CUPS_HEADERS_PATH=$(PACKAGE_PATH)/include
 endif
 
+_BDB_HEADERS_PATH=/usr/include
+
 # Import JDK images allow for partial builds, components not built are
 #    imported (or copied from) these import areas when needed.
 
-# BUILD_JDK_IMPORT_PATH: location of JDK install trees to import for 
+# BUILD_JDK_IMPORT_PATH: location of JDK install trees to import for
 #   multiple platforms, e.g. windows-i586, solaris-sparc, bsd-586, etc.
 ifdef ALT_BUILD_JDK_IMPORT_PATH
   BUILD_JDK_IMPORT_PATH  :=$(call FullPath,$(ALT_BUILD_JDK_IMPORT_PATH))
@@ -162,6 +164,16 @@ else
   JDK_IMPORT_PATH   = $(BUILD_JDK_IMPORT_PATH)/$(PLATFORM)-$(ARCH)$(_JDK_IMPORT_VARIANT)
 endif
 JDK_IMPORT_PATH:=$(call AltCheckValue,JDK_IMPORT_PATH)
+
+# BDB_IMPORT_PATH: location of bdb pre-built/generated files
+ifndef USE_SYSTEM_BDB
+  ifdef ALT_BDB_IMPORT_PATH
+    BDB_IMPORT_PATH :=$(call FullPath,$(ALT_BDB_IMPORT_PATH))
+  else
+    BDB_IMPORT_PATH =  #$(JDK_IMPORT_PATH)   # Can't import from JDK
+  endif
+  #BDB_IMPORT_PATH:=$(call AltCheckValue,BDB_IMPORT_PATH) # TODO: disable for now
+endif
 
 # HOTSPOT_IMPORT_PATH: location of hotspot pre-built files
 ifdef ALT_HOTSPOT_IMPORT_PATH
@@ -265,7 +277,7 @@ endef
 endif # OS_VENDOR == OpenBSD
 endif # OS_VENDOR == Apple
 else
-define binary_file_verification 
+define binary_file_verification
 ( \
   $(ECHO) "Skipping binary file verification for cross-compile build" \
 )

@@ -251,6 +251,13 @@ endif
 ifneq ($(PLATFORM),windows)
   ALL_SETTINGS+=$(call addAltSetting,CUPS_HEADERS_PATH)
 endif
+ifdef USE_SYSTEM_BDB
+  ifneq ($(PLATFORM), windows)
+    ALL_SETTINGS+=$(call addAltSetting,BDB_HEADERS_PATH)
+  endif
+else
+  ALL_SETTINGS+=$(call addAltSetting,BDB_IMPORT_PATH)
+endif
 
 ifdef OPENJDK
   ALL_SETTINGS+=$(call addHeading,OpenJDK-specific settings)

@@ -547,6 +547,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/PathContext.java \
     org/openjdk/jigsaw/PathLinker.java \
     org/openjdk/jigsaw/SignedModule.java \
+    org/openjdk/jigsaw/PersistentTreeMap.java \
     org/openjdk/jigsaw/Platform.java \
     org/openjdk/jigsaw/PublishedRepository.java \
     org/openjdk/jigsaw/RemoteRepository.java \
