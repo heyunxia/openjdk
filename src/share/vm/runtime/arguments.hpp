@@ -264,6 +264,10 @@ class Arguments : AllStatic {
   // the module name shared with sun.launcher.LauncherHelper class 
   static const char* _sun_java_launcher_module;
 
+  // sun.java.launcher.module.library, private property identifying
+  // the -L module library name shared with sun.launcher.LauncherHelper class 
+  static const char* _sun_java_launcher_module_library;
+
   // sun.java.launcher.pid, private property
   static int    _sun_java_launcher_pid;
 
@@ -468,6 +472,10 @@ class Arguments : AllStatic {
   // -Dsun.java.launcher.module
   static const char* sun_java_launcher_module() {
     return _sun_java_launcher_module;
+  }
+  // -Dsun.java.launcher.module.library
+  static const char* sun_java_launcher_module_library() {
+    return _sun_java_launcher_module_library;
   }
 
   static bool is_module_mode() {

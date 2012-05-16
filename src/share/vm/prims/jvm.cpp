@@ -838,10 +838,6 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name,
                              jt->get_thread_stat()->perf_timers_addr(),
                              PerfClassTraceTime::DEFINE_CLASS);
 
-  if (UsePerfData) {
-    ClassLoader::perf_app_classfile_bytes_read()->inc(len);
-  }
-
   // Since exceptions can be thrown, class initialization can take place
   // if name is NULL no check for class name in .class stream has to be made.
   TempNewSymbol class_name = NULL;
@@ -857,8 +853,14 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name,
 
   ResourceMark rm(THREAD);
   ClassFileStream st((u1*) buf, len, (char *)source);
-  Handle class_loader (THREAD, JNIHandles::resolve(loader));
+  Handle class_loader(THREAD, JNIHandles::resolve(loader));
+
   if (UsePerfData) {
+    if (loader == NULL) {
+      ClassLoader::perf_sys_classfile_bytes_read()->inc(len);
+    } else {
+      ClassLoader::perf_app_classfile_bytes_read()->inc(len);
+    }
     is_lock_held_by_thread(class_loader,
                            ClassLoader::sync_JVMDefineClassLockFreeCounter(),
                            THREAD);
@@ -1207,6 +1209,9 @@ class RegisterArrayForGC {
 
 JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
   JVMWrapper("JVM_GetStackAccessControlContext");
+  if (UsePerfData) {
+      ClassLoader::perf_getstackacc_count()->inc();
+  }
   if (!UsePrivilegedStack) return NULL;
 
   ResourceMark rm(THREAD);
@@ -1245,7 +1250,15 @@ JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
       previous_protection_domain = protection_domain;
     }
 
-    if (is_privileged) break;
+    if (is_privileged) {
+      if (UsePerfData) {
+        ClassLoader::perf_getstackacc_priv_count()->inc();
+      }
+      break;
+    }
+    if (UsePerfData) {
+      ClassLoader::perf_getstackacc_frames_count()->inc();
+    }
   }
 
 
@@ -1255,6 +1268,9 @@ JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
     if (is_privileged && privileged_context.is_null()) return NULL;
 
     oop result = java_security_AccessControlContext::create(objArrayHandle(), is_privileged, privileged_context, CHECK_NULL);
+  if (UsePerfData) {
+      ClassLoader::perf_getstackacc_newacc_count()->inc();
+  }
     return JNIHandles::make_local(env, result);
   }
 
@@ -1268,6 +1284,9 @@ JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
   }
 
   oop result = java_security_AccessControlContext::create(h_context, is_privileged, privileged_context, CHECK_NULL);
+  if (UsePerfData) {
+      ClassLoader::perf_getstackacc_newacc_count()->inc();
+  }
 
   return JNIHandles::make_local(env, result);
 JVM_END

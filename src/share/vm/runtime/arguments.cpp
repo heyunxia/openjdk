@@ -77,6 +77,7 @@ int    Arguments::_sun_java_launcher_pid        = -1;
 bool   Arguments::_created_by_gamma_launcher    = false;
 const char*  Arguments::_sun_java_launcher_module      = NULL;
 const char*  Arguments::_sun_java_launcher_module_boot = NULL;
+const char*  Arguments::_sun_java_launcher_module_library = NULL;
 
 // These parameters are reset in method parse_vm_init_args(JavaVMInitArgs*)
 bool   Arguments::_AlwaysCompileLoopMethods     = AlwaysCompileLoopMethods;
@@ -143,6 +144,10 @@ void Arguments::process_sun_java_launcher_properties(JavaVMInitArgs* args) {
     }
     if (match_option(option, "-Dsun.java.launcher.module.boot=", &tail)) {
       _sun_java_launcher_module_boot = strdup(tail);
+      continue;
+    }
+    if (match_option(option, "-Dsun.java.launcher.module.library=", &tail)) {
+      _sun_java_launcher_module_library = strdup(tail);
       continue;
     }
     if (match_option(option, "-Dsun.java.launcher.module=", &tail)) {
