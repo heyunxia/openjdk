@@ -74,12 +74,16 @@ Java_java_lang_System_identityHashCode(JNIEnv *env, jobject this, jobject x)
     if (1) { \
         jstring jkey = (*env)->NewStringUTF(env, key);  \
         if (jkey == NULL) { \
-            JNU_ThrowInternalError(env, "Cannot decode property key"); \
+            char msg[1024]; \
+            jio_snprintf(msg, sizeof(msg), "Cannot decode property key: %s value: %s", key, val); \
+            JNU_ThrowInternalError(env, msg); \
             return; \
         } else { \
             jstring jval = GetStringPlatform(env, val); \
             if (jval == NULL) { \
-                JNU_ThrowInternalError(env, "Cannot decode property value"); \
+                char msg[1024]; \
+                jio_snprintf(msg, sizeof(msg), "Cannot decode property value: %s key: %s", val, key); \
+                JNU_ThrowInternalError(env, msg); \
                 return; \
             } else { \
                 jobject r = (*env)->CallObjectMethod(env, props, putID, jkey, jval); \

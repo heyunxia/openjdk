@@ -51,6 +51,7 @@ import java.util.Vector;
 import java.util.Hashtable;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import org.openjdk.jigsaw.Platform;
 import sun.misc.ClassFileTransformer;
 import sun.misc.CompoundEnumeration;
 import sun.misc.Resource;
@@ -645,7 +646,8 @@ public abstract class ClassLoader {
         if (!checkName(name))
             throw new NoClassDefFoundError("IllegalName: " + name);
 
-        if ((name != null) && name.startsWith("java.")) {
+        if ((name != null) && name.startsWith("java.") && 
+              !org.openjdk.jigsaw.Platform.isPlatformLoader(this)) {
             throw new SecurityException
                 ("Prohibited package name: " +
                  name.substring(0, name.lastIndexOf('.')));
@@ -1428,7 +1430,7 @@ public abstract class ClassLoader {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = getCallerClassLoader();
-            if (ccl != null && !isAncestor(ccl)) {
+            if (ClassLoader.isPlatformClassLoader(ccl) && !isAncestor(ccl)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }
@@ -1498,7 +1500,7 @@ public abstract class ClassLoader {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = getCallerClassLoader();
-            if (ccl != null && ccl != scl && !scl.isAncestor(ccl)) {
+            if (ClassLoader.isPlatformClassLoader(ccl) && ccl != scl && !scl.isAncestor(ccl)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }
@@ -1568,6 +1570,16 @@ public abstract class ClassLoader {
             }
         } while (acl != null);
         return false;
+    }
+    
+    // In module mode, the platform modules are loaded by non-null module loader
+    // For permission check, platform class loaders are trusted.
+    // ## Revisit this with the detection for the platform module.
+    static boolean isPlatformClassLoader(ClassLoader cl) {
+        if (cl == null)
+            return true;
+        
+        return Platform.isPlatformLoader(cl);
     }
 
     // Returns the invoker's class loader, or null if none.

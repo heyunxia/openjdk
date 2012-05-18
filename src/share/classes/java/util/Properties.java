@@ -1133,10 +1133,15 @@ class Properties extends Hashtable<Object,Object> {
         private static Method save = null;
         static {
             try {
+                // ## Workaround until the open issue what getClassLoader()
+                // ## for the base module's classes returns is resolved.
+                // ## Hardcode to use the base module loader
+                ClassLoader cl = org.openjdk.jigsaw.Platform.getBaseModuleLoader();
+
                 // reference sun.util.xml.Utils reflectively
                 // to allow the Properties class be compiled in
                 // the absence of XML
-                Class<?> c = Class.forName("sun.util.xml.XMLUtils", true, null);
+                Class<?> c = Class.forName("sun.util.xml.XMLUtils", true, cl);
                 load = c.getMethod("load", Properties.class, InputStream.class);
                 save = c.getMethod("save", Properties.class, OutputStream.class,
                                    String.class, String.class);

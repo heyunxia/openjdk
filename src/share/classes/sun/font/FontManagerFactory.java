@@ -31,6 +31,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import org.openjdk.jigsaw.Platform;
 
 import sun.security.action.GetPropertyAction;
 
@@ -78,9 +79,12 @@ public final class FontManagerFactory {
                     String fmClassName =
                             System.getProperty("sun.font.fontmanager",
                                                DEFAULT_CLASS);
-                    // ## for now use boot loader in module mode
-                    ClassLoader cl = org.openjdk.jigsaw.BootLoader.getSystemLoader();
-                    Class fmClass = Class.forName(fmClassName, true, cl);
+                    Class<?> fmClass;
+                    if (Platform.isModuleMode()) {
+                        fmClass = Class.forName(fmClassName);
+                    } else {
+                        fmClass = Class.forName(fmClassName, true, ClassLoader.getSystemClassLoader());
+                    }
                     instance = (FontManager) fmClass.newInstance();
                 } catch (ClassNotFoundException |
                          InstantiationException |

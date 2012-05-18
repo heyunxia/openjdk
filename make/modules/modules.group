@@ -52,9 +52,19 @@ module jdk.base {
     include US_export_policy;
     include local_policy;
 
-    // explicit optional dependences
-    requires optional jdk.jaxp;
+    // This is to support Properties.loadFromXML and storeToXML methods.
+    // ## sun.util.xml.XMLUtils is our implementation class that should
+    // ## not really be in jdk.jaxp module since it is a standalone 
+    // ## technology that can be overridden.
+    // ## currently exported in the jdk.jaxp.internal view
+    requires optional jdk.jaxp.internal;
+ 
+    // This optional dependency is needed for SecurityManager.checkTopLevelWindows
+    // and a few other methods that check for java.awt.AWTPermission which is
+    // in the desktop module
     requires optional jdk.desktop;
+
+    // ## To be converted as services
     requires optional sun.resources;
     requires optional sun.localedata;
 
@@ -87,7 +97,6 @@ module jdk.base {
 
 module jdk.instrument {
     provides java.instrument;
-    requires local jdk.base;
     include instrument;
 }
 
@@ -110,7 +119,7 @@ module jdk.instrument {
 
 module jdk.desktop {
     provides java.desktop;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
+    requires local jdk.base;
 
     include beans;
     include client;
@@ -121,19 +130,6 @@ module jdk.desktop {
 
     // com.sun.security.auth callback dialog
     include sun.callback.dialog;
-
-
-    // ## To be revisited: 
-    // There are packages splitted between sun.desktop, jdk.boot, and 
-    // other modules.  sun.desktop only permits certain modules to 
-    // require due to the split packages.
-    //
-    // As jdk.base requires optionally jdk.desktop and jdk.base is
-    // in the same context with sun.desktop, jdk.desktop must be in 
-    // the same context with sun.desktop; otherwise, packages be defined in
-    // the boot context and exported by jdk.jaxp context.
- 
-    requires optional jdk.jaxp;
 }
 
 // ## java.util.prefs should be moved to the base module
@@ -141,13 +137,12 @@ module jdk.desktop {
 // ## to XML (currently stored as a XML file).
 module jdk.prefs {
     provides java.prefs;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
+    requires local jdk.base;
     include prefs;
 }
 
 module jdk.management {
     provides java.management;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include management;
 
     requires optional jdk.management.iiop;
@@ -165,19 +160,17 @@ module jdk.management {
 
 // JMX RMI-IIOP connector
 module jdk.management.iiop {
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
-
     include management-iiop;
+    exports com.sun.jmx.remote.protocol.iiop;
+    permits jdk.management;
 }
 
 module jdk.snmp {
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include management-snmp;
 }
 
 module jdk.corba {
     provides java.corba;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
 
     include corba;
 
@@ -208,13 +201,11 @@ module jdk.corba {
 
 module jdk.jdbc {
     provides java.jdbc;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include jdbc;
 }
 
 module jdk.jdbc.rowset {
     provides java.jdbc.rowset;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include jdbc-rowset;
 }
 
@@ -240,13 +231,12 @@ module jdk.compat {
 // Deprecated APIs used by snmp
 module jdk.security.acl {
     provides java.security.acl;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-acl;
 }
 
 module jdk.kerberos {
     provides java.auth.kerberos;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
+    requires local jdk.base;   // loaded by bootstrap class loader
     include security-kerberos;
     include sun.auth.kerberos;
 
@@ -316,16 +306,6 @@ module sun.xerces {
 module jdk.jaxp {
     provides javax.xml;
 
-    // ## VM has an optimization to load classes directly 
-    // ## from the null class loader; java.util.Properties fails
-    // ## to load classes from this module if not local 
-    // 
-    // In other words, jdk.jaxp would require public local sun.jaxp.
-    // Otherwise, javax.xml and other packages would be defined in
-    // the boot context and exported by jdk.jaxp context.
-    //
-    requires local jdk.base;
-
     include sun.xml;
     include sun.xalan;
     include sun.xerces;
@@ -354,7 +334,6 @@ module jdk.cosnaming {
 module jdk.rmi {
     provides java.rmi;
 
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include rmi;
     include rmi-activation;
 
@@ -385,7 +364,6 @@ module jdk.auth {
 
 module jdk.tls {
     provides java.tls;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-jsse;
 }
 
@@ -416,13 +394,11 @@ module jdk.scripting {
 // ## doesn't require jdk.boot
 module jdk.jta {
     provides javax.transaction;
-    requires local jdk.base;   // ensure loaded by bootstrap class loader
     include jta;
 }
 
 module jdk.logging {
     provides java.logging;
-    requires local jdk.base;   // loaded by bootstrap class loader
     include logging;
     include tracing;
 }
@@ -446,7 +422,6 @@ module sun.resources {
 
 // Oracle's platform extension (supported APIs)
 module jdk.sctp {
-    requires local jdk.base;   // loaded by bootstrap class loader
     include sctp;
 }
 

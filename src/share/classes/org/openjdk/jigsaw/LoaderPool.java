@@ -94,7 +94,7 @@ public final class LoaderPool {
             ld = AccessController.doPrivileged(new PrivilegedAction<Loader>() {
                 public Loader run() {
                     if (Platform.isBootContext(cx)) {
-                        return BootLoader.newLoader(LoaderPool.this, cx);
+                        return new BootLoader(LoaderPool.this, cx);
                     } else {
                         return new Loader(LoaderPool.this, cx);
                     }
@@ -111,13 +111,5 @@ public final class LoaderPool {
         if (cx == null)
             throw new AssertionError();
         return findLoader(cx);
-    }
-
-    void initBootLoader() {
-        ModuleId mid = Platform.baseModule();
-        Context cx = config().getContextForModuleName(mid.name());
-        if (cx == null)
-            throw new InternalError(mid + ": Cannot find context");
-        findLoader(cx);
     }
 }

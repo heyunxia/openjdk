@@ -29,6 +29,7 @@ import java.io.File;
 import java.lang.reflect.*;
 
 import java.security.*;
+import org.openjdk.jigsaw.Platform;
 
 import sun.security.util.PropertyExpander;
 
@@ -219,7 +220,12 @@ final class ProviderConfig {
                     // ## in module mode.  Won't find other "ext" providers such
                     // ## as sunpkcs11, smartcardio, xmldsig. 
                     // ## 
-                    ClassLoader cl = org.openjdk.jigsaw.BootLoader.getSystemLoader();
+                    ClassLoader cl;
+                    if (Platform.isModuleMode()) {
+                        cl = Platform.getBaseModuleLoader();
+                    } else {
+                        cl = ClassLoader.getSystemClassLoader();
+                    }
                     Class<?> provClass;
                     if (cl != null) {
                         provClass = cl.loadClass(className);

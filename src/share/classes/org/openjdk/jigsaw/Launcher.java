@@ -68,10 +68,6 @@ public final class Launcher {
         if (cx == null)
             throw new InternalError(mid + ": Cannot find context");
         LoaderPool lp = new LoaderPool(lb, cf, cn);
-
-        // initialize the BootLoader
-        // ## probably the VM should do this?
-        lp.initBootLoader();
         
         return lp.findLoader(cx);
     }
@@ -86,6 +82,7 @@ public final class Launcher {
         Loader ld = null;
         try {
             ld = loadModule(mlp, jms.parseModuleIdQuery(midqs));
+            BootLoader.setSystemLoaderPool(ld.pool);
         } catch (FileNotFoundException x) {
             throw new Error(mlp + ": No such library", x);
         } catch (IOException x) {

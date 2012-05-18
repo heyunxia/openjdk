@@ -473,9 +473,12 @@ public final class SimpleLibrary
                 out.writeUTF(mid.toString());
             }
             // Contexts
-            out.writeInt(cf.contexts().size());
-            for (Context cx : cf.contexts()) {
+            List<Context> contexts = new ArrayList<>(cf.contexts());
+            out.writeInt(contexts.size());
+            for (Context cx : contexts) {
                 out.writeUTF(cx.name());
+            }
+            for (Context cx : contexts) {
                 // Module ids, and their libraries
                 out.writeInt(cx.modules().size());
                 for (ModuleId mid : cx.modules()) {
@@ -556,9 +559,12 @@ public final class SimpleLibrary
             cf = new Configuration<Context>(roots);
             // Contexts
             int nContexts = in.readInt();
+            List<String> contexts = new ArrayList<>(nContexts);
             for (int i = 0; i < nContexts; i++) {
+                contexts.add(in.readUTF());
+            }
+            for (String cxn : contexts) {
                 Context cx = new Context();
-                String cxn = in.readUTF();
                 // Module ids
                 int nModules = in.readInt();
                 for (int j = 0; j < nModules; j++) {
@@ -1755,9 +1761,6 @@ public final class SimpleLibrary
         private static final String FILE
             = FileConstants.META_PREFIX + "mids";
 
-        private static final int MAJOR_VERSION = 0;
-        private static final int MINOR_VERSION = 0;
-
         private final File root;
         private final File file;
         private Map<String,Set<ModuleId>> moduleIdsForName;
@@ -1777,8 +1780,8 @@ public final class SimpleLibrary
         private static FileHeader fileHeader() {
             return (new FileHeader()
                     .type(FileConstants.Type.LIBRARY_MODULE_IDS)
-                    .majorVersion(MAJOR_VERSION)
-                    .minorVersion(MINOR_VERSION));
+                    .majorVersion(Header.MAJOR_VERSION)
+                    .minorVersion(Header.MINOR_VERSION));
         }
 
         void load() throws IOException {

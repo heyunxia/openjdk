@@ -512,14 +512,14 @@ public final class ServiceLoader<S>
     }
     
     /**
-     * Returns the caller claser's class loader. Should only be invoked by 
+     * Returns the caller's class loader. Should only be invoked by 
      * the public load methods when in module mode.
      */
     private static ClassLoader callerLoader() {
         Class<?> caller = Reflection.getCallerClass(3);
         ClassLoader cl = (caller != null) ? caller.getClassLoader() : null;
         if (cl == null)
-            cl = BootLoader.getLoader();
+            cl = Platform.getBaseModuleLoader();
         return cl;
     }
     
@@ -545,7 +545,7 @@ public final class ServiceLoader<S>
         ClassLoader cl;
         // ## in module mode use the caller module's loader when null. This
         // will be re-visited once the full support for services is in.
-        if ((BootLoader.getLoader() != null) &&
+        if ((Platform.isModuleMode()) &&
             (loader == null || loader == ClassLoader.getSystemClassLoader()))
         {       
             cl = callerLoader();
@@ -578,7 +578,7 @@ public final class ServiceLoader<S>
      */
     public static <S> ServiceLoader<S> load(Class<S> service) {
         ClassLoader cl;
-        if (BootLoader.getLoader() != null) {
+        if (Platform.isModuleMode()) {
             cl = callerLoader();
         } else {
             cl = Thread.currentThread().getContextClassLoader();
@@ -611,7 +611,7 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> loadInstalled(Class<S> service) {
-        if (BootLoader.getLoader() != null) {
+        if (Platform.isModuleMode()) {
             // in module mode then use the caller's class loader
             return new ServiceLoader<>(service, callerLoader());
         } else {

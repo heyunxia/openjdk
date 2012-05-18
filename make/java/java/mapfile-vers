@@ -241,7 +241,6 @@ SUNWprivate_1.1 {
 		Java_java_util_prefs_FileSystemPreferences_lockFile0;
 		Java_java_util_prefs_FileSystemPreferences_unlockFile0;
 		Java_java_util_logging_FileHandler_isSetUID;
-                Java_org_openjdk_jigsaw_BootLoader_extendBootPath0;
                 Java_org_openjdk_jigsaw_PersistentTreeMap_close0;
                 Java_org_openjdk_jigsaw_PersistentTreeMap_create0;
                 Java_org_openjdk_jigsaw_PersistentTreeMap_get0;
@@ -305,6 +304,11 @@ SUNWprivate_1.1 {
 		GetStringPlatformChars;
 		Canonicalize;
 		JDK_GetVersionInfo0;
+                JDK_LoadContexts;
+                JDK_FindLocalClass;
+                JDK_ReadLocalClass;
+                JDK_GetModuleInfo;
+                JDK_GetSystemModuleLibraryPath;
 
 	local:
 		*;

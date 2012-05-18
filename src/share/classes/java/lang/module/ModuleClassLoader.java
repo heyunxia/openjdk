@@ -82,9 +82,7 @@ public abstract class ModuleClassLoader
      * @return {@code true} if the module of the given name is present;
      *         {@code false} otherwise.
      */
-    public boolean isModulePresent(String mn) {
-        return ((org.openjdk.jigsaw.Loader)this).isModulePresent(mn);
-    }
+    public abstract boolean isModulePresent(String mn);
 
     /**
      * Checks if a {@linkplain java.lang.reflect.Module module}

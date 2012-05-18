@@ -423,7 +423,8 @@ public class ScriptEngineManager  {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader callerLoader = getCallerClassLoader();
-            if (callerLoader != null) {
+            // ## Revisit with permission check for ClassLoader.getClassLoader() for modules
+            if (!org.openjdk.jigsaw.Platform.isPlatformLoader(callerLoader)) {
                 if (loader != callerLoader || !isAncestor(loader, callerLoader)) {
                     try {
                         sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);

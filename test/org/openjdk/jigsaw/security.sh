@@ -86,7 +86,11 @@ public class CreateClassLoader {
         System.setSecurityManager(new SecurityManager());
         boolean caught = false;
         try {
-            ModuleClassLoader mcl = new ModuleClassLoader(ModuleSystem.base()) { };
+            ModuleClassLoader mcl = new ModuleClassLoader(ModuleSystem.base()) {
+                public boolean isModulePresent(String mn) {
+                    throw new AssertionError("should not reach here");
+                }
+            };
         } catch (SecurityException se) {
             se.printStackTrace();
             caught = true;

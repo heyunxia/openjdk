@@ -52,7 +52,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
-import org.openjdk.jigsaw.BootLoader;
+import org.openjdk.jigsaw.Platform;
 import sun.misc.Unsafe;
 import sun.reflect.ConstantPool;
 import sun.reflect.Reflection;
@@ -617,7 +617,8 @@ public final class Class<T>
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = ClassLoader.getCallerClassLoader();
-            if (ccl != null && ccl != cl && !cl.isAncestor(ccl)) {
+            // ## Revisit: permission required in module mode
+            if (ClassLoader.isPlatformClassLoader(ccl) && ccl != cl && !cl.isAncestor(ccl)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }
@@ -2182,7 +2183,7 @@ public final class Class<T>
             s.checkMemberAccess(this, which);
             ClassLoader cl = getClassLoader0();
             if ((ccl != null) && (ccl != cl) &&
-                  ((cl == null) || !cl.isAncestor(ccl))) {
+                  (ClassLoader.isPlatformClassLoader(cl) || !cl.isAncestor(ccl))) {
                 String name = this.getName();
                 int i = name.lastIndexOf('.');
                 if (i != -1) {
@@ -3160,13 +3161,7 @@ public final class Class<T>
         // ##  Should the VM define the Module when loading a Class?
         // 
         if (module == null) {
-            try {
-                module = BootLoader.getLoader().findModule(this);
-            } catch (java.io.IOException x) {
-                // ## if Module has not been defined, possibly run into
-                // ## I/O error when reading module-info.
-                throw new AssertionError(x);
-            }
+            module = Platform.getPlatformModule(this);
         }
 
         return module;
@@ -3191,7 +3186,7 @@ public final class Class<T>
 
         ModuleClassLoader mcl = (ModuleClassLoader)cl;
         if (cl == null)
-            mcl = BootLoader.getLoader();
+            mcl = Platform.getBaseModuleLoader();
 
         // ## Remove the following when legacy mode support is implemented
         if (mcl == null) {

@@ -27,20 +27,6 @@
 @Optional
   sun.security.ssl.BaseSSLSocketImpl -> java.nio.channels.SocketChannel
 
-# public XMLDecoder(java.io.InputStream)
-# public XMLDecoder(java.io.InputStream, java.lang.Object)
-# public XMLDecoder(java.io.InputStream, java.lang.Object, java.beans.ExceptionListener)
-# public XMLDecoder(java.io.InputStream, java.lang.Object, java.beans.ExceptionListener, java.lang.ClassLoader)
-# public XMLDecoder(org.xml.sax.InputSource)
-@Optional
-  java.beans.XMLDecoder -> com.sun.beans.decoder.DocumentHandler
-  java.beans.XMLDecoder -> org.xml.sax.InputSource
-
-# public static org.xml.sax.helpers.DefaultHandler createHandler(java.lang.Object, java.beans.ExceptionListener, java.lang.ClassLoader)
-@Optional
-  java.beans.XMLDecoder -> com.sun.beans.decoder.DocumentHandler
-  java.beans.XMLDecoder -> org.xml.sax.helpers.DefaultHandler
-
 # public final java.nio.channels.FileChannel getChannel()
 @Optional
   java.net.SocketInputStream -> java.nio.channels.FileChannel

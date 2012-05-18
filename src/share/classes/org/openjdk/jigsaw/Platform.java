@@ -25,20 +25,14 @@
 
 package org.openjdk.jigsaw;
 
+import java.io.IOException;
 import java.lang.module.*;
-
+import java.lang.reflect.Module;
 
 public final class Platform {
-
     private Platform() { }
 
-    private static final JigsawModuleSystem jms
-        = JigsawModuleSystem.instance();
-
-    private static final ModuleId BASE_MID
-        = jms.parseModuleId("jdk.base@8-ea");
-
-    public static ModuleId baseModule() { return BASE_MID; }
+    static final String BASE_MODULE_NAME = "jdk.base";
 
     private static boolean isPlatformModuleName(String mn) {
         return (mn.equals("jdk") || mn.startsWith("jdk.") ||
@@ -55,11 +49,56 @@ public final class Platform {
     }
 
     static boolean isBootContext(BaseContext cx) {
-        String boot = baseModule().name();
         for (ModuleId mid : cx.modules()) {
-            if (mid.name().equals(boot))
+            if (mid.name().equals(BASE_MODULE_NAME))
                 return true;
         }
         return false;
+    }
+    
+    public static ModuleClassLoader getBaseModuleLoader() {
+        return BootLoader.getBaseModuleLoader();
+    }
+     
+    public static boolean isPlatformLoader(ClassLoader cl) {
+        if (cl == null) {
+            return true;
+        } else if (cl instanceof Loader) {
+            return isPlatformContext(((Loader)cl).context);
+        } else {
+            return false;
+        }
+    }
+    
+    /**
+     * Returns the Module for the given class loaded by the VM
+     * bootstrap class loader. 
+     */
+    public static Module getPlatformModule(Class<?> c) {
+        try {
+            BootLoader ld = BootLoader.getBaseModuleLoader();
+            Context cx = ld.context;
+            ModuleId mid = cx.findModuleForLocalClass(c.getName());
+            if (mid == null) {
+                return null;
+            }
+
+            // Find the library from which we'll load the class
+            //
+            Library lib = ld.pool.library(cx, mid);
+            return ld.findModule(lib, mid);
+        } catch (java.io.IOException x) {
+            // ## if Module has not been defined, possibly run into
+            // ## I/O error when reading module-info.
+            throw new InternalError(x);
+        }
+    }
+    
+    /**
+     * Tests if the VM is running in module mode.
+     */
+    public static boolean isModuleMode() {
+        assert sun.misc.VM.isBooted() == true;
+        return ClassLoader.getSystemClassLoader() instanceof ModuleClassLoader;
     }
 }

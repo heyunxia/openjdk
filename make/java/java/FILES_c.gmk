@@ -62,6 +62,7 @@ FILES_c = \
 	io_util.c \
 	io_util_md.c \
 	jio.c \
+	jigsaw.c \
 	logging.c \
 	jni_util.c \
 	jni_util_md.c \
@@ -80,6 +81,5 @@ FILES_c = \
 	Version.c \
 	VM.c \
 	VMSupport.c \
-        BootLoader.c \
         PersistentTreeMap.c \
         PersistentTreeMap_md.c \

@@ -39,39 +39,29 @@ import static org.openjdk.jigsaw.Trace.*;
 // java.* classes are only loaded by the built-in class loader and that
 // Class.getClassLoader() returns null for java.* classes.
 
-public final class BootLoader    // ## TEMPORARY should be package-private
+final class BootLoader
     extends Loader
-{
+{  
+    private static LoaderPool systemLoaderPool = null;
+    private static Context baseContext = null;
 
-    private static native void extendBootPath0(String path);
-
-    // ## TEMPORARY should be private; used by j.l.ClassLoader
-    // ## to make the legacy application class loader work
-    public static void extendBootPath(File path) {
-        extendBootPath0(path.getPath());
+    // Entry point invoked by the VM 
+    static BootLoader getBaseModuleLoader() {
+        if (baseContext == null)
+            // classpath mode
+            return null;
+        
+        return (BootLoader)systemLoaderPool.findLoader(baseContext);
     }
 
-    private BootLoader(LoaderPool lp, Context cx) {
+    // Called only once during the system class loader initialization 
+    static void setSystemLoaderPool(LoaderPool lp) {
+        systemLoaderPool = lp;
+        baseContext = lp.config().getContextForModuleName(Platform.BASE_MODULE_NAME);
+    }
+
+    BootLoader(LoaderPool lp, Context cx) {
         super(lp, cx);
-
-        // Add the rest of the boot context's modules
-        // to the VM's boot class path
-        //
-        for (ModuleId mid : cx.modules()) {
-            if (mid.equals(Platform.baseModule()))
-                continue;
-            try {
-                File p = pool.library().classPath(mid);
-                extendBootPath(p);
-            } catch (IOException x) {
-                throw new Error(x);
-            }
-        }
-
-    }
-
-    public static void main(String[] args) throws Exception {
-        extendBootPath(new File("/tmp/foo/bar"));
     }
 
     @Override
@@ -85,54 +75,4 @@ public final class BootLoader    // ## TEMPORARY should be package-private
         sun.misc.SharedSecrets.getJavaLangAccess().setModule(c, m);
         return c;
     }
-
-    private static BootLoader bootLoader;
-    static BootLoader newLoader(LoaderPool p, Context cx) {
-        if (bootLoader != null)
-            throw new InternalError("Not supporting multiple LoaderPool yet");
-
-        bootLoader = new BootLoader(p, cx);
-        return bootLoader;
-    }
-
-    public static BootLoader getLoader() {
-        // ### this may return null as VM bypasses the library
-        // ### to load system classes.  Revisit in the VM support.
-        return bootLoader;
-    }
-
-    /**
-     * Returns a ClassLoader that loads the system classes.
-     * 
-     * In legacy mode, it returns ClassLoader.getSystemClassLoader()
-     * that always delegates to the null class loader.
-     *
-     * In module mode, it returns the BootLoader that is the module class loader
-     * loading classes & resource files in the java.base module.
-     * 
-     */
-    public static ClassLoader getSystemLoader() {
-        // ## will this be called during VM startup in which
-        // ## the boot loader has not been initialized?
-        assert sun.misc.VM.isBooted() == true;
-        ClassLoader cl = getLoader();       
-        return cl != null ? cl : ClassLoader.getSystemClassLoader();
-    }
-    
-    /**
-     * Returns the Module for the given class loaded by the VM
-     * bootstrap class loader. 
-     */
-    public Module findModule(Class<?> c) throws IOException {
-        Context cx = context;
-        ModuleId mid = cx.findModuleForLocalClass(c.getName());
-        if (mid == null)
-            return null;
-
-        // Find the library from which we'll load the class
-        //
-        Library lib = bootLoader.pool.library(cx, mid);
-        return findModule(lib, mid);
-    }
-
 }

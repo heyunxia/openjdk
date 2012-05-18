@@ -55,6 +55,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.jar.JarEntry;
+import org.openjdk.jigsaw.Platform;
 
 import sun.util.locale.BaseLocale;
 import sun.util.locale.LocaleObjectCache;
@@ -438,7 +439,7 @@ public abstract class ResourceBundle {
     private static native Class<?>[] getClassContext();
 
     /**
-     * A wrapper for a class loader to load the system classes. 
+     * A wrapper for the null class loader
      */
     private static class RBClassLoader extends ClassLoader {
         private static final RBClassLoader INSTANCE = AccessController.doPrivileged(
@@ -448,15 +449,16 @@ public abstract class ResourceBundle {
                         }
                     });
 
-        // For legacy JDK, RBClassLoader just delegates to 
+        // In classpath mode, RBClassLoader just delegates to 
         // ClassLoader.getSystemClassLoader() that always delegates to
         // the null class loader.
         // 
-        // For modular JDK, the BootLoader is the module class loader
-        // loading classes & resource files in the java.base module.
+        // In module mode, use the base module's loader to
+        // load classes & resource files in the java.base module.
         // 
         private static final ClassLoader loader =
-            org.openjdk.jigsaw.BootLoader.getSystemLoader();
+            Platform.isModuleMode() ? Platform.getBaseModuleLoader()
+                                    : ClassLoader.getSystemClassLoader();
 
         private RBClassLoader() {
         }
