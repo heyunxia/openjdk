@@ -756,7 +756,10 @@ JVM_ENTRY(jclass, JVM_FindClassFromClassLoader(JNIEnv* env, const char* name,
     }
   }
   TempNewSymbol h_name = SymbolTable::new_symbol(name, CHECK_NULL);
-  Handle h_loader(THREAD, JNIHandles::resolve(loader));
+  oop local_loader = JNIHandles::resolve(loader);
+  oop null_loader = NULL;
+  local_loader = (local_loader == SystemDictionary::java_base_module_loader() ? null_loader : local_loader);
+  Handle h_loader(THREAD, local_loader);
   jclass result = find_class_from_class_loader(env, h_name, init, h_loader,
                                                Handle(), throwError, THREAD);
 
@@ -853,7 +856,10 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name,
 
   ResourceMark rm(THREAD);
   ClassFileStream st((u1*) buf, len, (char *)source);
-  Handle class_loader(THREAD, JNIHandles::resolve(loader));
+  oop local_loader = JNIHandles::resolve(loader);
+  oop null_loader = NULL;
+  local_loader = (local_loader == SystemDictionary::java_base_module_loader() ? null_loader : local_loader);
+  Handle class_loader(THREAD, local_loader);
 
   if (UsePerfData) {
     if (loader == NULL) {
@@ -923,7 +929,10 @@ JVM_ENTRY(jclass, JVM_FindLoadedClass(JNIEnv *env, jobject loader, jstring name)
   // Security Note:
   //   The Java level wrapper will perform the necessary security check allowing
   //   us to pass the NULL as the initiating class loader.
-  Handle h_loader(THREAD, JNIHandles::resolve(loader));
+  oop local_loader = JNIHandles::resolve(loader);
+  oop null_loader = NULL;
+  local_loader = (local_loader == SystemDictionary::java_base_module_loader() ? null_loader : local_loader);
+  Handle h_loader(THREAD, local_loader);
   if (UsePerfData) {
     is_lock_held_by_thread(h_loader,
                            ClassLoader::sync_JVMFindLoadedClassLockFreeCounter(),
@@ -1020,6 +1029,21 @@ JVM_ENTRY(jobject, JVM_GetClassLoader(JNIEnv *env, jclass cls))
   }
   klassOop k = java_lang_Class::as_klassOop(JNIHandles::resolve_non_null(cls));
   oop loader = Klass::cast(k)->class_loader();
+  return JNIHandles::make_local(env, loader);
+JVM_END
+
+JVM_ENTRY(jobject, JVM_GetModuleLoader(JNIEnv *env, jclass cls))
+  JVMWrapper("JVM_GetModuleLoader");
+  oop loader;
+  if (java_lang_Class::is_primitive(JNIHandles::resolve_non_null(cls))) {
+    loader = NULL;
+  } else {
+    klassOop k = java_lang_Class::as_klassOop(JNIHandles::resolve_non_null(cls));
+    loader = Klass::cast(k)->class_loader();
+  }
+  if (Arguments::is_module_mode() && loader == NULL) {
+    loader = SystemDictionary::java_base_module_loader();
+  }
   return JNIHandles::make_local(env, loader);
 JVM_END
 

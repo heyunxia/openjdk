@@ -466,6 +466,9 @@ JVM_GetClassInterfaces(JNIEnv *env, jclass cls);
 JNIEXPORT jobject JNICALL
 JVM_GetClassLoader(JNIEnv *env, jclass cls);
 
+JNIEXPORT jobject JNICALL
+JVM_GetModuleLoader(JNIEnv *env, jclass cls);
+
 JNIEXPORT jboolean JNICALL
 JVM_IsInterface(JNIEnv *env, jclass cls);
 
