@@ -523,3 +523,18 @@
 @Provider(optional)
   com.sun.tools.attach.spi.AttachProvider -> META-INF/services/com.sun.tools.attach.spi.AttachProvider
 
+@Provider(optional)
+  javax.xml.ws.spi.Provider -> META-INF/services/javax.xml.ws.spi.Provider
+
+@Provider(optional)
+  javax.xml.bind.JAXBContext -> META-INF/services/javax.xml.bind.JAXBContext
+
+@Provider(optional)
+  javax.xml.soap.MessageFactory -> META-INF/services/javax.xml.soap.MessageFactory
+
+@Provider(optional)
+  javax.xml.soap.SAAJMetaFactory -> META-INF/services/javax.xml.soap.SAAJMetaFactory
+
+@Provider(optional)
+  javax.xml.soap.SOAPFactory -> META-INF/services/javax.xml.soap.SOAPFactory
+
