@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -638,11 +638,12 @@ public final class SimpleLibrary
     private static final class Signers
         extends MetaData {
 
-        private static String FILE = "signer";
-        private static int MAJOR_VERSION = 0;
-        private static int MINOR_VERSION = 1;
+        private static final String FILE = "signer";
+        private static final int MAJOR_VERSION = 0;
+        private static final int MINOR_VERSION = 1;
+        private static final String ENCODING = "PkiPath";
 
-        private CertificateFactory cf = null;
+        private CertificateFactory cf;
         private Set<CodeSigner> signers;
         private Set<CodeSigner> signers() { return signers; }
 
@@ -653,6 +654,7 @@ public final class SimpleLibrary
             this.signers = signers;
         }
 
+        @Override
         protected void storeRest(DataOutputStream out)
             throws IOException
         {
@@ -660,12 +662,14 @@ public final class SimpleLibrary
             for (CodeSigner signer : signers) {
                 try {
                     CertPath signerCertPath = signer.getSignerCertPath();
-                    out.write(signerCertPath.getEncoded("PkiPath"));
+                    out.write(signerCertPath.getEncoded(ENCODING));
                     Timestamp ts = signer.getTimestamp();
-                    out.writeByte((ts != null) ? 1 : 0);
                     if (ts != null) {
+                        out.writeByte(1);
                         out.writeLong(ts.getTimestamp().getTime());
-                        out.write(ts.getSignerCertPath().getEncoded("PkiPath"));
+                        out.write(ts.getSignerCertPath().getEncoded(ENCODING));
+                    } else {
+                        out.writeByte(0);
                     }
                 } catch (CertificateEncodingException cee) {
                     throw new IOException(cee);
@@ -673,6 +677,7 @@ public final class SimpleLibrary
             }
         }
 
+        @Override
         protected void loadRest(DataInputStream in)
             throws IOException
         {
@@ -681,11 +686,11 @@ public final class SimpleLibrary
                 try {
                     if (cf == null)
                         cf = CertificateFactory.getInstance("X.509");
-                    CertPath signerCertPath = cf.generateCertPath(in, "PkiPath");
+                    CertPath signerCertPath = cf.generateCertPath(in, ENCODING);
                     int b = in.readByte();
                     if (b != 0) {
                         Date timestamp = new Date(in.readLong());
-                        CertPath tsaCertPath = cf.generateCertPath(in, "PkiPath");
+                        CertPath tsaCertPath = cf.generateCertPath(in, ENCODING);
                         Timestamp ts = new Timestamp(timestamp, tsaCertPath);
                         signers.add(new CodeSigner(signerCertPath, ts));
                     } else {
@@ -762,6 +767,7 @@ public final class SimpleLibrary
         return Files.load(new File(md, "info"));
     }
 
+    @Override
     public CodeSigner[] readLocalCodeSigners(ModuleId mid)
         throws IOException
     {
@@ -769,7 +775,6 @@ public final class SimpleLibrary
         if (md == null)
             return null;
 
-        // Only one signer is currently supported
         File f = new File(md, "signer");
         // ## concurrency issues : what is the expected behavior if file is
         // ## removed by another thread/process here?
@@ -1146,8 +1151,8 @@ public final class SimpleLibrary
 	installFromManifests(mfs, false);
     }
 
-    private ModuleFileVerifier.Parameters mfvParams;
-    private ModuleId installWhileLocked(InputStream is, boolean verifySignature, boolean strip)
+    private ModuleId installWhileLocked(InputStream is, boolean verifySignature,
+                                        boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
         BufferedInputStream bin = new BufferedInputStream(is);
@@ -1158,26 +1163,33 @@ public final class SimpleLibrary
             mi = jms.parseModuleInfo(mib);
             File md = moduleDictionary.add(mi);
             if (verifySignature && mr.hasSignature()) {
-                ModuleFileVerifier mfv = new SignedModule.PKCS7Verifier(mr);
-                if (mfvParams == null) {
-                    mfvParams = new SignedModule.VerifierParameters();
+                // Verify the module signature
+                SignedModule sm = new SignedModule(mr);
+                Set<CodeSigner> signers = sm.verifySignature();
+
+                // Validate the signers
+                try {
+                    SignedModule.validateSigners(signers);
+                } catch (CertificateException x) {
+                    throw new SignatureException(x);
                 }
-                // Verify the module signature and validate the signer's
-                // certificate chain
-                Set<CodeSigner> signers = mfv.verifySignature(mfvParams);
+
+                // ## TODO: Check policy and determine if signer is trusted
+                // ## and what permissions should be granted.
+                // ## If there is no policy entry, show signers and prompt
+                // ## user to accept before proceeding.
 
                 // Verify the module header hash and the module info hash
-                mfv.verifyHashesStart(mfvParams);
+                sm.verifyHashesStart();
 
-                // ## Check policy - is signer trusted and what permissions
-                // ## should be granted?
+                // Read the rest of the hashes
+                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
+
+                // Verify the rest of the hashes
+                sm.verifyHashesRest();
 
                 // Store signer info
                 new Signers(md, signers).store();
-
-                // Read and verify the rest of the hashes
-                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
-                mfv.verifyHashesRest(mfvParams);
             } else {
                 mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
             }
@@ -1295,11 +1307,9 @@ public final class SimpleLibrary
                 new HashSet<>(Arrays.asList(jeSigners));
             if (signers.isEmpty())
                 signers.addAll(jeSignerSet);
-            else {
-                if (signers.retainAll(jeSignerSet) && signers.isEmpty())
-                    throw new SignatureException("No signers in common in "
-                                                 + "signed modular JAR");
-            }
+            else if (signers.retainAll(jeSignerSet) && signers.isEmpty())
+                throw new SignatureException("No signers in common in "
+                                             + "signed modular JAR");
         }
         return signers;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,27 +25,12 @@
 
 package org.openjdk.jigsaw.cli;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.net.URI;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.security.GeneralSecurityException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.Signature;
-import java.security.SignatureException;
-import java.security.UnrecoverableKeyException;
+import java.security.*;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
@@ -58,13 +43,16 @@ import static java.security.KeyStore.PasswordProtection;
 import static java.security.KeyStore.PrivateKeyEntry;
 
 import org.openjdk.jigsaw.*;
-import static org.openjdk.jigsaw.ModuleFile.*;
-import static org.openjdk.jigsaw.SignedModule.SignerParameters;
+import org.openjdk.jigsaw.ModuleFile.Reader;
 import org.openjdk.internal.joptsimple.OptionException;
 import org.openjdk.internal.joptsimple.OptionParser;
 import org.openjdk.internal.joptsimple.OptionSet;
 import org.openjdk.internal.joptsimple.OptionSpec;
 
+import static org.openjdk.jigsaw.ModuleFile.*;
+import static org.openjdk.jigsaw.FileConstants.ModuleFile.*;
+
+import sun.security.pkcs.PKCS7;
 import sun.security.util.Password;
 
 /* Interface:
@@ -76,14 +64,14 @@ jsign [-v] [--keystore <keystore-location>] \
 
 */
 
-public class Signer {
+public final class Signer {
 
     private OptionParser parser;
-    private boolean verbose = false;
+    private boolean verbose;
 
-    // Do not prompt for a keystore password (for example, with a keystore 
-    // provider that is configured with its own PIN entry device).
-    private boolean protectedPath = false;
+    // If true, do not prompt for a keystore password (for example, with a
+    // keystore provider that is configured with its own PIN entry device).
+    private boolean protectedPath;
 
     // Module signer's alias
     private String signer;
@@ -103,8 +91,12 @@ public class Signer {
     public static void main(String[] args) throws Exception {
         try {
             run(args);
-        } catch (OptionException | Command.Exception x) {
+        } catch (OptionException x) {
             err.println(x.getMessage());
+            System.exit(1);
+        } catch (Command.Exception x) {
+            err.println(x.getMessage());
+            x.printStackTrace();
             System.exit(1);
         }
     }
@@ -131,7 +123,7 @@ public class Signer {
         OptionSpec<String> keystoreUrl
             = (parser.acceptsAll(Arrays.asList("k", "keystore"),
                                  "URL or file name of module signer's"
-                                 + " keystore location")
+                                 + " keystore")
                .withRequiredArg()
                .describedAs("location")
                .ofType(String.class));
@@ -167,19 +159,20 @@ public class Signer {
             usage();
             return;
         }
-        if (opts.has("v"))
-            verbose = true;
-
+        verbose = opts.has("v");
         if (opts.has(keystoreUrl)) {
             keystore = opts.valueOf(keystoreUrl);
-            // Compatibility with keytool and jarsigner options
+            // NONE is for non-file based keystores, ex. PKCS11 tokens
             if (keystore.equals("NONE"))
                 keystore = null;
+        } else {
+            // default is $HOME/.keystore
+            keystore = System.getProperty("user.home")
+                       + File.separator + ".keystore";
         }
-        if (opts.has(keystoreType))
-            storetype = opts.valueOf(keystoreType);
-        if (opts.has("protected"))
-            protectedPath = true;
+        storetype = opts.has(keystoreType) ? opts.valueOf(keystoreType)
+                                           : KeyStore.getDefaultType();
+        protectedPath = opts.has("protected");
         if (opts.has(tsa))
             tsaURI = opts.valueOf(tsa);
         if (opts.has(signedModule))
@@ -213,10 +206,13 @@ public class Signer {
                 out.println("Signing module using '" + signer + "' from "
                             + " keystore " + keystore);
 
-            SignerParameters params = null;
-
-            File tmpFile = (signedModuleFile == null)
-                ? new File(moduleFile + ".sig") : signedModuleFile;
+            PrivateKeyEntry pke = null;
+            try {
+                pke = getPrivateKeyEntry(signer);
+            } catch (GeneralSecurityException | IOException x) {
+                throw new Command.Exception("unable to extract private key " +
+                                            "entry from keystore", x);
+            }
 
             // First, read in module file and calculate hashes
             List<byte[]> hashes = null;
@@ -224,17 +220,18 @@ public class Signer {
             try (FileInputStream mfis = new FileInputStream(moduleFile);
                  Reader reader = new Reader(new DataInputStream(mfis)))
             {
-                params = createSignerParameters(signer);
                 moduleInfoBytes = reader.readStart();
                 if (reader.hasSignature())
                     throw new Command.Exception("module file is already signed");
                 reader.readRest();
                 hashes = reader.getCalculatedHashes();
-            } catch (IOException | GeneralSecurityException x) {
-                throw new Command.Exception(x);
+            } catch (IOException x) {
+                throw new Command.Exception("unable to read module file", x);
             }
 
             // Next, generate signature and insert into signed module file
+            File tmpFile = (signedModuleFile == null)
+                ? new File(moduleFile + ".sig") : signedModuleFile;
             try (RandomAccessFile mraf = new RandomAccessFile(moduleFile, "r");
                  RandomAccessFile raf = new RandomAccessFile(tmpFile, "rw"))
             {   
@@ -252,7 +249,7 @@ public class Signer {
                 }
 
                 // Write out the Signature Section
-                writeSignatureSection(raf, hashes, params);
+                writeSignatureSection(raf, hashes, pke);
 
                 // Transfer the remainder of the file
                 for (long pos = remainderStart; pos < mraf.length();) {
@@ -263,11 +260,9 @@ public class Signer {
                 try {
                     Files.deleteIfExists(tmpFile.toPath());
                 } catch (IOException ioe) {
-                    if (verbose)
-                        err.println(x);
-                    throw new Command.Exception(ioe);
+                    x.addSuppressed(ioe);
                 }
-                throw new Command.Exception(x);
+                throw new Command.Exception("unable to sign module", x);
             }
 
             if (signedModuleFile == null) {
@@ -275,29 +270,21 @@ public class Signer {
                     Files.move(tmpFile.toPath(), new File(moduleFile).toPath(),
                                StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException ioe) {
-                    throw new Command.Exception(ioe);
+                    throw new Command.Exception("unable to sign module", ioe);
                 }
             }
         }
 
-        private SignerParameters createSignerParameters(String signer)
-            throws IOException, GeneralSecurityException
+        private PrivateKeyEntry getPrivateKeyEntry(String signer)
+            throws GeneralSecurityException, IOException
         {
             PasswordProtection storePassword = null;
             PasswordProtection keyPassword = null;
-            if (keystore == null)
-                keystore = System.getProperty("user.home")
-                           + File.separator + ".keystore";
-
-            try (FileInputStream inStream = new FileInputStream(keystore)) {
-
-                if (storetype == null)
-                    storetype = KeyStore.getDefaultType();
-
-                KeyStore ks = KeyStore.getInstance(storetype);
+ 
+            try (InputStream inStream = new FileInputStream(keystore)) {
 
                 // Prompt user for the keystore password (except when
-                // prohibited or when using Windows MY native keystore)
+                // protected is true or when using Windows MY native keystore)
                 if (!protectedPath || !isWindowsKeyStore(storetype)) {
                     err.print("Enter password for " + storetype
                               + " keystore: ");
@@ -307,6 +294,7 @@ public class Signer {
                 }
 
                 // Load the keystore
+                KeyStore ks = KeyStore.getInstance(storetype);
                 ks.load(inStream, storePassword.getPassword());
 
                 if (!ks.containsAlias(signer))
@@ -318,9 +306,8 @@ public class Signer {
                                                 + "is not a private key");
 
                 // First try to recover the key using keystore password
-                PrivateKeyEntry pke = null;
                 try {
-                    pke = (PrivateKeyEntry)ks.getEntry(signer, storePassword);
+                    return (PrivateKeyEntry)ks.getEntry(signer, storePassword);
                 } catch (UnrecoverableKeyException e) {
                     if (protectedPath ||
                         storetype.equalsIgnoreCase("PKCS11") ||
@@ -332,29 +319,26 @@ public class Signer {
                     err.flush();
                     keyPassword = 
                         new PasswordProtection(Password.readPassword(in));
-                    pke = (PrivateKeyEntry)ks.getEntry(signer, keyPassword);
+                    return (PrivateKeyEntry)ks.getEntry(signer, keyPassword);
                 }
-
-                // Create the signing mechanism
-                PrivateKey privateKey = pke.getPrivateKey();
-                Signature signature = Signature.getInstance(
-                                    getSignatureAlgorithm(privateKey));
-                signature.initSign(privateKey);
-
-                X509Certificate[] signerChain
-                    = (X509Certificate[])pke.getCertificateChain();
-                return new SignerParameters(signature, signerChain, tsaURI);
             } finally {
                 try {
                     if (storePassword != null) {
                         storePassword.destroy();
                     }
+                } catch (DestroyFailedException x) {
+                    if (verbose)
+                        err.println("Could not destroy keystore password: "
+                                    + x);
+                }
+                try {
                     if (keyPassword != null) {
                         keyPassword.destroy();
                     }
                 } catch (DestroyFailedException x) {
                     if (verbose)
-                        err.println("Could not destroy password: " + x);
+                        err.println("Could not destroy private key password: "
+                                    + x);
                 }
             }
         }
@@ -362,8 +346,9 @@ public class Signer {
         /*
          * The signature algorithm is derived from the signer key.
          */
-        private String getSignatureAlgorithm(PrivateKey privateKey)
-            throws SignatureException {
+        private String getSignatureAlg(PrivateKey privateKey)
+            throws SignatureException
+        {
             switch (privateKey.getAlgorithm()) {
                 case "RSA":
                     return "SHA256withRSA";
@@ -398,13 +383,13 @@ public class Signer {
          */
         private void writeSignatureSection(DataOutput out,
                                            List<byte[]> hashes,
-                                           SignerParameters params)
-            throws IOException, SignatureException, NoSuchAlgorithmException {
-
+                                           PrivateKeyEntry pke)
+            throws GeneralSecurityException, IOException
+        {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             short hashLength;
             for (byte[] hash : hashes) {
-                hashLength = (short) hash.length;
+                hashLength = (short)hash.length;
                 baos.write((byte) ((hashLength >>> 8) & 0xFF));
                 baos.write((byte) ((hashLength >>> 0) & 0xFF));
                 baos.write(hash, 0, hashLength);
@@ -412,37 +397,47 @@ public class Signer {
             byte[] toBeSigned = baos.toByteArray();
 
             // Compute the signature
-            SignedModule.PKCS7Signer signer = new SignedModule.PKCS7Signer();
-            byte[] signature = signer.generateSignature(toBeSigned, params);
+            PrivateKey privateKey = pke.getPrivateKey();
+            Signature sig = Signature.getInstance(getSignatureAlg(privateKey));
+            sig.initSign(privateKey);
+            sig.update(toBeSigned);
+
+            // Create the PKCS #7 signed data message
+            X509Certificate[] signerChain =
+                (X509Certificate[])pke.getCertificateChain();
+            byte[] signedData = PKCS7.generateSignedData(sig.sign(),
+                                                         signerChain,
+                                                         toBeSigned,
+                                                         sig.getAlgorithm(),
+                                                         tsaURI);
 
             // Generate the hash for the signature header and content
             baos = new ByteArrayOutputStream();
             DataOutputStream dos = new DataOutputStream(baos);
-            short signatureType = (short)signer.getSignatureType().value();
+            short signatureType = (short)SignatureType.PKCS7.value();
             dos.writeShort(signatureType);
-            short signatureLength = (short)signature.length;
-            dos.writeInt(signature.length);
+            dos.writeInt(signedData.length);
             byte[] signatureHeader = baos.toByteArray();
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            MessageDigest md =
+                MessageDigest.getInstance(HashType.SHA256.algorithm());
             md.update(signatureHeader);
-            md.update(signature);
+            md.update(signedData);
             byte[] hash = md.digest();
 
             // Write out the Signature Section
-            SectionHeader header =
-                    new SectionHeader(FileConstants.ModuleFile.SectionType.SIGNATURE,
-                                      FileConstants.ModuleFile.Compressor.NONE,
-                                      signature.length + 6,
-                                      (short)0, hash);
+            SectionHeader header = new SectionHeader(SectionType.SIGNATURE,
+                                                     Compressor.NONE,
+                                                     signedData.length + 6,
+                                                     (short)0, hash);
             header.write(out);
             out.write(signatureHeader);
-            out.write(signature);
+            out.write(signedData);
         }
     }
 
     /**
      * Returns true if KeyStore has a password. This is true except for
-     * MSCAPI KeyStores
+     * MSCAPI KeyStores.
      */
     private static boolean isWindowsKeyStore(String storetype) {
         return storetype.equalsIgnoreCase("Windows-MY")

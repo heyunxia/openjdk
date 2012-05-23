@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,9 +33,8 @@ import java.security.cert.*;
 import java.util.*;
 import java.util.zip.*;
 import org.openjdk.jigsaw.cli.*;
-import org.openjdk.jigsaw.SignedModule;
-import org.openjdk.jigsaw.ModuleFileVerifier;
 import org.openjdk.jigsaw.ModuleFile;
+import org.openjdk.jigsaw.SignedModule;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.*;
 
 public class ModuleFileTest {
@@ -375,15 +374,12 @@ public class ModuleFileTest {
                 DataInputStream dis = new DataInputStream(fis);
                 ModuleFile.Reader reader = new ModuleFile.Reader(dis)) {
             if (reader.hasSignature()) {
-                if (reader.getSignatureType() == SignatureType.PKCS7.value()) {
+                if (reader.getSignatureType() == SignatureType.PKCS7) {
 
-                    ModuleFileVerifier verifier = new SignedModule.PKCS7Verifier(reader);
-                    ModuleFileVerifier.Parameters verifierParams =
-                            new SignedModule.VerifierParameters();
+                    SignedModule sm = new SignedModule(reader);
                     int i = 1;
                     System.out.println("Module '" + name + "' is signed by:");
-                    for (CodeSigner signer :
-                            verifier.verifySignature(verifierParams)) {
+                    for (CodeSigner signer : sm.verifySignature()) {
                         X509Certificate signerCert =
                                 (X509Certificate) signer.getSignerCertPath().getCertificates().get(0);
                         System.out.println("    [" + (i++) + "] "
