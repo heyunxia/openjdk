@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -61,7 +61,7 @@ public final class ModuleFile {
         private DataInputStream stream;
         private File destination;
         private boolean deflate;
-        private HashType hashtype;
+        private final HashType hashtype = HashType.SHA256;
         private File natlibs;
         private File natcmds;
         private File configs;
@@ -116,7 +116,6 @@ public final class ModuleFile {
         }
 
         public Reader(DataInputStream stream) {
-            hashtype = HashType.SHA256;
             // Ensure that mark/reset is supported
             if (stream.markSupported()) {
                 this.stream = stream;
@@ -141,7 +140,7 @@ public final class ModuleFile {
         private MessageDigest sectionDigest = null;
         private DataInputStream fileIn = null;
         private byte[] moduleInfoBytes = null;
-        private Integer moduleSignatureType = null;
+        private SignatureType moduleSignatureType = null;
         private byte[] moduleSignatureBytes = null;
         private final int MAX_SECTION_HEADER_LENGTH = 128;
         private List<byte[]> calculatedHashes = new ArrayList<>();
@@ -237,7 +236,7 @@ public final class ModuleFile {
             return moduleSignatureBytes != null;
         }
 
-        public Integer getSignatureType() throws IOException {
+        public SignatureType getSignatureType() throws IOException {
             if (null == fileHeader)
                 readStart();
             return moduleSignatureType;
@@ -252,7 +251,7 @@ public final class ModuleFile {
         }
 
         byte[] getSignatureNoClone() {
-            return moduleSignatureBytes;
+             return moduleSignatureBytes;
         }
 
         private JarOutputStream contentStream = null;
@@ -375,7 +374,14 @@ public final class ModuleFile {
 
                 } else if (type == SectionType.SIGNATURE) {
                     // Examine the Signature header
-                    moduleSignatureType = (int)in.readShort();
+                    int signatureTypeValue = (int)in.readShort();
+                    try {
+                        moduleSignatureType =
+                            SignatureType.valueOf(signatureTypeValue);
+                    } catch (IllegalArgumentException x) {
+                        throw new IOException("Invalid signature type: " +
+                                              signatureTypeValue);
+                    }
                     int length = in.readInt();
                     moduleSignatureBytes = readModuleSignature(in, csize - 6);
                     if (length != moduleSignatureBytes.length) {
@@ -705,8 +711,7 @@ public final class ModuleFile {
             }
         }
         catch (NoSuchAlgorithmException ex) {
-            throw (IOException) (new IOException(hashtype + " not found"))
-                .initCause(ex);
+            throw new IOException(hashtype + " not found", ex);
         }
     }
 
@@ -776,7 +781,6 @@ public final class ModuleFile {
     private static byte[] readHashBytes(DataInputStream in, short hashLength)
         throws IOException
     {
-
         final byte[] hash = new byte[hashLength];
         in.readFully(hash);
 
@@ -857,15 +861,6 @@ public final class ModuleFile {
             writeHash(out, hash);
         }
 
-        private static HashType lookupHashType(short value) {
-            for (HashType i : HashType.class.getEnumConstants()) {
-                if (i.value() == value) return i;
-            }
-
-            throw new IllegalArgumentException("No HashType exists with value "
-                    + value);
-        }
-
         public static ModuleFileHeader read(final DigestInputStream dis)
                 throws IOException
         {
@@ -890,12 +885,18 @@ public final class ModuleFile {
             final long csize = in.readLong();
             final long usize = in.readLong();
             final short hashTypeValue = in.readShort();
-            HashType hashType = lookupHashType(hashTypeValue);
+            HashType hashType = null;
+            try {
+                hashType = HashType.valueOf(hashTypeValue);
+            } catch (IllegalArgumentException x) {
+                throw new IOException("Invalid hash type: " + hashTypeValue);
+            }
             final byte[] hash = readFileHash(dis);
 
             return new ModuleFileHeader(csize, usize, hashType, hash);
         }
 
+        @Override
         public String toString() {
             return "MODULE{csize=" + csize +
                    ", hash=" + hashHexString(hash) + "}";
@@ -997,6 +998,7 @@ public final class ModuleFile {
             return hash;
         }
 
+        @Override
         public String toString() {
             return "SectionHeader{type= " + type
                     + ", compressor=" + compressor
