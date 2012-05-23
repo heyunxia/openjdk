@@ -255,9 +255,10 @@ JAVA		= /should/not/be/used
 # Since JDK_HOST_PATH defaults to OUTPUTDIR, need to add
 # ISA_DIR for sparv9 and amd64
 JDK_HOST_BINDIR=$(JDK_HOST_PATH)/bin
-ifndef ALT_JDK_HOST_PATH
-JDK_HOST_BINDIR=$(JDK_HOST_PATH)/bin$(ISA_DIR)
-endif
+## Temporarily remove for Modules Solaris 64bit only build
+#ifndef ALT_JDK_HOST_PATH
+#JDK_HOST_BINDIR=$(JDK_HOST_PATH)/bin$(ISA_DIR)
+#endif
 
 HOST_JAVA_CMD  = $(JDK_HOST_BINDIR)/java $(JAVA_TOOLS_FLAGS)
 HOST_JAVAC_CMD = $(JDK_HOST_BINDIR)/javac $(JAVAC_JVM_FLAGS) $(HOST_JAVACFLAGS)

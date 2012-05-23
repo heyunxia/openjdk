@@ -567,7 +567,9 @@ endif
 
 # Bin directory
 #   NOTE: ISA_DIR is usually empty, on Solaris it might be /sparcv9 or /amd64
-BINDIR      = $(OUTPUTDIR)/bin$(ISA_DIR)
+## Temporarily remove for Modules Solaris 64bit only build
+#BINDIR      = $(OUTPUTDIR)/bin$(ISA_DIR)
+BINDIR      = $(OUTPUTDIR)/bin
 
 # JDK_HOST_PATH: the default location of the latest JDK that can run
 #   on the host system and supports the target class file version

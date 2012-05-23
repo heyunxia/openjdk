@@ -76,6 +76,30 @@ demo/jvmti/mtrace/TraceJFrame.java 				generic-all
 demo/jvmti/versionCheck/FailsWhenJvmtiVersionDiffers.java 	generic-all
 demo/jvmti/waiters/WaitersTest.java 				generic-all
 
+# Tests rely on bin/sparcv9|amd64/java launcher
+demo/jvmti/hprof/CpuOldTest.java                   solaris-x64
+demo/jvmti/hprof/CpuSamplesTest.java               solaris-x64
+demo/jvmti/hprof/CpuTimesDefineClassTest.java      solaris-x64
+demo/jvmti/hprof/CpuTimesTest.java                 solaris-x64
+demo/jvmti/hprof/HeapAllTest.java                  solaris-x64
+demo/jvmti/hprof/HeapBinaryFormatTest.java         solaris-x64
+demo/jvmti/hprof/HeapDumpTest.java                 solaris-x64
+demo/jvmti/hprof/HeapSitesTest.java                solaris-x64
+demo/jvmti/hprof/MonitorTest.java                  solaris-x64
+demo/jvmti/hprof/OptionsTest.java                  solaris-x64
+demo/jvmti/hprof/StackMapTableTest.java            solaris-x64
+demo/jvmti/hprof/CpuOldTest.java                   solaris-sparcv9
+demo/jvmti/hprof/CpuSamplesTest.java               solaris-sparcv9
+demo/jvmti/hprof/CpuTimesDefineClassTest.java      solaris-sparcv9
+demo/jvmti/hprof/CpuTimesTest.java                 solaris-sparcv9
+demo/jvmti/hprof/HeapAllTest.java                  solaris-sparcv9
+demo/jvmti/hprof/HeapBinaryFormatTest.java         solaris-sparcv9
+demo/jvmti/hprof/HeapDumpTest.java                 solaris-sparcv9
+demo/jvmti/hprof/HeapSitesTest.java                solaris-sparcv9
+demo/jvmti/hprof/MonitorTest.java                  solaris-sparcv9
+demo/jvmti/hprof/OptionsTest.java                  solaris-sparcv9
+demo/jvmti/hprof/StackMapTableTest.java            solaris-sparcv9
+
 ############################################################################
 # jdk_net
 
@@ -224,6 +248,20 @@ tools/launcher/ExecutionEnvironment.java   	generic-all
 tools/launcher/VersionCheck.java   	        generic-all
 # /var/tmp  not writeable
 tools/jar/ChangeDir.java                        generic-all
+
+# Tests rely on bin/sparcv9|amd64/java launcher
+com/sun/jdi/BadHandshakeTest.java               solaris-x64
+com/sun/jdi/ExclusiveBind.java                  solaris-x64
+com/sun/jdi/RunToExit.java                      solaris-x64
+com/sun/jdi/DoubleAgentTest.java                solaris-x64
+tools/launcher/Test7029048.java                 solaris-x64
+sun/tools/jhat/HatHeapDump1Test.java            solaris-x64
+com/sun/jdi/BadHandshakeTest.java               solaris-sparcv9
+com/sun/jdi/ExclusiveBind.java                  solaris-sparcv9
+com/sun/jdi/RunToExit.java                      solaris-sparcv9
+com/sun/jdi/DoubleAgentTest.java                solaris-sparcv9
+tools/launcher/Test7029048.java                 solaris-sparcv9
+sun/tools/jhat/HatHeapDump1Test.java            solaris-sparcv9
 
 # Test expects tools.jar and rt.jar.  Needs to be update.
 tools/pack200/Pack200Simple.sh   		generic-all
