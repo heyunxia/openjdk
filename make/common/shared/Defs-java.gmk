@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2007, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -139,7 +139,7 @@ endif
 # built implicitly/explicitly.
 #
 ifeq ($(wildcard $(SHARE_SRC)/classes/javax/crypto/Cipher.java),)
-  JCEFLAGS = $(CLASSPATH_SEPARATOR)$(LIBDIR)/jce.jar
+  JCE_PATH = $(CLASSPATH_SEPARATOR)$(LIBDIR)/jce.jar
 endif
 
 # Add the source level
@@ -150,11 +150,11 @@ SHARED_JAVACFLAGS  += $(LANGUAGE_VERSION)
 # Add the class version we want
 TARGET_CLASS_VERSION = 7
 CLASS_VERSION = -target $(TARGET_CLASS_VERSION)
-SHARED_JAVACFLAGS  += $(CLASS_VERSION)
-SHARED_JAVACFLAGS  += -encoding ascii
+JAVACFLAGS  += $(CLASS_VERSION)
+JAVACFLAGS  += -encoding ascii
 
 JAVACFLAGS  = $(SHARED_JAVACFLAGS)
-JAVACFLAGS  += "-Xbootclasspath:$(CLASSBINDIR)$(JCEFLAGS)"
+JAVACFLAGS  += "-Xbootclasspath:$(CLASSBINDIR)$(JCE_PATH)"
 JAVACFLAGS  += $(OTHER_JAVACFLAGS)
 
 # HOST_JAVAC_CMD will use the same javac flags except
@@ -162,7 +162,7 @@ JAVACFLAGS  += $(OTHER_JAVACFLAGS)
 HOST_JAVACFLAGS = $(SHARED_JAVACFLAGS)
 
 # Needed for javah
-JAVAHFLAGS += -bootclasspath "$(CLASSBINDIR)$(JCEFLAGS)"
+JAVAHFLAGS += -bootclasspath "$(CLASSBINDIR)$(JCE_PATH)"
 JAVAHFLAGS += $(OTHER_JAVAHFLAGS)
 
 # Needed for javadoc to ensure it builds documentation
