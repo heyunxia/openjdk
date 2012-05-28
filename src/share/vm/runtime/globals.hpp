@@ -3908,7 +3908,10 @@ class CommandLineFlags {
           " of this flag is true for JDK 6 and earlier")                    \
                                                                             \
   diagnostic(bool, WhiteBoxAPI, false,                                      \
-          "Enable internal testing APIs")
+          "Enable internal testing APIs")                                   \
+                                                                            \
+  product(bool, PrintGCCause, true,                                         \
+          "Include GC cause in GC logging")
 
 /*
  *  Macros for factoring of globals
