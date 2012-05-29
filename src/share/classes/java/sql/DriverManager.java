@@ -96,6 +96,13 @@ public class DriverManager {
      * jdbc.properties and then use the {@code ServiceLoader} mechanism
      */
     static {
+       java.security.AccessController.doPrivileged(
+            new java.security.PrivilegedAction<Void>() {
+                public Void run() {
+                    System.loadLibrary("java");
+                    return null;
+                }
+        });
         loadInitialDrivers();
         println("JDBC DriverManager initialized");
     }

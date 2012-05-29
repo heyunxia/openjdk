@@ -171,6 +171,10 @@
 @Provider(optional)
   java.sql.DriverManager -> META-INF/services/java.sql.Driver
 
+# static private RowSetFactory loadViaServiceLoader
+@Provider(optional)
+  javax.sql.rowset.RowSetProvider -> META-INF/services/javax.sql.rowset.RowSetFactory
+
 # private static java.text.BreakIterator createBreakInstance(java.util.Locale, int, java.lang.String, java.lang.String)
 @Provider(optional)
   java.text.BreakIterator -> META-INF/services/java.text.spi.BreakIteratorProvider
