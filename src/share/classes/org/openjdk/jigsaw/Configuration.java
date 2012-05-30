@@ -144,7 +144,27 @@ public final class Configuration<Cx extends BaseContext> {
         this.contextForName = new HashMap<String,Cx>();
     }
 
+    private void dumpServices(String title, Map<String,Set<String>> services, 
+                              PrintStream out) 
+    {
+        if (!services.isEmpty()) {
+            out.format("    %s (%d)%n", title, services.size());
+
+            for (Map.Entry<String, Set<String>> service : services.entrySet()) {
+                Set<String> names = service.getValue();
+                out.format("      %s (%d)%n", service.getKey(), names.size());
+                for (String name : names) {
+                    out.format("        %s%n", name);                    
+                }
+            }
+        }        
+    }
+    
     private void dump(Context cx, boolean all, PrintStream out) {
+        dumpServices("local service providers", cx.services(), out);
+        
+        dumpServices("remote service suppliers", cx.serviceSuppliers(), out);
+                
         if (!cx.localClasses().isEmpty()) {
             Set<String> classes = new TreeSet<>(cx.localClasses());
             out.format("    local (%d)", classes.size());
