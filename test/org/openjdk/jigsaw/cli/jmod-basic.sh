@@ -79,7 +79,7 @@ testjmod() {
   $BIN/jmod ${TESTTOOLVMOPTS} list -v
   $BIN/jmod ${TESTTOOLVMOPTS} dump-class com.foo.bar@1.2.3_01-4a com.foo.bar.Main z
   if [ "$installargs" = "" ]; then
-    cmp z z.modules/com.foo.bar/com/foo/bar/Main.class 
+    cmp z z.modules/com.foo.bar/com/foo/bar/Main.class
   fi
 }
 
@@ -92,3 +92,25 @@ testjmod --enable-compression
 testjmod "" -G
 testjmod "" --strip-debug
 testjmod -z -G
+
+## Verify already installed module is handled correctly
+compare() {
+  if [ "$1" != "$2" ]; then
+    echo "FAIL: expected [$1], got [$2]"
+    exit 1
+  fi
+}
+rm -rf z.lib
+rm -rf z.jmods && mkdir z.jmods
+$BIN/jpkg ${TESTTOOLVMOPTS} -m z.modules/com.foo.bar -d z.jmods \
+                            jmod com.foo.bar
+$BIN/jmod ${TESTTOOLVMOPTS} create
+$BIN/jmod ${TESTTOOLVMOPTS} install z.jmods/com.foo.bar@1.2.3_01-4a.jmod
+## Expect next command to fail
+set +e
+if `$BIN/jmod ${TESTTOOLVMOPTS} install z.jmods/com.foo.bar@1.2.3_01-4a.jmod > /dev/null 2>&1`; then
+  echo "FAIL: com.foo.bar@1.2.3_01-4a should fail to install as it is already installed."
+  exit 1
+fi
+set -e
+compare "com.foo.bar@1.2.3_01-4a" `$BIN/jmod ${TESTTOOLVMOPTS} list | tr -d ' \n\r'`
