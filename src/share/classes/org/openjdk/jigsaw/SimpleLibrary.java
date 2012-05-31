@@ -1160,8 +1160,9 @@ public final class SimpleLibrary
         ModuleInfo mi = null;
         try (ModuleFile.Reader mr = new ModuleFile.Reader(in)) {
             byte[] mib = mr.readStart();
-            mi = jms.parseModuleInfo(mib);
-            File md = moduleDictionary.add(mi);
+            ModuleInfo moduleInfo = jms.parseModuleInfo(mib);
+            File md = moduleDictionary.add(moduleInfo);
+            mi = moduleInfo;
             if (verifySignature && mr.hasSignature()) {
                 // Verify the module signature
                 SignedModule sm = new SignedModule(mr);
@@ -1217,11 +1218,12 @@ public final class SimpleLibrary
     {
         ModuleInfo mi = null;
         try (JarFile jf = new JarFile(mf, verifySignature)) {
-            mi = jf.getModuleInfo();
-            if (mi == null)
+            ModuleInfo moduleInfo = jf.getModuleInfo();
+            if (moduleInfo == null)
                 throw new ConfigurationException(mf + ": not a modular JAR file");
 
-            File md = moduleDictionary.add(mi);
+            File md = moduleDictionary.add(moduleInfo);
+            mi = moduleInfo;
             ModuleId mid = mi.id();
 
             boolean signed = false;
