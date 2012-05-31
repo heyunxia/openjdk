@@ -542,3 +542,27 @@
 @Provider(optional)
   javax.xml.soap.SOAPFactory -> META-INF/services/javax.xml.soap.SOAPFactory
 
+@Provider(optional)
+  javax.sound.midi.spi.MidiDeviceProvider -> META-INF/services/javax.sound.midi.spi.MidiDeviceProvider
+
+@Provider(optional)
+  javax.sound.midi.spi.MidiFileReader -> META-INF/services/javax.sound.midi.spi.MidiFileReader
+
+@Provider(optional)
+  javax.sound.midi.spi.MidiFileWriter -> META-INF/services/javax.sound.midi.spi.MidiFileWriter
+
+@Provider(optional)
+  javax.sound.midi.spi.SoundbankReader -> META-INF/services/javax.sound.midi.spi.SoundbankReader
+
+@Provider(optional)
+  javax.sound.sampled.spi.AudioFileReader -> META-INF/services/javax.sound.sampled.spi.AudioFileReader
+
+@Provider(optional)
+  javax.sound.sampled.spi.AudioFileWriter -> META-INF/services/javax.sound.sampled.spi.AudioFileWriter
+
+@Provider(optional)
+  javax.sound.sampled.spi.FormatConversionProvider -> META-INF/services/javax.sound.sampled.spi.FormatConversionProvider
+
+@Provider(optional)
+  javax.sound.sampled.spi.MixerProvider -> META-INF/services/javax.sound.sampled.spi.MixerProvider
+
