@@ -207,6 +207,7 @@ module jdk.jdbc {
 module jdk.jdbc.rowset {
     provides java.jdbc.rowset;
     include jdbc-rowset;
+    exports com.sun.sql.rowset;
 }
 
 module jdk.compat {
@@ -427,6 +428,7 @@ module jdk.sctp {
 
 module jdk.zipfs {
     include zipfs;
+    exports com.sun.nio.zipfs;
 }
 
 module jdk.httpserver {
