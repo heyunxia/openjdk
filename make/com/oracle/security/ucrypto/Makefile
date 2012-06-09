@@ -72,6 +72,8 @@
 
 BUILDDIR = ../../../..
 
+MODULE = security-ucrypto
+
 include $(BUILDDIR)/common/Defs.gmk
 
 ifndef OPENJDK

@@ -54,7 +54,7 @@ import java.util.zip.GZIPOutputStream;
 
 /** Command line interface for Pack200.
  */
-class Driver {
+public class Driver {
         private static final ResourceBundle RESOURCE =
                 ResourceBundle.getBundle("com.sun.java.util.jar.pack.DriverResource");
 

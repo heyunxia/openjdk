@@ -3,7 +3,7 @@
 # DO NOT EDIT without first contacting jdk-regtest@sun.com.
 
 # The list of keywords supported in the entire test suite
-keys=2d dnd i18n
+keys=2d dnd i18n modules
 
 # Tests that must run in othervm mode
 othervm.dirs=java/rmi sun/rmi javax/management

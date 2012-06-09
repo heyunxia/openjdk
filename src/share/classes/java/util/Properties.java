@@ -35,6 +35,8 @@ import java.io.Writer;
 import java.io.OutputStreamWriter;
 import java.io.BufferedWriter;
 import java.lang.reflect.*;
+import java.lang.module.RequireOptionalModule;
+import java.lang.module.ModuleNotPresentException;
 
 /**
  * The {@code Properties} class represents a persistent set of
@@ -858,12 +860,16 @@ class Properties extends Hashtable<Object,Object> {
      * @throws InvalidPropertiesFormatException Data on input stream does not
      *         constitute a valid XML document with the mandated document type.
      * @throws NullPointerException if {@code in} is null.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #storeToXML(OutputStream, String, String)
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public synchronized void loadFromXML(InputStream in)
         throws IOException, InvalidPropertiesFormatException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         if (in == null)
             throw new NullPointerException();
         XMLUtils.load(this, in);
@@ -887,12 +893,16 @@ class Properties extends Hashtable<Object,Object> {
      * @throws ClassCastException  if this {@code Properties} object
      *         contains any keys or values that are not
      *         {@code Strings}.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #loadFromXML(InputStream)
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void storeToXML(OutputStream os, String comment)
         throws IOException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         if (os == null)
             throw new NullPointerException();
         storeToXML(os, comment, "UTF-8");
@@ -926,12 +936,16 @@ class Properties extends Hashtable<Object,Object> {
      * @throws ClassCastException  if this {@code Properties} object
      *         contains any keys or values that are not
      *         {@code Strings}.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #loadFromXML(InputStream)
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void storeToXML(OutputStream os, String comment, String encoding)
         throws IOException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         if (os == null)
             throw new NullPointerException();
         XMLUtils.save(this, os, comment, encoding);
@@ -1119,10 +1133,15 @@ class Properties extends Hashtable<Object,Object> {
         private static Method save = null;
         static {
             try {
+                // ## Workaround until the open issue what getClassLoader()
+                // ## for the base module's classes returns is resolved.
+                // ## Hardcode to use the base module loader
+                ClassLoader cl = org.openjdk.jigsaw.Platform.getBaseModuleLoader();
+
                 // reference sun.util.xml.Utils reflectively
                 // to allow the Properties class be compiled in
                 // the absence of XML
-                Class<?> c = Class.forName("sun.util.xml.XMLUtils", true, null);
+                Class<?> c = Class.forName("sun.util.xml.XMLUtils", true, cl);
                 load = c.getMethod("load", Properties.class, InputStream.class);
                 save = c.getMethod("save", Properties.class, OutputStream.class,
                                    String.class, String.class);

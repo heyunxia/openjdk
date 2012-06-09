@@ -362,8 +362,10 @@ enum PlatformComponent {
     Class<? extends PlatformManagedObject> getMXBeanInterface() {
         try {
             // Lazy loading the MXBean interface only when it is needed
+            // All platform MXBeans should be visible in the management module.
             return (Class<? extends PlatformManagedObject>)
-                       Class.forName(mxbeanInterfaceName, false, null);
+                       Class.forName(mxbeanInterfaceName, false,
+                                     PlatformManagedObject.class.getClassLoader());
         } catch (ClassNotFoundException x) {
             throw new AssertionError(x);
         }

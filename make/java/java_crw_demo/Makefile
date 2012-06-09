@@ -27,6 +27,7 @@ LIBRARY_SUPPORTS_FULL_DEBUG_SYMBOLS=1
 
 BUILDDIR = ../..
 
+MODULE  = hprof
 LIBRARY = java_crw_demo
 PRODUCT = sun
 LIBRARY_OUTPUT = java_crw_demo

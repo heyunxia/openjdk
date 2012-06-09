@@ -89,6 +89,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE  = security-sunpkcs11
 PACKAGE = sun.security.pkcs11
 LIBRARY = j2pkcs11
 PRODUCT = sun
@@ -113,6 +114,10 @@ endif
 JAVAC_MAX_WARNINGS=false
 JAVAC_LINT_OPTIONS=-Xlint:all,-deprecation
 JAVAC_WARNINGS_FATAL=true
+# Set OTHER_* flags before including Defs.gmk
+CLASSDESTDIR = $(TEMPDIR)/classes
+OTHER_JAVAHFLAGS += -classpath $(CLASSDESTDIR)
+
 include $(BUILDDIR)/common/Defs.gmk
 
 #
@@ -149,10 +154,6 @@ OTHER_INCLUDES += \
 #
 # Rules
 #
-CLASSDESTDIR = $(TEMPDIR)/classes
-JAVAHFLAGS = -bootclasspath \
-    "$(CLASSDESTDIR)$(CLASSPATH_SEPARATOR)$(CLASSBINDIR)$(JCE_PATH)"
-
 include $(BUILDDIR)/common/Mapfile-vers.gmk
 
 include $(BUILDDIR)/common/Library.gmk
@@ -289,7 +290,7 @@ $(JAR_DESTFILE): $(UNSIGNED_DIR)/sunpkcs11.jar
 else
 $(JAR_DESTFILE): $(SIGNED_DIR)/sunpkcs11.jar
 endif
-	$(install-file)
+	$(install-non-module-file)
 
 ifndef OPENJDK
 install-prebuilt:

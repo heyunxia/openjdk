@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../../../..
+MODULE  = unpack200-tool
 PACKAGE = com.sun.java.util.jar.pack
 LIBRARY = unpack
 PRODUCT = sun
@@ -89,7 +90,7 @@ CXXFLAGS_DBG += -DFULL
 CXXFLAGS_OPT += -DPRODUCT
 CXXFLAGS_COMMON += -DFULL
 
-ifeq ($(PLATFORM), windows) 
+ifeq ($(PLATFORM), windows)
   CXXFLAGS_COMMON += $(MS_RUNTIME_OPTION)
   LDOUTPUT = -Fe
 
@@ -100,7 +101,7 @@ ifeq ($(PLATFORM), windows)
 
   RES = $(OBJDIR)/$(PGRM).res
 else
-  LDOUTPUT = -o #Have a space 
+  LDOUTPUT = -o #Have a space
   LDDFLAGS += -lc
   OTHER_LDLIBS  += $(LIBCXX)
 # setup the list of libraries to link in...
@@ -126,22 +127,19 @@ COBJDIR = $(strip $(subst unpack,unpack-cmd,$(OBJDIR)))
 
 all: build
 
-build: prop pack200-tool
+build: prop
 
 prop:
 	$(MAKE) -C prop
 
-pack200-tool:
-	$(call make-launcher, pack200, com.sun.java.util.jar.pack.Driver, , --pack)
-
-# ignore mapfile for non-product binary 
+# ignore mapfile for non-product binary
 unpacker:
 	$(MAKE) $(UNPACK_EXE) STANDALONE=true LDMAPFLAGS_DBG=
 
 ifeq ($(PLATFORM), windows)
 IMVERSIONVALUE=$(JDK_MINOR_VERSION).$(JDK_MICRO_VERSION).$(JDK_UPDATE_VER).$(COOKED_BUILD_NUMBER)
 SED_ALL_MANIFEST=$(SED) -e 's%IMVERSION%$(IMVERSIONVALUE)%g'
-updatefiles:: 
+updatefiles::
 	$(CAT) $(TOPDIR)/src/windows/resource/unpack200_proto.exe.manifest | $(SED_ALL_MANIFEST) > $(OBJDIR)/unpack200.exe.manifest
 winres::  $(RES)
 else
@@ -165,8 +163,13 @@ ifdef MT
 endif
 	$(CP) $(TEMPDIR)/unpack200$(EXE_SUFFIX) $(UNPACK_EXE)
 	@$(call binary_file_verification,$@)
+ifeq ($(PLATFORM), windows)
+	$(install-module-cmd-file)
+else
+	$(install-module-file)
+endif
 
-ifeq ($(PLATFORM), windows) 
+ifeq ($(PLATFORM), windows)
 $(RES):: $(VERSIONINFO_RESOURCE)
 	$(prep-target)
 	$(RC) $(RC_FLAGS) $(CC_OBJECT_OUTPUT_FLAG)$(@) $(VERSIONINFO_RESOURCE)

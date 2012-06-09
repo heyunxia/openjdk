@@ -52,7 +52,7 @@ public final class IIOPHelper {
         AccessController.doPrivileged(new PrivilegedAction<IIOPProxy>() {
             public IIOPProxy run() {
                 try {
-                    Class<?> c = Class.forName(IMPL_CLASS, true, null);
+                    Class<?> c = Class.forName(IMPL_CLASS);
                     return (IIOPProxy)c.newInstance();
                 } catch (ClassNotFoundException cnf) {
                     return null;

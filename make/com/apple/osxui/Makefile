@@ -27,6 +27,7 @@ BUILDDIR = ../../..
 PACKAGE = com.apple.osxui
 LIBRARY = osxui
 PRODUCT = sun
+MODULE = awt
 include $(BUILDDIR)/common/Defs.gmk
 
 

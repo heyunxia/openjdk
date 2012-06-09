@@ -42,6 +42,9 @@ import java.lang.Long;
 import java.lang.Float;
 import java.lang.Double;
 
+import java.lang.module.RequireOptionalModule;
+import java.lang.module.ModuleNotPresentException;
+
 /**
  * A node in a hierarchical collection of preference data.  This class
  * allows applications to store and retrieve user and system
@@ -300,7 +303,8 @@ public abstract class Preferences {
         }
         try {
             return (PreferencesFactory)
-                Class.forName(platformFactory, false, null).newInstance();
+                Class.forName(platformFactory, false,
+                              Preferences.class.getClassLoader()).newInstance();
         } catch (Exception e) {
             throw new InternalError(
                 "Can't instantiate platform default Preferences factory "
@@ -1247,11 +1251,14 @@ public abstract class Preferences {
      *         constitute a valid XML document with the mandated document type.
      * @throws SecurityException If a security manager is present and
      *         it denies <tt>RuntimePermission("preferences")</tt>.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    RuntimePermission
      */
+    @RequireOptionalModule("jdk.jaxp")
     public static void importPreferences(InputStream is)
         throws IOException, InvalidPreferencesFormatException
     {
+        Preferences.class.isModulePresent("jdk.jaxp");
         XmlSupport.importPreferences(is);
     }
 }

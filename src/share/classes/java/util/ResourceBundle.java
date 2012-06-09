@@ -55,6 +55,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.jar.JarEntry;
+import org.openjdk.jigsaw.Platform;
 
 import sun.util.locale.BaseLocale;
 import sun.util.locale.LocaleObjectCache;
@@ -438,7 +439,7 @@ public abstract class ResourceBundle {
     private static native Class<?>[] getClassContext();
 
     /**
-     * A wrapper of ClassLoader.getSystemClassLoader().
+     * A wrapper for the null class loader
      */
     private static class RBClassLoader extends ClassLoader {
         private static final RBClassLoader INSTANCE = AccessController.doPrivileged(
@@ -447,7 +448,17 @@ public abstract class ResourceBundle {
                             return new RBClassLoader();
                         }
                     });
-        private static final ClassLoader loader = ClassLoader.getSystemClassLoader();
+
+        // In classpath mode, RBClassLoader just delegates to 
+        // ClassLoader.getSystemClassLoader() that always delegates to
+        // the null class loader.
+        // 
+        // In module mode, use the base module's loader to
+        // load classes & resource files in the java.base module.
+        // 
+        private static final ClassLoader loader =
+            Platform.isModuleMode() ? Platform.getBaseModuleLoader()
+                                    : ClassLoader.getSystemClassLoader();
 
         private RBClassLoader() {
         }
