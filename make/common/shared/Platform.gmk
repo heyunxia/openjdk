@@ -519,7 +519,7 @@ ifeq ($(SYSTEM_UNAME),Darwin)
   endif
 endif
 
-# Machines with 512Mb or less of real memory are considered low memory
+# Machines with 768Mb or less of real memory are considered low memory
 #    build machines and adjustments will be made to prevent excessing
 #    system swapping during the build.
 ifeq ($(JDK_HAS_MEM_INFO),)
@@ -527,12 +527,12 @@ ifeq ($(JDK_HAS_MEM_INFO),)
   export JDK_HAS_MEM_INFO
   ifneq ($(MB_OF_MEMORY),)
     LOW_MEMORY_MACHINE := $(shell \
-      if [ $(MB_OF_MEMORY) -le 512 ] ; then \
+      if [ $(MB_OF_MEMORY) -le 768 ] ; then \
         echo "true"; \
       else \
         echo "false"; \
       fi)
-    MAX_VM_MEMORY := 512
+    MAX_VM_MEMORY := 768
     MIN_VM_MEMORY := $(MAX_VM_MEMORY)
   else
     MB_OF_MEMORY       := unknown
