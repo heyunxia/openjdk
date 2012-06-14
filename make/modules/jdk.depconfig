@@ -543,6 +543,12 @@
   javax.xml.soap.SOAPFactory -> META-INF/services/javax.xml.soap.SOAPFactory
 
 @Provider(optional)
+  com.sun.tools.internal.ws.wscompile.WsimportOptions -> META-INF/services/com.sun.tools.internal.ws.wscompile.Plugin
+
+@Provider(optional)
+  com.sun.tools.internal.xjc.Options -> META-INF/services/com.sun.tools.internal.xjc.Plugin
+
+@Provider(optional)
   javax.sound.midi.spi.MidiDeviceProvider -> META-INF/services/javax.sound.midi.spi.MidiDeviceProvider
 
 @Provider(optional)
