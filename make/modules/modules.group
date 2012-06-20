@@ -130,6 +130,11 @@ module jdk.desktop {
 
     // com.sun.security.auth callback dialog
     include sun.callback.dialog;
+
+    // Swing Look & Feels (no need to export com.sun.java.swing.plaf.nimbus)
+    exports com.sun.java.swing.plaf.gtk;
+    exports com.sun.java.swing.plaf.motif;
+    exports com.sun.java.swing.plaf.windows;
 }
 
 // ## java.util.prefs should be moved to the base module
