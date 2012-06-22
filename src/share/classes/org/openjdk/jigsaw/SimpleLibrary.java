@@ -529,19 +529,6 @@ public final class SimpleLibrary
                         out.writeUTF(value);
                     }
                 }
-
-                // Remote service suppliers
-                Map<String,Set<String>> serviceSuppliers = cx.serviceSuppliers();
-                out.writeInt(serviceSuppliers.size());
-                for (Map.Entry<String,Set<String>> entry: serviceSuppliers.entrySet()) {
-                    out.writeUTF(entry.getKey());
-                    Set<String> remotes = entry.getValue();
-                    out.writeInt(remotes.size());
-                    for (String rcxn: remotes) {
-                        out.writeUTF(rcxn);
-                    }
-                }
-
             }
         }
 
@@ -608,17 +595,6 @@ public final class SimpleLibrary
                     for (int k = 0; k < nImpl; k++) {
                         String cn = in.readUTF();
                         cx.putService(sn, cn);
-                    }
-                }
-
-                // Remote service suppliers
-                int nRemoteServices = in.readInt();
-                for (int j = 0; j < nRemoteServices; j++) {
-                    String sn = in.readUTF();
-                    int nRemotes = in.readInt();
-                    for (int k = 0; k < nRemotes; k++) {
-                        String rcxn = in.readUTF();
-                        cx.addServiceSupplier(sn, rcxn);
                     }
                 }
             }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -281,41 +281,18 @@ public class Loader
     }
    
     /**
-     * If this loader's context implements the given service then add it to
-     * the given map.
-     */    
-    private void putLocalServices(String service, 
-                                  Map<ClassLoader,Set<String>> result) 
-    {
-        // local implementations of service
-        Set<String> impls = context.services().get(service);
-        if (impls != null)
-            result.put(this, impls);
-    }
-    
-    /**
-     * Returns a map of the service implementations. The returned map will
-     * contain the service implementations that are in this loader's context or 
-     * remote contexts that supply services to this loader's context. The
-     * keys in the returned map is the class loader; the values are the set of
-     * implementation classes.
+     * Find the a map of class loader to service provider fully qualified class
+     * names associated with a service interface. 
+     * 
+     * The value of the map is the set of service provider fully qualified 
+     * class names of service provider classes that can be loaded by the 
+     * corresponding key that is the class loader.
+     * 
+     * The map returned is invariant to the instance of {@link Loader} and is
+     * scoped to the configuration.
      */
-    public Map<ClassLoader,Set<String>> findServices(Class<?> clazz) {
-        String cn = clazz.getName();
-        Map<ClassLoader,Set<String>> result = new HashMap<>();
-        
-        // local implementations
-        this.putLocalServices(cn, result);
-        
-        // remote implementations
-        Set<String> remotes = context.serviceSuppliers().get(cn);
-        if (remotes != null) {
-            for (String rcxn: remotes) {
-                pool.findLoader(rcxn).putLocalServices(cn, result);
-            }
-        }
-
-        return result;
+    Map<ClassLoader,Set<String>> findServices(Class<?> serviceInterface) {
+        return pool.findServices(serviceInterface);
     }
 
     public String toString() {

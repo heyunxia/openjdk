@@ -558,6 +558,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/Resolver.java \
     org/openjdk/jigsaw/SimpleLibrary.java \
     org/openjdk/jigsaw/Trace.java \
+    org/openjdk/jigsaw/ModuleServiceLoader.java \
     \
     org/openjdk/jigsaw/cli/Command.java \
     org/openjdk/jigsaw/cli/Commands.java \
