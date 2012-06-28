@@ -608,8 +608,8 @@ public final class Class<T>
         if (cl == null) {
             // ## Should return the boot loader when running in module mode
             // ## but this would impact many places in the JDK that checks
-            // ## for null class loader for bootclasspath.  Also need to 
-            // ## carefully deal with bootstrapping.  BootLoader is not 
+            // ## for null class loader for bootclasspath.  Also need to
+            // ## carefully deal with bootstrapping.  BootLoader is not
             // ## created until a system class is loaded by the libs (not VM).
             //
             return null;
@@ -617,8 +617,10 @@ public final class Class<T>
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = ClassLoader.getCallerClassLoader();
-            // ## Revisit: permission required in module mode
-            if (ClassLoader.isPlatformClassLoader(ccl) && ccl != cl && !cl.isAncestor(ccl)) {
+            // ## In module mode, there is no parent-child relationship.
+            // ## A module loader can only access itself. Will need to
+            // ## evaluate its potential incompatibility risk.
+            if (ClassLoader.needsClassLoaderPermissionCheck(ccl, cl)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }
@@ -2182,8 +2184,7 @@ public final class Class<T>
         if (s != null) {
             s.checkMemberAccess(this, which);
             ClassLoader cl = getClassLoader0();
-            if ((ccl != null) && (ccl != cl) &&
-                  (ClassLoader.isPlatformClassLoader(cl) || !cl.isAncestor(ccl))) {
+            if (sun.reflect.misc.ReflectUtil.needsPackageAccessCheck(ccl, cl)) {
                 String name = this.getName();
                 int i = name.lastIndexOf('.');
                 if (i != -1) {
@@ -3159,7 +3160,7 @@ public final class Class<T>
         // initialize the module field the first time this method is called.
         //
         // ##  Should the VM define the Module when loading a Class?
-        // 
+        //
         if (module == null) {
             module = Platform.getPlatformModule(this);
         }
@@ -3168,7 +3169,7 @@ public final class Class<T>
     }
 
     /**
-     * Tests if a {@linkplain java.lang.reflect.Module module} 
+     * Tests if a {@linkplain java.lang.reflect.Module module}
      * of the given name is present in the class loader's context.
      *
      * @param mn a module's name
@@ -3198,7 +3199,7 @@ public final class Class<T>
     }
 
     /**
-     * Checks if a {@linkplain java.lang.reflect.Module module} 
+     * Checks if a {@linkplain java.lang.reflect.Module module}
      * of the given name is present in the class loader's context.
      *
      * @param mn a module's name

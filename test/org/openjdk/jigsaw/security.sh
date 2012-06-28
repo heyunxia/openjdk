@@ -146,3 +146,69 @@ public class CheckMemberAccess {
         if (!caught) throw new RuntimeException("CheckMemberAccess test failed");
     }
 }
+
+: getClassLoader pass
+
+module test.security @ 0.1 {
+    requires jdk.base;
+    requires jdk.management;
+    requires foo;
+    class test.security.GetClassLoader;
+}
+
+package test.security;
+public class Other {
+}
+
+package test.security;
+public class GetClassLoader {
+    public static void main(String[] args) {
+        System.setSecurityManager(new SecurityManager());
+        getClassLoader(test.security.Other.class, true);
+        // ## It's an open issue to evaluate the compatibility concern
+        // ## if it only allows getClassLoader of its own module loader
+        // ## and will address the inconsistency that currently allows
+        // ## to get null class loader.
+        getClassLoader(java.lang.ProcessBuilder.class, true);
+        getClassLoader(java.lang.management.ManagementFactory.class, false);
+        getClassLoader(foo.Foo.class, false);
+        getClassLoader(foo.Foo.getBar(), false);
+    }
+    private static void getClassLoader(Class<?> c, boolean allow) {
+        try {
+            ClassLoader cl = c.getClassLoader();
+            if (cl != null) cl.getParent();
+            if (!allow)
+                throw new RuntimeException("Should not permit " +
+                    "getting class loader of " + c.getName());
+        } catch (SecurityException se) {
+            se.printStackTrace();
+            if (allow)
+                throw new RuntimeException("Failed to get class loader of " +
+                    c.getName());
+        }
+    }
+}
+
+module foo @ 1 {
+    requires bar;
+    exports foo;
+}
+
+package foo;
+public class Foo {
+    public static Class<?> getBar() {
+        return bar.Bar.class;
+    }
+}
+
+module bar @ 2 {
+    exports bar;
+}
+
+package bar;
+public class Bar {
+    public static void run() {
+        System.out.println("hello");
+    }
+}

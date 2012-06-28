@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -646,7 +646,7 @@ public abstract class ClassLoader {
         if (!checkName(name))
             throw new NoClassDefFoundError("IllegalName: " + name);
 
-        if ((name != null) && name.startsWith("java.") && 
+        if ((name != null) && name.startsWith("java.") &&
               !org.openjdk.jigsaw.Platform.isPlatformLoader(this)) {
             throw new SecurityException
                 ("Prohibited package name: " +
@@ -1067,12 +1067,12 @@ public abstract class ClassLoader {
     // ## This should be named findBootstrapClass, and findBootstrapClass
     // ## should be renamed findBootstrapClass0, but that won't link, for
     // ## reasons unknown
-    protected Class findBootClass(String name)
+    protected Class<?> findBootClass(String name)
         throws ClassNotFoundException
     {
         if (!checkName(name))
             throw new ClassNotFoundException(name);
-        Class c = findBootstrapClass(name);
+        Class<?> c = findBootstrapClass(name);
         if (c == null)
             throw new ClassNotFoundException(name);
         return c;
@@ -1430,7 +1430,7 @@ public abstract class ClassLoader {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = getCallerClassLoader();
-            if (ClassLoader.isPlatformClassLoader(ccl) && !isAncestor(ccl)) {
+            if (ClassLoader.needsClassLoaderPermissionCheck(ccl, this)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }
@@ -1500,7 +1500,7 @@ public abstract class ClassLoader {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = getCallerClassLoader();
-            if (ClassLoader.isPlatformClassLoader(ccl) && ccl != scl && !scl.isAncestor(ccl)) {
+            if (ClassLoader.needsClassLoaderPermissionCheck(ccl, scl)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }
@@ -1571,15 +1571,22 @@ public abstract class ClassLoader {
         } while (acl != null);
         return false;
     }
-    
-    // In module mode, the platform modules are loaded by non-null module loader
-    // For permission check, platform class loaders are trusted.
-    // ## Revisit this with the detection for the platform module.
-    static boolean isPlatformClassLoader(ClassLoader cl) {
-        if (cl == null)
-            return true;
-        
-        return Platform.isPlatformLoader(cl);
+
+    // Tests if class loader access requires "getClassLoader" permission
+    // check.  A class loader 'from' can access class loader 'to' if
+    // class loader 'from' is same as class loader 'to' or an ancestor
+    // of 'to'.  The class loader in a system domain can access
+    // any class loader.
+    static boolean needsClassLoaderPermissionCheck(ClassLoader from,
+                                                   ClassLoader to)
+    {
+        if (from == to)
+            return false;
+
+        if (Platform.isPlatformLoader(from))
+            return false;
+
+        return !to.isAncestor(from);
     }
 
     // Returns the invoker's class loader, or null if none.
