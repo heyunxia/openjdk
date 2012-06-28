@@ -1135,8 +1135,7 @@ public final class SimpleLibrary
         DataInputStream in = new DataInputStream(bin);
         ModuleInfo mi = null;
         try (ModuleFile.Reader mr = new ModuleFile.Reader(in)) {
-            byte[] mib = mr.readStart();
-            ModuleInfo moduleInfo = jms.parseModuleInfo(mib);
+            ModuleInfo moduleInfo = jms.parseModuleInfo(mr.getModuleInfoBytes());
             File md = moduleDictionary.add(moduleInfo);
             mi = moduleInfo;
             if (verifySignature && mr.hasSignature()) {
@@ -1159,8 +1158,8 @@ public final class SimpleLibrary
                 // Verify the module header hash and the module info hash
                 sm.verifyHashesStart();
 
-                // Read the rest of the hashes
-                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
+                // Extract remainder of the module file, and calculate hashes
+                mr.extractTo(md, isDeflated(), natlibs(), natcmds(), configs());
 
                 // Verify the rest of the hashes
                 sm.verifyHashesRest();
@@ -1168,7 +1167,7 @@ public final class SimpleLibrary
                 // Store signer info
                 new Signers(md, signers).store();
             } else {
-                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
+                mr.extractTo(md, isDeflated(), natlibs(), natcmds(), configs());
             }
 
             if (strip)
@@ -1177,7 +1176,8 @@ public final class SimpleLibrary
 
             return mi.id();
 
-        } catch (ConfigurationException | IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException |
+                 ModuleFileParserException x) { // ## should we catch Throwable
             if (mi != null) {
                 try {
                     moduleDictionary.remove(mi);
@@ -1367,7 +1367,8 @@ public final class SimpleLibrary
                 mids.add(installWhileLocked(mf, verifySignature, strip));
             configureWhileModuleDirectoryLocked(mids);
             complete = true;
-        } catch (ConfigurationException | IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException |
+                 ModuleFileParserException x) {  // ## catch throwable??
             try {
                 for (ModuleId mid : mids) {
                     ModuleInfo mi = readLocalModuleInfo(mid);
@@ -1396,6 +1397,7 @@ public final class SimpleLibrary
 
     // Public entry point, since the Resolver itself is package-private
     //
+    @Override
     public Resolution resolve(Collection<ModuleIdQuery> midqs)
         throws ConfigurationException, IOException
     {
@@ -1443,7 +1445,8 @@ public final class SimpleLibrary
             //
             configureWhileModuleDirectoryLocked(res.modulesNeeded());
             complete = true;
-        } catch (ConfigurationException | IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException |
+                 ModuleFileParserException x) {  // ## catch throwable??
             try {
                 for (ModuleId mid : res.modulesNeeded()) {
                     ModuleInfo mi = readLocalModuleInfo(mid);
@@ -1544,7 +1547,7 @@ public final class SimpleLibrary
                         throw new ConfigurationException(mid +
                                 ": being used by " + rootid);
                 }
-            }  
+            }
         }
     }
 

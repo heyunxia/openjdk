@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.*;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.security.auth.DestroyFailedException;
@@ -41,9 +42,11 @@ import static java.lang.System.in;
 import static java.lang.System.out;
 import static java.security.KeyStore.PasswordProtection;
 import static java.security.KeyStore.PrivateKeyEntry;
+import java.util.Map;
 
 import org.openjdk.jigsaw.*;
-import org.openjdk.jigsaw.ModuleFile.Reader;
+import org.openjdk.jigsaw.ModuleFileParserException;
+import org.openjdk.jigsaw.ModuleFileParser.Event;
 import org.openjdk.internal.joptsimple.OptionException;
 import org.openjdk.internal.joptsimple.OptionParser;
 import org.openjdk.internal.joptsimple.OptionSet;
@@ -214,18 +217,27 @@ public final class Signer {
                                             "entry from keystore", x);
             }
 
-            // First, read in module file and calculate hashes
-            List<byte[]> hashes = null;
-            byte[] moduleInfoBytes = null;
-            try (FileInputStream mfis = new FileInputStream(moduleFile);
-                 Reader reader = new Reader(new DataInputStream(mfis)))
-            {
-                moduleInfoBytes = reader.readStart();
-                if (reader.hasSignature())
-                    throw new Command.Exception("module file is already signed");
-                reader.readRest();
-                hashes = reader.getCalculatedHashes();
-            } catch (IOException x) {
+            // First, read in module file and get the hashes
+            List<byte[]> hashes = new ArrayList<>();
+            int moduleInfoLength = 0;
+            try (FileInputStream mfis = new FileInputStream(moduleFile)) {
+                ValidatingModuleFileParser parser =
+                        ModuleFile.newValidatingParser(mfis);
+                while (parser.hasNext()) {
+                    Event event = parser.next();
+                    if (event == Event.END_SECTION) {
+                        SectionHeader header = parser.getSectionHeader();
+                        if (header.getType() == SectionType.SIGNATURE)
+                            throw new Command.Exception("module file is already signed");
+                        if (header.getType() == SectionType.MODULE_INFO)
+                            moduleInfoLength = header.getCSize();
+                    }
+                }
+                hashes.add(parser.getHeaderHash());
+                for (byte[] hash: parser.getHashes().values())
+                    hashes.add(hash);  // section hashes
+                hashes.add(parser.getFileHash());
+            } catch (IOException | ModuleFileParserException x) {
                 throw new Command.Exception("unable to read module file", x);
             }
 
@@ -234,14 +246,14 @@ public final class Signer {
                 ? new File(moduleFile + ".sig") : signedModuleFile;
             try (RandomAccessFile mraf = new RandomAccessFile(moduleFile, "r");
                  RandomAccessFile raf = new RandomAccessFile(tmpFile, "rw"))
-            {   
+            {
                 raf.setLength(0);
 
                 // Transfer header and module-info from module file
                 // to signed module file.
                 long remainderStart = ModuleFileHeader.LENGTH
                                       + SectionHeader.LENGTH
-                                      + moduleInfoBytes.length;
+                                      + moduleInfoLength;
                 FileChannel source = mraf.getChannel();
                 FileChannel dest = raf.getChannel();
                 for (long pos = 0; pos < remainderStart;) {
@@ -280,7 +292,7 @@ public final class Signer {
         {
             PasswordProtection storePassword = null;
             PasswordProtection keyPassword = null;
- 
+
             try (InputStream inStream = new FileInputStream(keystore)) {
 
                 // Prompt user for the keystore password (except when
@@ -317,7 +329,7 @@ public final class Signer {
                     // Otherwise prompt the user for key password
                     err.print("Enter password for '" + signer + "' key: ");
                     err.flush();
-                    keyPassword = 
+                    keyPassword =
                         new PasswordProtection(Password.readPassword(in));
                     return (PrivateKeyEntry)ks.getEntry(signer, keyPassword);
                 }

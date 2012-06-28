@@ -29,10 +29,12 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.jar.*;
-import java.util.zip.*;
-
+import org.openjdk.jigsaw.ModuleFileParser.Event;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.*;
+import static org.openjdk.jigsaw.FileConstants.ModuleFile.SectionType.*;
+import static org.openjdk.jigsaw.ModuleFileParser.Event.*;
 
 public final class ModuleFile {
     /**
@@ -57,232 +59,188 @@ public final class ModuleFile {
         }
     }
 
-    public final static class Reader implements Closeable {
+    /**
+     * Returns a ModuleFileParser instance.
+     *
+     * @param   stream
+     *          module file stream
+     *
+     * @return  a module file parser
+     *
+     * @throws  ModuleFileParserException
+     *          If there is an error processing the underlying module file
+     */
+    public static ModuleFileParser newParser(InputStream stream) {
+        return new ModuleFileParserImpl(stream);
+    }
 
-        private DataInputStream stream;
+    /**
+     * Returns a ValidatingModuleFileParser instance.
+     *
+     * @param   stream
+     *          module file stream
+     *
+     * @return  a validating module file parser
+     *
+     * @throws  ModuleFileParserException
+     *          If there is an error processing the underlying module file
+     */
+    public static ValidatingModuleFileParser newValidatingParser(InputStream stream) {
+        return new ValidatingModuleFileParserImpl(stream);
+    }
+
+    public final static class Reader implements Closeable {
+        private final ValidatingModuleFileParser parser;
+        private final ModuleFileHeader fileHeader;
+        private final byte[] moduleInfoBytes;
+        private final SignatureType moduleSignatureType;
+        private final byte[] moduleSignatureBytes ;
+
         private File destination;
         private boolean deflate;
-        private final HashType hashtype = HashType.SHA256;
         private File natlibs;
         private File natcmds;
         private File configs;
 
-        private static class CountingInputStream extends FilterInputStream {
-            int count;
-            public CountingInputStream(InputStream stream, int count) {
-                super(stream);
-                this.count = count;
-            }
+        public Reader(InputStream stream) throws IOException {
+            parser = ModuleFile.newValidatingParser(stream);
+            fileHeader = parser.fileHeader();
+            // Read the MODULE_INFO and the Signature section (if present),
+            // but does not write any files.
+            parser.next();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            copyStream(parser.getRawStream(), baos);
+            moduleInfoBytes = baos.toByteArray();
+            assert moduleInfoBytes != null;
 
-            public int available() throws IOException {
-                return count;
-            }
+            if (parser.next() != END_SECTION)
+                throw new ModuleFileParserException(
+                        "Expected END_SECTION of module-info");
 
-            public boolean markSupported() {
-                return false;
+            if (parser.hasNext()) {
+                Event event = parser.next();
+                if (event != END_FILE) {  // more sections
+                    SectionHeader header = parser.getSectionHeader();
+                    if (header.type == SIGNATURE) {
+                        SignatureSection sh = SignatureSection.read(
+                                new DataInputStream(parser.getRawStream()));
+                        moduleSignatureType = SignatureType.valueOf(sh.getSignatureType());
+                        moduleSignatureBytes = sh.getSignature();
+                        if (parser.next() != END_SECTION)
+                            throw new ModuleFileParserException(
+                                    "Expected END_SECTION of signature");
+                        if (parser.hasNext())
+                            parser.next();  // position parser at next event
+                        return;
+                    }
+                }
             }
-
-            public int read() throws IOException {
-                if (count == 0)
-                    return -1;
-                int read = super.read();
-                if (-1 != read)
-                    count--;
-                return read;
-            }
-
-            public int read(byte[] b, int off, int len) throws IOException {
-                if (count == 0)
-                    return -1;
-                len = Math.min(len, count);
-                int read = super.read(b, off, len);
-                if (-1 != read)
-                    count-=read;
-                return read;
-            }
-
-            public void reset() throws IOException {
-                throw new IOException("Can't reset this stream");
-            }
-
-            public long skip(long n) throws IOException {
-                if (count == 0)
-                    return -1;
-                n = Math.min(n, count);
-                long skipped = super.skip(n);
-                if (n > 0)
-                    count-=skipped;
-                return skipped;
-            }
+            // no signature section, or possibly other sections at all.
+            moduleSignatureBytes = null;
+            moduleSignatureType = null;
         }
 
-        public Reader(DataInputStream stream) {
-            // Ensure that mark/reset is supported
-            if (stream.markSupported()) {
-                this.stream = stream;
-            } else {
-                this.stream =
-                    new DataInputStream(new BufferedInputStream(stream));
-            }
+        public void extractTo(File dst) throws IOException {
+            extractTo(dst, false);
         }
 
-        private void checkHashMatch(byte[] expected, byte[] computed)
+        public void extractTo(File dst, boolean deflate) throws IOException {
+            extractTo(dst, deflate, null, null, null);
+        }
+
+        public void extractTo(File dst, boolean deflate, File natlibs,
+                              File natcmds, File configs)
             throws IOException
-        {
-            if (!MessageDigest.isEqual(expected, computed))
-                throw new IOException("Expected hash "
-                                      + hashHexString(expected)
-                                      + " instead of "
-                                      + hashHexString(computed));
-        }
-
-        private ModuleFileHeader fileHeader = null;
-        private MessageDigest fileDigest = null;
-        private MessageDigest sectionDigest = null;
-        private DataInputStream fileIn = null;
-        private byte[] moduleInfoBytes = null;
-        private SignatureType moduleSignatureType = null;
-        private byte[] moduleSignatureBytes = null;
-        private final int MAX_SECTION_HEADER_LENGTH = 128;
-        private List<byte[]> calculatedHashes = new ArrayList<>();
-        private boolean extract = true;
-
-        /*
-         * Reads the MODULE_INFO section and the Signature section, if present,
-         * but does not write any files.
-         */
-        public byte[] readStart() throws IOException {
-
-            try {
-                fileDigest = getHashInstance(hashtype);
-                sectionDigest = getHashInstance(hashtype);
-                DigestInputStream dis =
-                    new DigestInputStream(stream, fileDigest);
-                fileHeader = ModuleFileHeader.read(dis);
-                // calculate module header hash
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                fileHeader.write(new DataOutputStream(baos));
-                sectionDigest.update(baos.toByteArray());
-                calculatedHashes.add(sectionDigest.digest());
-
-                fileIn = new DataInputStream(dis);
-                if (readSection(fileIn) != SectionType.MODULE_INFO)
-                    throw new IOException("First module-file section"
-                                          + " is not MODULE_INFO");
-                assert moduleInfoBytes != null;
-
-                // Read the Signature Section, if present
-                readSignatureSection(fileIn, dis);
-
-                return moduleInfoBytes.clone();
-            } catch (IOException x) {
-                close();
-                throw x;
-            }
-        }
-
-        public void readRest() throws IOException {
-            extract = false;
-            readRest(null, false, null, null, null);
-        }
-
-        public void readRest(File dst, boolean deflate) throws IOException {
-            readRest(dst, deflate, null, null, null);
-        }
-
-        public void readRest(File dst, boolean deflate, File natlibs,
-                             File natcmds, File configs)
-                throws IOException
         {
             this.deflate = deflate;
             this.destination = dst != null ? dst.getCanonicalFile() : null;
             this.natlibs = natlibs != null ? natlibs : new File(destination, "lib");
             this.natcmds = natcmds != null ? natcmds : new File(destination, "bin");
             this.configs = configs != null ? configs : new File(destination, "etc");
+
             try {
-                if (extract)
-                    Files.store(moduleInfoBytes, computeRealPath("info"));
+                Files.store(moduleInfoBytes, computeRealPath("info"));
+
+                Event event = parser.event();
+                if (event == END_FILE)
+                    return;
+
+                if (event != START_SECTION)
+                    throw new ModuleFileParserException(
+                                        "Expected START_SECTION, got : " + event);
                 // Module-Info and Signature, if present, have been consumed
+                do {
+                    SectionHeader header = parser.getSectionHeader();
+                    SectionType type = header.getType();
+                    if (type.hasFiles()) {
+                        while(parser.skipToNextStartSubSection()) {
+                            readSubSection(type);
+                        }
+                    } else if (type == CLASSES) {
+                        Iterator<Map.Entry<String,InputStream>> classes =
+                                parser.getClasses();
+                        while (classes.hasNext()) {
+                            Map.Entry<String,InputStream> entry = classes.next();
+                            try (OutputStream out = openOutputStream(type, entry.getKey())) {
+                                copyStream(entry.getValue(), out);
+                            }
+                        }
+                        // END_SECTION
+                        parser.next();
+                    } else {
+                        throw new IllegalArgumentException("Unknown type: " + type);
+                    }
+                } while (parser.skipToNextStartSection());
 
-                // Read rest of file until all sections have been read
-                stream.mark(1);
-                while (-1 != stream.read()) {
-                    stream.reset();
-                    readSection(fileIn);
-                    stream.mark(1);
-                }
-
-                close();
-                byte[] fileHeaderHash = fileHeader.getHashNoClone();
-                checkHashMatch(fileHeaderHash, fileDigest.digest());
-                calculatedHashes.add(fileHeaderHash);
+                if (parser.event() != END_FILE)
+                    throw new IOException("Expected END_FILE");
             } finally {
                 close();
             }
         }
 
-        public byte[] getHash() throws IOException {
-            if (null == fileHeader)
-                readStart();
+        public byte[] getModuleInfoBytes() {
+            return moduleInfoBytes.clone();
+        }
+
+        public byte[] getHash() {
             return fileHeader.getHash();
         }
 
         public List<byte[]> getCalculatedHashes() {
-            return calculatedHashes;
+            List<byte[]> hashes = new ArrayList<>();
+            hashes.add(parser.getHeaderHash());
+            for (Entry<SectionType,byte[]> entry : parser.getHashes().entrySet()) {
+                if (entry.getKey() != SIGNATURE)
+                    hashes.add(entry.getValue());
+            }
+            hashes.add(getHash());
+
+            return hashes;
         }
 
-        public boolean hasSignature() throws IOException {
-            if (null == fileHeader)
-                readStart();
+        public boolean hasSignature() {
             return moduleSignatureBytes != null;
         }
 
-        public SignatureType getSignatureType() throws IOException {
-            if (null == fileHeader)
-                readStart();
+        public SignatureType getSignatureType() {
             return moduleSignatureType;
         }
 
-        public byte[] getSignature() throws IOException {
-            if (null == fileHeader)
-                readStart();
-            return moduleSignatureBytes != null
-                ? moduleSignatureBytes.clone()
-                : null;
+        public byte[] getSignature() {
+            return moduleSignatureBytes == null ? null :
+                   moduleSignatureBytes.clone();
         }
 
-        byte[] getSignatureNoClone() {
-             return moduleSignatureBytes;
-        }
-
-        private JarOutputStream contentStream = null;
-
-        private JarOutputStream contentStream() throws IOException {
-            if (contentStream == null) {
-                if (extract) {
-                    FileOutputStream fos
-                        = new FileOutputStream(computeRealPath("classes"));
-                    contentStream
-                        = new JarOutputStream(new BufferedOutputStream(fos));
-                } else {
-                    contentStream = new JarOutputStream(new NullOutputStream());
-                }
-            }
-            return contentStream;
+        /*package*/ byte[] getSignatureNoClone() {
+            return moduleSignatureBytes;
         }
 
         public void close() throws IOException {
             try {
-                try {
-                    if (contentStream != null) {
-                        contentStream.close();
-                        contentStream = null;
-                    }
-                } finally {
-                    if (fileIn != null) {
-                        fileIn.close();
-                        fileIn = null;
-                    }
+                if (contentStream != null) {
+                    contentStream.close();
+                    contentStream = null;
                 }
             } finally {
                 if (filesWriter != null) {
@@ -292,135 +250,40 @@ public final class ModuleFile {
             }
         }
 
-        public void readModule() throws IOException {
-            extract = false;
-            readStart();
-            readRest();
-        }
+        // subsections/files (resources, libs, cmds, configs)
+        public void readSubSection(SectionType type) throws IOException {
+            assert type == RESOURCES || type == NATIVE_LIBS ||
+                   type == NATIVE_CMDS || type == CONFIG;
 
-        public void readModule(File dst) throws IOException {
-            readStart();
-            readRest(dst, false);
-        }
-
-        private void readSignatureSection(DataInputStream stream,
-                                          DigestInputStream dis)
-            throws IOException
-        {
-
-            // Turn off digest computation before reading Signature Section
-            dis.on(false);
-
-            // Mark the starting position
-            stream.mark(MAX_SECTION_HEADER_LENGTH);
-            if (stream.read() != -1) {
-                stream.reset();
-                SectionHeader header = SectionHeader.read(stream);
-                if (header != null &&
-                    header.getType() == SectionType.SIGNATURE) {
-                    readSectionContent(header, stream);
-                } else {
-                    // Revert back to the starting position
-                    stream.reset();
-                }
+            SubSectionFileHeader subHeader = parser.getSubSectionFileHeader();
+            String path = subHeader.getPath();
+            try (OutputStream sink = openOutputStream(type, path)) {
+                copyStream(parser.getContentStream(), sink);
             }
 
-            // Turn on digest computation again
-            dis.on(true);
+            // post processing for executable and files outside the module dir
+            postExtract(type, currentPath);
         }
 
-        private SectionType readSection(DataInputStream stream)
-            throws IOException
-        {
-            SectionHeader header = SectionHeader.read(stream);
-            readSectionContent(header, stream);
-            return header.getType();
-        }
+        private JarOutputStream contentStream = null;
 
-        private void readSectionContent(SectionHeader header,
-                                        DataInputStream stream)
-            throws IOException
-        {
-            SectionType type = header.getType();
-            Compressor compressor = header.getCompressor();
-            int csize = header.getCSize();
-            short subsections =
-                type.hasFiles() ? header.getSubsections() : 1;
+        private JarOutputStream contentStream() throws IOException {
+            if (contentStream != null)
+                return contentStream;
 
-            CountingInputStream cs = new CountingInputStream(stream, csize);
-            sectionDigest.reset();
-            DigestInputStream dis = new DigestInputStream(cs, sectionDigest);
-            DataInputStream in = new DataInputStream(dis);
-
-            for (int subsection = 0; subsection < subsections; subsection++)
-                readFile(in, compressor, type, csize);
-
-            byte[] headerHash = header.getHashNoClone();
-            checkHashMatch(headerHash, sectionDigest.digest());
-            if (header.getType() != SectionType.SIGNATURE) {
-                calculatedHashes.add(headerHash);
-            }
-        }
-
-        public void readFile(DataInputStream in,
-                             Compressor compressor,
-                             SectionType type,
-                             int csize)
-            throws IOException
-        {
-            switch (compressor) {
-            case NONE:
-                if (type == SectionType.MODULE_INFO) {
-                    moduleInfoBytes = readModuleInfo(in, csize);
-
-                } else if (type == SectionType.SIGNATURE) {
-                    // Examine the Signature header
-                    int signatureTypeValue = (int)in.readShort();
-                    try {
-                        moduleSignatureType =
-                            SignatureType.valueOf(signatureTypeValue);
-                    } catch (IllegalArgumentException x) {
-                        throw new IOException("Invalid signature type: " +
-                                              signatureTypeValue);
-                    }
-                    int length = in.readInt();
-                    moduleSignatureBytes = readModuleSignature(in, csize - 6);
-                    if (length != moduleSignatureBytes.length) {
-                        throw new IOException("Invalid Signature length");
-                    }
-                } else {
-                    readUncompressedFile(in, type, csize);
-                }
-                break;
-            case GZIP:
-                readGZIPCompressedFile(in, type);
-                break;
-            case PACK200_GZIP:
-                readClasses(
-                    new DataInputStream(new CountingInputStream(in, csize)));
-                break;
-            default:
-                throw new IOException("Unsupported Compressor for files: " +
-                                      compressor);
-            }
-        }
-
-        public void readClasses(DataInputStream in) throws IOException {
-            unpack200gzip(in);
+            return contentStream = new JarOutputStream(
+                    new BufferedOutputStream(
+                        new FileOutputStream(computeRealPath("classes"))));
         }
 
         private File currentPath = null;
 
-        private OutputStream openOutputStream(SectionType type,
-                                              String path)
+        private OutputStream openOutputStream(SectionType type, String path)
             throws IOException
         {
-            if (!extract)
-                return new NullOutputStream();
             currentPath = null;
-            assert type != SectionType.CLASSES;
-            if (type == SectionType.RESOURCES)
-                return Files.newOutputStream(contentStream(), path);
+            if (type == CLASSES || type == RESOURCES)
+                return Files.newOutputStream(contentStream(), deflate, path);
             currentPath = computeRealPath(type, path);
             File parent = currentPath.getParentFile();
             if (!parent.exists())
@@ -428,81 +291,11 @@ public final class ModuleFile {
             return new BufferedOutputStream(new FileOutputStream(currentPath));
         }
 
-        private static class NullOutputStream extends OutputStream {
-            @Override
-            public void write(int b) throws IOException {}
-            @Override
-            public void write(byte[] b) throws IOException {}
-            @Override
-            public void write(byte[] b, int off, int len) throws IOException {}
-        }
-
-        public void readGZIPCompressedFile(DataInputStream in,
-                                           SectionType type)
-            throws IOException
-        {
-            SubSectionFileHeader header = SubSectionFileHeader.read(in);
-            int csize = header.getCSize();
-
-            // Splice off the compressed file from input stream
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            copyStream(new CountingInputStream(in, csize), baos, csize);
-
-            byte[] compressedfile = baos.toByteArray();
-            ByteArrayInputStream bain
-                = new ByteArrayInputStream(compressedfile);
-            try (GZIPInputStream gin = new GZIPInputStream(bain);
-                 OutputStream out = openOutputStream(type, header.getPath())) {
-                copyStream(gin, out);
-            }
-
-            if (extract)
-                postExtract(type, currentPath);
-        }
-
-        public void readUncompressedFile(DataInputStream in,
-                                         SectionType type,
-                                         int csize)
-            throws IOException
-        {
-            assert type != SectionType.MODULE_INFO;
-            SubSectionFileHeader header = SubSectionFileHeader.read(in);
-            csize = header.getCSize();
-            try (OutputStream out = openOutputStream(type, header.getPath())) {
-                CountingInputStream cin = new CountingInputStream(in, csize);
-                byte[] buf = new byte[8192];
-                int n;
-                while ((n = cin.read(buf)) >= 0)
-                    out.write(buf, 0, n);
-            }
-            if (extract) {
-                postExtract(type, currentPath);
-            }
-         }
-
-        public byte[] readModuleInfo(DataInputStream in, int csize)
-            throws IOException
-        {
-            CountingInputStream cin = new CountingInputStream(in, csize);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = cin.read(buf)) >= 0)
-                out.write(buf, 0, n);
-            return out.toByteArray();
-        }
-
-        public byte[] readModuleSignature(DataInputStream in, int csize)
-            throws IOException
-        {
-            return readModuleInfo(in, csize); // signature has the same format
-        }
-
         // Track files installed outside the module library. For later removal.
         // files are relative to the modules directory.
         private PrintWriter filesWriter;
 
-        private void trackFiles(SectionType type, File file)
+        private void trackFiles(File file)
             throws IOException
         {
             if (file == null || file.toPath().startsWith(destination.toPath()))
@@ -549,11 +342,11 @@ public final class ModuleFile {
 
         // Returns the absolute path of the given section type.
         private File getDirOfSection(SectionType type) {
-            if (type == SectionType.NATIVE_LIBS)
+            if (type == NATIVE_LIBS)
                 return natlibs;
-            else if (type == SectionType.NATIVE_CMDS)
+            else if (type == NATIVE_CMDS)
                 return natcmds;
-            else if (type == SectionType.CONFIG)
+            else if (type == CONFIG)
                 return configs;
 
             // resolve sub dir section paths against the modules directory
@@ -584,42 +377,24 @@ public final class ModuleFile {
         private static void markNativeCodeExecutable(SectionType type,
                                                      File file)
         {
-            if (type == SectionType.NATIVE_CMDS
-                || (type == SectionType.NATIVE_LIBS
-                    && System.getProperty("os.name").startsWith("Windows")))
-                {
-                    file.setExecutable(true);
-                }
+            if (type == NATIVE_CMDS || (type == NATIVE_LIBS &&
+                    System.getProperty("os.name").startsWith("Windows")))
+                file.setExecutable(true);
         }
 
         private void postExtract(SectionType type, File path)
             throws IOException
         {
             markNativeCodeExecutable(type, path);
-            trackFiles(type, path);
+            trackFiles(path);
         }
-
-        private void unpack200gzip(DataInputStream in) throws IOException {
-            GZIPInputStream gis = new GZIPInputStream(in) {
-                    public void close() throws IOException {}
-                };
-            Pack200.Unpacker unpacker = Pack200.newUnpacker();
-            if (deflate) {
-                Map<String,String> p = unpacker.properties();
-                p.put(Pack200.Unpacker.DEFLATE_HINT, Pack200.Unpacker.TRUE);
-            }
-            unpacker.unpack(gis, contentStream());
-        }
-
     }
 
     private static void checkCompressor(SectionType type,
                                         Compressor compressor) {
 
-        if ((SectionType.MODULE_INFO == type &&
-             Compressor.NONE != compressor)
-            || (SectionType.CLASSES == type &&
-                Compressor.PACK200_GZIP != compressor))
+        if ((MODULE_INFO == type && Compressor.NONE != compressor) ||
+            (CLASSES == type && Compressor.PACK200_GZIP != compressor))
             throw new IllegalArgumentException(type
                                                + " may not use compressor "
                                                + compressor);
@@ -635,43 +410,13 @@ public final class ModuleFile {
             throw new IllegalArgumentException(type + " subsection count is 0");
     }
 
-    private static void copyStream(InputStream in, DataOutput out)
-        throws IOException
-    {
-
-        byte[] buffer = new byte[1024 * 8];
-        for (int b_read = in.read(buffer);
-             -1 != b_read;
-             b_read = in.read(buffer))
-            out.write(buffer, 0, b_read);
-    }
-
     private static void copyStream(InputStream in, OutputStream out)
         throws IOException
     {
-        copyStream(in, (DataOutput) new DataOutputStream(out));
-    }
-
-    private static void copyStream(InputStream in, DataOutput out,
-                                   int count)
-        throws IOException
-    {
-        byte[] buffer = new byte[1024 * 8];
-
-        while(count > 0) {
-            int b_read = in.read(buffer, 0, Math.min(count, buffer.length));
-            if (-1 == b_read)
-                return;
-            out.write(buffer, 0, b_read);
-            count-=b_read;
-        }
-    }
-
-    private static void copyStream(InputStream in, OutputStream out,
-                                   int count)
-        throws IOException
-    {
-        copyStream(in, (DataOutput) new DataOutputStream(out), count);
+        byte[] buf = new byte[8192];
+        int read;
+        while ((read = in.read(buf)) > 0)
+            out.write(buf, 0, read);
     }
 
     private static void ensureNonNegativity(long size, String parameter) {
@@ -804,7 +549,6 @@ public final class ModuleFile {
     private static byte[] readFileHash(DigestInputStream dis)
         throws IOException
     {
-
         DataInputStream in = new DataInputStream(dis);
 
         final short hashLength = readHashLength(in);
@@ -842,6 +586,10 @@ public final class ModuleFile {
 
         private byte[] getHashNoClone() {
             return hash;
+        }
+
+        public long getCSize() {
+            return csize;
         }
 
         public ModuleFileHeader(long csize, long usize,
@@ -1054,6 +802,58 @@ public final class ModuleFile {
             final String path = in.readUTF();
 
             return new SubSectionFileHeader(csize, path);
+        }
+    }
+
+    public final static class SignatureSection {
+        public static final int HEADER_LENGTH = 6; // type + signature length
+
+        private final int signatureType;   // One of FileConstants.ModuleFile.HashType
+        private final int signatureLength; // Length of signature
+        private final byte[] signature;    // Signature bytes
+
+        public int getSignatureType() {
+            return signatureType;
+        }
+
+        public int getSignatureLength() {
+            return signatureLength;
+        }
+
+        public byte[] getSignature() {
+            return signature;
+        }
+
+        public SignatureSection(int signatureType, int signatureLength,
+                                byte[] signature) {
+            ensureNonNegativity(signatureLength, "signatureLength");
+
+            this.signatureType = signatureType;
+            this.signatureLength = signatureLength;
+            this.signature = signature.clone();
+        }
+
+        public void write(DataOutput out) throws IOException {
+            out.writeShort(signatureType);
+            out.writeInt(signatureLength);
+            out.write(signature);
+        }
+
+        public static SignatureSection read(DataInputStream in)
+            throws IOException
+        {
+            short signatureType = in.readShort();
+            try {
+                SignatureType.valueOf(signatureType);
+            } catch (IllegalArgumentException x) {
+                throw new IOException("Invalid signature type: " + signatureType);
+            }
+            final int signatureLength = in.readInt();
+            ensureNonNegativity(signatureLength, "signatureLength");
+            final byte[] signature = new byte[signatureLength];
+            in.readFully(signature);
+            return new SignatureSection(signatureType, signatureLength,
+                                        signature);
         }
     }
 

@@ -235,6 +235,9 @@ public abstract class Library
      *
      * @throws  SignatureException
      *          If an error occurs while validating the signature
+     *
+     * @throws  ModuleFileParserException
+     *          If there is an error processing one the underlying module files
      */
     public abstract void install(Collection<File> mfs, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException;
@@ -263,7 +266,7 @@ public abstract class Library
      *
      * @param   res
      *          A {@link Resolution} previously computed by the
-     *          {@link Library#install install()} method
+     *          {@link Library#resolve resolve} method
      *
      * @param   verifySignature
      *          Perform signature verification, if true
@@ -276,6 +279,10 @@ public abstract class Library
      *
      * @throws  SignatureException
      *          If an error occurs while validating the signature
+     *
+     * @throws  ModuleFileParserException
+     *          If there is an error processing the underlying module file
+     *          required by the given resolution
      */
     public abstract void install(Resolution res, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException;
@@ -285,7 +292,7 @@ public abstract class Library
      *
      * @param   mids
      *          The module identifiers
-     * 
+     *
      * @param   dry
      *          Perform a dry run (no changes to the module library), if true.
      *          Otherwise the modules may be removed.

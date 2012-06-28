@@ -155,24 +155,21 @@ public class Librarian {
             while (hasArg()) {
                 File module = new File(takeArg());
                 File destination = null;
-                try (FileInputStream fis = new FileInputStream(module);
-                    DataInputStream dis = new DataInputStream(fis);
-                    ModuleFile.Reader reader = new ModuleFile.Reader(dis)) {
+                try (FileInputStream fis = new FileInputStream(module)) {
+                    ModuleFile.Reader reader = new ModuleFile.Reader(fis);
 
-                    ModuleInfo mi = jms.parseModuleInfo(reader.readStart());
+                    ModuleInfo mi = jms.parseModuleInfo(reader.getModuleInfoBytes());
                     destination = new File(mi.id().name());
                     Path path = destination.toPath();
                     Files.deleteIfExists(path);
                     Files.createDirectory(path);
-                    reader.readRest(destination, false);
-                }
-                catch (IOException x) {
+                    reader.extractTo(destination, false);
+                } catch (IOException | ModuleFileParserException x) {
                     // Try to cleanup if an exception is thrown
                     if (destination != null && destination.exists())
                         try {
                             FilePaths.deleteTree(destination.toPath());
-                        }
-                        catch (IOException y) {
+                        } catch (IOException y) {
                             throw (Command.Exception)
                                 new Command.Exception(y).initCause(x);
                         }
@@ -205,9 +202,7 @@ public class Librarian {
                                                  command);
                 try {
                     lib.installFromManifests(mfs, strip);
-                } catch (ConfigurationException x) {
-                    throw new Command.Exception(x);
-                } catch (IOException x) {
+                } catch (ConfigurationException | IOException x) {
                     throw new Command.Exception(x);
                 }
                 return;
@@ -224,11 +219,8 @@ public class Librarian {
                 finishArgs();
                 try {
                     lib.install(fs, verifySignature, strip);
-                } catch (ConfigurationException x) {
-                    throw new Command.Exception(x);
-                } catch (IOException x) {
-                    throw new Command.Exception(x);
-                } catch (SignatureException x) {
+                } catch (ConfigurationException | IOException |
+                         SignatureException | ModuleFileParserException x) {
                     throw new Command.Exception(x);
                 }
                 return;
@@ -269,7 +261,8 @@ public class Librarian {
                 if (dry)
                     return;
                 lib.install(res, verifySignature, strip);
-            } catch (ConfigurationException | IOException | SignatureException x) {
+            } catch (ConfigurationException | IOException | SignatureException |
+                     ModuleFileParserException x) {
                 throw new Command.Exception(x);
             }
 
@@ -320,7 +313,7 @@ public class Librarian {
                     lib.remove(mids, dry);
             } catch (ConfigurationException x) {
                 throw new Command.Exception(x);
-            } catch (IOException x) {                
+            } catch (IOException x) {
                 if (!quiet) {
                     for (Throwable t : x.getSuppressed())
                         err.format("Warning: %s%n", t.getMessage());

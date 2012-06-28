@@ -39,16 +39,18 @@ import sun.security.validator.*;
 public final class SignedModule {
 
     private static Set<X509Certificate> trustedCerts;
+    private final ModuleFile.Reader mreader;
     private final PKCS7 pkcs7;
-    private final List<byte[]> expectedHashes, calculatedHashes;
+    private final List<byte[]> expectedHashes;
 
     public SignedModule(ModuleFile.Reader mr)
         throws IOException
     {
-        if (!mr.hasSignature())
+        mreader = mr;
+        if (!mreader.hasSignature())
             throw new IOException("ModuleFile is not signed");
 
-        pkcs7 = new PKCS7(mr.getSignatureNoClone());
+        pkcs7 = new PKCS7(mreader.getSignatureNoClone());
         ContentInfo ci = this.pkcs7.getContentInfo();
 
         // extract expected hashes from PKCS7 SignedData
@@ -69,8 +71,6 @@ public final class SignedModule {
         // must be at least 3 hashes (header, module info, & whole file)
         if (expectedHashes.size() < 3)
             throw new IOException("too few hashes in signed data");
-
-        calculatedHashes = mr.getCalculatedHashes();
     }
 
     /**
@@ -118,6 +118,7 @@ public final class SignedModule {
     public void verifyHashesStart()
         throws SignatureException
     {
+        List<byte[]> calculatedHashes = mreader.getCalculatedHashes();
         if (calculatedHashes.size() < 2)
             throw new SignatureException("Unexpected number of hashes");
         // check module header hash
@@ -156,6 +157,7 @@ public final class SignedModule {
     public void verifyHashesRest()
         throws SignatureException
     {
+        List<byte[]> calculatedHashes = mreader.getCalculatedHashes();
         if (calculatedHashes.size() != expectedHashes.size())
             throw new SignatureException("Unexpected number of hashes");
 

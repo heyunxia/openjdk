@@ -59,7 +59,7 @@ public class ModuleFormatTestLeftOverBytes {
         System.err.println("Test: Empty module");
         count++;
         reset();
-        List<File> files = new ArrayList<File>();
+        List<File> files = new ArrayList<>();
         addFile(files, createFile("module-info.java", moduleinfo));
         compile(files);
         compress(MNAME);
@@ -91,10 +91,10 @@ public class ModuleFormatTestLeftOverBytes {
      */
     void append(String name, String version, String content) throws Exception {
         String fname = moduleDir + File.separator + name + "@" + version + ".jmod";
-        RandomAccessFile module = new RandomAccessFile(fname, "rw");
-        module.seek(module.length());
-        module.writeUTF(content);
-        module.close();
+        try (RandomAccessFile module = new RandomAccessFile(fname, "rw")) {
+            module.seek(module.length());
+            module.writeUTF(content);
+        }
     }
 
     /**
@@ -117,7 +117,7 @@ public class ModuleFormatTestLeftOverBytes {
     void compress(String name, boolean haveNatLibs,
                   boolean haveNatCmds, boolean haveConfig)
         throws Exception {
-        List<String> args = new ArrayList<String>();
+        List<String> args = new ArrayList<>();
         args.add("-m");
         args.add(classesDir.getAbsolutePath());
         args.add("-d");
@@ -143,16 +143,17 @@ public class ModuleFormatTestLeftOverBytes {
      * Compile a list of files.
      */
     void compile(List<File> files) {
-        List<String> options = new ArrayList<String>();
-        options.addAll(Arrays.asList("-source", "7", "-d", classesDir.getPath()));
+        List<String> options = new ArrayList<>();
+        options.addAll(Arrays.asList("-source", "8", "-d", classesDir.getPath()));
         for (File f: files)
             options.add(f.getPath());
 
         String[] opts = options.toArray(new String[options.size()]);
         StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        int rc = com.sun.tools.javac.Main.compile(opts, pw);
-        pw.close();
+        int rc;
+        try (PrintWriter pw = new PrintWriter(sw)) {
+            rc = com.sun.tools.javac.Main.compile(opts, pw);
+        }
 
         String out = sw.toString();
         if (out.trim().length() > 0)
@@ -178,9 +179,9 @@ public class ModuleFormatTestLeftOverBytes {
             return null;
         File file = new File(srcDir, path);
         file.getAbsoluteFile().getParentFile().mkdirs();
-        FileWriter out = new FileWriter(file);
-        out.write(body);
-        out.close();
+        try (FileWriter out = new FileWriter(file)) {
+            out.write(body);
+        }
         return file;
     }
 

@@ -76,6 +76,9 @@ public class ModuleFileWriter {
             // Reset module file to right after module header
             file.seek(ModuleFileHeader.LENGTH);
 
+            // TODO: Why was this after the module info???
+            long remainderStart = file.getFilePointer();
+
             // Write out the Module-Info Section
             File miclass = new File(mdir, "module-info.class");
             if (!miclass.exists()) {
@@ -86,8 +89,6 @@ public class ModuleFileWriter {
                          mdir,
                          Collections.singletonList(miclass.toPath()),
                          Compressor.NONE);
-
-            long remainderStart = file.getFilePointer();
 
             // Write out the optional file sections
             writeOptionalSections(file, mdir, nativelibs, nativecmds, config);
