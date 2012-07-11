@@ -3457,6 +3457,16 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
     vm_exit_during_initialization(Handle(THREAD, PENDING_EXCEPTION));
   }
 
+  // For module mode today we need to map the java base module loader to null
+  // on entry to the vm
+  // This loader is initialized during InitializeSystemProperties
+  if (Arguments::is_module_mode()) {
+    SystemDictionary::compute_java_base_module_loader(THREAD);
+    if (HAS_PENDING_EXCEPTION) {
+      vm_exit_during_initialization(Handle(THREAD, PENDING_EXCEPTION));
+    }
+  }
+
 #ifndef SERIALGC
   // Support for ConcurrentMarkSweep. This should be cleaned up
   // and better encapsulated. The ugly nested if test would go away

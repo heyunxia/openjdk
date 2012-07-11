@@ -83,6 +83,7 @@ SUNWprivate_1.1 {
                 JVM_DumpThreads;
                 JVM_EnableCompiler;
                 JVM_Exit;
+                JVM_ExtendBootClassPath;
                 JVM_FillInStackTrace;
                 JVM_FindClassFromClass;
                 JVM_FindClassFromClassLoader;
@@ -150,6 +151,7 @@ SUNWprivate_1.1 {
                 JVM_GetMethodIxNameUTF;
                 JVM_GetMethodIxSignatureUTF;
                 JVM_GetMethodParameterAnnotations;
+                JVM_GetModuleLoader;
                 JVM_GetPrimitiveArrayElement;
                 JVM_GetProtectionDomain;
                 JVM_GetSockName;
