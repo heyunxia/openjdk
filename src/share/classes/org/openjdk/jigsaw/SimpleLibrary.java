@@ -39,6 +39,7 @@ import java.util.zip.*;
 
 import static java.nio.file.StandardCopyOption.*;
 import static java.nio.file.StandardOpenOption.*;
+import org.openjdk.jigsaw.Repository.ModuleType;
 
 /**
  * A simple module library which stores data directly in the filesystem
@@ -1127,6 +1128,25 @@ public final class SimpleLibrary
 	installFromManifests(mfs, false);
     }
 
+    private ModuleId installWhileLocked(ModuleType type, InputStream is, boolean verifySignature,
+                                        boolean strip) 
+        throws ConfigurationException, IOException, SignatureException
+    {
+        switch (type) {
+            case JAR:
+                Path jf = java.nio.file.Files.createTempFile(null, null);
+                try {
+                    java.nio.file.Files.copy(is, jf, StandardCopyOption.REPLACE_EXISTING);
+                    return installFromJarFile(jf.toFile(), verifySignature, strip);
+                } finally {
+                    java.nio.file.Files.delete(jf);
+                }
+            case JMOD:
+            default:
+                return installWhileLocked(is, verifySignature, strip);
+        }
+    }
+    
     private ModuleId installWhileLocked(InputStream is, boolean verifySignature,
                                         boolean strip)
         throws ConfigurationException, IOException, SignatureException
@@ -1436,7 +1456,10 @@ public final class SimpleLibrary
                 assert u != null;
                 RemoteRepository rr = repositoryList().firstRepository();
                 assert rr != null;
-                installWhileLocked(rr.fetch(mid), verifySignature, strip);
+                installWhileLocked(rr.fetchMetaData(mid).getType(), 
+                                   rr.fetch(mid), 
+                                   verifySignature, 
+                                   strip);
                 res.locationForName.put(mid.name(), location());
                 // ## If something goes wrong, delete all our modules
             }

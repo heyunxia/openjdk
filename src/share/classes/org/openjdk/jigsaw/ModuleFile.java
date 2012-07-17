@@ -580,6 +580,10 @@ public final class ModuleFile {
         private final byte[] hash;              // Hash of entire file (except this hash
                                                 // and the Signature section, if present)
 
+        public HashType getHashType() {
+            return hashType;
+        }
+        
         public byte[] getHash() {
             return hash.clone();
         }
@@ -590,6 +594,10 @@ public final class ModuleFile {
 
         public long getCSize() {
             return csize;
+        }
+
+        public long getUSize() {
+            return usize;
         }
 
         public ModuleFileHeader(long csize, long usize,

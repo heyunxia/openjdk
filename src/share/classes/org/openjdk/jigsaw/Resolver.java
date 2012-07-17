@@ -31,7 +31,7 @@ import java.net.URI;
 import java.util.*;
 
 import static java.lang.module.Dependence.Modifier;
-import static org.openjdk.jigsaw.Repository.ModuleSize;
+import static org.openjdk.jigsaw.Repository.ModuleMetaData;
 import static org.openjdk.jigsaw.Trace.*;
 
 
@@ -278,7 +278,7 @@ final class Resolver {
         //
         ModuleInfo mi = null;
         URI ml = null;
-        ModuleSize ms = null;
+        ModuleMetaData mmd = null;
         for (Catalog c = cat; c != null; c = c.parent()) {
             mi = c.readLocalModuleInfo(mid);
             if (mi != null) {
@@ -287,7 +287,7 @@ final class Resolver {
                     assert ml != null;
                 }
                 if (c instanceof RemoteRepository)
-                    ms = ((RemoteRepository)c).sizeof(mid);
+                    mmd = ((RemoteRepository)c).fetchMetaData(mid);
                 break;
             }
         }
@@ -333,10 +333,10 @@ final class Resolver {
 
         // Save the module's download and install sizes, if any
         //
-        if (ms != null) {
+        if (mmd != null) {
             modulesNeeded.add(mi.id());
-            downloadRequired += ms.download();
-            spaceRequired += ms.install();
+            downloadRequired += mmd.getDownloadSize();
+            spaceRequired += mmd.getInstallSize();
         }
 
         // Push this module's dependences onto the choice stack,
@@ -396,10 +396,10 @@ final class Resolver {
             }
             if (ml != null)
                 locationForName.remove(smn);
-            if (ms != null) {
+            if (mmd != null) {
                 modulesNeeded.remove(mi.id());
-                downloadRequired -= ms.download();
-                spaceRequired -= ms.install();
+                downloadRequired -= mmd.getDownloadSize();
+                spaceRequired -= mmd.getInstallSize();
             }
             if (tracing)
                 trace(1, depth, "fail: %s", mid);

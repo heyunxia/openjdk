@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,6 +29,7 @@ import java.io.*;
 import java.lang.module.*;
 import java.util.*;
 
+import static org.openjdk.jigsaw.Repository.ModuleType;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.HashType;
 
 
@@ -54,13 +55,15 @@ public abstract class RepositoryCatalog {
 
     static class Entry {
 
+        final ModuleType type;
         final byte[] mibs;
         final long csize;
         final long usize;
         final HashType hashType;
         final byte[] hash;
 
-        Entry(byte[] m, long cs, long us, HashType ht, byte[] h) {
+        Entry(ModuleType t, byte[] m, long cs, long us, HashType ht, byte[] h) {
+            type = t;
             mibs = m;
             csize = cs;
             usize = us;
@@ -72,10 +75,10 @@ public abstract class RepositoryCatalog {
 
     abstract void add(Entry e);
 
-    public void add(byte[] mibs, long cs, long us,
+    public void add(ModuleType t, byte[] mibs, long cs, long us,
                     HashType hashType, byte[] hash)
     {
-        add(new Entry(mibs, cs, us, hashType, hash));
+        add(new Entry(t, mibs, cs, us, hashType, hash));
     }
 
     public abstract boolean remove(ModuleId mid);
@@ -93,10 +96,12 @@ public abstract class RepositoryCatalog {
         private Map<ModuleId,Entry> modules = new HashMap<>();
         private Map<ModuleId,ModuleId> moduleForViewId= new HashMap<>();
 
+        @Override
         public void gatherDeclaringModuleIds(Set<ModuleId> mids) {
             mids.addAll(modules.keySet());
         }
         
+        @Override
         public void gatherModuleIds(String moduleName, Set<ModuleId> mids) {
             for (ModuleId mid : moduleForViewId.keySet()) {
                 if (moduleName == null || mid.name().equals(moduleName))
@@ -104,12 +109,14 @@ public abstract class RepositoryCatalog {
             }
         }
 
+        @Override
         public byte[] readModuleInfoBytes(ModuleId mid) {
             Entry e = modules.get(moduleForViewId.get(mid));
             return (e != null) ? e.mibs : null;
         }
 
-        public void add(Entry e) {
+        @Override
+        void add(Entry e) {
             ModuleInfo mi = jms.parseModuleInfo(e.mibs); // ## Need fast path
             modules.put(mi.id(), e);
             for (ModuleView mv : mi.views()) {
@@ -120,6 +127,7 @@ public abstract class RepositoryCatalog {
             }
         }
 
+        @Override
         public boolean remove(ModuleId mid) {
             for (Iterator<ModuleId> i = moduleForViewId.values().iterator();
                  i.hasNext();)
@@ -133,6 +141,7 @@ public abstract class RepositoryCatalog {
             return modules.remove(mid) != null;
         }
 
+        @Override
         Entry get(ModuleId mid) {
             return modules.get(moduleForViewId.get(mid));
         }
@@ -164,26 +173,27 @@ public abstract class RepositoryCatalog {
 
         public void store(OutputStream os) throws IOException {
             OutputStream bos = new BufferedOutputStream(os);
-            DataOutputStream out = new DataOutputStream(bos);
-            fileHeader().write(out);
-            out.writeInt(modules.size());
-            for (Map.Entry<ModuleId,Entry> me : modules.entrySet()) {
-                out.writeUTF(me.getKey().toString()); // ## Redundant
-                Entry e = me.getValue();
-                out.writeLong(e.csize);
-                out.writeLong(e.usize);
-                out.writeShort(e.hashType.value());
-                out.writeShort(e.hash.length);
-                out.write(e.hash);
-                out.writeShort(e.mibs.length);
-                out.write(e.mibs);
+            try (DataOutputStream out = new DataOutputStream(bos)) {
+                fileHeader().write(out);
+                out.writeInt(modules.size());
+                for (Map.Entry<ModuleId,Entry> me : modules.entrySet()) {
+                    out.writeUTF(me.getKey().toString()); // ## Redundant
+                    Entry e = me.getValue();
+                    out.writeUTF(e.type.getFileNameExtension());
+                    out.writeLong(e.csize);
+                    out.writeLong(e.usize);
+                    out.writeShort(e.hashType.value());
+                    out.writeShort(e.hash.length);
+                    out.write(e.hash);
+                    out.writeShort(e.mibs.length);
+                    out.write(e.mibs);
+                }
+                out.writeInt(moduleForViewId.size());
+                for (Map.Entry<ModuleId,ModuleId> me : moduleForViewId.entrySet()) {
+                    out.writeUTF(me.getKey().toString());
+                    out.writeUTF(me.getValue().toString());
+                }
             }
-            out.writeInt(moduleForViewId.size());
-            for (Map.Entry<ModuleId,ModuleId> me : moduleForViewId.entrySet()) {
-                out.writeUTF(me.getKey().toString());
-                out.writeUTF(me.getValue().toString());
-            }
-            out.close();
         }
 
         public StreamedRepositoryCatalog loadStream(InputStream is)
@@ -196,6 +206,7 @@ public abstract class RepositoryCatalog {
             int nms = in.readInt();
             for (int i = 0; i < nms; i++) {
                 ModuleId mid = jms.parseModuleId(in.readUTF());
+                ModuleType t = ModuleType.fromFileNameExtension(in.readUTF());
                 long cs = in.readLong();
                 long us = in.readLong();
                 HashType ht = HashType.valueOf(in.readShort());
@@ -205,7 +216,7 @@ public abstract class RepositoryCatalog {
                 nb = in.readShort();
                 byte[] mibs = new byte[nb];
                 in.readFully(mibs);
-                modules.put(mid, new Entry(mibs, cs, us, ht, hash));
+                modules.put(mid, new Entry(t, mibs, cs, us, ht, hash));
             }
             int nmids = in.readInt();
             for (int i = 0; i < nmids; i++) {
