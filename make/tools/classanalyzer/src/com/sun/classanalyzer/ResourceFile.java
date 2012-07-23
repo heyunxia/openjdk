@@ -76,6 +76,12 @@ public class ResourceFile implements Comparable<ResourceFile> {
         return filesize;
     }
 
+    private static final String platformServicePrefix =
+            "META-INF" + File.separatorChar + "services";
+    boolean isService() {
+        return pathname.startsWith(platformServicePrefix) ? true : false;
+    }
+
     @Override
     public String toString() {
         return name;
@@ -105,7 +111,7 @@ public class ResourceFile implements Comparable<ResourceFile> {
         return true;
     }
 
-    static ResourceFile addResource(String fname, InputStream in, long size) {
+    static ResourceFile getResource(String fname, InputStream in, long size) {
         ResourceFile res;
         fname = fname.replace(File.separatorChar, '/');
         if (fname.startsWith("META-INF/services")) {
@@ -113,9 +119,15 @@ public class ResourceFile implements Comparable<ResourceFile> {
         } else {
             res = new ResourceFile(fname, size);
         }
+        return res;
+    }
+
+    static ResourceFile addResource(String fname, InputStream in, long size) {
+        ResourceFile res = getResource(fname, in, size);
         resources.add(res);
         return res;
     }
+
 
     static Set<ResourceFile> getAllResources() {
         return Collections.unmodifiableSet(resources);
@@ -133,6 +145,11 @@ public class ResourceFile implements Comparable<ResourceFile> {
             super(fname, size);
             readServiceConfiguration(in, providers);
             this.service = name.substring("META-INF/services".length() + 1, name.length());
+        }
+
+        @Override
+        boolean isService() {
+            return true;
         }
 
         @Override
