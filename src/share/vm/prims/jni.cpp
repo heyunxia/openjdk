@@ -394,7 +394,11 @@ JNI_ENTRY(jclass, jni_DefineClass(JNIEnv *env, const char *name, jobject loaderR
   }
   ResourceMark rm(THREAD);
   ClassFileStream st((u1*) buf, bufLen, NULL);
-  Handle class_loader (THREAD, JNIHandles::resolve(loaderRef));
+
+  oop local_loader = JNIHandles::resolve(loaderRef);
+  oop null_loader = NULL;
+  local_loader = (local_loader == SystemDictionary::java_base_module_loader() ? null_loader : local_loader);
+  Handle class_loader(THREAD, local_loader);
 
   if (UsePerfData && !class_loader.is_null()) {
     // check whether the current caller thread holds the lock or not.

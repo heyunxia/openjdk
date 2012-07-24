@@ -3874,6 +3874,12 @@ class CommandLineFlags {
   diagnostic(bool, PauseAtExit, false,                                      \
           "Pause and wait for keypress on exit if a debugger is attached")  \
                                                                             \
+  product(bool, UseModuleNativeLibs, true,                                  \
+          "Prototype: Load classes using module native libs")               \
+                                                                            \
+  product(bool, UseModuleBootLoader, true,                                  \
+          "Prototype: Use Module Boot Loader for module mode class load")   \
+                                                                            \
   product(bool, ExtendedDTraceProbes,    false,                             \
           "Enable performance-impacting dtrace probes")                     \
                                                                             \

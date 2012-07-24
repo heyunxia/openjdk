@@ -2115,7 +2115,6 @@ void os::pd_print_cpu_info(outputStream* st) {
   }
   st->cr();
 }
-
 // Taken from /usr/include/bits/siginfo.h  Supposed to be architecture specific
 // but they're the same for all the linux arch that we support
 // and they're the same for solaris but there's no common place to put this.
