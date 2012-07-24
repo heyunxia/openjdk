@@ -106,12 +106,12 @@ FILES_ties   = $(subst javax/management/remote/rmi/,javax/management/remote/rmi/
 
 RMIC_JAVA = $(OUTPUTDIR)/bin/java
 # need to treat 64bit solaris differently
-ifeq ($(PLATFORM)-$(LIBARCH), solaris-amd64)
-RMIC_JAVA = $(OUTPUTDIR)/bin/amd64/java
-endif
-ifeq ($(PLATFORM)-$(LIBARCH), solaris-sparcv9)
-RMIC_JAVA = $(OUTPUTDIR)/bin/sparcv9/java
-endif
+#ifeq ($(PLATFORM)-$(LIBARCH), solaris-amd64)
+#RMIC_JAVA = $(OUTPUTDIR)/bin/amd64/java
+#endif
+#ifeq ($(PLATFORM)-$(LIBARCH), solaris-sparcv9)
+#RMIC_JAVA = $(OUTPUTDIR)/bin/sparcv9/java
+#endif
 
 ifeq ($(CROSS_COMPILE_ARCH),)
 RMIC = $(RMIC_JAVA) $(JAVA_TOOLS_FLAGS) -cp $(OUTPUTDIR)/classes sun.rmi.rmic.Main

@@ -28,6 +28,7 @@ package sun.reflect.misc;
 
 import java.lang.reflect.Modifier;
 import sun.reflect.Reflection;
+import org.openjdk.jigsaw.Platform;
 
 public final class ReflectUtil {
 
@@ -142,6 +143,36 @@ public final class ReflectUtil {
         } catch (SecurityException e) {
             return false;
         }
+        return true;
+    }
+
+    /**
+     * Returns true if package access check is needed for reflective
+     * access from a class loader 'from' to classes or members in 
+     * a class defined by class loader 'to'.  This method returns true
+     * if 'from' is not the same as or an ancestor of 'to'.  All code
+     * in a system domain are granted with all permission and so this
+     * method returns false if 'from' class loader is a class loader
+     * loading system classes.  On the other hand, if a class loader
+     * attempts to access system domain classes, it requires package
+     * access check and this method will return true.
+     */
+    public static boolean needsPackageAccessCheck(ClassLoader from, ClassLoader to) {
+        if (Platform.isPlatformLoader(from) || from == to)
+            return false;
+ 
+        if (Platform.isPlatformLoader(to))
+            return true;
+
+        // If from class loader is in the to's class loader's delegation chain.
+        // no need for package access check.
+        ClassLoader acl = to;
+        do {
+            acl = acl.getParent();
+            if (from == acl) {
+                return false;
+            }
+        } while (acl != null);
         return true;
     }
 }

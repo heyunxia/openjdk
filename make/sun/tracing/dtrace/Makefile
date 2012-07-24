@@ -30,6 +30,7 @@
 LIBRARY_SUPPORTS_FULL_DEBUG_SYMBOLS=1
 
 BUILDDIR = ../../..
+MODULE  = tracing
 PACKAGE = sun.tracing.dtrace
 LIBRARY = jsdt
 PRODUCT = sun

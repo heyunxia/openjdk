@@ -39,10 +39,19 @@ void* JDK_FindJvmEntry(const char* name) {
     return (void*) GetProcAddress(jvm_handle, name);
 }
 
+void* JDK_GetLibraryHandle(const char* name) {
+    char dllname[1024];
+    jio_snprintf(dllname, sizeof(dllname), "%s%s%s", JNI_LIB_PREFIX, name, JNI_LIB_SUFFIX);
+    return GetModuleHandle(dllname);
+}
+
+void* JDK_LookupSymbol(void* handle, const char* name) {
+    return(void*) GetProcAddress((HMODULE)handle, name);
+}
+
 JNIEXPORT HMODULE JDK_LoadSystemLibrary(const char* name) {
     HMODULE handle = NULL;
     char path[MAX_PATH];
-    int ret;
 
     if (GetSystemDirectory(path, sizeof(path)) != 0) {
         strcat(path, "\\");

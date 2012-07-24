@@ -25,20 +25,6 @@
 
 package sun.launcher;
 
-/*
- *
- *  <p><b>This is NOT part of any API supported by Sun Microsystems.
- *  If you write code that depends on this, you do so at your own
- *  risk.  This code and its internal interfaces are subject to change
- *  or deletion without notice.</b>
- *
- */
-
-/**
- * A utility package for the java(1), javaw(1) launchers.
- * The following are helper methods that the native launcher uses
- * to perform checks etc. using JNI, see src/share/bin/java.c
- */
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -62,14 +48,28 @@ import java.util.TreeSet;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.Arrays;
 
-public enum LauncherHelper {
-    INSTANCE;
+
+/*
+ * <p><b>This is NOT part of any API supported by Sun Microsystems.
+ * If you write code that depends on this, you do so at your own
+ * risk.  This code and its internal interfaces are subject to change
+ * or deletion without notice.</b>
+ */
+
+/**
+ * A utility package for the java(1), javaw(1) launchers.
+ * The following are helper methods that the native launcher uses
+ * to perform checks etc. using JNI, see src/share/bin/java.c
+ */
+
+public class LauncherHelper {
+
     private static final String MAIN_CLASS = "Main-Class";
 
     private static StringBuilder outBuf = new StringBuilder();
 
-    private static ResourceBundle javarb = null;
 
     private static final String INDENT = "    ";
     private static final String VM_SETTINGS     = "VM settings:";
@@ -418,11 +418,12 @@ public enum LauncherHelper {
 
 
     // From src/share/bin/java.c:
-    //   enum LaunchMode { LM_UNKNOWN = 0, LM_CLASS, LM_JAR };
+    //   enum LaunchMode { LM_UNKNOWN = 0, LM_CLASS, LM_JAR, LM_MODULE };
 
     private static final int LM_UNKNOWN = 0;
     private static final int LM_CLASS   = 1;
     private static final int LM_JAR     = 2;
+    private static final int LM_MODULE  = 3;
 
     static void abort(PrintStream ostream, Throwable t, String msgKey, Object... args) {
         if (msgKey != null) {
@@ -442,7 +443,7 @@ public enum LauncherHelper {
      * This method does the following:
      * 1. gets the classname from a Jar's manifest, if necessary
      * 2. loads the class using the System ClassLoader
-     * 3. ensures the availability and accessibility of the main method,
+     * 3. ensures the availability and accessibility of the main method:
      *    using signatureDiagnostic method.
      *    a. does the class exist
      *    b. is there a main
@@ -461,6 +462,7 @@ public enum LauncherHelper {
                                             String what) {
         final PrintStream ostream = (printToStderr) ? System.err : System.out;
         final ClassLoader ld = ClassLoader.getSystemClassLoader();
+
         // get the class name
         String cn = null;
         switch (mode) {
@@ -470,6 +472,9 @@ public enum LauncherHelper {
             case LM_JAR:
                 cn = getMainClassFromJar(ostream, what);
                 break;
+        case LM_MODULE:
+            cn = org.openjdk.jigsaw.Launcher.mainClass(ld);
+            break;
             default:
                 // should never happen
                 throw new InternalError("" + mode + ": Unknown launch mode");

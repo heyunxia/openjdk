@@ -585,7 +585,7 @@ public class ManagementFactory {
                     return interfaceClass.getClassLoader();
                 }
             });
-        if (loader != null) {
+        if (!org.openjdk.jigsaw.Platform.isPlatformLoader(loader)) {
             throw new IllegalArgumentException(mxbeanName +
                 " is not a platform MXBean");
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,15 +30,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+
+import org.openjdk.jigsaw.ModuleServiceLoader;
+import org.openjdk.jigsaw.Platform;
+import org.openjdk.jigsaw.Loader;
 
 
 /**
  * A simple service-provider loading facility.
+ * 
+ * <p> ## spec needs significant changes to specifying loading of services that 
+ *        are installed as modules.
  *
  * <p> A <i>service</i> is a well-known set of interfaces and (usually
  * abstract) classes.  A <i>service provider</i> is a specific implementation
@@ -185,16 +187,21 @@ public final class ServiceLoader<S>
     private static final String PREFIX = "META-INF/services/";
 
     // The class or interface representing the service being loaded
-    private Class<S> service;
+    private final Class<S> service;
 
     // The class loader used to locate, load, and instantiate providers
-    private ClassLoader loader;
+    private final ClassLoader loader;
 
     // Cached providers, in instantiation order
-    private LinkedHashMap<String,S> providers = new LinkedHashMap<>();
+    // Note the key serves a different purpose depending if in classpath mode
+    // or module mode. For the classpath mode it will be a class name of the 
+    // provider. For module mode it does not matter what the key is as long
+    // as it is unique to the provider.
+    // 
+    private final LinkedHashMap<Object,S> providers = new LinkedHashMap<>();
 
     // The current lazy-lookup iterator
-    private LazyIterator lookupIterator;
+    private Iterator<S> lookupIterator;
 
     /**
      * Clear this loader's provider cache so that all providers will be
@@ -208,13 +215,27 @@ public final class ServiceLoader<S>
      * can be installed into a running Java virtual machine.
      */
     public void reload() {
-        providers.clear();
-        lookupIterator = new LazyIterator(service, loader);
+        providers.clear(); 
+
+        // In module mode when the class loader is a module class loader then 
+        // iterate over the service instances of the configuration.
+        //
+        // In classpath mode then create the iterator to locate services via 
+        // META-INF/service configuration files.
+
+        if (loader instanceof Loader) {
+            lookupIterator = new CachingIterator(
+                    ModuleServiceLoader.load(service).iterator());
+        } else {
+            lookupIterator = new LazyIterator(service, loader);
+        }
     }
 
     private ServiceLoader(Class<S> svc, ClassLoader cl) {
         service = svc;
-        loader = cl;
+        loader = (cl == null && Platform.isModuleMode())
+            ? ClassLoader.getSystemClassLoader()
+            : cl;
         reload();
     }
 
@@ -310,14 +331,15 @@ public final class ServiceLoader<S>
         return names.iterator();
     }
 
-    // Private inner class implementing fully-lazy provider lookup
+    // Private inner class implementing fully-lazy provider lookup of services
+    // identified in provider-configuration files.
     //
     private class LazyIterator
         implements Iterator<S>
     {
 
-        Class<S> service;
-        ClassLoader loader;
+        final Class<S> service;
+        final ClassLoader loader;
         Enumeration<URL> configs = null;
         Iterator<String> pending = null;
         String nextName = null;
@@ -377,9 +399,44 @@ public final class ServiceLoader<S>
         public void remove() {
             throw new UnsupportedOperationException();
         }
+        
+    }  
+    
+    // A caching iterator that caches service (provider) instances when
+    // iterated over
+    //
+    private class CachingIterator 
+        implements Iterator<S> 
+    {
+        final Iterator<S> entries;
+        
+        CachingIterator(Iterator<S> entries) {
+            this.entries = entries;
+        }
 
-    }
+        @Override
+        public boolean hasNext() {
+            return entries.hasNext();
+        }
 
+        @Override
+        public S next() {
+            final S s = entries.next();
+            // Use the service instance hash code as the key
+            // Note the provides map serves a dual purpose: caching the service
+            // instances; and in classpath mode checking cached service
+            // provider class names to avoid duplications when parsing the names
+            // in META-INF/services files
+            providers.put(s.hashCode(), s);
+            return s;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+    }    
+    
     /**
      * Lazily loads the available providers of this loader's service.
      *
@@ -423,7 +480,7 @@ public final class ServiceLoader<S>
     public Iterator<S> iterator() {
         return new Iterator<S>() {
 
-            Iterator<Map.Entry<String,S>> knownProviders
+            final Iterator<Map.Entry<Object,S>> knownProviders
                 = providers.entrySet().iterator();
 
             public boolean hasNext() {
@@ -443,7 +500,7 @@ public final class ServiceLoader<S>
             }
 
         };
-    }
+    }        
 
     /**
      * Creates a new service loader for the given service type and class
@@ -488,8 +545,7 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> load(Class<S> service) {
-        ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        return ServiceLoader.load(service, cl);
+        return new ServiceLoader<>(service, Thread.currentThread().getContextClassLoader());
     }
 
     /**
@@ -523,7 +579,7 @@ public final class ServiceLoader<S>
             prev = cl;
             cl = cl.getParent();
         }
-        return ServiceLoader.load(service, prev);
+        return new ServiceLoader<>(service, prev);
     }
 
     /**
