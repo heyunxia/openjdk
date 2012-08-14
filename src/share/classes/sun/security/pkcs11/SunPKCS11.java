@@ -42,6 +42,8 @@ import javax.security.auth.callback.ConfirmationCallback;
 import javax.security.auth.callback.PasswordCallback;
 import javax.security.auth.callback.TextOutputCallback;
 
+import sun.security.jca.ProviderList;
+import sun.security.jca.Providers;
 import sun.security.util.Debug;
 import sun.security.util.ResourcesMgr;
 
@@ -52,6 +54,12 @@ import static sun.security.pkcs11.wrapper.PKCS11Constants.*;
 
 /**
  * PKCS#11 provider main class.
+ *
+ * This class has been adjusted to allow the SunPKCS11 provider to be loaded
+ * using the ServiceLoader mechanism in module mode. However, currently only
+ * one instance of the SunPKCS11 provider can be loaded by ServiceLoader - it
+ * does not support configuring multiple PKCS11 providers as documented in the
+ * PKCS11 guide.
  *
  * @author  Andreas Sterbenz
  * @since   1.5
@@ -94,9 +102,7 @@ public final class SunPKCS11 extends AuthProvider {
     }
 
     public SunPKCS11() {
-        super("SunPKCS11-Dummy", 1.7d, "SunPKCS11-Dummy");
-        throw new ProviderException
-            ("SunPKCS11 requires configuration file argument");
+        this(getConfigName());
     }
 
     public SunPKCS11(String configName) {
@@ -117,6 +123,24 @@ public final class SunPKCS11 extends AuthProvider {
     private static synchronized String getDummyConfigName() {
         int id = ++dummyConfigId;
         return "---DummyConfig-" + id + "---";
+    }
+
+    // Get configuration file name from the java.security properties file.
+    // If there is more than one SunPKCS11 provider configured, it returns
+    // the argument of the first one listed.
+    private static String getConfigName() {
+        ProviderList pl = Providers.getProviderList();
+        int index = pl.getIndexByClassName("sun.security.pkcs11.SunPKCS11");
+        if (index == -1) {
+            // provider isn't registered
+            throw new ProviderException("SunPKCS11 is not registered");
+        }
+        String arg = pl.getProviderArgument(index);
+        if (arg.length() == 0) {
+            throw new ProviderException
+                ("SunPKCS11 requires configuration file argument");
+        }
+        return arg;
     }
 
     /**

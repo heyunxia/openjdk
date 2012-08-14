@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -67,6 +67,9 @@ module jdk.base {
     // ## To be converted as services
     requires optional sun.resources;
     requires optional sun.localedata;
+
+    provides service java.security.Provider with sun.security.provider.Sun;
+    provides service java.security.Provider with sun.security.rsa.SunRsaSign;
 
     // ## workaround for reflection
     //
@@ -246,6 +249,8 @@ module jdk.kerberos {
     include tools.klist;
     include tools.ktab;
 
+    provides service java.security.Provider with sun.security.jgss.SunProvider;
+
     view jdk.kinit {
         class sun.security.krb5.internal.tools.Kinit;
     }
@@ -262,32 +267,39 @@ module jdk.kerberos {
 module jdk.sunec {
     // split sun.security.ec package with sun.security
     requires local jdk.base;
+    provides service java.security.Provider with sun.security.ec.SunEC;
     include security-sunec;
 }
 
 module jdk.sunpkcs11 {
+    provides service java.security.Provider with sun.security.pkcs11.SunPKCS11;
     include security-sunpkcs11;
 }
 
 module jdk.ucrypto {
+    provides service java.security.Provider with com.oracle.security.ucrypto.UcryptoProvider;
     include security-ucrypto;
 }
 
 module jdk.crypto {
+    provides service java.security.Provider with com.sun.crypto.provider.SunJCE;
     include security-sunjce;
 }
 
 module jdk.sunmscapi {
+    provides service java.security.Provider with sun.security.mscapi.SunMSCAPI;
     include security-sunmscapi;
 }
 
 module jdk.xmldsig {
     provides javax.xmldsig;
+    provides service java.security.Provider with org.jcp.xml.dsig.internal.dom.XMLDSigRI;
     include security-xmldsig;
 }
 
 module jdk.smartcardio {
     provides javax.smartcardio;
+    provides service java.security.Provider with sun.security.smartcardio.SunPCSC;
     include security-smartcardio;
 }
 
@@ -354,6 +366,7 @@ module jdk.rmi {
 
 module jdk.auth {
     provides java.auth;
+    provides service java.security.Provider with com.sun.security.sasl.Provider;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-auth;
     include sun.callback.text;
@@ -365,6 +378,7 @@ module jdk.auth {
 
 module jdk.tls {
     provides java.tls;
+    provides service java.security.Provider with com.sun.net.ssl.internal.ssl.Provider;
     include security-jsse;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,8 +26,6 @@
 package sun.security.jca;
 
 import java.io.File;
-import java.lang.reflect.*;
-
 import java.security.*;
 import org.openjdk.jigsaw.Platform;
 
@@ -56,10 +54,6 @@ final class ProviderConfig {
 
     // maximum number of times to try loading a provider before giving up
     private final static int MAX_LOAD_TRIES = 30;
-
-    // parameters for the Provider(String) constructor,
-    // use by doLoadProvider()
-    private final static Class[] CL_STRING = { String.class };
 
     // name of the provider class
     private final String className;
@@ -117,6 +111,14 @@ final class ProviderConfig {
         if (o == Boolean.FALSE) {
             tries = MAX_LOAD_TRIES;
         }
+    }
+
+    String argument() {
+        return argument;
+    }
+
+    String className() {
+        return className;
     }
 
     private boolean hasArgument() {
@@ -209,67 +211,24 @@ final class ProviderConfig {
                 if (debug != null) {
                     debug.println("Loading provider: " + ProviderConfig.this);
                 }
+                Providers.ProviderLoader pl = Providers.getProviderLoader();
                 try {
-                    // ## Revisit this to use the services for modules
-                    // ## In legacy mode, the service provider will be searched
-                    // ## from the bootclasspath first.  In module mode, 
-                    // ## a module loader can only see the classes locally
-                    // ## or the exported types from its dependencies.
-                    // ## 
-                    // ## Workaround now to load providers by the boot loader
-                    // ## in module mode.  Won't find other "ext" providers such
-                    // ## as sunpkcs11, smartcardio, xmldsig. 
-                    // ## 
-                    ClassLoader cl;
-                    if (Platform.isModuleMode()) {
-                        cl = Platform.getBaseModuleLoader();
-                    } else {
-                        cl = ClassLoader.getSystemClassLoader();
-                    }
-                    Class<?> provClass;
-                    if (cl != null) {
-                        provClass = cl.loadClass(className);
-                    } else {
-                        provClass = Class.forName(className);
-                    }
-                    Object obj;
-                    if (hasArgument() == false) {
-                        obj = provClass.newInstance();
-                    } else {
-                        Constructor<?> cons = provClass.getConstructor(CL_STRING);
-                        obj = cons.newInstance(argument);
-                    }
-                    if (obj instanceof Provider) {
+                    Provider p = (hasArgument()) ? pl.load(className, argument)
+                                                 : pl.load(className);
+                    if (p != null) {
                         if (debug != null) {
-                            debug.println("Loaded provider " + obj);
+                            debug.println("Loaded provider " + p);
                         }
-                        return (Provider)obj;
                     } else {
                         if (debug != null) {
                             debug.println(className + " is not a provider");
                         }
                         disableLoad();
-                        return null;
                     }
-                } catch (Exception e) {
-                    Throwable t;
-                    if (e instanceof InvocationTargetException) {
-                        t = ((InvocationTargetException)e).getCause();
-                    } else {
-                        t = e;
-                    }
-                    if (debug != null) {
-                        debug.println("Error loading provider " + ProviderConfig.this);
-                        t.printStackTrace();
-                    }
-                    // provider indicates fatal error, pass through exception
-                    if (t instanceof ProviderException) {
-                        throw (ProviderException)t;
-                    }
+                    return p;
+                } catch (UnsupportedOperationException e) {
                     // provider indicates that loading should not be retried
-                    if (t instanceof UnsupportedOperationException) {
-                        disableLoad();
-                    }
+                    disableLoad();
                     return null;
                 }
             }

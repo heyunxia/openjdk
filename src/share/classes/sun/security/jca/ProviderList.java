@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,8 +33,12 @@ import java.security.Provider.Service;
 /**
  * List of Providers. Used to represent the provider preferences.
  *
- * The system starts out with a ProviderList that only has the classNames
- * of the Providers. Providers are loaded on demand only when needed.
+ * The system starts out with a ProviderList that only has the classNames of
+ * the Providers.
+ *
+ * In classpath mode, Providers registered in the security properties file are
+ * loaded on demand only when needed. However, in module mode, all registered
+ * Providers are loaded (using java.util.ServiceLoader) eagerly.
  *
  * For compatibility reasons, Providers that could not be loaded are ignored
  * and internally presented as the instance EMPTY_PROVIDER. However, those
@@ -255,6 +259,15 @@ public final class ProviderList {
     }
 
     /**
+     * Returns the optional argument associated with a Provider at the
+     * specified index or an empty String if the Provider does not have
+     * an argument.
+     */
+    public String getProviderArgument(int index) {
+        return configs[index].argument();
+    }
+
+    /**
      * Return the index at which the provider with the specified name is
      * installed or -1 if it is not present in this ProviderList.
      */
@@ -262,6 +275,19 @@ public final class ProviderList {
         for (int i = 0; i < configs.length; i++) {
             Provider p = getProvider(i);
             if (p.getName().equals(name)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Return the index at which the provider with the specified classname is
+     * installed or -1 if it is not present in this ProviderList.
+     */
+    public int getIndexByClassName(String className) {
+        for (int i = 0; i < configs.length; i++) {
+            if (configs[i].className().equals(className)) {
                 return i;
             }
         }

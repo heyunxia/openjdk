@@ -86,7 +86,12 @@ public final class SunJCE extends Provider {
     /* Are we debugging? -- for developers */
     static final boolean debug = false;
 
-    static final SecureRandom RANDOM = new SecureRandom();
+    // lazy initialize SecureRandom to avoid recursion when using a
+    // ServiceLoader to load providers in module mode
+    private static class SecureRandomHolder {
+        static final SecureRandom RANDOM = new SecureRandom();
+    }
+    static SecureRandom getRandom() { return SecureRandomHolder.RANDOM; }
 
     public SunJCE() {
         /* We are the "SunJCE" provider */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -885,8 +885,12 @@ public class Packager {
     public static void main(String[] args) throws Exception {
         try {
             run(args);
-        } catch (OptionException | Command.Exception x) {
+        } catch (OptionException x) {
             err.println(x.getMessage());
+            System.exit(1);
+        } catch (Command.Exception x) {
+            err.println(x.getMessage());
+            x.printStackTrace();
             System.exit(1);
         }
     }
