@@ -56,15 +56,15 @@ public class CPlatformWindow extends CFRetainedResource implements PlatformWindo
     private static native void nativePushNSWindowToBack(long nsWindowPtr);
     private static native void nativePushNSWindowToFront(long nsWindowPtr);
     private static native void nativeSetNSWindowTitle(long nsWindowPtr, String title);
-    private static native void nativeSetNSWindowAlpha(long nsWindowPtr, float alpha);
     private static native void nativeRevalidateNSWindowShadow(long nsWindowPtr);
     private static native void nativeSetNSWindowMinimizedIcon(long nsWindowPtr, long nsImage);
     private static native void nativeSetNSWindowRepresentedFilename(long nsWindowPtr, String representedFilename);
     private static native void nativeSetNSWindowSecurityWarningPositioning(long nsWindowPtr, double x, double y, float biasX, float biasY);
     private static native void nativeSetEnabled(long nsWindowPtr, boolean isEnabled);
     private static native void nativeSynthesizeMouseEnteredExitedEvents(long nsWindowPtr);
+    private static native void nativeDispose(long nsWindowPtr);
 
-    private static native int nativeGetScreenNSWindowIsOn_AppKitThread(long nsWindowPtr);
+    private static native int nativeGetNSWindowDisplayID_AppKitThread(long nsWindowPtr);
 
     // Loger to report issues happened during execution but that do not affect functionality
     private static final PlatformLogger logger = PlatformLogger.getLogger("sun.lwawt.macosx.CPlatformWindow");
@@ -243,17 +243,6 @@ public class CPlatformWindow extends CFRetainedResource implements PlatformWindo
         // TODO: implement on top of JObjC bridged class
     //    NSWindow window = JObjC.getInstance().AppKit().NSWindow().getInstance(nativeWindowPtr, JObjCRuntime.getInstance());
 
-        // Since JDK7 we have standard way to set opacity, so we should not pick
-        // background's alpha.
-        // TODO: set appropriate opacity value
-        //        this.opacity = target.getOpacity();
-        //        this.setOpacity(this.opacity);
-
-        final float windowAlpha = target.getOpacity();
-        if (windowAlpha != 1.0f) {
-            nativeSetNSWindowAlpha(nativeWindowPtr, windowAlpha);
-        }
-
         if (target instanceof javax.swing.RootPaneContainer) {
             final javax.swing.JRootPane rootpane = ((javax.swing.RootPaneContainer)target).getRootPane();
             if (rootpane != null) rootpane.addPropertyChangeListener("ancestor", new PropertyChangeListener() {
@@ -418,14 +407,9 @@ public class CPlatformWindow extends CFRetainedResource implements PlatformWindo
         if (owner != null) {
             CWrapper.NSWindow.removeChildWindow(owner.getNSWindowPtr(), getNSWindowPtr());
         }
-        // Make sure window is ordered out before it is disposed, we could order it out right here or
-        // we could postpone the disposal, I think postponing is probably better.
-        EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                contentView.dispose();
-                CPlatformWindow.super.dispose();
-            }
-        });
+        contentView.dispose();
+        nativeDispose(getNSWindowPtr());
+        CPlatformWindow.super.dispose();
     }
 
     @Override // PlatformWindow
@@ -452,13 +436,18 @@ public class CPlatformWindow extends CFRetainedResource implements PlatformWindo
         return new Point(nativeBounds.x, nativeBounds.y);
     }
 
-    @Override // PlatformWindow
-    public int getScreenImOn() {
-    // REMIND: we could also acquire screenID from the
-    // graphicsConfig.getDevice().getCoreGraphicsScreen()
-    // which might look a bit less natural but don't
-    // require new native accessor.
-        return nativeGetScreenNSWindowIsOn_AppKitThread(getNSWindowPtr());
+    @Override
+    public GraphicsDevice getGraphicsDevice() {
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        CGraphicsEnvironment cge = (CGraphicsEnvironment)ge;
+        int displayID = nativeGetNSWindowDisplayID_AppKitThread(getNSWindowPtr());
+        GraphicsDevice gd = cge.getScreenDevice(displayID);
+        if (gd == null) {
+            // this could possibly happen during device removal
+            // use the default screen device in this case
+            gd = ge.getDefaultScreenDevice();
+        }
+        return gd;
     }
 
     @Override // PlatformWindow

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -295,23 +295,6 @@ final class Linker {
                     if (d.modifiers().contains(Modifier.PUBLIC)) {
                         // Required publicly, so re-export it
                         cx.reExportedSuppliers.add(scxv);
-                    }
-                }
-                
-                // Service suppliers
-                for (ServiceDependence sd : mi.requiresServices()) {
-                    String sn = sd.service();
-                    for (Context scx : cxs.contexts) {
-                        if (scx != cx) {
-                            for (ModuleInfo info : scx.moduleInfos) {
-                                for (ModuleView v : info.views()) {
-                                    Set<String> providers = v.services().get(sn);
-                                    if (providers != null) {
-                                        cx.addServiceSupplier(sn, scx.name());
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }

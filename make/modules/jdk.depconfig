@@ -528,6 +528,33 @@
   com.sun.tools.attach.spi.AttachProvider -> META-INF/services/com.sun.tools.attach.spi.AttachProvider
 
 @Provider(optional)
+  javax.xml.datatype.DatatypeFactory -> META-INF/services/javax.xml.datatype.DatatypeFactory
+
+@Provider(optional)
+  javax.xml.parsers.DocumentBuilderFactory -> META-INF/services/javax.xml.parsers.DocumentBuilderFactory
+
+@Provider(optional)
+  javax.xml.parsers.SAXParserFactory -> META-INF/services/javax.xml.parsers.SAXParserFactory
+
+@Provider(optional)
+  javax.xml.stream.XMLEventFactory -> META-INF/services/javax.xml.stream.XMLEventFactory
+
+@Provider(optional)
+  javax.xml.stream.XMLInputFactory -> META-INF/services/javax.xml.stream.XMLInputFactory
+
+@Provider(optional)
+  javax.xml.stream.XMLOutputFactory -> META-INF/services/javax.xml.stream.XMLOutputFactory
+
+@Provider(optional)
+  javax.xml.transform.TransformerFactory -> META-INF/services/javax.xml.transform.TransformerFactory
+
+@Provider(optional)
+  javax.xml.validation.SchemaFactory -> META-INF/services/javax.xml.validation.SchemaFactory
+
+@Provider(optional)
+  javax.xml.xpath.XPathFactory -> META-INF/services/javax.xml.xpath.XPathFactory
+
+@Provider(optional)
   javax.xml.ws.spi.Provider -> META-INF/services/javax.xml.ws.spi.Provider
 
 @Provider(optional)

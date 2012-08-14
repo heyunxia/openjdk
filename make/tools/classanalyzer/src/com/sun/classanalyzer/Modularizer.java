@@ -190,6 +190,9 @@ public class Modularizer {
          * @return the number of bytes copied
          */
         long writeResource(ResourceFile res, Filter filter) throws IOException {
+            if (res.isService())
+                return writeService(res, filter);
+
             String pathname = res.getPathname();
             Copier visitor = new Copier(classDir, filter);
             if (lastVisitedClassPath != null) {
@@ -215,17 +218,54 @@ public class Modularizer {
         }
 
         /**
+         * Write the service descriptor file if not filtered
+         *
+         * @param res a ResourceFile
+         * @param filter a Filter
+         * @return the number of bytes copied
+         */
+        long writeService(ResourceFile res, Filter filter) throws IOException {
+            String pathname = res.getPathname();
+            Copier visitor = new Copier(classDir, filter);
+            boolean foundOne = false;
+            int bytes = 0;
+
+            // scan all class path entries for services
+            for (ClassPathEntry cp : cpath.entries()) {
+                ClassPathEntry src = cp.accept(visitor, pathname);
+                if (src != null) {
+                    bytes += visitor.bytes;
+                    if (foundOne == false) {
+                        foundOne = true;
+                        visitor = new Copier(classDir, null, true); // append subsequent
+                    }
+                }
+            }
+            return bytes;
+        }
+
+        /**
          * A ClassPathEntry visitor to copy a file to the given destination
          * if not filtered.
          */
         class Copier implements ClassPathEntry.Visitor<ClassPathEntry, String> {
             final Filter filter;
             final File dest;
+            final boolean append;
             long bytes = 0;
 
             Copier(File dest, Filter filter) {
+                this(dest, filter, false);
+            }
+
+            Copier(File dest, Filter filter, boolean append) {
                 this.filter = filter;
                 this.dest = dest;
+                this.append = append;
+            }
+
+            private boolean isService(String name) {
+                return name.startsWith("META-INF/services") ? true : false;
             }
 
             @Override
@@ -274,20 +314,18 @@ public class Modularizer {
             }
 
             boolean matches(File src, String name) throws IOException {
-                if (!name.startsWith("META-INF/services")) {
+                if (!isService(name)) {
                     return true;
                 }
 
-                BufferedInputStream in = new BufferedInputStream(new FileInputStream(src));
-                try {
+                try (FileInputStream fis = new FileInputStream(src);
+                     BufferedInputStream in = new BufferedInputStream(fis)) {
                     return matches(in, name);
-                } finally {
-                    in.close();
                 }
             }
 
             boolean matches(JarFile jf, JarEntry e, String name) throws IOException {
-                if (!name.startsWith("META-INF/services")) {
+                if (!isService(name)) {
                     return true;
                 }
                 return matches(jf.getInputStream(e), name);
@@ -316,21 +354,14 @@ public class Modularizer {
                 }
 
                 byte[] buf = new byte[8192];
-                InputStream in = jf.getInputStream(e);
                 long bytes = 0;
-                try {
-                    FileOutputStream out = new FileOutputStream(dst);
-                    try {
-                        int n;
-                        while ((n = in.read(buf)) > 0) {
-                            out.write(buf, 0, n);
-                            bytes += n;
-                        }
-                    } finally {
-                        out.close();
+                try (InputStream in = jf.getInputStream(e);
+                     FileOutputStream out = new FileOutputStream(dst, append)) {
+                    int n;
+                    while ((n = in.read(buf)) > 0) {
+                        out.write(buf, 0, n);
+                        bytes += n;
                     }
-                } finally {
-                    in.close();
                 }
 
                 long lastModified = e.getTime();
@@ -348,22 +379,16 @@ public class Modularizer {
                     Files.createFile(dst);
                 }
 
-                BufferedInputStream in = new BufferedInputStream(new FileInputStream(src));
                 byte[] buf = new byte[8192];
                 long bytes = 0;
-                try {
-                    FileOutputStream out = new FileOutputStream(dst);
-                    try {
-                        int n;
-                        while ((n = in.read(buf)) > 0) {
-                            out.write(buf, 0, n);
-                            bytes += n;
-                        }
-                    } finally {
-                        out.close();
+                try (InputStream fin = new FileInputStream(src);
+                     BufferedInputStream in = new BufferedInputStream(fin);
+                     FileOutputStream out = new FileOutputStream(dst, append)) {
+                    int n;
+                    while ((n = in.read(buf)) > 0) {
+                        out.write(buf, 0, n);
+                        bytes += n;
                     }
-                } finally {
-                    in.close();
                 }
                 dst.setLastModified(src.lastModified());
                 if (src.canExecute()) {

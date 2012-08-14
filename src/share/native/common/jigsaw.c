@@ -383,18 +383,6 @@ jint load_config(jconfig* config) {
             }
             free(sn);
         }
-
-        // Remote service suppliers
-        nRemoteServices = readInt(fd);
-        for (i=0; i < nRemoteServices; i++) {
-            char* sn = readUTF8(fd);
-            int nRemotes = readInt(fd);
-            for (j=0; j < nRemotes; j++) {
-                char* rcxn = readUTF8(fd);
-                free(rcxn);
-            }
-            free(sn);
-        }
     }
     return 0;
 }

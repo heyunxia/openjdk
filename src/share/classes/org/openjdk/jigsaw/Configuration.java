@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -161,10 +161,8 @@ public final class Configuration<Cx extends BaseContext> {
     }
     
     private void dump(Context cx, boolean all, PrintStream out) {
-        dumpServices("local service providers", cx.services(), out);
+        dumpServices("service providers", cx.services(), out);
         
-        dumpServices("remote service suppliers", cx.serviceSuppliers(), out);
-                
         if (!cx.localClasses().isEmpty()) {
             Set<String> classes = new TreeSet<>(cx.localClasses());
             out.format("    local (%d)", classes.size());

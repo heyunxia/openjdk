@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -56,13 +56,16 @@ public class RemoteRepository
     }
     */
 
+    @Override
     public String name() { return null; }
 
     private final RemoteRepository parent;
+    @Override
     public RemoteRepository parent() { return null; }
 
     private URI uri;
 
+    @Override
     public URI location() {
         return uri;
     }
@@ -132,17 +135,13 @@ public class RemoteRepository
         if (!metaFile.exists())
             return;
         FileInputStream fin = new FileInputStream(metaFile);
-        DataInputStream in
-            = new DataInputStream(new BufferedInputStream(fin));
-        try {
+        try (DataInputStream in = new DataInputStream(new BufferedInputStream(fin))) {
             FileHeader fh = fileHeader();
             fh.read(in);
             uri = URI.create(in.readUTF());
             mtime = in.readLong();
             String et = in.readUTF();
             etag = (et.length() == 0) ? null : et;
-        } finally {
-            in.close();
         }
     }
 
@@ -245,7 +244,7 @@ public class RemoteRepository
         if (u.getScheme().equalsIgnoreCase("file")) {
             Path newfn = dir.toPath().resolve("catalog.new");
             try {
-                Files.copy(Paths.get(u), newfn);              ;
+                Files.copy(Paths.get(u), newfn);
                 Files.move(newfn, catFile.toPath(), ATOMIC_MOVE);
             } catch (IOException x) {
                 Files.deleteIfExists(newfn);
@@ -326,6 +325,7 @@ public class RemoteRepository
         return cat;
     }
 
+    @Override
     protected void gatherLocalModuleIds(String moduleName,
                                         Set<ModuleId> mids)
         throws IOException
@@ -333,12 +333,14 @@ public class RemoteRepository
         catalog().gatherModuleIds(moduleName, mids);
     }
 
+    @Override
     protected void gatherLocalDeclaringModuleIds(Set<ModuleId> mids)
         throws IOException
     {
         catalog().gatherDeclaringModuleIds(mids);
     }
     
+    @Override
     protected ModuleInfo readLocalModuleInfo(ModuleId mid)
         throws IOException
     {
@@ -346,8 +348,10 @@ public class RemoteRepository
         return jms.parseModuleInfo(bs);
     }
 
+    @Override
     public InputStream fetch(ModuleId mid) throws IOException {
-        URI u = uri.resolve(mid.toString() + ".jmod");
+        ModuleMetaData mmd = fetchMetaData(mid);        
+        URI u = uri.resolve(mid.toString() + mmd.getType().getFileNameSuffix());
         if (tracing)
             trace(1, "fetching module %s", u);
         
@@ -358,7 +362,7 @@ public class RemoteRepository
             URLConnection uc = u.toURL().openConnection();
             if (uc instanceof HttpURLConnection) {
                 HttpURLConnection http = (HttpURLConnection)uc;
-                http.setFollowRedirects(true);
+                http.setInstanceFollowRedirects(true);
                 http.connect();
                 int rc = http.getResponseCode();
                 if (tracing)
@@ -370,11 +374,12 @@ public class RemoteRepository
         }
     }
 
-    public ModuleSize sizeof(ModuleId mid) throws IOException {
+    @Override
+    public ModuleMetaData fetchMetaData(ModuleId mid) throws IOException {
         RepositoryCatalog.Entry e = catalog().get(mid);
         if (e == null)
             throw new IllegalArgumentException(mid.toString());
-        return new ModuleSize(e.csize, e.usize);
+        return new ModuleMetaData(e.type, e.csize, e.usize);
     }
     
     

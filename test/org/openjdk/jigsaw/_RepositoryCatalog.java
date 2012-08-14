@@ -33,7 +33,7 @@ import java.nio.channels.*;
 import org.openjdk.jigsaw.*;
 import org.openjdk.jigsaw.RepositoryCatalog.StreamedRepositoryCatalog;
 
-import static java.lang.System.out;
+import static org.openjdk.jigsaw.Repository.ModuleType;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.HashType;
 
 
@@ -54,28 +54,22 @@ public class _RepositoryCatalog {
         ByteBuffer bb = ByteBuffer.allocate(8192);
         for (int i = 0; i < args.length; i++) {
             bb.clear();
-            FileChannel fc = new FileInputStream(args[i]).getChannel();
-            try {
+            try (FileChannel fc = new FileInputStream(args[i]).getChannel()) {
                 int s = (int)fc.size();
                 if (bb.capacity() < s)
                     bb = ByteBuffer.allocate(s);
                 int n = fc.read(bb);
                 if (n != s)
                     throw new IOException("Mis-sized read");
-                rc.add(Arrays.copyOfRange(bb.array(), 0, n),
+                rc.add(ModuleType.JMOD, Arrays.copyOfRange(bb.array(), 0, n),
                        42, 93,
                        HashType.SHA256, new byte[0]);
                 modules.put(ms.parseModuleInfo(bb.array()).id(),
                             Arrays.copyOfRange(bb.array(), 0, n));
-            } finally {
-                fc.close();
             }
         }
-        OutputStream rco = new FileOutputStream(CAT_FILE);
-        try {
+        try (OutputStream rco = new FileOutputStream(CAT_FILE)) {
             rc.store(rco);
-        } finally {
-            rco.close();
         }
     }
 

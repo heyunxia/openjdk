@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,6 +36,7 @@ import org.openjdk.jigsaw.*;
 
 import static java.lang.System.out;
 import static java.nio.file.StandardOpenOption.*;
+import org.openjdk.jigsaw.Repository.ModuleType;
 
 
 public class _PublishedRepository {
@@ -74,9 +75,26 @@ public class _PublishedRepository {
 
     static ModuleId toModuleId(Path p) {
         String fn = p.getFileName().toString();
-        return ms.parseModuleId(fn.replace(".jmod", ""));
+        if (fn.endsWith(ModuleType.JAR.getFileNameSuffix())) {            
+            return ms.parseModuleId(fn.replace(ModuleType.JAR.getFileNameSuffix(), ""));            
+        } else {
+            return ms.parseModuleId(fn.replace(ModuleType.JMOD.getFileNameSuffix(), ""));            
+        }
     }
 
+    static Path toModulePath(Path repo, ModuleId mid) {
+        Path m = toModulePath(repo, mid, ModuleType.JAR);
+        if (m == null) {
+            m = toModulePath(repo, mid, ModuleType.JMOD);
+        }
+        return m;
+    }
+
+    private static Path toModulePath(Path repo, ModuleId mid, ModuleType type) {
+        Path m = repo.resolve(mid.toString() + type.getFileNameSuffix());
+        return m.toFile().exists() ? m : null;
+    }
+    
     static byte[] readStream(InputStream in)
         throws Exception
     {
@@ -160,7 +178,7 @@ public class _PublishedRepository {
                 break;
             }
         }
-        Path p = REPO.resolve(dmid.name() + "@1.jmod");
+        Path p = toModulePath(REPO, dmid);
         out.format("Deleting %s%n", p);
         Files.delete(p);
         mids.remove(dmid);

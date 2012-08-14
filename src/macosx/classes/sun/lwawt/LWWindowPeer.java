@@ -68,7 +68,7 @@ public class LWWindowPeer
 
     private Insets insets = new Insets(0, 0, 0, 0);
 
-    private int screenOn = -1;
+    private GraphicsDevice graphicsDevice;
     private GraphicsConfiguration graphicsConfig;
 
     private SurfaceData surfaceData;
@@ -145,8 +145,6 @@ public class LWWindowPeer
             // similar to what Apple's Java do.
             // Since JDK7 we should rely on setOpacity() only.
             // this.opacity = c.getAlpha();
-            // System.out.println("Delegate assigns alpha (we ignore setOpacity()):"
-            // +this.opacity);
         }
 
         if (!target.isForegroundSet()) {
@@ -159,23 +157,29 @@ public class LWWindowPeer
     }
 
     @Override
-    public void initialize() {
+    void initializeImpl() {
+        super.initializeImpl();
         if (getTarget() instanceof Frame) {
-            setTitle(((Frame)getTarget()).getTitle());
-            setState(((Frame)getTarget()).getExtendedState());
+            setTitle(((Frame) getTarget()).getTitle());
+            setState(((Frame) getTarget()).getExtendedState());
         } else if (getTarget() instanceof Dialog) {
-            setTitle(((Dialog)getTarget()).getTitle());
+            setTitle(((Dialog) getTarget()).getTitle());
         }
 
         setAlwaysOnTop(getTarget().isAlwaysOnTop());
         updateMinimumSize();
 
-        setOpacity(getTarget().getOpacity());
+        final float opacity = getTarget().getOpacity();
+        if (opacity < 1.0f) {
+            setOpacity(opacity);
+        }
+
         setOpaque(getTarget().isOpaque());
 
-        super.initialize();
-
         updateInsets(platformWindow.getInsets());
+        if (getSurfaceData() == null) {
+            replaceSurfaceData();
+        }
     }
 
     // Just a helper method
@@ -213,50 +217,29 @@ public class LWWindowPeer
     }
 
     @Override
-    public void setVisible(final boolean visible) {
-        if (getSurfaceData() == null) {
-            replaceSurfaceData();
-        }
-
-        if (isVisible() == visible) {
-            return;
-        }
-        super.setVisible(visible);
-
+    protected void setVisibleImpl(final boolean visible) {
+        super.setVisibleImpl(visible);
         // TODO: update graphicsConfig, see 4868278
-        // TODO: don't notify the delegate if our visibility is unchanged
+        platformWindow.setVisible(visible);
+        if (isSimpleWindow()) {
+            LWKeyboardFocusManagerPeer manager = LWKeyboardFocusManagerPeer.
+                getInstance(getAppContext());
 
-        // it is important to call this method on EDT
-        // to prevent the deadlocks during the painting of the lightweight delegates
-        //TODO: WHY? This is a native-system related call. Perhaps NOT calling
-        // the painting procedure right from the setVisible(), but rather relying
-        // on the native Expose event (or, scheduling the repainting asynchronously)
-        // is better?
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                platformWindow.setVisible(visible);
-                if (isSimpleWindow()) {
-                    LWKeyboardFocusManagerPeer manager = LWKeyboardFocusManagerPeer.
-                        getInstance(getAppContext());
-
-                    if (visible) {
-                        if (!getTarget().isAutoRequestFocus()) {
-                            return;
-                        } else {
-                            requestWindowFocus(CausedFocusEvent.Cause.ACTIVATION);
-                        }
-                    // Focus the owner in case this window is focused.
-                    } else if (manager.getCurrentFocusedWindow() == getTarget()) {
-                        // Transfer focus to the owner.
-                        LWWindowPeer owner = getOwnerFrameDialog(LWWindowPeer.this);
-                        if (owner != null) {
-                            owner.requestWindowFocus(CausedFocusEvent.Cause.ACTIVATION);
-                        }
-                    }
+            if (visible) {
+                if (!getTarget().isAutoRequestFocus()) {
+                    return;
+                } else {
+                    requestWindowFocus(CausedFocusEvent.Cause.ACTIVATION);
+                }
+            // Focus the owner in case this window is focused.
+            } else if (manager.getCurrentFocusedWindow() == getTarget()) {
+                // Transfer focus to the owner.
+                LWWindowPeer owner = getOwnerFrameDialog(LWWindowPeer.this);
+                if (owner != null) {
+                    owner.requestWindowFocus(CausedFocusEvent.Cause.ACTIVATION);
                 }
             }
-        });
+        }
     }
 
     @Override
@@ -868,17 +851,6 @@ public class LWWindowPeer
         return 0;
     }
 
-    private static GraphicsConfiguration getScreenGraphicsConfig(int screen) {
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        GraphicsDevice[] gds = ge.getScreenDevices();
-        if (screen >= gds.length) {
-            // This could happen during device addition/removal. Use
-            // the default screen device in this case
-            return ge.getDefaultScreenDevice().getDefaultConfiguration();
-        }
-        return gds[screen].getDefaultConfiguration();
-    }
-
     /*
      * This method is called when window's graphics config is changed from
      * the app code (e.g. when the window is made non-opaque) or when
@@ -893,7 +865,7 @@ public class LWWindowPeer
             }
             // If window's graphics config is changed from the app code, the
             // config correspond to the same device as before; when the window
-            // is moved by user, screenOn is updated in checkIfOnNewScreen().
+            // is moved by user, graphicsDevice is updated in checkIfOnNewScreen().
             // In either case, there's nothing to do with screenOn here
             graphicsConfig = gc;
         }
@@ -902,16 +874,17 @@ public class LWWindowPeer
     }
 
     private void checkIfOnNewScreen() {
-        int windowScreen = platformWindow.getScreenImOn();
+        GraphicsDevice newGraphicsDevice = platformWindow.getGraphicsDevice();
         synchronized (getStateLock()) {
-            if (windowScreen == screenOn) {
+            if (graphicsDevice == newGraphicsDevice) {
                 return;
             }
-            screenOn = windowScreen;
+            graphicsDevice = newGraphicsDevice;
         }
 
         // TODO: DisplayChangedListener stuff
-        final GraphicsConfiguration newGC = getScreenGraphicsConfig(windowScreen);
+        final GraphicsConfiguration newGC = newGraphicsDevice.getDefaultConfiguration();
+
         if (!setGraphicsConfig(newGC)) return;
 
         SunToolkit.executeOnEventHandlerThread(getTarget(), new Runnable() {
@@ -993,6 +966,9 @@ public class LWWindowPeer
                 try {
                     Rectangle r = getBounds();
                     g.setColor(getBackground());
+                    if (g instanceof Graphics2D) {
+                        ((Graphics2D) g).setComposite(AlphaComposite.Src);
+                    }
                     g.fillRect(0, 0, r.width, r.height);
                     if (oldBB != null) {
                         // Draw the old back buffer to the new one

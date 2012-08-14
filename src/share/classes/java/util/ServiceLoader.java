@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,8 +31,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 
-import org.openjdk.jigsaw.*;
-import sun.reflect.Reflection;
+import org.openjdk.jigsaw.ModuleServiceLoader;
+import org.openjdk.jigsaw.Platform;
+import org.openjdk.jigsaw.Loader;
 
 
 /**
@@ -192,7 +193,12 @@ public final class ServiceLoader<S>
     private final ClassLoader loader;
 
     // Cached providers, in instantiation order
-    private final LinkedHashMap<String,S> providers = new LinkedHashMap<>();
+    // Note the key serves a different purpose depending if in classpath mode
+    // or module mode. For the classpath mode it will be a class name of the 
+    // provider. For module mode it does not matter what the key is as long
+    // as it is unique to the provider.
+    // 
+    private final LinkedHashMap<Object,S> providers = new LinkedHashMap<>();
 
     // The current lazy-lookup iterator
     private Iterator<S> lookupIterator;
@@ -211,23 +217,25 @@ public final class ServiceLoader<S>
     public void reload() {
         providers.clear(); 
 
-        // In module mode then iterate over the service implementations that
-        // supply the module loader.
+        // In module mode when the class loader is a module class loader then 
+        // iterate over the service instances of the configuration.
         //
-        // In legacy mode, or where the class loader is not a module loader, 
-        // then create the iterator to locate services via legacy service
-        // configuration files.
+        // In classpath mode then create the iterator to locate services via 
+        // META-INF/service configuration files.
 
         if (loader instanceof Loader) {
-            lookupIterator = new LazyIterator1(((Loader)loader).findServices(service));
+            lookupIterator = new CachingIterator(
+                    ModuleServiceLoader.load(service).iterator());
         } else {
-            lookupIterator = new LazyIterator2(service, loader);
+            lookupIterator = new LazyIterator(service, loader);
         }
     }
 
     private ServiceLoader(Class<S> svc, ClassLoader cl) {
         service = svc;
-        loader = cl;
+        loader = (cl == null && Platform.isModuleMode())
+            ? ClassLoader.getSystemClassLoader()
+            : cl;
         reload();
     }
 
@@ -322,73 +330,21 @@ public final class ServiceLoader<S>
         }
         return names.iterator();
     }
-    
-    // Private inner class implementing lazy provider instantiation of services
-    // provided by modules.
-    //
-    private class LazyIterator1
-        implements Iterator<S>
-    {    
-        final Iterator<Map.Entry<ClassLoader,Set<String>>> entries;
-        ClassLoader loader;
-        Iterator<String> impls;
-        
-        LazyIterator1(Map<ClassLoader,Set<String>> providers) {
-            entries = providers.entrySet().iterator();
-        }
-        
-        public boolean hasNext() {
-            if (impls == null || !impls.hasNext()) {
-                // move onto the next loader if possible
-                if (!entries.hasNext())
-                    return false;
-                Map.Entry<ClassLoader,Set<String>> entry = entries.next();
-                loader = entry.getKey();
-                impls = entry.getValue().iterator();
-                assert impls.hasNext();
-            }
-            return impls.hasNext();
-        }
-
-        public S next() {
-            if (!hasNext())
-                throw new NoSuchElementException();
-            String cn = impls.next();
-            try {
-                S p = service.cast(Class.forName(cn, true, loader)
-                                   .newInstance());
-                providers.put(cn, p);
-                return p;
-            } catch (ClassNotFoundException x) {
-                fail(service,
-                     "Provider " + cn + " not found");
-            } catch (Throwable x) {
-                fail(service,
-                     "Provider " + cn + " could not be instantiated: " + x,
-                     x);
-            }
-            throw new Error();          // This cannot happen
-        }
-        
-        public void remove() {
-            throw new UnsupportedOperationException();
-        }
-    }    
 
     // Private inner class implementing fully-lazy provider lookup of services
     // identified in provider-configuration files.
     //
-    private class LazyIterator2
+    private class LazyIterator
         implements Iterator<S>
     {
 
-        Class<S> service;
-        ClassLoader loader;
+        final Class<S> service;
+        final ClassLoader loader;
         Enumeration<URL> configs = null;
         Iterator<String> pending = null;
         String nextName = null;
 
-        private LazyIterator2(Class<S> service, ClassLoader loader) {
+        private LazyIterator(Class<S> service, ClassLoader loader) {
             this.service = service;
             this.loader = loader;
         }
@@ -446,6 +402,41 @@ public final class ServiceLoader<S>
         
     }  
     
+    // A caching iterator that caches service (provider) instances when
+    // iterated over
+    //
+    private class CachingIterator 
+        implements Iterator<S> 
+    {
+        final Iterator<S> entries;
+        
+        CachingIterator(Iterator<S> entries) {
+            this.entries = entries;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return entries.hasNext();
+        }
+
+        @Override
+        public S next() {
+            final S s = entries.next();
+            // Use the service instance hash code as the key
+            // Note the provides map serves a dual purpose: caching the service
+            // instances; and in classpath mode checking cached service
+            // provider class names to avoid duplications when parsing the names
+            // in META-INF/services files
+            providers.put(s.hashCode(), s);
+            return s;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+    }    
+    
     /**
      * Lazily loads the available providers of this loader's service.
      *
@@ -489,7 +480,7 @@ public final class ServiceLoader<S>
     public Iterator<S> iterator() {
         return new Iterator<S>() {
 
-            Iterator<Map.Entry<String,S>> knownProviders
+            final Iterator<Map.Entry<Object,S>> knownProviders
                 = providers.entrySet().iterator();
 
             public boolean hasNext() {
@@ -509,20 +500,7 @@ public final class ServiceLoader<S>
             }
 
         };
-    }
-    
-    /**
-     * Returns the caller's class loader. Should only be invoked by 
-     * the public load methods when in module mode.
-     */
-    private static ClassLoader callerLoader() {
-        Class<?> caller = Reflection.getCallerClass(3);
-        ClassLoader cl = (caller != null) ? caller.getClassLoader() : null;
-        if (cl == null)
-            cl = Platform.getBaseModuleLoader();
-        return cl;
-    }
-    
+    }        
 
     /**
      * Creates a new service loader for the given service type and class
@@ -542,17 +520,7 @@ public final class ServiceLoader<S>
     public static <S> ServiceLoader<S> load(Class<S> service,
                                             ClassLoader loader)
     {
-        ClassLoader cl;
-        // ## in module mode use the caller module's loader when null. This
-        // will be re-visited once the full support for services is in.
-        if ((Platform.isModuleMode()) &&
-            (loader == null || loader == ClassLoader.getSystemClassLoader()))
-        {       
-            cl = callerLoader();
-        } else {
-            cl = loader;
-        }
-        return new ServiceLoader<>(service, cl);
+        return new ServiceLoader<>(service, loader);
     }
 
     /**
@@ -577,13 +545,7 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> load(Class<S> service) {
-        ClassLoader cl;
-        if (Platform.isModuleMode()) {
-            cl = callerLoader();
-        } else {
-            cl = Thread.currentThread().getContextClassLoader();
-        }
-        return new ServiceLoader<>(service, cl);
+        return new ServiceLoader<>(service, Thread.currentThread().getContextClassLoader());
     }
 
     /**
@@ -611,18 +573,13 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> loadInstalled(Class<S> service) {
-        if (Platform.isModuleMode()) {
-            // in module mode then use the caller's class loader
-            return new ServiceLoader<>(service, callerLoader());
-        } else {
-            ClassLoader cl = ClassLoader.getSystemClassLoader();
-            ClassLoader prev = null;
-            while (cl != null) {
-                prev = cl;
-                cl = cl.getParent();
-            }
-            return new ServiceLoader<>(service, prev);
+        ClassLoader cl = ClassLoader.getSystemClassLoader();
+        ClassLoader prev = null;
+        while (cl != null) {
+            prev = cl;
+            cl = cl.getParent();
         }
+        return new ServiceLoader<>(service, prev);
     }
 
     /**

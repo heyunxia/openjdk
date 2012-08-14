@@ -39,6 +39,7 @@ import java.util.zip.*;
 
 import static java.nio.file.StandardCopyOption.*;
 import static java.nio.file.StandardOpenOption.*;
+import org.openjdk.jigsaw.Repository.ModuleType;
 
 /**
  * A simple module library which stores data directly in the filesystem
@@ -529,19 +530,6 @@ public final class SimpleLibrary
                         out.writeUTF(value);
                     }
                 }
-
-                // Remote service suppliers
-                Map<String,Set<String>> serviceSuppliers = cx.serviceSuppliers();
-                out.writeInt(serviceSuppliers.size());
-                for (Map.Entry<String,Set<String>> entry: serviceSuppliers.entrySet()) {
-                    out.writeUTF(entry.getKey());
-                    Set<String> remotes = entry.getValue();
-                    out.writeInt(remotes.size());
-                    for (String rcxn: remotes) {
-                        out.writeUTF(rcxn);
-                    }
-                }
-
             }
         }
 
@@ -608,17 +596,6 @@ public final class SimpleLibrary
                     for (int k = 0; k < nImpl; k++) {
                         String cn = in.readUTF();
                         cx.putService(sn, cn);
-                    }
-                }
-
-                // Remote service suppliers
-                int nRemoteServices = in.readInt();
-                for (int j = 0; j < nRemoteServices; j++) {
-                    String sn = in.readUTF();
-                    int nRemotes = in.readInt();
-                    for (int k = 0; k < nRemotes; k++) {
-                        String rcxn = in.readUTF();
-                        cx.addServiceSupplier(sn, rcxn);
                     }
                 }
             }
@@ -1151,6 +1128,25 @@ public final class SimpleLibrary
 	installFromManifests(mfs, false);
     }
 
+    private ModuleId installWhileLocked(ModuleType type, InputStream is, boolean verifySignature,
+                                        boolean strip) 
+        throws ConfigurationException, IOException, SignatureException
+    {
+        switch (type) {
+            case JAR:
+                Path jf = java.nio.file.Files.createTempFile(null, null);
+                try {
+                    java.nio.file.Files.copy(is, jf, StandardCopyOption.REPLACE_EXISTING);
+                    return installFromJarFile(jf.toFile(), verifySignature, strip);
+                } finally {
+                    java.nio.file.Files.delete(jf);
+                }
+            case JMOD:
+            default:
+                return installWhileLocked(is, verifySignature, strip);
+        }
+    }
+    
     private ModuleId installWhileLocked(InputStream is, boolean verifySignature,
                                         boolean strip)
         throws ConfigurationException, IOException, SignatureException
@@ -1159,8 +1155,7 @@ public final class SimpleLibrary
         DataInputStream in = new DataInputStream(bin);
         ModuleInfo mi = null;
         try (ModuleFile.Reader mr = new ModuleFile.Reader(in)) {
-            byte[] mib = mr.readStart();
-            ModuleInfo moduleInfo = jms.parseModuleInfo(mib);
+            ModuleInfo moduleInfo = jms.parseModuleInfo(mr.getModuleInfoBytes());
             File md = moduleDictionary.add(moduleInfo);
             mi = moduleInfo;
             if (verifySignature && mr.hasSignature()) {
@@ -1183,8 +1178,8 @@ public final class SimpleLibrary
                 // Verify the module header hash and the module info hash
                 sm.verifyHashesStart();
 
-                // Read the rest of the hashes
-                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
+                // Extract remainder of the module file, and calculate hashes
+                mr.extractTo(md, isDeflated(), natlibs(), natcmds(), configs());
 
                 // Verify the rest of the hashes
                 sm.verifyHashesRest();
@@ -1192,7 +1187,7 @@ public final class SimpleLibrary
                 // Store signer info
                 new Signers(md, signers).store();
             } else {
-                mr.readRest(md, isDeflated(), natlibs(), natcmds(), configs());
+                mr.extractTo(md, isDeflated(), natlibs(), natcmds(), configs());
             }
 
             if (strip)
@@ -1201,7 +1196,8 @@ public final class SimpleLibrary
 
             return mi.id();
 
-        } catch (ConfigurationException | IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException |
+                 ModuleFileParserException x) { // ## should we catch Throwable
             if (mi != null) {
                 try {
                     moduleDictionary.remove(mi);
@@ -1391,7 +1387,8 @@ public final class SimpleLibrary
                 mids.add(installWhileLocked(mf, verifySignature, strip));
             configureWhileModuleDirectoryLocked(mids);
             complete = true;
-        } catch (ConfigurationException | IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException |
+                 ModuleFileParserException x) {  // ## catch throwable??
             try {
                 for (ModuleId mid : mids) {
                     ModuleInfo mi = readLocalModuleInfo(mid);
@@ -1420,6 +1417,7 @@ public final class SimpleLibrary
 
     // Public entry point, since the Resolver itself is package-private
     //
+    @Override
     public Resolution resolve(Collection<ModuleIdQuery> midqs)
         throws ConfigurationException, IOException
     {
@@ -1458,7 +1456,10 @@ public final class SimpleLibrary
                 assert u != null;
                 RemoteRepository rr = repositoryList().firstRepository();
                 assert rr != null;
-                installWhileLocked(rr.fetch(mid), verifySignature, strip);
+                installWhileLocked(rr.fetchMetaData(mid).getType(), 
+                                   rr.fetch(mid), 
+                                   verifySignature, 
+                                   strip);
                 res.locationForName.put(mid.name(), location());
                 // ## If something goes wrong, delete all our modules
             }
@@ -1467,7 +1468,8 @@ public final class SimpleLibrary
             //
             configureWhileModuleDirectoryLocked(res.modulesNeeded());
             complete = true;
-        } catch (ConfigurationException | IOException | SignatureException x) {
+        } catch (ConfigurationException | IOException | SignatureException |
+                 ModuleFileParserException x) {  // ## catch throwable??
             try {
                 for (ModuleId mid : res.modulesNeeded()) {
                     ModuleInfo mi = readLocalModuleInfo(mid);
@@ -1568,7 +1570,7 @@ public final class SimpleLibrary
                         throw new ConfigurationException(mid +
                                 ": being used by " + rootid);
                 }
-            }  
+            }
         }
     }
 

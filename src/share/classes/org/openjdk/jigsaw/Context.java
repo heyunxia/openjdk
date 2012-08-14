@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -184,7 +184,7 @@ public class Context
         return unmodifiableServices();
     }
     
-    public final void putService(String sn, String impl) {
+    protected final void putService(String sn, String impl) {
         Set<String> impls = services.get(sn);
         if (impls != null) {
             impls.add(impl);
@@ -194,38 +194,7 @@ public class Context
             services.put(sn, impls);
         }
     }    
-    
-    // Service suppliers (service name -> names of remote contexts)
-    //
-    private Map<String,Set<String>> serviceSuppliers = new HashMap<>();
-    
-    // returns an unmodifiable map of the contexts that supply services
-    private Map<String,Set<String>> unmodifiableServiceSuppliers() {
-        Map<String,Set<String>> result = new HashMap<>();
-        for (Map.Entry<String,Set<String>> entry: serviceSuppliers.entrySet()) {
-            String cn = entry.getKey();
-            Set<String> impls = entry.getValue();
-            result.put(cn, Collections.unmodifiableSet(impls));
-        }
-        return Collections.unmodifiableMap(result);
-    }
-    
-    public final void addServiceSupplier(String sn, String cxn) {
-        Set<String> remotes = serviceSuppliers.get(sn);
-        if (remotes != null) {
-            remotes.add(cxn);
-        } else {
-            // preserve order, no dups
-            remotes = new LinkedHashSet<>();
-            remotes.add(cxn);
-            serviceSuppliers.put(sn, remotes);
-        }
-    }
-    
-    public final Map<String,Set<String>> serviceSuppliers() {
-        return unmodifiableServiceSuppliers();
-    }
-
+            
     /**
      * Return the set of remote contexts (read-only).  This includes
      * contexts supplying remote classes as well as any suppliers
