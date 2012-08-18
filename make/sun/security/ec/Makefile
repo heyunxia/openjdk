@@ -318,7 +318,7 @@ ifndef OPENJDK
 install-prebuilt:
 	@$(ECHO) "\n>>>Installing prebuilt SunEC provider..."
 	$(RM) $(JAR_DESTFILE)
-	$(CP) $(PREBUILT_DIR)/ec/sunec.jar $(JAR_DESTFILE)
+	$(CP) $(JIGSAW_UNSIGNED_DIR)/sunec.jar $(JAR_DESTFILE)
 endif
 
 

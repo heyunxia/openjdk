@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2007, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -258,7 +258,7 @@ ifndef OPENJDK
 install-prebuilt:
 	@$(ECHO) "\n>>>Installing prebuilt SunJCE provider..."
 	$(RM) $(JAR_DESTFILE)
-	$(CP) $(PREBUILT_DIR)/jce/sunjce_provider.jar $(JAR_DESTFILE)
+	$(CP) $(JIGSAW_UNSIGNED_DIR)/sunjce_provider.jar $(JAR_DESTFILE)
 endif
 
 

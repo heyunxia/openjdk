@@ -296,7 +296,7 @@ ifndef OPENJDK
 install-prebuilt:
 	@$(ECHO) "\n>>>Installing prebuilt SunPKCS11 provider..."
 	$(RM) $(JAR_DESTFILE)
-	$(CP) $(PREBUILT_DIR)/pkcs11/sunpkcs11.jar $(JAR_DESTFILE)
+	$(CP) $(JIGSAW_UNSIGNED_DIR)/sunpkcs11.jar $(JAR_DESTFILE)
 endif
 
 

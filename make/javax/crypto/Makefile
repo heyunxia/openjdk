@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2007, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -461,7 +461,7 @@ install-prebuilt:
 	$(RM) $(JAR_DESTFILE) \
 	    $(POLICY_DESTDIR)/US_export_policy.jar \
             $(POLICY_DESTDIR)/local_policy.jar
-	$(CP) $(PREBUILT_DIR)/jce/jce.jar $(JAR_DESTFILE)
+	$(CP) $(JIGSAW_UNSIGNED_DIR)/jce.jar $(JAR_DESTFILE)
 	$(CP) \
 	    $(PREBUILT_DIR)/jce/US_export_policy.jar \
 	    $(PREBUILT_DIR)/jce/local_policy.jar \

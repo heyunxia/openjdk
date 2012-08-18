@@ -284,7 +284,7 @@ ifndef OPENJDK
 install-prebuilt:
 	@$(ECHO) "\n>>>Installing prebuilt SunMSCAPI provider..."
 	$(RM) $(JAR_DESTFILE)
-	$(CP) $(PREBUILT_DIR)/mscapi/sunmscapi.jar $(JAR_DESTFILE)
+	$(CP) $(JIGSAW_UNSIGNED_DIR)/sunmscapi.jar $(JAR_DESTFILE)
 endif
 
 

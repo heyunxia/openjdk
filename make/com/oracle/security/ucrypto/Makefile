@@ -256,7 +256,7 @@ ifndef OPENJDK
   install-prebuilt:
 	@$(ECHO) "\n>>>Installing prebuilt OracleUcrypto provider..."
 	$(RM) $(JAR_DESTFILE)
-	$(CP) $(PREBUILT_DIR)/ucrypto/ucrypto.jar $(JAR_DESTFILE)
+	$(CP) $(JIGSAW_UNSIGNED_DIR)/ucrypto.jar $(JAR_DESTFILE)
 
 
   # =====================================================
