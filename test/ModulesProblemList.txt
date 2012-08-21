@@ -228,13 +228,6 @@ com/sun/jdi/RedefineTTYLineNumber.sh                 windows-all
 com/sun/jdi/StringConvertTest.sh                     windows-all
 com/sun/jdi/WatchFramePop.sh                         windows-all
 
-# libattach.so has to be in the module
-sun/tools/jinfo/Basic.sh   		generic-all
-sun/tools/jmap/Basic.sh   		generic-all
-sun/tools/jps/jps-vm_1.sh   		generic-all
-sun/tools/jstack/Basic.sh   		generic-all
-
-
 # legacy mode adds -Xbootclasspath that causes this test to fail
 # this test should pass when we support legacy mode
 sun/tools/jps/jps-Vvml_2.sh             generic-all
@@ -274,6 +267,11 @@ tools/pack200/TestExceptions.java               generic-all
 tools/pack200/TimeStamp.java                    generic-all
 tools/pack200/UnpackerMemoryTest.java           generic-all
 tools/pack200/T7007157.java                     generic-all
+
+# jcmd in module mode prints jdk.jcmd@8-ea instead of sun.tools.jcmd.JCmd
+sun/tools/jcmd/jcmd-Defaults.sh 		generic-all
+sun/tools/jcmd/jcmd-f.sh 			generic-all
+sun/tools/jcmd/jcmd-help-help.sh 		generic-all
 
 ############################################################################
 

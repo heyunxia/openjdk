@@ -110,14 +110,9 @@ public class MonitoredVmUtil {
     public static String mainArgs(MonitoredVm vm) throws MonitorException {
         String commandLine = commandLine(vm);
 
-        int index = commandLine.indexOf(' ');
-        if (index > 0 && isJavaToolModule(vm)) {
-            // skip the module name and the class name if it's a Java launcher tool
-            index = commandLine.indexOf(' ', index+1);
-        }
-
-        if (index > 0) {
-            return commandLine.substring(index + 1);
+        int firstSpace = commandLine.indexOf(' ');
+        if (firstSpace > 0) {
+            return commandLine.substring(firstSpace + 1);
         } else if (commandLine.compareTo("Unknown") == 0) {
             return commandLine;
         } else {

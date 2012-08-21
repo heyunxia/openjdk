@@ -43,6 +43,11 @@
 #
 # NOTE: when a new launcher is added, a module definition
 # for this launcher needs to be added in make/modules/modules.group. 
+#
+# Known issues:
+# o jstatd in module mode: RMIClassLoader can't find 
+#   sun.jvmstat.monitor.remote.RemoteHost
+# 
 
 BUILDDIR = ..
 PACKAGE = launchers
@@ -95,7 +100,7 @@ $(call make-launcher, jstack, sun.tools.jstack.JStack, \
   -J-Dsun.jvm.hotspot.debugger.useProcDebugger \
   -J-Dsun.jvm.hotspot.debugger.useWindbgDebugger, )
 $(call make-launcher, jstat, sun.tools.jstat.Jstat, , )
-$(call make-launcher, jstatd, sun.tools.jstatd.Jstatd, , )
+$(call make-launcher, jstatd, sun.tools.jstatd.Jstatd, -J-Xmode:legacy, )
 $(call make-launcher, native2ascii, sun.tools.native2ascii.Main, , )
 $(call make-launcher, rmic, sun.rmi.rmic.Main, -J-Xmode:legacy, )
 $(call make-launcher, schemagen, com.sun.tools.internal.jxc.SchemaGenerator, , )
