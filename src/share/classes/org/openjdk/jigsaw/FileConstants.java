@@ -28,6 +28,10 @@ package org.openjdk.jigsaw;
 import java.util.*;
 
 
+/**
+ * <p> Constants used in various types of files </p>
+ */
+
 public final class FileConstants {
 
     private FileConstants() { }
@@ -36,6 +40,9 @@ public final class FileConstants {
 
     public static final String META_PREFIX = "%";
 
+    /**
+     * <p> File types, as used in file headers </p>
+     */
     public static enum Type {
 
         LIBRARY_HEADER(0),
@@ -57,11 +64,17 @@ public final class FileConstants {
 
     }
 
+    /**
+     * <p> Module-file constants </p>
+     */
     public static final class ModuleFile {
 
         public static final int MAJOR_VERSION = 0;
         public static final int MINOR_VERSION = 0;
 
+        /**
+         * <p> Module-file section types </p>
+         */
         public static enum SectionType {
 
             MODULE_INFO(0, false),
@@ -93,6 +106,9 @@ public final class FileConstants {
 
         }
 
+        /**
+         * <p> Module-file sub-section types </p>
+         */
         public static enum SubSectionType {
 
             FILE(0);
@@ -106,6 +122,9 @@ public final class FileConstants {
 
         }
 
+        /**
+         * <p> Module-file compressor types </p>
+         */
         public static enum Compressor {
 
             NONE(0),
@@ -129,6 +148,9 @@ public final class FileConstants {
 
         }
 
+        /**
+         * <p> Module-file hash types </p>
+         */
         public static enum HashType {
 
             SHA256(0, "SHA-256", 32);
@@ -155,6 +177,9 @@ public final class FileConstants {
 
         }
 
+        /**
+         * <p> Module-file signature type </p>
+         */
         public static enum SignatureType {
 
             PKCS7(0);

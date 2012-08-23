@@ -22,17 +22,27 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
+
 package org.openjdk.jigsaw;
 
-// Trivial main class for the JDK boot module, for testing only
-//
-//   $ java -m jdk
-//   The JDK boot module is brought to you by the letter 'J' and the number 8.
-//   $
+
+/**
+ * A trivial main class for the base module, for testing only
+ *
+ * <pre>
+ *
+ *   $ java -m jdk.base
+ *   The JDK base module is brought to you by the letter 'J' and the number 8.
+ *   $</pre>
+ */
+
 public final class Hi {
 
+    private Hi() { }
+
     public static void main(String[] argv) {
-        System.out.println("The JDK boot module is brought to you by"
-                + " the letter 'J' and the number 8.");
+        System.out.println("The JDK base module is brought to you by"
+                           + " the letter 'J' and the number 8.");
     }
+
 }

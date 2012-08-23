@@ -36,6 +36,11 @@ import java.util.*;
 import static org.openjdk.jigsaw.Trace.*;
 
 
+/**
+ * <p> A pool of {@linkplain Loader module class loaders} relative to a
+ * specific {@linkplain Library module library} </p>
+ */
+
 public final class LoaderPool {
 
     private Library lib;
@@ -56,6 +61,11 @@ public final class LoaderPool {
     // later retrieval by the sun.launcher.LauncherHelper class
     //
     private String mainClass;
+
+    /**
+     * <p> Return the name of the main class of the application for which this
+     * pool was created. </p>
+     */
     public String mainClass() { return mainClass; }
 
     LoaderPool(Library lb, Configuration<Context> cf, String cn) {

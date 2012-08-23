@@ -32,7 +32,7 @@ import java.util.*;
 
 /**
  * <p> A set of named {@linkplain Context contexts}, together with a map from
- * module names to contexts. </p>
+ * module names to contexts </p>
  *
  * <p> Configurations are the result of the {@linkplain Configurator module
  * configuration process}; they are computed and stored in a {@linkplain

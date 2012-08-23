@@ -37,6 +37,11 @@ import java.util.zip.*;
 import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
+
+/**
+ * <p> Assorted file utilities </p>
+ */
+
 public final class Files {
 
     private Files() { }
@@ -160,6 +165,9 @@ public final class Files {
                                  COPY_ATTRIBUTES, REPLACE_EXISTING);
     }
 
+    /**
+     * A predicate for filtering files
+     */
     public static interface Filter<T> {
         public boolean accept(T x) throws IOException;
     }
@@ -232,6 +240,9 @@ public final class Files {
         storeTree(src, dst, deflate, null, null);
     }
 
+    /**
+     * A file visitor
+     */
     public static interface Visitor<T> {
         public void accept(T x) throws IOException;
     }

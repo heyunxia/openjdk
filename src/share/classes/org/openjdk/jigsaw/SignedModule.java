@@ -36,6 +36,11 @@ import sun.security.pkcs.PKCS7;
 import sun.security.pkcs.SignerInfo;
 import sun.security.validator.*;
 
+
+/**
+ * <p> A signed module file </p>
+ */
+
 public final class SignedModule {
 
     private static Set<X509Certificate> trustedCerts;
@@ -273,4 +278,5 @@ public final class SignedModule {
         List<? extends Certificate> chain = certPath.getCertificates();
         return chain.toArray(new X509Certificate[0]);
     }
+
 }

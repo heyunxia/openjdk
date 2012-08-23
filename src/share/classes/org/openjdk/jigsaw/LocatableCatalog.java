@@ -39,6 +39,8 @@ public abstract class LocatableCatalog
     extends Catalog
 {
 
+    protected LocatableCatalog() { }
+
     /**
      * <p> The physical location of this catalog </p>
      *

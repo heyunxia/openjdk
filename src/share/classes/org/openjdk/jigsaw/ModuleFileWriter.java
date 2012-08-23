@@ -22,6 +22,7 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
+
 package org.openjdk.jigsaw;
 
 import java.nio.file.attribute.BasicFileAttributes;
@@ -37,10 +38,13 @@ import java.util.zip.*;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.*;
 import static org.openjdk.jigsaw.ModuleFile.*;
 
+
 /**
- *
+ * <p> A writer of module files </p>
  */
+
 public class ModuleFileWriter {
+
     private final File outfile;
     private final HashType hashtype;
     private final boolean fastestCompression;
@@ -56,7 +60,7 @@ public class ModuleFileWriter {
         this.fastestCompression = useFastestCompression;
     }
 
-    /*
+    /**
      * Generates an unsigned module file.
      */
     public void writeModule(File mdir,
@@ -526,4 +530,5 @@ public class ModuleFileWriter {
             return ds.iterator().hasNext();
         }
     }
+
 }

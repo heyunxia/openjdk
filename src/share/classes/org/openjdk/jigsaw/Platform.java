@@ -29,7 +29,12 @@ import java.io.IOException;
 import java.lang.module.*;
 import java.lang.reflect.Module;
 
+/**
+ * <p> Properties of the running platform </p>
+ */
+
 public final class Platform {
+
     private Platform() { }
 
     static final String BASE_MODULE_NAME = "jdk.base";
@@ -76,6 +81,7 @@ public final class Platform {
      */
     public static Module getPlatformModule(Class<?> c) {
         try {
+
             BootLoader ld = BootLoader.getBaseModuleLoader();
             Context cx = ld.context;
             ModuleId mid = cx.findModuleForLocalClass(c.getName());
@@ -84,9 +90,9 @@ public final class Platform {
             }
 
             // Find the library from which we'll load the class
-            //
             Library lib = ld.pool.library(cx, mid);
             return ld.findModule(lib, mid);
+
         } catch (java.io.IOException x) {
             // ## if Module has not been defined, possibly run into
             // ## I/O error when reading module-info.
@@ -101,4 +107,5 @@ public final class Platform {
         assert sun.misc.VM.isBooted() == true;
         return ClassLoader.getSystemClassLoader() instanceof ModuleClassLoader;
     }
+
 }

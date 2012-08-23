@@ -26,6 +26,10 @@
 package org.openjdk.jigsaw;
 
 
+/**
+ * <p> Thrown when an error occurs during resolution or linking </p>
+ */
+
 public class ConfigurationException
     extends Exception
 {

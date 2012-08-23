@@ -34,7 +34,7 @@ import static java.lang.System.out;
 
 /**
  * <p> A specialized class-file reader which just reads a class file's type
- * name and module metadata. </p>
+ * name and module metadata </p>
  *
  * <p> This class uses NIO, and so is not suitable for use during
  * bootstrap. </p>

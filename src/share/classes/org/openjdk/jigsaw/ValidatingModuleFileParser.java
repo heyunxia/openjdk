@@ -29,8 +29,9 @@ import java.util.Map;
 import org.openjdk.jigsaw.FileConstants.ModuleFile.SectionType;
 
 /**
- * The ValidatingModuleFileParser interface supports {@linkplain ModuleFileParser
- * parsing a module file} and validating the file and section hashes.
+ * <p> A parser of <a
+ * href="http://cr.openjdk.java.net/~mr/jigsaw/notes/module-file-format/">
+ * module files</a> which validates file and section hashes </p>
  *
  * <p> The computed file and section content hashes are compared against the
  * appropriate hash value from the file or section header. If they do not
@@ -76,4 +77,5 @@ public interface ValidatingModuleFileParser extends ModuleFileParser {
      *          If the current event is not {@code END_FILE}
      */
     public byte[] getFileHash();
+
 }

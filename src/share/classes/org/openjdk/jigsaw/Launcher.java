@@ -31,6 +31,11 @@ import java.lang.module.*;
 import static org.openjdk.jigsaw.Trace.*;
 
 
+/**
+ * <p> The modular-application launcher, invoked (indirectly) by the native
+ * launcher </p>
+ */
+
 public final class Launcher {
 
     private static JigsawModuleSystem jms = JigsawModuleSystem.instance();
@@ -71,7 +76,11 @@ public final class Launcher {
         
         return lp.findLoader(cx);
     }
-    
+
+    /**
+     * <p> Find a module for the given module-id query string and create a
+     * module class loader for it. </p>
+     */
     public static ClassLoader launch(String midqs) {
         // ## What about the extension class loader?
         // ## Delete these and other sjlm properties when done with them
@@ -117,6 +126,10 @@ public final class Launcher {
         return ld;
     }
 
+    /**
+     * <p> Return the name of the main class of the given class loader, which
+     * must be a {@linkplain Loader module class loader}. </p>
+     */
     public static String mainClass(ClassLoader cl) {
         return ((Loader)cl).pool.mainClass();
     }

@@ -33,9 +33,9 @@ import org.openjdk.jigsaw.ModuleFile.SectionHeader;
 import org.openjdk.jigsaw.ModuleFile.SubSectionFileHeader;
 
 /**
- * The ModuleFileParser interface supports parsing of a
- * <a href="http://cr.openjdk.java.net/~mr/jigsaw/notes/module-file-format/">
- * <i>module file</i></a>.
+ * <p> A parser of <a
+ * href="http://cr.openjdk.java.net/~mr/jigsaw/notes/module-file-format/">
+ * module files</a> </p>
  *
  * <p> The ModuleFileParser is designed to iterate over the module file using
  * {@code hasNext} and {@code next}. The section type and data can be
@@ -84,7 +84,7 @@ import org.openjdk.jigsaw.ModuleFile.SubSectionFileHeader;
 public interface ModuleFileParser {
 
     /**
-     * ModuleFileParser parsing events.
+     * <p> {@link ModuleFileParser} parsing events </p>
      *
      * <p> Events must follow the following grammar.
      * <pre>
@@ -287,4 +287,5 @@ public interface ModuleFileParser {
      *          an error processing the underlying module file
      */
     public boolean skipToNextStartSubSection();
+
 }

@@ -36,7 +36,15 @@ import static org.openjdk.jigsaw.FileConstants.ModuleFile.*;
 import static org.openjdk.jigsaw.FileConstants.ModuleFile.SectionType.*;
 import static org.openjdk.jigsaw.ModuleFileParser.Event.*;
 
+
+/**
+ * <p> A known <a
+ * href="http://cr.openjdk.java.net/~mr/jigsaw/notes/module-file-format/">
+ * module file</a> </p>
+ */
+
 public final class ModuleFile {
+
     /**
      * Return the subdir of a section in an extracted module file.
      */
@@ -89,6 +97,9 @@ public final class ModuleFile {
         return new ValidatingModuleFileParserImpl(stream);
     }
 
+    /**
+     * <p> A module-file reader </p>
+     */
     public final static class Reader implements Closeable {
         private final ValidatingModuleFileParser parser;
         private final ModuleFileHeader fileHeader;
@@ -562,6 +573,9 @@ public final class ModuleFile {
         return hash;
     }
 
+    /**
+     * <p> A module-file header </p>
+     */
     public final static class ModuleFileHeader {
         public static final int LENGTH_WITHOUT_HASH = 30;
         public static final int LENGTH =
@@ -669,6 +683,9 @@ public final class ModuleFile {
         }
     }
 
+    /**
+     * <p> A module-file section header </p>
+     */
     public final static class SectionHeader {
         public static final int LENGTH_WITHOUT_HASH = 12;
         public static final int LENGTH =
@@ -774,6 +791,9 @@ public final class ModuleFile {
         }
     }
 
+    /**
+     * <p> A module-file sub-section header </p>
+     */
     public final static class SubSectionFileHeader {
         private final int csize;              // Size of file, compressed
         private final String path;            // Path name, in Java-modified UTF-8
@@ -813,6 +833,9 @@ public final class ModuleFile {
         }
     }
 
+    /**
+     * <p> A module-file signature section </p>
+     */
     public final static class SignatureSection {
         public static final int HEADER_LENGTH = 6; // type + signature length
 
@@ -871,4 +894,5 @@ public final class ModuleFile {
         out.writeShort(hash.length);
         out.write(hash);
     }
+
 }

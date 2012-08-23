@@ -48,8 +48,8 @@ public final class Manifest {
     }
 
     /**
-     * The name of the module to be installed from the module-classes
-     * directories
+     * <p> The name of the module for which the files in this manifest are to
+     * be packaged </p>
      */
     public String module() {
         return module;
@@ -94,20 +94,28 @@ public final class Manifest {
     }
 
     /**
-     * <p> The module-classes-resources directories to be scanned for the requested
-     * modules. </p>
-     * <p> The resource files will be copied, without change, into
-     * the installed module. </p>
+     * <p> The module-classes-resources directories to be scanned for the
+     * requested modules. </p>
+     *
+     * <p> The resource files will be copied, without change, into the
+     * installed module. </p>
      */
     public List<File> classes() {
         return classes;
     }
 
+    /**
+     * <p> Create an empty manifest for the given module name </p>
+     */
     public static Manifest create(String mn) {
         return new Manifest(mn);
     }
 
+    /**
+     * <p> Create a manifest for the given module name and class directory </p>
+     */
     public static Manifest create(String mn, File classes) {
         return new Manifest(mn).addClasses(classes);
     }
+
 }

@@ -34,7 +34,7 @@ import static org.openjdk.jigsaw.FileConstants.ModuleFile.HashType;
 
 
 /**
- * <p> A module repository's catalog </p>
+ * <p> A {@linkplain Repository module repository's} catalog </p>
  */
 
 public abstract class RepositoryCatalog {
@@ -86,6 +86,10 @@ public abstract class RepositoryCatalog {
     abstract Entry get(ModuleId mid);
 
 
+    /**
+     * <p> A {@linkplain RepositoryCatalog repository catalog} which can be
+     * stored to, and then loaded from, a byte stream </p>
+     */
     public static class StreamedRepositoryCatalog
         extends RepositoryCatalog
     {

@@ -130,10 +130,10 @@ public final class SimpleLibrary
     }
 
     /**
-     * Defines the storage options that SimpleLibrary supports.
+     * <p> Storage options supported by the {@link SimpleLibrary}
      */
     public static enum StorageOption {
-        DEFLATED,
+        DEFLATED
     }
 
     private static final class Header

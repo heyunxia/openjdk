@@ -30,6 +30,10 @@ import java.util.*;
 import java.net.URI;
 
 
+/**
+ * <p> A result of running the resolver </p>
+ */
+
 public final class Resolution {
 
     final Collection<ModuleIdQuery> rootQueries;

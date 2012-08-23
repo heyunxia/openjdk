@@ -31,7 +31,12 @@ import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
-// Not really a java.util.TreeMap ...
+
+/**
+ * <p> A fast persistent tree map </p>
+ *
+ * <p> ... (though not actually a {@link java.util.TreeMap} </p>
+ */
 
 public class PersistentTreeMap implements Closeable {
 
@@ -109,6 +114,9 @@ public class PersistentTreeMap implements Closeable {
         put2(db, key, sval, ival);
     }
 
+    /**
+     * <p> A {@link String}, and an {@code int} </p>
+     */
     public static class StringAndInt {
         public final String s;
         public final int i;
@@ -150,4 +158,5 @@ public class PersistentTreeMap implements Closeable {
     static {
         initialize();
     }
+
 }

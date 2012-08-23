@@ -46,17 +46,34 @@ import sun.security.util.SecurityConstants;
 import static org.openjdk.jigsaw.Trace.*;
 
 
-public class Loader
+/**
+ * <p> A module class loader </p>
+ */
+
+public class Loader                     // ## Should be final?
     extends ModuleClassLoader
 {
 
+    /**
+     * <p> The pool whence this loader came </p>
+     */
     protected final LoaderPool pool;
+
+    /**
+     * <p> The stored context loaded by this loader </p>
+     */
     protected final Context context;
 
     private final Map<String,Module> moduleForName = new HashMap<>();
 
+    /**
+     * <p> The ids of the modules loaded by this loader so far </p>
+     */
     protected final Set<ModuleId> modules = new HashSet<>();
 
+    /**
+     * <p> Construct a new loader for the given pool and context. </p>
+     */
     public Loader(LoaderPool p, Context cx) {
         super(JigsawModuleSystem.instance());
         if (cx == null)
@@ -65,9 +82,9 @@ public class Loader
         context = cx;
     }
 
-    // Primary entry point from VM
+    // Primary entry point from the VM
     //
-    protected Class<?> loadClass(String cn, boolean resolve) 
+    protected Class<?> loadClass(String cn, boolean resolve)
         throws ClassNotFoundException
     {
         SecurityManager sm = System.getSecurityManager();
@@ -281,15 +298,15 @@ public class Loader
     }
    
     /**
-     * Find the a map of class loader to service provider fully qualified class
-     * names associated with a service interface. 
+     * <p> Find the a map of class loader to fully-qualified service-provider
+     * class names available for a given service interface. </p>
      * 
-     * The value of the map is the set of service provider fully qualified 
-     * class names of service provider classes that can be loaded by the 
-     * corresponding key that is the class loader.
+     * <p> The value of the map is the set of fully-qualified service-provider
+     * class names which can be loaded by the corresponding key that is the
+     * class loader. </p>
      * 
-     * The map returned is invariant to the instance of {@link Loader} and is
-     * scoped to the configuration.
+     * <p> The returned map is invariant to the instance of {@link Loader} and
+     * is scoped to the configuration. </p>
      */
     Map<ClassLoader,Set<String>> findServices(Class<?> serviceInterface) {
         return pool.findServices(serviceInterface);

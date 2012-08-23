@@ -31,17 +31,18 @@ import java.util.Objects;
 
 
 /**
- * A collection of module-info files together with associated module files,
- * suitable for download and installation.
+ * <p> A collection of module-info files together with associated module files,
+ * suitable for download and installation. </p>
  */
+
 public abstract class Repository
     extends LocatableCatalog
 {
 
     /**
-     * The type of a module
+     * <p> The type of a module file <p>
      */
-    public static enum ModuleType {
+    public static enum ModuleType {     // ## Should be ModuleFileType
         /**
          * A module type that is a java module file
          */
@@ -90,9 +91,9 @@ public abstract class Repository
     }
 
     /**
-     * Size information about a yet-to-be-installed module.
+     * <p> Size and type information about a yet-to-be-installed module </p>
      */
-    public static class ModuleMetaData {
+    public static class ModuleMetaData { // ## Should be ModuleFileMetaData
 
         private final ModuleType type;
         

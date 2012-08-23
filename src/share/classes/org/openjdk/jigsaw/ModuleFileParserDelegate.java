@@ -32,14 +32,17 @@ import org.openjdk.jigsaw.ModuleFile.ModuleFileHeader;
 import org.openjdk.jigsaw.ModuleFile.SectionHeader;
 import org.openjdk.jigsaw.ModuleFile.SubSectionFileHeader;
 
+
 /**
- * A delegating module file parser.
+ * <p> A delegating {@linkplain ModuleFileParser module-file parser} </p>
  *
  * <p> By default each method does nothing but call the corresponding method on
- * parent parser. </p>
+ * the parent parser. </p>
  */
 
-public class ModuleFileParserDelegate implements ModuleFileParser {
+public class ModuleFileParserDelegate
+    implements ModuleFileParser
+{
 
     private ModuleFileParser parser;
 
@@ -105,4 +108,5 @@ public class ModuleFileParserDelegate implements ModuleFileParser {
     public boolean skipToNextStartSubSection() {
         return parser.skipToNextStartSubSection();
     }
+
 }

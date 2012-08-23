@@ -25,11 +25,15 @@
 
 package org.openjdk.jigsaw;
 
-/**
- * An Exception thrown when parsing a module file.
- */
-public class ModuleFileParserException extends RuntimeException {
 
+/**
+ * <p> Thrown when an error occurs while parsing a module file </p>
+ */
+
+public class ModuleFileParserException  // ## Should be ModuleFileParseException
+    extends RuntimeException
+{
+    
     private static final long serialVersionUID = -1926996961683780088L;
 
     // ## section type/event useful to capture in exception?
@@ -47,4 +51,5 @@ public class ModuleFileParserException extends RuntimeException {
     public ModuleFileParserException(String message, Throwable cause) {
         super(message, cause);
     }
+
 }

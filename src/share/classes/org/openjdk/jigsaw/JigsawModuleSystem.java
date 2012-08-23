@@ -30,6 +30,10 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 
 
+/**
+ * <p> The Jigsaw {@link java.lang.module.ModuleSystem ModuleSystem} </p>
+ */
+
 public final class JigsawModuleSystem
     extends ModuleSystem
 {

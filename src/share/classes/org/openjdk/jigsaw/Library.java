@@ -45,6 +45,8 @@ public abstract class Library
     extends LocatableCatalog
 {
 
+    // ## Should use new-fangled Paths instead of old-fangled Files
+
     private static File systemLibraryPath = null;
 
     /**
@@ -61,7 +63,7 @@ public abstract class Library
     }
 
     /**
-     * <p> Open the system module library </p>
+     * <p> Open the system module library. </p>
      */
     public static Library openSystemLibrary()
         throws IOException
@@ -74,7 +76,14 @@ public abstract class Library
 
     protected Library() { }
 
+    /**
+     * <p> Return the major version of this library. </p>
+     */
     public abstract int majorVersion();
+
+    /**
+     * <p> Return the minor version of this library. </p>
+     */
     public abstract int minorVersion();
 
     public abstract Library parent();
@@ -97,6 +106,10 @@ public abstract class Library
     protected abstract byte[] readLocalModuleInfoBytes(ModuleId mid)
         throws IOException;
 
+    /**
+     * <p> Read the raw module-info class bytes of the specified module, from
+     * this library or a parent library. </p>
+     */
     public byte[] readModuleInfoBytes(ModuleId mid)
         throws IOException
     {
@@ -382,10 +395,14 @@ public abstract class Library
         throws IOException;
 
 
+    /**
+     * <p> Return the list of {@linkplain RemoteRepository remote repositories}
+     * associated with this library </p>
+     */
     public abstract RemoteRepositoryList repositoryList() throws IOException;
 
     /**
-     * <p> Read the CodeSigners for the module with the given identifier, from
+     * <p> Read the code signers of the module with the given identifier, from
      * this library only. </p>
      *
      * @param   mid

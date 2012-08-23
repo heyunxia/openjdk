@@ -31,6 +31,10 @@ import java.net.*;
 import java.util.*;
 
 
+/**
+ * <p> A list of remote module repositories </p>
+ */
+
 public interface RemoteRepositoryList {
 
     // Unmodifiable
