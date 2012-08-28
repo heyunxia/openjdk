@@ -122,6 +122,10 @@ java/nio/channels/SocketChannel/AdaptSocket.java        linux-x64
 java/nio/channels/SocketChannel/Connect.java            linux-x64
 java/nio/MappedByteBuffer/Force.java                    windows-i586
 
+# Tests depend on java -d64 launcher
+java/nio/channels/spi/SelectorProvider/inheritedChannel/run_tests.sh    solaris-sparcv9
+java/nio/channels/spi/SelectorProvider/inheritedChannel/run_tests.sh    solaris-x64
+
 
 # This test sets to Turkish language without resetting it when exit
 # that causes other tests to fail.  Exclude for now.
@@ -249,12 +253,16 @@ com/sun/jdi/RunToExit.java                      solaris-x64
 com/sun/jdi/DoubleAgentTest.java                solaris-x64
 tools/launcher/Test7029048.java                 solaris-x64
 sun/tools/jhat/HatHeapDump1Test.java            solaris-x64
+com/sun/jdi/PrivateTransportTest.sh             solaris-x64
+com/sun/jdi/Solaris32AndSolaris64Test.sh        solaris-x64
 com/sun/jdi/BadHandshakeTest.java               solaris-sparcv9
 com/sun/jdi/ExclusiveBind.java                  solaris-sparcv9
 com/sun/jdi/RunToExit.java                      solaris-sparcv9
 com/sun/jdi/DoubleAgentTest.java                solaris-sparcv9
 tools/launcher/Test7029048.java                 solaris-sparcv9
 sun/tools/jhat/HatHeapDump1Test.java            solaris-sparcv9
+com/sun/jdi/PrivateTransportTest.sh             solaris-sparcv9
+com/sun/jdi/Solaris32AndSolaris64Test.sh        solaris-sparcv9
 
 # Test expects tools.jar and rt.jar.  Needs to be update.
 tools/pack200/Pack200Simple.sh   		generic-all
