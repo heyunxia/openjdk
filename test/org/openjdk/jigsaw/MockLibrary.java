@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -121,11 +121,13 @@ class MockLibrary
     }
 
     protected void gatherLocalModuleIds(String mn, Set<ModuleId> mids) {
-        throw new UnsupportedOperationException();
+        if (idsForName.containsKey(mn)) {
+            mids.addAll(idsForName.get(mn));
+        }
     }
 
     protected void gatherLocalDeclaringModuleIds(Set<ModuleId> set) {
-        throw new UnsupportedOperationException();
+        set.addAll(infoForId.keySet());
     }
 
     public List<ModuleId> findModuleIds(String moduleName) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -479,6 +479,265 @@ public class _Configurator {
                          .localClass("c.C", "lc")
                          .localClass("r.R", "r")
                          .localClass("r.v.V", "r"));               
+            }
+        };
+        
+        // Services
+        
+        new Test("service-one", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("y@1").providesService("s", "syImpl1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@1").service("s", "syImpl1"));
+            }
+        };
+        
+        new Test("service-one-with-exports", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("y@1").providesService("s", "syImpl1").exports("p"))
+                    .addPublic("y@1", "y.Y");
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@1").service("s", "syImpl1").localClass("y.Y", "y"));
+            }
+        };
+
+        new Test("service-one-two-roots", true, "a@1", "b@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("a@1").requiresService("s"))
+                    .add(module("b@1").requiresService("s"))
+                    .add(module("y@1").providesService("s", "syImpl1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("a@1"))
+                    .add(context("b@1"))
+                    .add(context("y@1").service("s", "syImpl1"));
+            }
+        };
+
+        new Test("service-one-requires-fail", false, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("y@1").requires("z@1").providesService("s", "syImpl1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"));
+            }
+        };
+
+        new Test("service-one-requires-optional", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresOptionalService("s"))
+                    .add(module("y@1").requires("z@1").providesService("s", "syImpl1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"));
+            }
+        };
+
+        new Test("service-one-with-dependency", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("y@1").requires("z@1").providesService("s", "syImpl1"))
+                    .add(module("z@1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@1").remote("+z").service("s", "syImpl1"))
+                    .add(context("z@1"));
+            }
+        };
+
+        new Test("service-one-requires-optional-roll-back", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresOptionalService("s"))
+                    .add(module("y@1").requires("a")
+                        .requiresService("t")
+                        .providesService("s", "syImpl"))
+                    .add(module("a@1")
+                        .requiresService("u")
+                        .requires("b"))
+                    .add(module("b@1").requires("c"))
+                    .add(module("w@1").providesService("u", "uwImpl"))
+                    .add(module("z@1").providesService("t", "tzImpl"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"));
+            }
+        };
+
+        new Test("service-one-many-impls", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("y@1").providesService("s", "syImpl1").providesService("s", "syImpl2"))
+                    .add(module("z@1").providesService("s", "szImpl1").providesService("s", "szImpl2"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@1").service("s", "syImpl1").service("s", "syImpl2"))
+                    .add(context("z@1").service("s", "szImpl1").service("s", "szImpl2"));
+            }
+        };
+        
+        new Test("service-many-one-impl", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s1").requiresService("s2"))
+                    .add(module("y@1").providesService("s1", "s1yImpl1"))
+                    .add(module("z@1").providesService("s2", "s2zImpl1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@1").service("s1", "s1yImpl1"))
+                    .add(context("z@1").service("s2", "s2zImpl1"));
+            }
+        };
+
+        new Test("service-many-many-impls", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s1").requiresService("s2"))
+                    .add(module("y@1")
+                        .providesService("s1", "s1yImpl1").providesService("s1", "s1yImpl2")
+                        .providesService("s2", "s2yImpl1").providesService("s2", "s2yImpl2"))
+                    .add(module("z@1")
+                        .providesService("s1", "s1zImpl1").providesService("s1", "s1zImpl2")
+                        .providesService("s2", "s2zImpl1").providesService("s2", "s2zImpl2"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@1")
+                        .service("s1", "s1yImpl1").service("s1", "s1yImpl2")
+                        .service("s2", "s2yImpl1").service("s2", "s2yImpl2"))
+                    .add(context("z@1")
+                        .service("s1", "s1zImpl1").service("s1", "s1zImpl2")
+                        .service("s2", "s2zImpl1").service("s2", "s2zImpl2"));
+            }
+        };
+
+        new Test("service-provides-in-view", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("y@1")
+                        .view("y1").providesService("s", "sy1Impl1")
+                        .view("y2").providesService("s", "sy2Impl1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@1")
+                        .views("y@1", "y1", "y2")
+                        .service("s", "sy1Impl1")
+                        .service("s", "sy2Impl1"));
+            }
+        };
+
+        new Test("service-requiring-services", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("a"))
+                    .add(module("a@1")
+                        .requiresService("b")
+                        .providesService("a", "aImpl"))
+                    .add(module("b@1")
+                        .requiresService("c")
+                        .providesService("b", "bImpl"))
+                    .add(module("c@1")
+                        .requiresService("d")
+                        .providesService("c", "cImpl"))
+                    .add(module("d@1")
+                        .providesService("d", "dImpl"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("a@1").service("a", "aImpl"))
+                    .add(context("b@1").service("b", "bImpl"))
+                    .add(context("c@1").service("c", "cImpl"))
+                    .add(context("d@1").service("d", "dImpl"));
+            }
+        };
+        
+        new Test("service-requiring-previously-required-services", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("a").requiresService("c"))
+                    .add(module("a@1")
+                        .requiresService("b")
+                        .providesService("a", "aImpl"))
+                    .add(module("b@1")
+                        .requiresService("a")
+                        .providesService("b", "bImpl"))
+                    .add(module("c@1")
+                        .requiresService("b")
+                        .providesService("c", "cImpl"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("a@1").service("a", "aImpl"))
+                    .add(context("b@1").service("b", "bImpl"))
+                    .add(context("c@1").service("c", "cImpl"));
+            }
+        };
+
+        new Test("service-ignores-permits", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("z@1").permits("y").providesService("s", "sImpl"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("z@1").service("s", "sImpl"));
+            }
+        };
+
+        new Test("service-versions", true, "x@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("x@1").requiresService("s"))
+                    .add(module("y@1").providesService("s", "sy1Impl1"))
+                    .add(module("y@2").providesService("s", "sy2Impl1"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("x@1"))
+                    .add(context("y@2").service("s", "sy2Impl1"));
+            }
+        };
+
+        /*
+         * The following two tests re-produce an issue with permits
+         * and requires optional. Depending on the order of resolution
+         * a module, x, may be linked to a module, z, that is not
+         * permitted to do so.
+         * 
+         * Resolution should fail in both cases.
+         */
+        
+        new Test("permits-requires-optional-permissive-linking", true, "z@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("z@1")
+                        .requiresOptional("x")
+                        .requires("y"))
+                    .add(module("y@1").requires("x"))
+                    .add(module("x@1").permits("y"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("z@1").remote("+x", "+y"))
+                    .add(context("y@1").remote("+x"))
+                    .add(context("x@1"));
+            }
+        };
+
+        new Test("permits-requires-optional-failure", false, "z@1") {
+            void init(MockLibrary mlib) {
+                mlib.add(module("z@1")
+                        .requires("y")
+                        .requiresOptional("x"))
+                    .add(module("y@1").requires("x"))
+                    .add(module("x@1").permits("y"));
+            }
+            void ref(ConfigurationBuilder cfbd) {
+                cfbd.add(context("z@1").remote("+x", "+y"))
+                    .add(context("y@1").remote("+x"))
+                    .add(context("x@1"));
             }
         };
         

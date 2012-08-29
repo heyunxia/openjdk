@@ -184,7 +184,7 @@ public class Context
         return unmodifiableServices();
     }
     
-    protected final void putService(String sn, String impl) {
+    protected void putService(String sn, String impl) {
         Set<String> impls = services.get(sn);
         if (impls != null) {
             impls.add(impl);
@@ -213,7 +213,8 @@ public class Context
         Context that = (Context)ob;
         return (super.equals(that)
                 && moduleForLocalClass.equals(that.moduleForLocalClass)
-                && contextForRemotePackage.equals(that.contextForRemotePackage));
+                && contextForRemotePackage.equals(that.contextForRemotePackage)
+                && services.equals(that.services));
     }
 
 }

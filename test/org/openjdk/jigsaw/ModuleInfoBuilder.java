@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -133,6 +133,23 @@ public class ModuleInfoBuilder {
         return requires(EnumSet.of(Modifier.PUBLIC), mnvq);
     }
    
+    public ModuleInfoBuilder requiresService(String serviceInteface) {
+        mi.requiredServices.add(new ServiceDependence(null, serviceInteface));
+        return this;
+    }
+
+    public ModuleInfoBuilder requiresOptionalService(String serviceInteface) {
+        mi.requiredServices.add(new ServiceDependence(
+            EnumSet.of(Modifier.OPTIONAL), serviceInteface));
+        return this;
+    }
+
+    public ModuleInfoBuilder providesService(String serviceInterface,
+                                             String serviceProviderClass) {
+        defaultView.providesService(serviceInterface, serviceProviderClass);
+        return this;
+    }
+    
     public ModuleInfoBuilder alias(String mnv) {
         defaultView.alias(mnv);
         return this;
@@ -163,20 +180,31 @@ public class ModuleInfoBuilder {
         final Set<String> exports = new HashSet<>();
         final Set<ModuleId> aliases = new HashSet<>();
         final Set<String> permits = new HashSet<>();
-        final Map<String,Set<String>> services = new HashMap<>();
+        final Map<String,Set<String>> services = new LinkedHashMap<>();
         String mainClass;
         
         private ModuleViewBuilder(ModuleInfoBuilder mib, ModuleId id) {
             this.mib = mib;
             this.id = id;
         }
-        
+
         public ModuleViewBuilder view(String name) {
             Version version = mib.mi.mid.version();
             ModuleId id = new ModuleId(name, version);
             ModuleViewBuilder mvb = new ModuleViewBuilder(mib, id);
             mib.mi.viewBuilders.put(id.name(), mvb);
             return mvb;
+        }
+        
+        public ModuleViewBuilder providesService(String serviceInterface,
+                                                 String serviceProviderClass) {
+            Set<String> spcs = services.get(serviceInterface);
+            if (spcs == null) {
+                spcs = new LinkedHashSet<>();
+                services.put(serviceInterface, spcs);
+            }
+            spcs.add(serviceProviderClass);
+            return this;
         }
         
         public ModuleViewBuilder alias(String mnv) {

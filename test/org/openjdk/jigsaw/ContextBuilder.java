@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,6 +46,9 @@ public class ContextBuilder {
         }
         public void putContextForRemotePackage(String pn, String cxn) {
             super.putContextForRemotePackage(pn, cxn);
+        }
+        public void putService(String sn, String impl) {
+            super.putService(sn, impl);
         }
 
     }
@@ -129,6 +132,12 @@ public class ContextBuilder {
             // at this point, so here we just save the context names
             pcx.remoteContextNames.add(cxn);
         }
+        return this;
+    }
+    
+    public ContextBuilder service(String serviceInteface, 
+                                  String serviceProviderClass) {
+        cx.putService(serviceInteface, serviceProviderClass);
         return this;
     }
     
