@@ -1045,7 +1045,7 @@ JVM_ENTRY(jobject, JVM_GetModuleLoader(JNIEnv *env, jclass cls))
     klassOop k = java_lang_Class::as_klassOop(JNIHandles::resolve_non_null(cls));
     loader = Klass::cast(k)->class_loader();
   }
-  if (Arguments::is_module_mode() && loader == NULL) {
+  if (loader == NULL) {
     loader = SystemDictionary::java_base_module_loader();
   }
   return JNIHandles::make_local(env, loader);

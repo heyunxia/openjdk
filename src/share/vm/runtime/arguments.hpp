@@ -244,6 +244,12 @@ class Arguments : AllStatic {
   static SystemProperty *_java_home;
   static SystemProperty *_java_class_path;
   static SystemProperty *_sun_boot_class_path;
+  static SystemProperty *_sun_boot_class_prepend_path;
+  static SystemProperty *_sun_boot_class_append_path;
+  static SystemProperty *_sun_boot_module_base;
+
+  // Only valid if using module image
+  static int _boot_module_index;
 
   // Meta-index for knowing what packages are in the boot class path
   static char* _meta_index_path;
@@ -255,10 +261,6 @@ class Arguments : AllStatic {
   // sun.java.launcher, private property to provide information about
   // java/gamma launcher
   static const char* _sun_java_launcher;
-
-  // sun.java.launcher.module.boot, private property identifying
-  // the path from which to boot when in modular mode
-  static const char* _sun_java_launcher_module_boot;
 
   // sun.java.launcher.module, private property identifying
   // the module name shared with sun.launcher.LauncherHelper class 
@@ -465,10 +467,6 @@ class Arguments : AllStatic {
   static bool created_by_gamma_launcher();
   // -Dsun.java.launcher.pid
   static int sun_java_launcher_pid()        { return _sun_java_launcher_pid; }
-  // -Dsun.java.launcher.module.boot
-  static const char* sun_java_launcher_module_boot() {
-    return _sun_java_launcher_module_boot;
-  }
   // -Dsun.java.launcher.module
   static const char* sun_java_launcher_module() {
     return _sun_java_launcher_module;
@@ -478,10 +476,22 @@ class Arguments : AllStatic {
     return _sun_java_launcher_module_library;
   }
 
-  static bool is_module_mode() {
+  static bool running_modular_app() {
     return _sun_java_launcher_module != NULL;
   }
 
+  static bool has_module_image() {
+    return get_boot_module_base() != NULL;
+  }
+
+  // Note: assumes base module only uses 1 entry in bootclasspath
+  static int boot_module_index() {
+    return _boot_module_index;
+  }
+
+  static void set_boot_module_index(int count) {
+    _boot_module_index = count;
+  }
 
   // -Xloggc:<file>, if not specified will be NULL
   static const char* gc_log_filename()      { return _gc_log_filename; }
@@ -552,6 +562,9 @@ class Arguments : AllStatic {
   static void set_endorsed_dirs(char *value) { _java_endorsed_dirs->set_value(value); }
   static void set_sysclasspath(char *value) { _sun_boot_class_path->set_value(value); }
   static void append_sysclasspath(const char *value) { _sun_boot_class_path->append_value(value); }
+  static void set_prependclasspath(char *value) { _sun_boot_class_prepend_path->set_value(value); }
+  static void set_appendclasspath(char *value) { _sun_boot_class_append_path->set_value(value); }
+  static void set_bootmodulebase(char *value) { _sun_boot_module_base->set_value(value); }
   static void set_meta_index_path(char* meta_index_path, char* meta_index_dir) {
     _meta_index_path = meta_index_path;
     _meta_index_dir  = meta_index_dir;
@@ -561,6 +574,9 @@ class Arguments : AllStatic {
   static char *get_dll_dir() { return _sun_boot_library_path->value(); }
   static char *get_endorsed_dir() { return _java_endorsed_dirs->value(); }
   static char *get_sysclasspath() { return _sun_boot_class_path->value(); }
+  static char *get_prependclasspath() { return _sun_boot_class_prepend_path->value(); }
+  static char *get_appendclasspath() { return _sun_boot_class_append_path->value(); }
+  static char *get_boot_module_base() { return _sun_boot_module_base->value(); }
   static char* get_meta_index_path() { return _meta_index_path; }
   static char* get_meta_index_dir()  { return _meta_index_dir;  }
 

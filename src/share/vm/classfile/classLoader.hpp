@@ -230,11 +230,11 @@ class ClassLoader: AllStatic {
   // Load individual .class file from a module library 
   static instanceKlassHandle load_class_from_module_library(Symbol* h_name, TRAPS);
   // Load individual .class file from classpath
-  static instanceKlassHandle load_class_from_classpath(Symbol* h_name, TRAPS);
+  static instanceKlassHandle load_class_from_classpath(Symbol* h_name, int start, int end, TRAPS);
 
  public:
   // Used by the kernel jvm, and by Jigsaw via JVM_ExtendBootClassPath
-  static void update_class_path_entry_list(const char *path,
+  static bool update_class_path_entry_list(const char *path,
                                            bool check_for_duplicates);
   static void print_bootclasspath();
 

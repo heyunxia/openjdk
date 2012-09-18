@@ -77,7 +77,6 @@ const char*  Arguments::_sun_java_launcher      = DEFAULT_JAVA_LAUNCHER;
 int    Arguments::_sun_java_launcher_pid        = -1;
 bool   Arguments::_created_by_gamma_launcher    = false;
 const char*  Arguments::_sun_java_launcher_module      = NULL;
-const char*  Arguments::_sun_java_launcher_module_boot = NULL;
 const char*  Arguments::_sun_java_launcher_module_library = NULL;
 
 // These parameters are reset in method parse_vm_init_args(JavaVMInitArgs*)
@@ -103,6 +102,11 @@ SystemProperty *Arguments::_java_library_path = NULL;
 SystemProperty *Arguments::_java_home = NULL;
 SystemProperty *Arguments::_java_class_path = NULL;
 SystemProperty *Arguments::_sun_boot_class_path = NULL;
+SystemProperty *Arguments::_sun_boot_class_prepend_path = NULL;
+SystemProperty *Arguments::_sun_boot_class_append_path = NULL;
+SystemProperty *Arguments::_sun_boot_module_base = NULL;
+
+int Arguments::_boot_module_index = 0;
 
 char* Arguments::_meta_index_path = NULL;
 char* Arguments::_meta_index_dir = NULL;
@@ -143,10 +147,6 @@ void Arguments::process_sun_java_launcher_properties(JavaVMInitArgs* args) {
       _sun_java_launcher_pid = atoi(tail);
       continue;
     }
-    if (match_option(option, "-Dsun.java.launcher.module.boot=", &tail)) {
-      _sun_java_launcher_module_boot = strdup(tail);
-      continue;
-    }
     if (match_option(option, "-Dsun.java.launcher.module.library=", &tail)) {
       _sun_java_launcher_module_library = strdup(tail);
       continue;
@@ -176,6 +176,9 @@ void Arguments::init_system_properties() {
   _java_library_path = new SystemProperty("java.library.path", NULL,  true);
   _java_home =  new SystemProperty("java.home", NULL,  true);
   _sun_boot_class_path = new SystemProperty("sun.boot.class.path", NULL,  true);
+  _sun_boot_class_prepend_path = new SystemProperty("sun.boot.class.prepend.path", NULL,  true);
+  _sun_boot_class_append_path = new SystemProperty("sun.boot.class.append.path", NULL,  true);
+  _sun_boot_module_base = new SystemProperty("sun.boot.module.classpath", NULL,  true);
 
   _java_class_path = new SystemProperty("java.class.path", "",  true);
 
@@ -187,6 +190,9 @@ void Arguments::init_system_properties() {
   PropertyList_add(&_system_properties, _java_home);
   PropertyList_add(&_system_properties, _java_class_path);
   PropertyList_add(&_system_properties, _sun_boot_class_path);
+  PropertyList_add(&_system_properties, _sun_boot_class_prepend_path);
+  PropertyList_add(&_system_properties, _sun_boot_class_append_path);
+  PropertyList_add(&_system_properties, _sun_boot_module_base);
 
   // Set OS specific system properties values
   os::init_system_properties_values();
@@ -315,6 +321,7 @@ public:
   inline void add_suffix_to_prefix(const char* suffix);
   inline void add_suffix(const char* suffix);
   inline void reset_path(const char* base);
+  inline void reset_base(const char* base);
 
   // Expand the jar/zip files in each directory listed by the java.endorsed.dirs
   // property.  Must be called after all command-line arguments have been
@@ -326,10 +333,17 @@ public:
   inline const char* get_prefix()   const { return _items[_scp_prefix]; }
   inline const char* get_suffix()   const { return _items[_scp_suffix]; }
   inline const char* get_endorsed() const { return _items[_scp_endorsed]; }
+  inline bool scp_path_reset() const { return _scp_path_reset; }
 
   // Combine all the components into a single c-heap-allocated string; caller
   // must free the string if/when no longer needed.
   char* combined_path();
+  char* combined_path_helper(int start, int count);
+
+  // For jdk module image,, split bootclasspath into prepend path, base module and append path
+  // Retain sun.boot.class.path with full path including module image
+  char* combined_prepend_path();
+  char* combined_append_path();
 
 private:
   // Utility routines.
@@ -340,13 +354,16 @@ private:
 
   // Array indices for the items that make up the sysclasspath.  All except the
   // base are allocated in the C heap and freed by this class.
+  // If anything is added here, must change combined_prepend_path
   enum {
     _scp_prefix,        // from -Xbootclasspath/p:...
     _scp_endorsed,      // the expansion of -Djava.endorsed.dirs=...
-    _scp_base,          // the default sysclasspath
+    _scp_base,          // the default sysclasspath, -Xbootclasspath override
     _scp_suffix,        // from -Xbootclasspath/a:...
     _scp_nitems         // the number of items, must be last.
   };
+  bool _scp_path_reset; // whether -Xbootclasspath reset entire path
+                        // if reset, then sun_boot_module_base is reset to NULL 
 
   const char* _items[_scp_nitems];
   DEBUG_ONLY(bool _expansion_done;)
@@ -355,6 +372,7 @@ private:
 SysClassPath::SysClassPath(const char* base) {
   memset(_items, 0, sizeof(_items));
   _items[_scp_base] = base;
+  _scp_path_reset = false;
   DEBUG_ONLY(_expansion_done = false;)
 }
 
@@ -382,6 +400,7 @@ inline void SysClassPath::add_suffix(const char* suffix) {
   _items[_scp_suffix] = add_to_path(_items[_scp_suffix], suffix, false);
 }
 
+// Do not allow freeing of _scp_base, because string is shared by _sun_boot_class_path
 inline void SysClassPath::reset_item_at(int index) {
   assert(index < _scp_nitems && index != _scp_base, "just checking");
   if (_items[index] != NULL) {
@@ -395,6 +414,8 @@ inline void SysClassPath::reset_path(const char* base) {
   reset_item_at(_scp_prefix);
   reset_item_at(_scp_suffix);
   set_base(base);
+  _scp_path_reset = true;
+
 }
 
 //------------------------------------------------------------------------------
@@ -429,40 +450,66 @@ void SysClassPath::expand_endorsed() {
   DEBUG_ONLY(_expansion_done = true;)
 }
 
-// Combine the bootclasspath elements, some of which may be null, into a single
-// c-heap-allocated string.
-char* SysClassPath::combined_path() {
-  assert(_items[_scp_base] != NULL, "empty default sysclasspath");
-  assert(_expansion_done, "must call expand_endorsed() first.");
-
+// create a string from components, starting at start for nitems
+char* SysClassPath::combined_path_helper(int start, int nitems) {
   size_t lengths[_scp_nitems];
   size_t total_len = 0;
+  int end = start + nitems;
+  char *cp = NULL;
 
   const char separator = *os::path_separator();
 
   // Get the lengths.
   int i;
-  for (i = 0; i < _scp_nitems; ++i) {
+  for (i = start; i < end; ++i) {
     if (_items[i] != NULL) {
       lengths[i] = strlen(_items[i]);
       // Include space for the separator char (or a NULL for the last item).
       total_len += lengths[i] + 1;
     }
   }
-  assert(total_len > 0, "empty sysclasspath not allowed");
 
-  // Copy the _items to a single string.
-  char* cp = NEW_C_HEAP_ARRAY(char, total_len, mtInternal);
-  char* cp_tmp = cp;
-  for (i = 0; i < _scp_nitems; ++i) {
-    if (_items[i] != NULL) {
-      memcpy(cp_tmp, _items[i], lengths[i]);
-      cp_tmp += lengths[i];
-      *cp_tmp++ = separator;
+  if (total_len > 0) {
+    // Copy the _items to a single string.
+    cp = NEW_C_HEAP_ARRAY(char, total_len, mtInternal);
+    char* cp_tmp = cp;
+    for (i = start; i < end; ++i) {
+      if (_items[i] != NULL) {
+        memcpy(cp_tmp, _items[i], lengths[i]);
+        cp_tmp += lengths[i];
+        *cp_tmp++ = separator;
+      }
     }
+    *--cp_tmp = '\0';     // Replace the extra separator.
   }
-  *--cp_tmp = '\0';     // Replace the extra separator.
   return cp;
+}
+
+// Combine the bootclasspath elements, some of which may be null, into a single
+// c-heap-allocated string.
+char* SysClassPath::combined_path() {
+  if (!UseModuleNativeLibs) {
+    assert(_items[_scp_base] != NULL, "empty default sysclasspath");
+  }
+  assert(_expansion_done, "must call expand_endorsed() first.");
+
+  return combined_path_helper(0, _scp_nitems);
+}
+
+// Combine the bootclasspath elements before the default jdk modules,some of which may be null, 
+// into a single c-heap-allocated string for jdk library searching
+char* SysClassPath::combined_prepend_path() {
+  assert(_expansion_done, "must call expand_endorsed() first.");
+
+  // If explicit -Xbootclasspath, then we do not search the module library
+  int nprepend = _scp_base; 
+  return combined_path_helper(0, nprepend);
+}
+
+// Combine the bootclasspath elements after the default jdk modules,some of which may be null, 
+// into a single c-heap-allocated string for jdk library searching
+char* SysClassPath::combined_append_path() {
+  return combined_path_helper(_scp_suffix, 1);
 }
 
 // Note:  path must be c-heap-allocated (or NULL); it is freed if non-null.
@@ -965,13 +1012,6 @@ bool Arguments::add_property(const char* prop) {
     // launcher.pid property is private and is processed
     // in process_sun_java_launcher_properties();
     // the sun.java.launcher property is passed on to the java application
-    FreeHeap(key);
-    if (eq != NULL) {
-      FreeHeap(value);
-    }
-    return true;
-  } else if (strcmp(key, "sun.java.launcher.module.boot") == 0) {
-    // Another private property
     FreeHeap(key);
     if (eq != NULL) {
       FreeHeap(value);
@@ -2177,9 +2217,9 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       JavaAssertions::setSystemClassDefault(enable);
     // -bootclasspath:
     } else if (match_option(option, "-Xbootclasspath:", &tail)) {
-      if (is_module_mode()) {
+      if (running_modular_app()) {
         jio_fprintf(defaultStream::error_stream(),
-                    "-Xbootclasspath: option is not supported in module mode\n");
+                    "-Xbootclasspath: option is not supported for modular applications\n");
         return JNI_EINVAL;
       }
 
@@ -2187,9 +2227,9 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       *scp_assembly_required_p = true;
     // -bootclasspath/a:
     } else if (match_option(option, "-Xbootclasspath/a:", &tail)) {
-      if (is_module_mode()) {
+      if (running_modular_app()) {
         jio_fprintf(defaultStream::error_stream(),
-                    "-Xbootclasspath/a: option is not supported in module mode\n");
+                    "-Xbootclasspath/a: option is not supported for modular applications\n");
         return JNI_EINVAL;
       }
 
@@ -2197,9 +2237,9 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       *scp_assembly_required_p = true;
     // -bootclasspath/p:
     } else if (match_option(option, "-Xbootclasspath/p:", &tail)) {
-      if (is_module_mode()) {
+      if (running_modular_app()) {
         jio_fprintf(defaultStream::error_stream(),
-                    "-Xbootclasspath/p: option is not supported in module mode\n");
+                    "-Xbootclasspath/p: option is not supported for modular applications\n");
         return JNI_EINVAL;
       }
 
@@ -2800,9 +2840,34 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
   // This must be done after all -D arguments have been processed.
   scp_p->expand_endorsed();
 
+  if (UseModuleNativeLibs && has_module_image()) {
+    if  (!scp_p->scp_path_reset()) {
+      // boot strap class loader will use sysclasspath which combines all of these
+      char *prepend = scp_p->combined_prepend_path();
+      if (prepend != NULL) {
+        set_prependclasspath(prepend);
+      }
+      // do not reset base, do not free existing base, string shared by _sun_boot_class_path
+      // which will be reset in sys_sysclasspath below
+      scp_p->set_base(get_boot_module_base());
+      scp_assembly_required = true;
+
+      char *append = scp_p->combined_append_path();
+      if (append != NULL) {
+        set_appendclasspath(append);
+      }
+    } else {
+      // overrode bootclasspath, reset these after all command-line args parsed
+      // default sysclasspath remains
+      UseModuleNativeLibs = false;
+      UseModuleBootLoader = false;
+      _sun_boot_module_base = NULL;      // tell JDK we are not using the boot module base
+    }
+  } 
+
   if (scp_assembly_required || scp_p->get_endorsed() != NULL) {
     // Assemble the bootclasspath elements into the final path.
-    Arguments::set_sysclasspath(scp_p->combined_path());
+    set_sysclasspath(scp_p->combined_path());
   }
 
   // This must be done after all arguments have been processed.

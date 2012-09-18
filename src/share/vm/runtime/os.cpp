@@ -1097,47 +1097,8 @@ char* os::format_boot_path(const char* format_string,
 bool os::set_boot_path(char fileSep, char pathSep) {
     const char* home = Arguments::get_java_home();
     int home_len = (int)strlen(home);
-    const char* sjlmb = Arguments::sun_java_launcher_module_boot();
 
-    if (sjlmb) {
-      // Booting from a module; format the given module boot path
-      // and set the system class path
-      char syscp_format[JVM_MAXPATHLEN];
-      size_t len = strlen(sjlmb);
-
-      char* buf = syscp_format;
-      size_t buflen = 0;
-      char* s = (char*) sjlmb;
-      char* p = strchr(s, ':');
-      size_t slen = 0;
-
-      while (s != NULL) {
-        slen = (p != NULL) ? p-s+1 : strlen(s);
-        buflen += slen+2;  // +2 chars for '%/'
-        if (buflen >= JVM_MAXPATHLEN) {
-          assert(false, "formatted sun.java.launcher.module.boot >= max pathlen");
-          break;
-        }
-        memcpy(buf, "%/", 2);
-        memcpy(buf+2, s, slen);
-        buf += slen+2;
-        if (p != NULL) {
-          s = p+1;
-          p = strchr(s, ':');
-        } else {
-          s = NULL;
-        }
-      }
-      if (buflen < JVM_MAXPATHLEN) {
-        syscp_format[buflen] = '\0';
-        char *scp = format_boot_path(syscp_format, home, home_len,fileSep, pathSep);
-        if (scp) {
-          Arguments::set_sysclasspath(scp);
-          return true;
-        }
-      }
-    }
-
+    // meta_index_dir is used for AggressiveOpts and white-box testing
     static const char* meta_index_dir_format = "%/lib/";
     static const char* meta_index_format = "%/lib/meta-index";
     char* meta_index = format_boot_path(meta_index_format, home, home_len, fileSep, pathSep);
@@ -1146,6 +1107,21 @@ bool os::set_boot_path(char fileSep, char pathSep) {
     if (meta_index_dir == NULL) return false;
     Arguments::set_meta_index_path(meta_index, meta_index_dir);
 
+    // Check if module image on disk
+    if (UseModuleNativeLibs) {
+      static const char* jdk_module_image_format = "%/lib/modules/jdk.base";
+      char* jdk_base_module = format_boot_path(jdk_module_image_format, home, home_len, fileSep, pathSep);
+      if (jdk_base_module == NULL) return false;
+      struct stat st;
+      if (os::stat(jdk_base_module, &st) == 0) {
+        // For now fall through so -XX:-UseModuleNativeLibs sees original sysclasspath
+        Arguments::set_bootmodulebase(jdk_base_module);
+      } else {
+        // For now, fall through if no module image
+        UseModuleNativeLibs = false;
+        UseModuleBootLoader = false;
+      }
+    }
     // Any modification to the JAR-file list, for the boot classpath must be
     // aligned with install/install/make/common/Pack.gmk. Note: boot class
     // path class JARs, are stripped for StackMapTable to reduce download size.

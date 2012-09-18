@@ -107,7 +107,10 @@ void SystemDictionary::compute_java_system_loader(TRAPS) {
 
 // ----------------------------------------------------------------------------
 // Java-level boot loader for base module
-// Today: set for module mode
+// Today: set for running modular_app both to delegate up to, 
+// and to translate to null inside vm
+// If running a non-modular app, this is set to null 
+// If this changes, change JDK_GetModuleLoader
 
 oop SystemDictionary::java_base_module_loader() {
   return _java_base_module_loader;
@@ -115,7 +118,7 @@ oop SystemDictionary::java_base_module_loader() {
 
 void SystemDictionary::compute_java_base_module_loader(TRAPS) {
   if (!UseModuleBootLoader) return;
-  if (!Arguments::is_module_mode()) return;
+  if (!Arguments::running_modular_app()) return;
 
   // The base module loader should already be loaded by now by the real null loader
   klassOop k = SystemDictionary::resolve_or_fail(vmSymbols::org_openjdk_jigsaw_BootLoader(), 
@@ -1123,9 +1126,9 @@ klassOop SystemDictionary::resolve_from_stream(Symbol* class_name,
                                                              verify,
                                                              THREAD);
 
-// In module mode disable this check for now until there is a way to handle
+// For modular applications disable this check for now until there is a way to handle
 // non-null platform module loaders
-  if (!Arguments::is_module_mode()) {
+  if (!Arguments::running_modular_app()) {
     const char* pkg = "java/";
     if (!HAS_PENDING_EXCEPTION &&
         !class_loader.is_null() &&

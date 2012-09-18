@@ -26,24 +26,21 @@
 #ifndef JIGSAW_H
 #define JIGSAW_H
 
-#include "jni.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct module {
+/*
+ * Jigsaw native interface called by the VM.
+ *
+ */
+
+typedef struct {
     const char* module_name;
     const char* module_version;
     const char* libpath;
     const char* source;
-};
-
-
-/*-------------------------------------------------------
- * Jigsaw native interfaces for JVM to use
- *-------------------------------------------------------
- */
+} jmodule;
 
 #define JIGSAW_ERROR_INVALID_MODULE_LIBRARY       101
 #define JIGSAW_ERROR_BAD_FILE_HEADER              102
@@ -64,36 +61,37 @@ struct module {
 #define JIGSAW_ERROR_BUFFER_TOO_SHORT             202
 
 /*
- * Set the path of the system module library of the given JAVA_HOME
- * to the given libpath.  This method returns 0 if succeed; otherwise
- * returns non-zero error code.
- *
+ * Return the path of the default system module library of the given java_home.
+ * This method returns 0 if succeed; otherwise returns non-zero error code.
+
  * java_home : JAVA_HOME
  * libpath   : allocated buffer to be set with the path
  *             of the system module library
- * len       : length of the libpath argument 
+ * len       : length of the allocated libpath buffer 
  */
 typedef jint
-(*module_getsystemmodulelibrarypath_fn_t)(const char* java_home,
-                               char *libpath,
-                               size_t len);
+(*get_system_module_library_fn_t)(const char *java_home,
+                                  char *libpath,
+                                  size_t len);
 
 /*
  * Load the contexts of a given module query and set the
- * *base_context to the context containing the base module.
+ * *context to the context containing the base module.
  * This method returns 0 if succeed; otherwise returns non-zero
  * error code.
  *
  * libpath      : module library path (must be non-NULL)
  * modulepath   : module path or NULL
  * module_query : module query in module mode or NULL in classpath mode
- * base_context : To be set with the handle to the context
- *                for the base module
+ * context      : To be set with the handle to the context containing
+ *                the base module.  The returned context can contain
+ *                one or more modules that are required to be loaded
+ *                by the VM bootstrap class loader.
  */
 typedef jint
-(*module_loadcontext_fn_t)(const char *libpath, const char *modulepath,
-                 const char *module_query,
-                 void **base_context);
+(*load_module_context_fn_t)(const char *libpath, const char *modulepath,
+                            const char *module_query,
+                            void **context);
 
 /*
  * Finds the class of a given classname local in a given context
@@ -106,26 +104,26 @@ typedef jint
  * len        : length of the class data
  */
 typedef jint
-(*module_findlocalclass_fn_t)(void *context,
-                   const char *classname,
-                   void  **module,
-                   jint *len);
+(*find_local_module_class_fn_t)(void  *context,
+                                const char *classname,
+                                void  **module,
+                                jint *len);
 
 /*
- * Reads bytestream of a given classname local in a given context
+ * Reads bytestream of a given classname local in a given module
  * This method returns 0 if succeed; otherwise returns non-zero
  * error code.
  *
- * context    : handle to the context containing the class
+ * module     : handle to the module containing the class
  * classname  : fully-qualified class name (in UTF8 format)
- * buf        : an allocated buffer to store the class data 
+ * buf        : an allocated buffer to store the class data
  * len        : length of the buffer
  */
 typedef jint
-(*module_readlocalclass_fn_t)(void* module,
-                   const char *classname,
-                   unsigned char *buf,
-                   jint size);
+(*read_local_module_class_fn_t)(void *module,
+                                const char *classname,
+                                unsigned char *buf,
+                                jint size);
 
 /*
  * Get the information about the given module.
@@ -133,9 +131,14 @@ typedef jint
  * module    : handle to a module
  * minfo     : a pointer to struct for the module information.
  */
-typedef jint
-(*module_getmoduleinfo_fn_t)(void* module,
-                  struct module *minfo);
+typedef jint (*get_module_info_fn_t)(void *module,
+                                     jmodule *minfo);
+
+/*
+ * Called by Java_org_openjdk_jigsaw_ClassPathContext_initBootstrapContexts
+ */
+void init_bootstrap_contexts(const char** non_bootstrap_modules, jint len);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
