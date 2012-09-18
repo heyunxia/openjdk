@@ -323,8 +323,8 @@ public class ClassAnalyzer {
     }
 
     private void printModuleList(File dir, Module m) throws IOException {
-        String s = Module.getModuleProperty(m.name() + ".modules.list");
-        if (s == null || Boolean.parseBoolean(s) == false) {
+        String value = Module.getModuleProperty(m.name() + ".modules.list");
+        if (value == null || value.equals("false")) {
             return;
         }
 
@@ -332,7 +332,6 @@ public class ClassAnalyzer {
         try {
             Set<Module> deps = m.getModuleInfo().dependences(
                     new Dependence.Filter() {
-
                         @Override
                         public boolean accept(Dependence d) {
                             return !d.isOptional();
@@ -340,6 +339,11 @@ public class ClassAnalyzer {
                     });
             for (Module dm : deps) {
                 mlist.format("%s\n", dm.name());
+            }
+            if (!value.equals("true")) {
+                for (String mn : value.split("\\s+")) {
+                    mlist.format("%s\n", mn);
+                }
             }
         } finally {
             mlist.close();

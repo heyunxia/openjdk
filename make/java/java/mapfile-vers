@@ -240,6 +240,7 @@ SUNWprivate_1.1 {
 		Java_java_util_prefs_FileSystemPreferences_lockFile0;
 		Java_java_util_prefs_FileSystemPreferences_unlockFile0;
 		Java_java_util_logging_FileHandler_isSetUID;
+                Java_org_openjdk_jigsaw_ClassPathContext_initBootstrapContexts;
                 Java_org_openjdk_jigsaw_PersistentTreeMap_close0;
                 Java_org_openjdk_jigsaw_PersistentTreeMap_create0;
                 Java_org_openjdk_jigsaw_PersistentTreeMap_get0;

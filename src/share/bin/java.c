@@ -79,6 +79,7 @@ static const char *_fVersion;
 static const char *_dVersion;
 static jboolean _wc_enabled = JNI_FALSE;
 static jint _ergo_policy = DEFAULT_POLICY;
+static jboolean _use_module_native_libs = JNI_TRUE;
 
 /*
  * Entries for splash screen environment variables.
@@ -332,7 +333,11 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         if (mode == LM_JAR) {
             SetClassPath(what);     /* Override class path */
         }
-        SetModulesBootClassPath(jrepath);  /* set boot class path for legacy mode */
+        if (!_use_module_native_libs) {
+            // if -XX:-UseModuleNativeLibs is set, use the -Xbootclasspath hack
+            // on module image
+            SetModulesBootClassPath(jrepath);
+        }
     }
 
     /* set the -Dsun.java.command pseudo property */
@@ -1206,6 +1211,12 @@ ParseArguments(int *pargc, char ***pargv,
             ; /* Processing of platform dependent options */
         } else if (RemovableOption(arg)) {
             ; /* Do not pass option to vm. */
+        } else if (JLI_StrCmp(arg, "-XX:-UseModuleNativeLibs") == 0) {
+            /* A workaround to switch back to not to use the 
+             * jigsaw native interface.
+             */
+            AddOption(arg, NULL);
+            _use_module_native_libs = JNI_FALSE;
         } else {
             AddOption(arg, NULL);
         }

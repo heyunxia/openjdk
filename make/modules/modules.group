@@ -653,6 +653,7 @@ module jdk.jre {
     requires public jdk.crypto;
     requires public jdk.deploy;
     requires public jdk.desktop;
+    requires public jdk.httpserver;
     requires public jdk.instrument;
     requires public jdk.jaxp;
     requires public jdk.jaxws;
@@ -678,6 +679,7 @@ module jdk.jre {
     requires public jdk.tls;
     requires public jdk.ucrypto;
     requires public jdk.xmldsig;
+    requires jdk.zipfs;
 
     // charsets, resource bundles and data for other locales 
     requires sun.charsets;
@@ -688,6 +690,60 @@ module jdk.jre {
 module jdk {
     requires public jdk.jre;
     requires public jdk.tools;
-    requires public jdk.httpserver;
-    requires jdk.zipfs;
+}
+
+// ## ClassPath mode support
+// ## Ultimately we want this configuration be generated 
+// ## automatically e.g. jmod install jdk.base and get
+// ## reconfigured when new modules get installed
+module jdk.classpath {
+    requires jdk.base;
+    requires optional jdk.auth;
+    requires optional jdk.compat;
+    requires optional jdk.compiler;
+    requires optional jdk.corba;
+    requires optional jdk.cosnaming;
+    requires optional jdk.crypto;
+    requires optional jdk.deploy;
+    requires optional jdk.desktop;
+    requires optional jdk.httpserver;
+    requires optional jdk.instrument;
+    requires optional jdk.jaxp;
+    requires optional jdk.jaxws;
+    requires optional jdk.jdbc;
+    requires optional jdk.jdbc.rowset;
+    requires optional jdk.jndi;
+    requires optional jdk.jta;
+    requires optional jdk.jx.annotations;
+    requires optional jdk.kerberos;
+    requires optional jdk.logging;
+    requires optional jdk.management;
+    requires optional jdk.management.iiop;
+    requires optional jdk.prefs;
+    requires optional jdk.rmi;
+    requires optional jdk.scripting;
+    requires optional jdk.security.acl;
+    requires optional jdk.smartcardio;
+    requires optional jdk.snmp;
+    requires optional jdk.tls;
+    requires optional jdk.xmldsig;
+
+    // the following are modules that should be loaded by the extension loader
+    // ## workaround: when the security providers are converted as services,
+    // ## they will be part of the configuration for jdk.classpath
+    requires optional jdk.sunec;
+    requires optional jdk.sunpkcs11;
+    requires optional jdk.sunmscapi;
+    requires optional jdk.ucrypto;
+    requires optional jdk.sctp;
+    requires optional jdk.zipfs;
+
+    // tools module
+    requires optional jdk.tools.base;
+    requires optional jdk.tools.jre;
+    requires optional jdk.tools.jaxws;
+    requires optional jdk.tools;
+
+    // ## Workaround: generate a configuration on disk
+    class org.openjdk.jigsaw.Hi;
 }

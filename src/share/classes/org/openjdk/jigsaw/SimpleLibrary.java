@@ -473,16 +473,39 @@ public final class SimpleLibrary
             for (ModuleId mid : cf.roots()) {
                 out.writeUTF(mid.toString());
             }
-            // Contexts
-            List<Context> contexts = new ArrayList<>(cf.contexts());
-            out.writeInt(contexts.size());
-            for (Context cx : contexts) {
-                out.writeUTF(cx.name());
+            
+            // Context names and package names
+            // Store these strings only once and the subsequent sections will
+            // reference these names by its index.
+            List<String> cxns = new ArrayList<>();
+            Set<String> pkgs = new HashSet<>();
+            for (Context cx : cf.contexts()) {
+                String cxn = cx.name();
+                cxns.add(cxn);
+                pkgs.addAll(cx.remotePackages());
+                for (String cn : cx.localClasses()) {
+                    int i = cn.lastIndexOf('.');
+                    if (i >= 0)
+                        pkgs.add(cn.substring(0, i));
+                }
             }
-            for (Context cx : contexts) {
+            List<String> packages = Arrays.asList(pkgs.toArray(new String[0]));
+            Collections.sort(packages);
+            out.writeInt(cf.contexts().size());
+            for (String cxn : cxns) {
+                out.writeUTF(cxn);
+            }
+            out.writeInt(packages.size());
+            for (String pn : packages) {
+                out.writeUTF(pn);
+            }
+            
+            // Contexts
+            for (Context cx : cf.contexts()) {
                 // Module ids, and their libraries
                 out.writeInt(cx.modules().size());
-                for (ModuleId mid : cx.modules()) {
+                List<ModuleId> mids = new ArrayList<>(cx.modules());
+                for (ModuleId mid : mids) {
                     out.writeUTF(mid.toString());
                     File lp = cx.findLibraryPathForModule(mid);
                     if (lp == null)
@@ -501,22 +524,35 @@ public final class SimpleLibrary
                 out.writeInt(cx.localClasses().size());
                 for (Map.Entry<String,ModuleId> me
                          : cx.moduleForLocalClassMap().entrySet()) {
-                    out.writeUTF(me.getKey());
-                    out.writeUTF(me.getValue().toString());
+                    String cn = me.getKey();
+                    int i = cn.lastIndexOf('.');
+                    if (i == -1) {
+                        out.writeInt(-1);
+                        out.writeUTF(cn);
+                    } else {
+                        String pn = cn.substring(0, i);
+                        assert packages.contains(pn);
+                        out.writeInt(packages.indexOf(pn));
+                        out.writeUTF(cn.substring(i+1, cn.length()));
+                    }
+                    assert mids.contains(me.getValue());
+                    out.writeInt(mids.indexOf(me.getValue()));
                 }
 
                 // Remote package map
                 out.writeInt(cx.contextForRemotePackageMap().size());
                 for (Map.Entry<String,String> me
                          : cx.contextForRemotePackageMap().entrySet()) {
-                    out.writeUTF(me.getKey());
-                    out.writeUTF(me.getValue());
+                    assert packages.contains(me.getKey()) && cxns.contains(me.getValue());
+                    out.writeInt(packages.indexOf(me.getKey()));
+                    out.writeInt(cxns.indexOf(me.getValue()));
                 }
 
                 // Suppliers
                 out.writeInt(cx.remoteContexts().size());
                 for (String cxn : cx.remoteContexts()) {
-                    out.writeUTF(cxn);
+                    assert cxns.contains(cxn);
+                    out.writeInt(cxns.indexOf(cxn));
                 }
 
                 // Local service implementations
@@ -532,7 +568,10 @@ public final class SimpleLibrary
                 }
             }
         }
-
+        
+        // NOTE: jigsaw.c load_config is the native implementation of this method.
+        // Any change to the format of StoredConfiguration should be reflectd in
+        // both native and Java implementation
         protected void loadRest(DataInputStream in)
             throws IOException
         {
@@ -544,19 +583,31 @@ public final class SimpleLibrary
                 ModuleId rmid = jms.parseModuleId(root);
                 roots.add(rmid);
             }
-            cf = new Configuration<Context>(roots);
-            // Contexts
+            cf = new Configuration<>(roots);
+            
+            // Context names
             int nContexts = in.readInt();
             List<String> contexts = new ArrayList<>(nContexts);
             for (int i = 0; i < nContexts; i++) {
                 contexts.add(in.readUTF());
             }
+            
+            // Package names
+            int nPkgs = in.readInt();
+            List<String> packages = new ArrayList<>(nPkgs);
+            for (int i = 0; i < nPkgs; i++) {
+                packages.add(in.readUTF());
+            }
+            
+            // Contexts
             for (String cxn : contexts) {
                 Context cx = new Context();
                 // Module ids
                 int nModules = in.readInt();
+                List<ModuleId> mids = new ArrayList<>(nModules);
                 for (int j = 0; j < nModules; j++) {
                     ModuleId mid = jms.parseModuleId(in.readUTF());
+                    mids.add(mid);
                     String lps = in.readUTF();
                     if (lps.length() > 0)
                         cx.putLibraryPathForModule(mid, new File(lps));
@@ -573,21 +624,29 @@ public final class SimpleLibrary
                 cx.freeze();
                 assert cx.name().equals(cxn);
                 cf.add(cx);
+                
                 // Local class map
                 int nClasses = in.readInt();
-                for (int j = 0; j < nClasses; j++)
-                    cx.putModuleForLocalClass(in.readUTF(),
-                                              jms.parseModuleId(in.readUTF()));
+                for (int j = 0; j < nClasses; j++) {
+                    int idx = in.readInt();
+                    String name = in.readUTF();
+                    String cn = (idx == -1) ? name : packages.get(idx) + "." + name;
+                    ModuleId mid = mids.get(in.readInt());
+                    cx.putModuleForLocalClass(cn, mid);
+                } 
                 // Remote package map
                 int nPackages = in.readInt();
-                for (int j = 0; j < nPackages; j++)
-                    cx.putContextForRemotePackage(in.readUTF(), in.readUTF());
-
+                for (int j = 0; j < nPackages; j++) {
+                    String pn = packages.get(in.readInt());
+                    String rcxn = contexts.get(in.readInt());
+                    cx.putContextForRemotePackage(pn, rcxn);
+                }
                 // Suppliers
                 int nSuppliers = in.readInt();
-                for (int j = 0; j < nSuppliers; j++)
-                    cx.addSupplier(in.readUTF());
-
+                for (int j = 0; j < nSuppliers; j++) {
+                    String rcxn = contexts.get(in.readInt());
+                    cx.addSupplier(rcxn);
+                }
                 // Local service implementations
                 int nServices = in.readInt();
                 for (int j = 0; j < nServices; j++) {
@@ -1784,7 +1843,7 @@ public final class SimpleLibrary
 
         ModuleDictionary(File root) {
             this.root = root;
-            this.file = new File(root, FileConstants.META_PREFIX + "mids");
+            this.file = new File(root, FILE);
             this.providingModuleIds = new LinkedHashMap<>();
             this.moduleIdsForName = new LinkedHashMap<>();
             this.modules = new HashSet<>();

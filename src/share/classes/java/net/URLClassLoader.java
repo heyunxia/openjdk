@@ -93,7 +93,7 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
         if (security != null) {
             security.checkCreateClassLoader();
         }
-        ucp = new URLClassPath(urls);
+        ucp = new URLClassPath(this, urls);
         this.acc = AccessController.getContext();
     }
 
@@ -105,7 +105,7 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
         if (security != null) {
             security.checkCreateClassLoader();
         }
-        ucp = new URLClassPath(urls);
+        ucp = new URLClassPath(this, urls);
         this.acc = acc;
     }
 
@@ -136,7 +136,7 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
         if (security != null) {
             security.checkCreateClassLoader();
         }
-        ucp = new URLClassPath(urls);
+        ucp = new URLClassPath(this, urls);
         this.acc = AccessController.getContext();
     }
 
@@ -147,7 +147,7 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
         if (security != null) {
             security.checkCreateClassLoader();
         }
-        ucp = new URLClassPath(urls);
+        ucp = new URLClassPath(this, urls);
         this.acc = acc;
     }
 
@@ -179,7 +179,7 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
         if (security != null) {
             security.checkCreateClassLoader();
         }
-        ucp = new URLClassPath(urls, factory);
+        ucp = new URLClassPath(this, urls, factory);
         acc = AccessController.getContext();
     }
 
@@ -628,7 +628,7 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
         PermissionCollection perms = super.getPermissions(codesource);
 
         URL url = codesource.getLocation();
-
+        
         Permission p;
         URLConnection urlConnection;
 

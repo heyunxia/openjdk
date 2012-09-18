@@ -520,6 +520,7 @@ JAVA_JAVA_jigsaw = \
     org/openjdk/jigsaw/BootLoader.java \
     org/openjdk/jigsaw/Catalog.java \
     org/openjdk/jigsaw/ClassInfo.java \
+    org/openjdk/jigsaw/ClassPathContext.java \
     org/openjdk/jigsaw/Configuration.java \
     org/openjdk/jigsaw/ConfigurationException.java \
     org/openjdk/jigsaw/Configurator.java \

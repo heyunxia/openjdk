@@ -44,7 +44,12 @@ ifeq ($(PLATFORM),windows)
   # build directly into BINDIR...
   LIB_LOCATION = $(BINDIR)
   # Exported functions
-  OTHER_LCF = -export:winFileHandleOpen -export:handleLseek
+  OTHER_LCF = -export:winFileHandleOpen -export:handleLseek \
+              -export:JDK_GetSystemModuleLibraryPath \
+              -export:JDK_LoadContexts \
+              -export:JDK_FindLocalClass \
+              -export:JDK_ReadLocalClass \
+              -export:JDK_GetModuleInfo
 endif
 
 OTHER_CFLAGS += -DJDK_MAJOR_VERSION='"$(JDK_MAJOR_VERSION)"' \

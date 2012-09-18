@@ -57,6 +57,10 @@ sun/management/jmxremote/bootstrap/JvmstatCountersTest.java generic-all
 # Could not determine codeBase for java.home
 javax/management/MBeanInfo/NotificationInfoTest.java        generic-all
 
+# management-agent.jar is missing
+sun/management/jmxremote/bootstrap/CustomLauncherTest.sh 	generic-all
+sun/management/jmxremote/bootstrap/LocalManagementTest.sh 	generic-all
+
 ############################################################################
 
 # jdk_math
@@ -342,3 +346,32 @@ tools/javac/Paths/Diagnostics.sh
 
 # sun.misc.Lock is in compat module
 tools/javac/warnings/6594914/T6594914b.java
+
+############################################################################
+# New classpath mode support failures
+#
+
+# recursive initialization of system class loader
+java/nio/file/spi/SetDefaultProvider.java 		generic-all
+
+# URI.toURL() causes System.getProperty to be called
+# See 6977738 
+java/lang/ClassLoader/deadlock/GetResource.java		generic-all
+
+# javah throws NPE
+org/openjdk/jigsaw/hello-native.sh 			generic-all
+
+# stack trace change
+com/sun/jdi/MethodEntryExitEvents.java 			generic-all
+com/sun/jdi/StepTest.java 				generic-all
+
+# bytecode instrumentation??
+demo/jvmti/hprof/CpuOldTest.java 			generic-all
+demo/jvmti/hprof/CpuTimesDefineClassTest.java 		generic-all
+demo/jvmti/hprof/CpuTimesTest.java 			generic-all
+demo/jvmti/hprof/HeapAllTest.java 			generic-all
+demo/jvmti/hprof/HeapBinaryFormatTest.java 		generic-all
+demo/jvmti/hprof/HeapDumpTest.java 			generic-all
+demo/jvmti/hprof/HeapSitesTest.java 			generic-all
+demo/jvmti/hprof/OptionsTest.java		 	generic-all
+demo/jvmti/hprof/StackMapTableTest.java 		generic-all

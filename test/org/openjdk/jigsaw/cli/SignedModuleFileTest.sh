@@ -22,6 +22,7 @@
 # questions.
 
 # @test
+# @compile ImportPrivateKey.java ModuleFileTest.java
 # @run shell SignedModuleFileTest.sh
 # @summary Unit test for jpkg command
 
@@ -38,11 +39,36 @@ $BIN/keytool -import -keystore keystore.jks -file ${TESTSRC}/ca-cert.pem \
              -noprompt -storepass test123 -alias ca-cert
 
 # Import the signer's private key and cert
-$BIN/javac -source 8 -d . ${TESTSRC}/ImportPrivateKey.java
-$BIN/java ${VMOPTS} -Dtest.src=${TESTSRC} ImportPrivateKey signer \
+$BIN/java ${VMOPTS} -Dtest.src=${TESTSRC} -cp ${TESTCLASSES} \
+          ImportPrivateKey signer \
           signer-prikey.pem RSA signer-cert.pem
 
-$BIN/javac -source 8 -d . ${TESTSRC}/ModuleFileTest.java
+OS=`uname -s`
+case "$OS" in
+  SunOS | Linux | Darwin )
+    PS=":"
+    FS="/"
+    ;;
+  Windows* )
+    PS=";"
+    FS="\\"
+    ;;
+  CYGWIN* )
+    PS=";"
+    FS="\\"
+    isCygwin=true
+    ;;
+  * )
+    echo "Unrecognized system!"
+    exit 1;
+    ;;
+esac
+
+# ModuleFileTest has a dependency on javac and so include tools.jar
+# in the classpath.
+#
 $BIN/java ${VMOPTS} -Dorg.openjdk.system.security.cacerts=keystore.jks \
-          -Dtest.src=${TESTSRC} ModuleFileTest "test signed module file" \
+          -Dtest.src=${TESTSRC} \
+          -cp ${TESTCLASSES}${PS}${TESTJAVA}/lib/tools.jar \
+          ModuleFileTest "test signed module file" \
           < ${TESTSRC}/keystore.pw

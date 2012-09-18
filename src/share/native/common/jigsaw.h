@@ -26,46 +26,21 @@
 #ifndef JIGSAW_H
 #define JIGSAW_H
 
-#include "jni.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct module {
+/*
+ * Jigsaw native interface called by the VM.
+ *
+ */
+
+typedef struct {
     const char* module_name;
     const char* module_version;
     const char* libpath;
     const char* source;
-};
-
-
-/*-----------------------------------------------------------------------
- * Jigsaw native interfaces for JVM to use
- * 
- * ## Revisit:
- * 
- * This native interface provides an API for the JVM to find and read
- * classbytes of a given class name from the module library and/or 
- * a modulepath.  It needs to find the module matching a given module query
- * that can specify a view name or alias and also the ability to do 
- * version comparison to determine the most recent version if multiple 
- * modules match the query.
- * 
- * In other words, the following have to be done in native:
- * 1. JigsawVersion and JigsawVersionQuery - NOT implemented in native yet
- * 2. Library.findLatestModuleId(ModuleIdQuery)
- * 3. Library.readConfiguration(ModuleId)
- * 4. Configuration.getContextForModuleName
- * 5. Library.readLocalClass
- * 6. modulepath support - NOT implemented yet
- * 
- * There would be quite some amount of code that are implemented
- * in both Java and native.  This is not ideal and causes maintainence
- * overhead in keeping the native and Java version in sync.
- * 
- *-----------------------------------------------------------------------
- */
+} jmodule;
 
 #define JIGSAW_ERROR_INVALID_MODULE_LIBRARY       101
 #define JIGSAW_ERROR_BAD_FILE_HEADER              102
@@ -86,36 +61,37 @@ struct module {
 #define JIGSAW_ERROR_BUFFER_TOO_SHORT             202
 
 /*
- * Set the path of the system module library of the given JAVA_HOME
- * to the given libpath.  This method returns 0 if succeed; otherwise
- * returns non-zero error code.
- *
+ * Return the path of the default system module library of the given java_home.
+ * This method returns 0 if succeed; otherwise returns non-zero error code.
+
  * java_home : JAVA_HOME
  * libpath   : allocated buffer to be set with the path
  *             of the system module library
- * len       : length of the libpath argument
+ * len       : length of the allocated libpath buffer 
  */
-JNIEXPORT jint
-JDK_GetSystemModuleLibraryPath(const char *java_home,
-                               char *libpath,
-                               size_t len);
+typedef jint
+(*get_system_module_library_fn_t)(const char *java_home,
+                                  char *libpath,
+                                  size_t len);
 
 /*
  * Load the contexts of a given module query and set the
- * *base_context to the context containing the base module.
+ * *context to the context containing the base module.
  * This method returns 0 if succeed; otherwise returns non-zero
  * error code.
  *
  * libpath      : module library path (must be non-NULL)
  * modulepath   : module path or NULL
  * module_query : module query in module mode or NULL in classpath mode
- * base_context : To be set with the handle to the context
- *                for the base module
+ * context      : To be set with the handle to the context containing
+ *                the base module.  The returned context can contain
+ *                one or more modules that are required to be loaded
+ *                by the VM bootstrap class loader.
  */
-JNIEXPORT jint
-JDK_LoadContexts(const char *libpath, const char *modulepath,
-                 const char *module_query,
-                 void **base_context);
+typedef jint
+(*load_module_context_fn_t)(const char *libpath, const char *modulepath,
+                            const char *module_query,
+                            void **context);
 
 /*
  * Finds the class of a given classname local in a given context
@@ -127,11 +103,11 @@ JDK_LoadContexts(const char *libpath, const char *modulepath,
  * module     : handle to the module containing the class
  * len        : length of the class data
  */
-JNIEXPORT jint
-JDK_FindLocalClass(void  *context,
-                   const char *classname,
-                   void  **module,
-                   jint *len);
+typedef jint
+(*find_local_module_class_fn_t)(void  *context,
+                                const char *classname,
+                                void  **module,
+                                jint *len);
 
 /*
  * Reads bytestream of a given classname local in a given module
@@ -143,11 +119,11 @@ JDK_FindLocalClass(void  *context,
  * buf        : an allocated buffer to store the class data
  * len        : length of the buffer
  */
-JNIEXPORT jint
-JDK_ReadLocalClass(void *module,
-                   const char *classname,
-                   unsigned char *buf,
-                   jint size);
+typedef jint
+(*read_local_module_class_fn_t)(void *module,
+                                const char *classname,
+                                unsigned char *buf,
+                                jint size);
 
 /*
  * Get the information about the given module.
@@ -155,9 +131,14 @@ JDK_ReadLocalClass(void *module,
  * module    : handle to a module
  * minfo     : a pointer to struct for the module information.
  */
-JNIEXPORT jint
-JDK_GetModuleInfo(void *module,
-                  struct module *minfo);
+typedef jint (*get_module_info_fn_t)(void *module,
+                                     jmodule *minfo);
+
+/*
+ * Called by Java_org_openjdk_jigsaw_ClassPathContext_initBootstrapContexts
+ */
+void init_bootstrap_contexts(const char** non_bootstrap_modules, jint len);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

@@ -299,6 +299,9 @@ jdk-base-image-docfiles: $(IMAGE_DOCLIST_JDK:%=$(JDK_BASE_IMAGE_DIR)/%)
 
 jre-base-image-docfiles: $(IMAGE_DOCLIST_JRE:%=$(JRE_BASE_IMAGE_DIR)/%)
 
+#
+# Create an empty tools.jar for classpath mode support
+#
 jdk-module-image: jre-module-image \
                   jdk-module-image-setup \
 		  jdk-module-image-docfiles
@@ -306,13 +309,20 @@ jdk-module-image: jre-module-image \
 	@for jm in `$(NAWK) '{print $$1}' $(JDK_MODULES)` ; do \
 	    $(call install-jigsaw-module,$@,$$jm); \
 	done
+	$(MKDIR) $(ABS_MODULES_TEMPDIR)/tmp
+	$(BOOT_JAR_CMD) cf $(JDK_MODULE_IMAGE_DIR)/lib/tools.jar \
+	    -C $(ABS_MODULES_TEMPDIR)/tmp .
 
+#
+# Create an empty lib/ext directory for classpath mode support
+#
 jre-module-image: jre-module-image-setup \
   		  jre-module-image-docfiles
 	$(call create-module-library,$@)
 	@for jm in `$(NAWK) '{print $$1}' $(JRE_MODULES)` ; do \
 	    $(call install-jigsaw-module,$@,$$jm); \
 	done
+	$(MKDIR) $(JRE_MODULE_IMAGE_DIR)/lib/ext
 
 # 64-bit solaris jre image contains only the 64-bit add-on files.
 # FIXME: should there be two sets of modules (one for sparc and one for sparcv9)?

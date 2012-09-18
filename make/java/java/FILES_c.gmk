@@ -80,5 +80,6 @@ FILES_c = \
 	Version.c \
 	VM.c \
 	VMSupport.c \
+        ClassPathContext.c \
         PersistentTreeMap.c \
         PersistentTreeMap_md.c \

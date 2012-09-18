@@ -102,7 +102,11 @@ $(call make-launcher, jstack, sun.tools.jstack.JStack, \
 $(call make-launcher, jstat, sun.tools.jstat.Jstat, , )
 $(call make-launcher, jstatd, sun.tools.jstatd.Jstatd, -J-Xmode:legacy, )
 $(call make-launcher, native2ascii, sun.tools.native2ascii.Main, , )
-$(call make-launcher, rmic, sun.rmi.rmic.Main, -J-Xmode:legacy, )
+## 
+## Until rmic works with module image, it runs in legacy mode
+## and uses the launcher hack setting -Xbootclasspath and
+## set -XX:-UseModuleNativeLibs flag.
+$(call make-launcher, rmic, sun.rmi.rmic.Main, -J-Xmode:legacy -XX:-UseModuleNativeLibs, )
 $(call make-launcher, schemagen, com.sun.tools.internal.jxc.SchemaGenerator, , )
 $(call make-launcher, serialver, sun.tools.serialver.SerialVer, , )
 $(call make-launcher, xjc, com.sun.tools.internal.xjc.Driver, , )

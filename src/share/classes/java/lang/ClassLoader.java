@@ -1159,7 +1159,7 @@ public abstract class ClassLoader {
         if (parent != null) {
             url = parent.getResource(name);
         } else {
-            url = getBootstrapResource(name);
+            url = sun.misc.Launcher.getBootstrapResource(name);
         }
         if (url == null) {
             url = findResource(name);
@@ -1199,7 +1199,7 @@ public abstract class ClassLoader {
         if (parent != null) {
             tmp[0] = parent.getResources(name);
         } else {
-            tmp[0] = getBootstrapResources(name);
+            tmp[0] = sun.misc.Launcher.getBootstrapResources(name);
         }
         tmp[1] = findResources(name);
 
@@ -1283,7 +1283,7 @@ public abstract class ClassLoader {
     public static URL getSystemResource(String name) {
         ClassLoader system = getSystemClassLoader();
         if (system == null) {
-            return getBootstrapResource(name);
+            return sun.misc.Launcher.getBootstrapResource(name);
         }
         return system.getResource(name);
     }
@@ -1313,43 +1313,10 @@ public abstract class ClassLoader {
     {
         ClassLoader system = getSystemClassLoader();
         if (system == null) {
-            return getBootstrapResources(name);
+            return sun.misc.Launcher.getBootstrapResources(name);
         }
         return system.getResources(name);
     }
-
-    /**
-     * Find resources from the VM's built-in classloader.
-     */
-    private static URL getBootstrapResource(String name) {
-        URLClassPath ucp = getBootstrapClassPath();
-        Resource res = ucp.getResource(name);
-        return res != null ? res.getURL() : null;
-    }
-
-    /**
-     * Find resources from the VM's built-in classloader.
-     */
-    private static Enumeration<URL> getBootstrapResources(String name)
-        throws IOException
-    {
-        final Enumeration<Resource> e =
-            getBootstrapClassPath().getResources(name);
-        return new Enumeration<URL> () {
-            public URL nextElement() {
-                return e.nextElement().getURL();
-            }
-            public boolean hasMoreElements() {
-                return e.hasMoreElements();
-            }
-        };
-    }
-
-    // Returns the URLClassPath that is used for finding system resources.
-    static URLClassPath getBootstrapClassPath() {
-        return sun.misc.Launcher.getBootstrapClassPath();
-    }
-
 
     /**
      * Returns an input stream for reading the specified resource.

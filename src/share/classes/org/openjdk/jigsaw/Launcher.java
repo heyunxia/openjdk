@@ -28,9 +28,6 @@ package org.openjdk.jigsaw;
 import java.io.*;
 import java.lang.module.*;
 
-import static org.openjdk.jigsaw.Trace.*;
-
-
 /**
  * <p> The modular-application launcher, invoked (indirectly) by the native
  * launcher </p>
@@ -73,7 +70,7 @@ public final class Launcher {
         if (cx == null)
             throw new InternalError(mid + ": Cannot find context");
         LoaderPool lp = new LoaderPool(lb, cf, cn);
-        
+
         return lp.findLoader(cx);
     }
 
@@ -83,11 +80,7 @@ public final class Launcher {
      */
     public static ClassLoader launch(String midqs) {
         // ## What about the extension class loader?
-        // ## Delete these and other sjlm properties when done with them
-        String lmlp = System.getProperty("sun.java.launcher.module.library");
-        File mlp = ((lmlp != null)
-                    ? new File(lmlp)
-                    : Library.systemLibraryPath());
+        File mlp = getModuleLibraryPath();
         Loader ld = null;
         try {
             ld = loadModule(mlp, jms.parseModuleIdQuery(midqs));
@@ -110,10 +103,8 @@ public final class Launcher {
             } else {
                 try {
                     sm = (SecurityManager)ld.loadClass(s).newInstance();
-                } catch (IllegalAccessException e) {
-                } catch (InstantiationException e) {
-                } catch (ClassNotFoundException e) {
-                } catch (ClassCastException e) {
+                } catch (IllegalAccessException | InstantiationException |
+                         ClassNotFoundException | ClassCastException e) {
                 }
             }
             if (sm != null) {
@@ -132,6 +123,15 @@ public final class Launcher {
      */
     public static String mainClass(ClassLoader cl) {
         return ((Loader)cl).pool.mainClass();
+    }
+
+    static File getModuleLibraryPath() {
+        // ## Delete these and other sjlm properties when done with them
+        String lmlp = System.getProperty("sun.java.launcher.module.library");
+        File mlp = ((lmlp != null)
+                       ? new File(lmlp)
+                       : Library.systemLibraryPath());
+        return mlp;
     }
 
 }

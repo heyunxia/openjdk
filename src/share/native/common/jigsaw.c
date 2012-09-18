@@ -41,6 +41,28 @@
 #include "jdk_util.h"
 #include "jigsaw.h"
 
+/*
+ * This native interface provides an API for the JVM to find and read
+ * classbytes of a given class name from the module library and/or
+ * a modulepath.  It needs to find the module matching a given module query
+ * that can specify a view name or alias and also the ability to do
+ * version comparison to determine the most recent version if multiple
+ * modules match the query.
+ *
+ * In other words, the following have to be done in native:
+ * 1. JigsawVersion and JigsawVersionQuery - NOT implemented in native yet
+ * 2. Library.findLatestModuleId(ModuleIdQuery)
+ * 3. Library.readConfiguration(ModuleId)
+ * 4. Configuration.getContextForModuleName
+ * 5. Library.readLocalClass
+ * 6. modulepath support - NOT implemented yet
+ *
+ * There would be quite some amount of code that are implemented
+ * in both Java and native.  Revisit: this is not ideal and causes
+ * maintainence overhead in keeping the native and Java version 
+ * in sync.
+ */
+
 #define MAGIC                   0xcafe00fa
 #define MAJOR_VERSION           0
 #define MINOR_VERSION           1
@@ -52,6 +74,7 @@
 #define MODULE_INFO_MAGIC       0xcafebabe
 
 #define JDK_BASE                "jdk.base"
+#define JDK_CLASSPATH           "jdk.classpath"
 #define JIGSAW_LIBRARY          "%jigsaw-library"
 #define JIGSAW_MIDS             "%mids"
 #define CONFIG                  "config"
@@ -67,15 +90,20 @@
 /* Type definitions for zip file and zip file entry */
 typedef void* jzfile;
 typedef struct {
-  char*  name;                   /* entry name */
-  jlong  time;                   /* modification time */
-  jlong  size;                   /* size of uncompressed data */
-  jlong  csize;                  /* size of compressed data (zero if uncompressed) */
-  jint   crc;                    /* crc of uncompressed data */
-  char*  comment;                /* optional zip file comment */
-  jbyte* extra;                 /* optional extra data */
-  jlong  pos;                    /* position of LOC header (if negative) or data */
+    char*  name;                   /* entry name */
+    jlong  time;                   /* modification time */
+    jlong  size;                   /* size of uncompressed data */
+    jlong  csize;                  /* size of compressed data (zero if uncompressed) */
+    jint   crc;                    /* crc of uncompressed data */
+    char*  comment;                /* optional zip file comment */
+    jbyte* extra;                 /* optional extra data */
+    jlong  pos;                    /* position of LOC header (if negative) or data */
 } jzentry;
+
+struct library {
+    struct library*  parent;
+    const char*      path;
+};
 
 typedef struct {
     struct jcontext* context;
@@ -85,23 +113,24 @@ typedef struct {
     const char*      source;
     jzfile*          zfile;
     jzentry*         last_read_entry;
-} jmodule;
+} jmoduleEntry;
 
 typedef struct jcontext {
-    char*        name;
-    jint         nModules;
-    jmodule*     modules;
-    struct jcontext** remote_contexts;
+    jboolean         bootstrap;
+    char*            name;
+    jint             mcount;
+    jmoduleEntry*    modules;
 } jcontext;
 
 typedef struct jconfig {
-    jboolean     classpath_mode;
-    const char*  path;
-    const char*  config;
-    jint         cxcount;
-    jcontext*    contexts;
-    jcontext*    base;
-    jmodule*     base_module;
+    jboolean         classpath_mode;
+    struct library*  mlib;
+    const char*      path;
+    const char*      config;
+    jint             cxcount;
+    jcontext*        contexts;
+    jcontext*        base;
+    jmoduleEntry*    base_module;
 } jconfig;
 
 struct ModuleIdEntry {
@@ -142,7 +171,7 @@ void trace(const char* format, ...) {
 jint initialize() {
     void* handle;
 
-    char* s = getenv("JIGSAW_DEBUG");
+    char* s = getenv("JIGSAW_NATIVE_DEBUG");
     if (s != NULL && strcmp(s, "true") == 0) {
         debugOn = JNI_TRUE;
     }
@@ -244,7 +273,7 @@ jint checkFileHeader(jint fd, jint count, unsigned int expected) {
 }
 
 jint checkModuleHandle(void *m) {
-    jmodule* module = (jmodule*) m;
+    jmoduleEntry* module = (jmoduleEntry*) m;
     int i;
     if (module == NULL)
         return -1;
@@ -258,6 +287,40 @@ jint checkModuleHandle(void *m) {
 }
 
 /*
+ * This is called by Java_org_openjdk_jigsaw_ClassPathContext_initBootstrapContexts
+ */
+void init_bootstrap_contexts(const char** non_bootstrap_modules, jint len) {
+    jcontext* cx;
+    jmoduleEntry* module;
+    int n, i, j;
+    int bcxCount = 0;
+
+    // config may not be loaded if jigsaw native interface is not used
+    if (config == NULL) return;
+
+    for (n = 0; n < config->cxcount; n++) {
+        jboolean bootstrap = JNI_TRUE;
+        cx = &config->contexts[n];
+        for (i = 0; i < cx->mcount && bootstrap; i++) {
+            module = &cx->modules[i];
+            for (j = 0; j < len; j++) {
+                if (strcmp(module->module_name, non_bootstrap_modules[j]) == 0) {
+                    bootstrap = JNI_FALSE;
+                    break;
+                }
+            }
+        }
+        cx->bootstrap = bootstrap;
+        if (bootstrap)
+            bcxCount++;
+        trace("%s: %d modules bootstrap %d\n", cx->name, cx->mcount, cx->bootstrap);
+    }
+    trace("bootstrap_contexts inited %d bootstrap contexts %d non-bootstrap contexts (%d modules)\n",
+          bcxCount, (config->cxcount-bcxCount), len);
+
+}
+
+/*
  * Read the configuration.
  *
  * TODO: it currently doesn't store the local class map, remote package map,
@@ -268,9 +331,9 @@ jint checkModuleHandle(void *m) {
  */
 jint load_config(jconfig* config) {
     jint fd;
-    int nRoots, nContexts, nClasses;
-    int nRemotePkgs, nSuppliers;
-    int nServices, nRemoteServices;
+    int nRoots, nContexts, nPkgs;
+    int nClasses, nRemotePkgs, nSuppliers;
+    int nServices;
     int n;
     trace("load_config %s\n", config->config);
     fd = JVM_Open(config->config, O_RDONLY, 0666);
@@ -321,16 +384,24 @@ jint load_config(jconfig* config) {
         jcontext* cx = &config->contexts[n];
         cx->name = readUTF8(fd);
     }
+
+    // packages
+    nPkgs = readInt(fd);
+    for (n = 0; n < nPkgs; n++) {
+        char* pn = readUTF8(fd);
+        free(pn);
+    }
+    
     for (n=0; n < nContexts; n++) {
         int i, j;
         jcontext* cx = &config->contexts[n];
         int nModules = readInt(fd);
-        cx->nModules = nModules;
-        cx->modules = malloc(sizeof(jmodule) * nModules);
+        cx->mcount = nModules;
+        cx->modules = malloc(sizeof(jmoduleEntry) * nModules);
 
         trace("contexts[%d] = %s (%d modules)\n", n, cx->name, nModules);
         for (i=0; i < nModules; i++) {
-            jmodule* m = &cx->modules[i];
+            jmoduleEntry* m = &cx->modules[i];
             char* mid = readUTF8(fd);
             char* libpath = readUTF8(fd);
             int views = readInt(fd);
@@ -347,29 +418,29 @@ jint load_config(jconfig* config) {
             }
         }
 
+        // lazy initialized when the ClassPathContexts are created
+        cx->bootstrap = JNI_FALSE;
+
         // local class map
         nClasses = readInt(fd);
         for (i=0; i < nClasses; i++) {
-            char* cn = readUTF8(fd);
-            char* mid = readUTF8(fd);
-            free(cn);
-            free(mid);
+            int pidx = readInt(fd);
+            char* name = readUTF8(fd);
+            int midx = readInt(fd);
+            free(name);
         }
 
         // remote package map
         nRemotePkgs = readInt(fd);
         for(i=0; i < nRemotePkgs; i++) {
-            char* pn = readUTF8(fd);
-            char* cxn = readUTF8(fd);
-            free(pn);
-            free(cxn);
+            readInt(fd); // remote package
+            readInt(fd); // remote context
         }
 
         // remote contexts/suppliers
         nSuppliers = readInt(fd);
         for (i=0; i < nSuppliers; i++) {
-            char* rcxn = readUTF8(fd);
-            free(rcxn);
+            readInt(fd); // remote context
         }
 
         // Local service implementations
@@ -384,7 +455,7 @@ jint load_config(jconfig* config) {
             free(sn);
         }
     }
-    return 0;
+    CLOSE_FD_RETURN(fd, 0);
 }
 
 // ## TODO: implement jigsaw version comparsion
@@ -491,7 +562,7 @@ jint find_declaring_module_dir(const char* libpath, const char* modulepath,
     }
     if (entry == NULL) {
         trace("no module matches %s\n", midq);
-        return -1;
+        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_MODULE_NOT_FOUND);
     }
 
     while (strcmp(entry->mid, entry->providingModuleId) != 0) {
@@ -506,30 +577,42 @@ jint find_declaring_module_dir(const char* libpath, const char* modulepath,
     parse_module_id(entry->mid, module_name, module_version);
     jio_snprintf(module_dir, len, "%s%s%s%s%s",
                  libpath, separator, module_name, separator, module_version);
-    return 0;
+    CLOSE_FD_RETURN(fd, 0);
 }
 
 
 /* Finds the configuration of a module that matches the given ModuleIdQuery.
- * It returns the path if a module matching the ModuleIdQuery is found;
+ * It returns a newly allocated config struct;
  * otherwise, returns NULL.
  */
-char* find_config_path(const char* libpath, const char* modulepath, const char* midq) {
+jconfig* find_config(struct library* mlib,
+                     const char* modulepath,
+                     const char* midq)
+{
     char mdir[JVM_MAXPATHLEN];
     char config_path[JVM_MAXPATHLEN];
+    const char* path;
+    jconfig* config;
 
-    int rc = find_declaring_module_dir(libpath, modulepath, midq, mdir, sizeof(mdir));
-    if (rc != 0) {
-        return NULL;
+    struct library* lib = mlib; 
+    while (lib != NULL) {
+        int rc = find_declaring_module_dir(lib->path, modulepath, midq, mdir, sizeof(mdir));
+        if (rc == 0) {
+            jio_snprintf(config_path, sizeof (config_path), "%s%s%s",
+                         mdir, separator, CONFIG);
+            
+            config = malloc(sizeof (jconfig));
+            config->config = strdup(config_path);
+            config->path = strdup(lib->path);
+            return config;
+        }
+        lib = lib->parent;
     }
-
-    jio_snprintf(config_path, sizeof(config_path), "%s%s%s",
-                 mdir, separator, CONFIG);
-    return strdup(config_path);
+    return NULL;
 }
 
 // Find the ZipEntry for the given class in a simple library
-jint find_class_entry(jmodule* m, const char* name, jzentry** entry, jint* filesize, jint* name_len) {
+jint find_class_entry(jmoduleEntry* m, const char* name, jzentry** entry, jint* filesize, jint* name_len) {
     if (m->zfile == NULL) {
         // cache the opened zip file for the module
         char path[JVM_MAXPATHLEN];
@@ -556,9 +639,9 @@ jint find_class_entry(jmodule* m, const char* name, jzentry** entry, jint* files
     return 0;
 }
 
-jmodule* find_class(jcontext* cx, const char* entry_name, jint* filesize) {
+jmoduleEntry* find_class(jcontext* cx, const char* entry_name, jint* filesize) {
     jzentry* entry;
-    jmodule* m;
+    jmoduleEntry* m;
     int n, name_len;
 
     // TODO: fast configuration
@@ -575,14 +658,20 @@ jmodule* find_class(jcontext* cx, const char* entry_name, jint* filesize) {
         n = 0;
     }
     entry = NULL;
-    while (entry == NULL && n < cx->nModules) {
-        int rc = find_class_entry(m, entry_name, &entry, filesize, &name_len);
+    while (entry == NULL && n < cx->mcount) {
+        int rc;
+        if (strcmp(m->module_name, JDK_CLASSPATH) == 0) {
+            // skip the classpath module
+            m = &cx->modules[++n];
+            continue;
+        }
+        rc = find_class_entry(m, entry_name, &entry, filesize, &name_len);
         if (rc == 0) {
             break;
-        } else if (rc == JIGSAW_ERROR_CLASS_NOT_FOUND && (n+1) < cx->nModules) {
+        } else if (rc == JIGSAW_ERROR_CLASS_NOT_FOUND && (n+1) < cx->mcount) {
             m = &cx->modules[++n];
             if (m == config->base_module) {
-                // already visited; skip the base module
+                // skip the base module (already visited)
                 m = &cx->modules[++n];
             }
         } else {
@@ -590,6 +679,76 @@ jmodule* find_class(jcontext* cx, const char* entry_name, jint* filesize) {
         }
     }
     return entry == NULL ? NULL : m;
+}
+
+void free_module_library(struct library *mlib) {
+    struct library* p = mlib;
+    while (p != NULL) {
+        mlib = mlib->parent;
+        free(p);
+        p = mlib;
+    }
+}
+
+jint open_module_library(const char* libpath, struct library** mlib) {
+    char path[JVM_MAXPATHLEN];
+    jint fd;
+    jint rc, value;
+    char c;
+    char* p;
+    struct library* parent = NULL;
+    char* parentpath = NULL;
+
+    trace("open_module_library %s\n", libpath);
+    jio_snprintf(path, sizeof(path), "%s%s%s",
+                 libpath, separator, JIGSAW_LIBRARY);
+    
+    fd = JVM_Open(path, O_RDONLY, 0666);
+    if (fd == -1) {
+        trace("error: failed to open %s\n", path);
+        return JIGSAW_ERROR_MODULE_LIBRARY_NOT_FOUND;
+    }
+
+    if (checkFileHeader(fd, 4, MAGIC) != 0)
+        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
+
+    if (checkFileHeader(fd, 2, LIBRARY_HEADER) != 0)
+        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
+
+    if (checkFileHeader(fd, 2, MAJOR_VERSION) != 0)
+        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
+
+    if (checkFileHeader(fd, 2, MINOR_VERSION) != 0)
+        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
+    
+    value = readShort(fd);  // deflated?
+    if (readByte(fd) == 1) {
+        parentpath = readUTF8(fd);
+        trace("   parent %s\n", parentpath);
+
+        p = parentpath;
+        while ((c = *p) != '\0') {
+            if (c == '/') {
+                *p = FILE_SEPARATOR;
+            }
+            p++;
+        }
+        trace("   parent %s\n", parentpath);
+    }
+    JVM_Close(fd);
+    
+    if (parentpath != NULL) {
+        parent = (struct library*) malloc(sizeof(struct library));
+        rc = open_module_library(parentpath, &parent);
+        if (rc != 0) {
+            free_module_library(parent);
+            return rc;
+        }
+    }
+    *mlib = (struct library*) malloc(sizeof(struct library));
+    (*mlib)->parent = parent;
+    (*mlib)->path = libpath;
+    return 0;
 }
 
 /*
@@ -604,59 +763,49 @@ jmodule* find_class(jcontext* cx, const char* entry_name, jint* filesize) {
  * context      : To be set with the handle to the context
  *                for class lookup
  */
-JNIEXPORT jint
+jint
 JDK_LoadContexts(const char *libpath, const char *modulepath,
                  const char *module_query,
                  void **context)
 {
     char path[JVM_MAXPATHLEN];
-    jint fd;
     int n, rc;
-    const char* query = module_query;
+    char* config_path;
+    struct library* mlib;
+    
     trace("JDK_LoadContexts %s %s\n", libpath, module_query);
-
     if (initialize() != 0)
         return -1;
-
-    if (module_query == NULL)
-        return -1;   // classpath mode not yet supported
 
     // ## TODO: modulepath support
     if (libpath == NULL) {
         return JIGSAW_ERROR_INVALID_MODULE_LIBRARY;
     }
 
-    jio_snprintf(path, sizeof(path), "%s%s%s", libpath, separator, JIGSAW_LIBRARY);
-    fd = JVM_Open(path, O_RDONLY, 0666);
-    if (fd == -1) {
-        return JIGSAW_ERROR_INVALID_MODULE_LIBRARY;
+    rc = open_module_library(libpath, &mlib);
+    if (rc != 0) {
+        free_module_library(mlib);
+        return rc;
     }
 
-    // validate the header of the jigsaw library
-    if (checkFileHeader(fd, 4, MAGIC) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
-    if (checkFileHeader(fd, 2, LIBRARY_HEADER) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
-    if (checkFileHeader(fd, 2, MAJOR_VERSION) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
-    if (checkFileHeader(fd, 2, MINOR_VERSION) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
-    config = malloc(sizeof(jconfig));
+    if (module_query != NULL) {
+        config = find_config(mlib, modulepath, module_query);
+    } else {
+        config = find_config(mlib, modulepath, JDK_CLASSPATH);
+        if (config == NULL) {
+            trace("classpath config for %s not found\n", JDK_CLASSPATH);
+            config = find_config(mlib, modulepath, JDK_BASE);
+        }
+    }
+    if (config == NULL) {
+        trace("error: config not found\n");
+        return JIGSAW_ERROR_MODULE_NOT_FOUND;
+    }
+    
     config->classpath_mode = (module_query == NULL);
-    config->path = strdup(libpath);
-    config->config = find_config_path(libpath, modulepath, query);
-    if (config->config == NULL) {
-        trace("error: config %s not found\n", query);
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_MODULE_NOT_FOUND);
-    }
-
     if ((rc = load_config(config)) != 0) {
         trace("error: failed to load config %s\n", config->config);
-        CLOSE_FD_RETURN(fd, rc);
+        return rc;
     }
     config->base = NULL;
     config->base_module = NULL;
@@ -664,8 +813,8 @@ JDK_LoadContexts(const char *libpath, const char *modulepath,
     while (n < config->cxcount && config->base == NULL) {
         int i;
         jcontext* cx = &config->contexts[n++];
-        trace("%s: %d modules\n", cx->name, cx->nModules);
-        for (i=0; i < cx->nModules; i++) {
+        trace("%s: %d modules bootstrap %d\n", cx->name, cx->mcount, cx->bootstrap);
+        for (i=0; i < cx->mcount; i++) {
             if (strcmp(cx->modules[i].module_name, JDK_BASE) == 0) {
                  config->base = cx;
                  config->base_module = &cx->modules[i];
@@ -675,10 +824,9 @@ JDK_LoadContexts(const char *libpath, const char *modulepath,
     }
 
     if (config->base == NULL)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_BASE_MODULE_NOT_FOUND);
+        return JIGSAW_ERROR_BASE_MODULE_NOT_FOUND;
 
     *context = config->base;
-    JVM_Close(fd);
     return 0;
 }
 
@@ -692,16 +840,16 @@ JDK_LoadContexts(const char *libpath, const char *modulepath,
  * module     : handle to the module containing the class
  * len        : length of the class data
  */
-JNIEXPORT jint
+jint
 JDK_FindLocalClass(void *context,
                    const char *classname,
                    void **module,
                    jint *len)
 {
     char entry_name[JVM_MAXPATHLEN];
-    jmodule* m;
+    jmoduleEntry* m;
     int n;
-    
+
     jcontext* cx = (jcontext*) context;
     if (config == NULL) {
         return JIGSAW_ERROR_CONTEXTS_NOT_LOADED;
@@ -713,20 +861,21 @@ JDK_FindLocalClass(void *context,
     if (cx != NULL && cx != config->base) {
         return JIGSAW_ERROR_INVALID_CONTEXT;
     }
-    
+
     assert (strlen(classname) < JVM_MAXPATHLEN-6);
     strncpy(entry_name, classname, sizeof(entry_name));
     strcat(entry_name, ".class");
-    
+
     // find class from the base context
     m = find_class(cx, entry_name, len);
     if (m == NULL && config->classpath_mode) {
         // classpath mode: search all contexts
+        // assert bootstrap initialized
         for (n=0; n < config->cxcount; n++) {
             jcontext* cx = &config->contexts[n];
-            if (cx == config->base)
+            // base has been visited; skip non-bootclasspath modules
+            if (cx == config->base || !cx->bootstrap)
                 continue;
-            // ## skip zipfs and other non-bootclasspath module
             if ((m = find_class(cx, entry_name, len)) != NULL)
                 break;
         }
@@ -749,7 +898,7 @@ JDK_FindLocalClass(void *context,
  * buf        : an allocated buffer to store the class data
  * len        : length of the buffer
  */
-JNIEXPORT jint
+jint
 JDK_ReadLocalClass(void *module,
                    const char *classname,
                    unsigned char *buf,
@@ -757,7 +906,7 @@ JDK_ReadLocalClass(void *module,
 {
     jint filesize, name_len;
     jzentry* entry;
-    jmodule* m;
+    jmoduleEntry* m;
     char entry_name[JVM_MAXPATHLEN];
     char name_buf[128];
     char* filename;
@@ -775,7 +924,7 @@ JDK_ReadLocalClass(void *module,
     strcat(entry_name, ".class");
 
     entry = NULL;
-    m = (jmodule*)module;
+    m = (jmoduleEntry*)module;
     rc = find_class_entry(m, entry_name, &entry, &filesize, &name_len);
     if (rc != 0) {
         return rc;
@@ -799,11 +948,19 @@ JDK_ReadLocalClass(void *module,
  *
  * module    : handle to a module
  * minfo     : a pointer to struct for the module information.
+ * 
+ * TODO: what the source should be? It's used by the VM to print
+ * verbose output.  Currently set to the path to 
+ * <modulename>/<version>/classes.
+ * 
+ * defineClass passes the module's code source to the VM.
+ * 
+ * Might be better to print module library + module ID in verbose output.
  */
-JNIEXPORT jint
+jint
 JDK_GetModuleInfo(void *module,
-                  struct module *minfo) {
-    jmodule* m = (jmodule*)module;
+                  jmodule *minfo) {
+    jmoduleEntry* m = (jmoduleEntry*)module;
 
     if (config == NULL) {
         return JIGSAW_ERROR_CONTEXTS_NOT_LOADED;
@@ -829,46 +986,30 @@ JDK_GetModuleInfo(void *module,
  *             of the system module library
  * len       : length of the libpath argument
  */
-JNIEXPORT jint
+jint
 JDK_GetSystemModuleLibraryPath(const char* java_home,
                                char* libpath,
                                size_t len)
 {
-    char path[JVM_MAXPATHLEN];
-    jint fd;
     size_t rv;
+    jint err;
+    struct library* mlib;
 
     trace("JDK_GetSystemModuleLibraryPath %s\n", java_home);
     if (java_home == NULL) {
         return JIGSAW_ERROR_MODULE_LIBRARY_NOT_FOUND;
     }
-
-    jio_snprintf(path, sizeof(path), "%s%slib%smodules%s%s",
-                 java_home, separator, separator, separator, JIGSAW_LIBRARY);
-    fd = JVM_Open(path, O_RDONLY, 0666);
-    if (fd == -1) {
-        trace("error: failed to open %s\n", path);
-        return JIGSAW_ERROR_MODULE_LIBRARY_NOT_FOUND;
-    }
-
-    if (checkFileHeader(fd, 4, MAGIC) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
-    if (checkFileHeader(fd, 2, LIBRARY_HEADER) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
-    if (checkFileHeader(fd, 2, MAJOR_VERSION) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
-    if (checkFileHeader(fd, 2, MINOR_VERSION) != 0)
-        CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-
+    
     rv = jio_snprintf(libpath, len, "%s%slib%smodules",
                       java_home, separator, separator);
     if (rv >= len) {
         trace("error: buffer size too small %d len %d\n", rv, len);
         return JIGSAW_ERROR_BUFFER_TOO_SHORT;
     }
-
+    err = open_module_library(libpath, &mlib);
+    if (err != 0) {
+        free_module_library(mlib);
+        return err;
+    }
     return 0;
 }
