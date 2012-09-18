@@ -233,9 +233,12 @@
          otherwise use -Xbootclasspath/p:<classes>.   In both cases,
          prefix all words with -J to tunnel them through the javac
          launcher to the underlying JVM. -->
-    <!-- -J-Xmode:module is temporary until that is the default mode for the standard javac launcher -->
+    <!-- javac -L -Xbootclasspath/p in classpath mode fails to compile.
+         Not use -L for now.
+         value="-J-L -J${build.bootstrap.dir}/lib/modules -J-Xmode:module"
+         -->
     <condition property="default.bootstrap.opts"
-        value="-J-L -J${build.bootstrap.dir}/lib/modules -J-Xmode:module"
+        value="-J-Xbootclasspath/p:${build.bootstrap.dir}/classes"
         else="-J-Xbootclasspath/p:${build.bootstrap.dir}/classes">
            <isset property="boot.java.provides.modules"/>
     </condition>
