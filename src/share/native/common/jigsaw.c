@@ -171,9 +171,10 @@ void trace(const char* format, ...) {
 jint initialize() {
     void* handle;
 
-    if (ZipOpen != NULL)
+    if (ZipOpen != NULL) {
       // already initialized
       return 0;
+    }
 
     char* s = getenv("JIGSAW_NATIVE_DEBUG");
     if (s != NULL && strcmp(s, "true") == 0) {
@@ -1010,11 +1011,6 @@ JDK_GetSystemModuleLibraryPath(const char* java_home,
     if (rv >= len) {
         trace("error: buffer size too small %d len %d\n", rv, len);
         return JIGSAW_ERROR_BUFFER_TOO_SHORT;
-    }
-    err = open_module_library(libpath, &mlib);
-    if (err != 0) {
-        free_module_library(mlib);
-        return err;
     }
     return 0;
 }
