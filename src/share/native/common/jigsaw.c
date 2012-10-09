@@ -171,13 +171,14 @@ void trace(const char* format, ...) {
 jint initialize() {
     void* handle;
 
+    if (ZipOpen != NULL)
+      // already initialized
+      return 0;
+
     char* s = getenv("JIGSAW_NATIVE_DEBUG");
     if (s != NULL && strcmp(s, "true") == 0) {
         debugOn = JNI_TRUE;
     }
-
-    // already initialized
-    if (ZipOpen != NULL) return 0;
 
     if ((handle = JDK_GetLibraryHandle("zip")) == NULL) {
         trace("error: failed to get the handle of %s\n",
@@ -773,9 +774,10 @@ JDK_LoadContexts(const char *libpath, const char *modulepath,
     char* config_path;
     struct library* mlib;
 
-    trace("JDK_LoadContexts %s %s\n", libpath, module_query);
     if (initialize() != 0)
         return -1;
+
+    trace("JDK_LoadContexts %s %s\n", libpath, module_query);
 
     // ## TODO: modulepath support
     if (libpath == NULL) {
@@ -994,6 +996,9 @@ JDK_GetSystemModuleLibraryPath(const char* java_home,
     size_t rv;
     jint err;
     struct library* mlib;
+
+    if (initialize() != 0)
+        return -1;
 
     trace("JDK_GetSystemModuleLibraryPath %s\n", java_home);
     if (java_home == NULL) {
