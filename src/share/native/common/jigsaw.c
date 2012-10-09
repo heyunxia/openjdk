@@ -67,7 +67,7 @@
 #define MAJOR_VERSION           0
 #define MINOR_VERSION           1
 #define DEFLATED                (1 << 0)
-#define LIBRARY_HEADER        	0
+#define LIBRARY_HEADER          0
 #define LIBRARY_MODULE_INDEX    1
 #define LIBRARY_MODULE_CONFIG   2
 #define LIBRARY_MODULE_IDS      8
@@ -391,7 +391,7 @@ jint load_config(jconfig* config) {
         char* pn = readUTF8(fd);
         free(pn);
     }
-    
+
     for (n=0; n < nContexts; n++) {
         int i, j;
         jcontext* cx = &config->contexts[n];
@@ -408,7 +408,7 @@ jint load_config(jconfig* config) {
             m->context = cx;
             m->libpath = libpath;
             m->module_name = strtok(mid, "@");
-	    m->module_version = strtok(NULL, "@");
+            m->module_version = strtok(NULL, "@");
             m->zfile = NULL;
             trace("  modules[%d] = %s @ %s path %s (%d views)\n", i,
                   m->module_name, m->module_version, libpath, views);
@@ -600,7 +600,7 @@ jconfig* find_config(struct library* mlib,
         if (rc == 0) {
             jio_snprintf(config_path, sizeof (config_path), "%s%s%s",
                          mdir, separator, CONFIG);
-            
+
             config = malloc(sizeof (jconfig));
             config->config = strdup(config_path);
             config->path = strdup(lib->path);
@@ -702,7 +702,7 @@ jint open_module_library(const char* libpath, struct library** mlib) {
     trace("open_module_library %s\n", libpath);
     jio_snprintf(path, sizeof(path), "%s%s%s",
                  libpath, separator, JIGSAW_LIBRARY);
-    
+
     fd = JVM_Open(path, O_RDONLY, 0666);
     if (fd == -1) {
         trace("error: failed to open %s\n", path);
@@ -720,7 +720,7 @@ jint open_module_library(const char* libpath, struct library** mlib) {
 
     if (checkFileHeader(fd, 2, MINOR_VERSION) != 0)
         CLOSE_FD_RETURN(fd, JIGSAW_ERROR_INVALID_MODULE_LIBRARY);
-    
+
     value = readShort(fd);  // deflated?
     if (readByte(fd) == 1) {
         parentpath = readUTF8(fd);
@@ -736,7 +736,7 @@ jint open_module_library(const char* libpath, struct library** mlib) {
         trace("   parent %s\n", parentpath);
     }
     JVM_Close(fd);
-    
+
     if (parentpath != NULL) {
         parent = (struct library*) malloc(sizeof(struct library));
         rc = open_module_library(parentpath, &parent);
@@ -772,7 +772,7 @@ JDK_LoadContexts(const char *libpath, const char *modulepath,
     int n, rc;
     char* config_path;
     struct library* mlib;
-    
+
     trace("JDK_LoadContexts %s %s\n", libpath, module_query);
     if (initialize() != 0)
         return -1;
@@ -801,7 +801,7 @@ JDK_LoadContexts(const char *libpath, const char *modulepath,
         trace("error: config not found\n");
         return JIGSAW_ERROR_MODULE_NOT_FOUND;
     }
-    
+
     config->classpath_mode = (module_query == NULL);
     if ((rc = load_config(config)) != 0) {
         trace("error: failed to load config %s\n", config->config);
@@ -999,7 +999,7 @@ JDK_GetSystemModuleLibraryPath(const char* java_home,
     if (java_home == NULL) {
         return JIGSAW_ERROR_MODULE_LIBRARY_NOT_FOUND;
     }
-    
+
     rv = jio_snprintf(libpath, len, "%s%slib%smodules",
                       java_home, separator, separator);
     if (rv >= len) {
