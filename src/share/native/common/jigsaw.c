@@ -170,13 +170,14 @@ void trace(const char* format, ...) {
 
 jint initialize() {
     void* handle;
+    char* s;
 
     if (ZipOpen != NULL) {
       // already initialized
       return 0;
     }
 
-    char* s = getenv("JIGSAW_NATIVE_DEBUG");
+    s = getenv("JIGSAW_NATIVE_DEBUG");
     if (s != NULL && strcmp(s, "true") == 0) {
         debugOn = JNI_TRUE;
     }
