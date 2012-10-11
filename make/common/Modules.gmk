@@ -334,6 +334,9 @@ jdk-module-image-sol64: jre-module-image-sol64 \
 	@for jm in `$(NAWK) '{print $$1}' $(JDK_MODULES)` ; do \
 	    $(call install-jigsaw-module,jdk-module-image,$$jm); \
 	done
+	$(MKDIR) $(ABS_MODULES_TEMPDIR)/tmp
+	$(BOOT_JAR_CMD) cf $(JDK_MODULE_IMAGE_DIR)/lib/tools.jar \
+	    -C $(ABS_MODULES_TEMPDIR)/tmp .
 
 jre-module-image-sol64: jre-module-image-setup \
 		        jre-module-image-docfiles
@@ -342,6 +345,7 @@ jre-module-image-sol64: jre-module-image-setup \
 	@for jm in `$(NAWK) '{print $$1}' $(JRE_MODULES)` ; do \
 	    $(call install-jigsaw-module,jre-module-image,$$jm); \
 	done
+	$(MKDIR) $(JRE_MODULE_IMAGE_DIR)/lib/ext
 
 jdk-module-image-docfiles: $(IMAGE_DOCLIST_JDK:%=$(JDK_MODULE_IMAGE_DIR)/%)
 

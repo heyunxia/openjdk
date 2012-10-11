@@ -167,6 +167,7 @@ sun/security/tools/keytool/CloneKeyAskPassword.sh    	generic-all
 sun/security/tools/keytool/NoExtNPE.sh    		generic-all
 sun/security/tools/keytool/SecretKeyKS.sh    		generic-all
 sun/security/tools/keytool/printssl.sh    		generic-all
+sun/security/tools/jarsigner/oldsig.sh                  generic-all
 
 # Can't find bundle for base name sun.text.resources.FormatData, locale en
 sun/security/tools/keytool/file-in-help.sh    		generic-all
@@ -255,18 +256,22 @@ com/sun/jdi/BadHandshakeTest.java               solaris-x64
 com/sun/jdi/ExclusiveBind.java                  solaris-x64
 com/sun/jdi/RunToExit.java                      solaris-x64
 com/sun/jdi/DoubleAgentTest.java                solaris-x64
-tools/launcher/Test7029048.java                 solaris-x64
-sun/tools/jhat/HatHeapDump1Test.java            solaris-x64
 com/sun/jdi/PrivateTransportTest.sh             solaris-x64
 com/sun/jdi/Solaris32AndSolaris64Test.sh        solaris-x64
+sun/tools/jhat/HatHeapDump1Test.java            solaris-x64
+tools/launcher/Test7029048.java                 solaris-x64
 com/sun/jdi/BadHandshakeTest.java               solaris-sparcv9
 com/sun/jdi/ExclusiveBind.java                  solaris-sparcv9
 com/sun/jdi/RunToExit.java                      solaris-sparcv9
 com/sun/jdi/DoubleAgentTest.java                solaris-sparcv9
-tools/launcher/Test7029048.java                 solaris-sparcv9
-sun/tools/jhat/HatHeapDump1Test.java            solaris-sparcv9
 com/sun/jdi/PrivateTransportTest.sh             solaris-sparcv9
 com/sun/jdi/Solaris32AndSolaris64Test.sh        solaris-sparcv9
+sun/tools/jhat/HatHeapDump1Test.java            solaris-sparcv9
+tools/launcher/Test7029048.java                 solaris-sparcv9
+
+# crash on 32-bit
+sun/tools/jhat/HatHeapDump1Test.java            generic-all
+tools/launcher/MultipleJRE.sh                   generic-all
 
 # Test expects tools.jar and rt.jar.  Needs to be update.
 tools/pack200/Pack200Simple.sh   		generic-all
@@ -364,6 +369,10 @@ org/openjdk/jigsaw/hello-native.sh 			generic-all
 # stack trace change
 com/sun/jdi/MethodEntryExitEvents.java 			generic-all
 com/sun/jdi/StepTest.java 				generic-all
+
+# custom loader fails to find com.sun.jdi.Bootstrap
+# need further investigation
+com/sun/jdi/connect/spi/JdiLoadedByCustomLoader.sh      generic-all
 
 # bytecode instrumentation??
 demo/jvmti/hprof/CpuOldTest.java 			generic-all

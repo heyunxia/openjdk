@@ -271,7 +271,7 @@ public class ClassPathContext {
         };
         // ## modulepath
         // JDK development build - all classes are loaded by bootstrap loader
-        return file("classes") != null ? modules : new String[0];
+        return file("classes") == null ? modules : new String[0];
     }
 
     private static String[] toolsModules() {
@@ -282,7 +282,7 @@ public class ClassPathContext {
         };
         // ## modulepath
         // JDK development build - all classes are loaded by bootstrap loader
-        return file("classes") != null ? modules : new String[0];
+        return file("classes") == null ? modules : new String[0];
     }
 
     static native void initBootstrapContexts(String[] extModules, int extCount,
