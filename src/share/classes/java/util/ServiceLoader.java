@@ -38,8 +38,8 @@ import org.openjdk.jigsaw.Loader;
 
 /**
  * A simple service-provider loading facility.
- * 
- * <p> ## spec needs significant changes to specifying loading of services that 
+ *
+ * <p> ## spec needs significant changes to specifying loading of services that
  *        are installed as modules.
  *
  * <p> A <i>service</i> is a well-known set of interfaces and (usually
@@ -194,10 +194,10 @@ public final class ServiceLoader<S>
 
     // Cached providers, in instantiation order
     // Note the key serves a different purpose depending if in classpath mode
-    // or module mode. For the classpath mode it will be a class name of the 
+    // or module mode. For the classpath mode it will be a class name of the
     // provider. For module mode it does not matter what the key is as long
     // as it is unique to the provider.
-    // 
+    //
     private final LinkedHashMap<Object,S> providers = new LinkedHashMap<>();
 
     // The current lazy-lookup iterator
@@ -215,12 +215,12 @@ public final class ServiceLoader<S>
      * can be installed into a running Java virtual machine.
      */
     public void reload() {
-        providers.clear(); 
+        providers.clear();
 
-        // In module mode when the class loader is a module class loader then 
+        // In module mode when the class loader is a module class loader then
         // iterate over the service instances of the configuration.
         //
-        // In classpath mode then create the iterator to locate services via 
+        // In classpath mode then create the iterator to locate services via
         // META-INF/service configuration files.
 
         if (loader instanceof Loader) {
@@ -399,17 +399,17 @@ public final class ServiceLoader<S>
         public void remove() {
             throw new UnsupportedOperationException();
         }
-        
-    }  
-    
+
+    }
+
     // A caching iterator that caches service (provider) instances when
     // iterated over
     //
-    private class CachingIterator 
-        implements Iterator<S> 
+    private class CachingIterator
+        implements Iterator<S>
     {
         final Iterator<S> entries;
-        
+
         CachingIterator(Iterator<S> entries) {
             this.entries = entries;
         }
@@ -435,8 +435,8 @@ public final class ServiceLoader<S>
         public void remove() {
             throw new UnsupportedOperationException("Not supported yet.");
         }
-    }    
-    
+    }
+
     /**
      * Lazily loads the available providers of this loader's service.
      *
@@ -500,7 +500,7 @@ public final class ServiceLoader<S>
             }
 
         };
-    }        
+    }
 
     /**
      * Creates a new service loader for the given service type and class

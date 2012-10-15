@@ -86,7 +86,7 @@ public class ContextBuilder {
             if (modules.containsKey(mid)) {
                 throw new IllegalArgumentException(mid + ": Duplicate");
             }
-            
+
             Set<ModuleId> views = new HashSet<>();
             views.add(mid);
             modules.put(mid, views);
@@ -106,14 +106,14 @@ public class ContextBuilder {
         if (!modules.containsKey(mid)) {
             throw new IllegalArgumentException(mid + ": not in this context");
         }
-            
+
         Set<ModuleId> views = modules.get(mid);
         for (String name : vns) {
             views.add(new ModuleId(name, mid.version()));
         }
         return this;
     }
-    
+
     public ContextBuilder localClass(String cn, String mn) {
         cx.putModuleForLocalClass(cn, mn);
         return this;
@@ -132,13 +132,13 @@ public class ContextBuilder {
         }
         return this;
     }
-    
-    public ContextBuilder service(String serviceInteface, 
+
+    public ContextBuilder service(String serviceInteface,
                                   String serviceProviderClass) {
         cx.putService(serviceInteface, serviceProviderClass);
         return this;
     }
-    
+
     public Context build() {
         for (Map.Entry<ModuleId,Set<ModuleId>> e : modules.entrySet()) {
             cx.add(e.getKey(), e.getValue());

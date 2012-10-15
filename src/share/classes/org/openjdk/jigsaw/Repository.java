@@ -47,29 +47,29 @@ public abstract class Repository
          * A module type that is a java module file
          */
         JMOD("jmod"),
-        
+
         /**
          * A module type that is a modular jar file
          */
         JAR("jar");
-        
+
         private final String extension;
-        
+
         ModuleType(String suffix) {
             this.extension = suffix;
         }
-        
+
         public String getFileNameExtension() {
             return extension;
         }
-        
+
         public String getFileNameSuffix() {
             return "." + getFileNameExtension();
         }
-        
+
         /**
          * Get the module type from the file name extension.
-         * 
+         *
          * @param extension the file name extension.
          * @return the module type.
          * @throws IllegalArgumentException if {@code extension}
@@ -83,11 +83,11 @@ public abstract class Repository
                     return type;
                 }
             }
-            
+
             throw new IllegalArgumentException(
                     "No module type for the file name extension " + extension);
         }
-                
+
     }
 
     /**
@@ -96,14 +96,14 @@ public abstract class Repository
     public static class ModuleMetaData { // ## Should be ModuleFileMetaData
 
         private final ModuleType type;
-        
+
         /**
          * The type of the module.
          */
         public ModuleType getType() {
             return type;
         }
-        
+
         private final long csize;
 
         /**
@@ -145,14 +145,14 @@ public abstract class Repository
 
     /**
      * Fetch the bytes for a given module.
-     * 
+     *
      * @param   mid
      *          The {@linkplain java.lang.module.ModuleId id} of the
      *          requested module
-     * 
+     *
      * @throws  IllegalArgumentException
      *          If the named module is not present in this repository
-     * @throws  IOException 
+     * @throws  IOException
      *          If there is an error fetching the module.
      */
     public abstract InputStream fetch(ModuleId mid) throws IOException;

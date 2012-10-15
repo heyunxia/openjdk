@@ -281,7 +281,7 @@ public class ConstantPoolParser {
                 throw new RuntimeException(e);
             }
         }
-        
+
         public String visitModuleQuery(CONSTANT_ModuleQuery_info info, Void p) {
             try {
                 String name = checkName(info.getName());
@@ -292,7 +292,7 @@ public class ConstantPoolParser {
                 throw new RuntimeException(e);
             }
         }
-        
+
         public String visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
             return getCheckedName(info) + ":" + getType(info);
         }

@@ -224,13 +224,13 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
 
     static class Provider extends AnnotatedDependency {
         static final String META_INF_SERVICES = "META-INF/services/";
-        
+
         private String service;
 
         Provider(Klass klass, boolean optional) {
             super(klass, optional);
         }
-        
+
         String serviceName() {
             return service;
         }
@@ -360,7 +360,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
             result.add(META_INF_SERVICES + service);
             return result;
         }
-        
+
         static final String TYPE = "sun.annotation.Provider";
         static final String TAG = "@Provider";
     }
@@ -562,7 +562,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         }
         return result;
     }
-   
+
     /**
      * Returns a map of the services required by the given module. The map's
      * key is the service name and the value indicates where it is an optional
@@ -571,7 +571,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
     static Map<String,Boolean> getServiceDependencies(Module m) {
         // ensure it's initialized
         initDependencies();
-        
+
         Map<String,Boolean> result = new HashMap<String,Boolean>();
         for (AnnotatedDependency dep: annotatedDependencies) {
             if (dep instanceof Provider) {
@@ -583,7 +583,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         }
         return result;
     }
-    
+
     /**
      * Returns a map of the services provided by the given module. The map's
      * key is the service name and the value is a set of implementation that
@@ -592,7 +592,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
     static Map<String,Set<String>> getServiceProvides(Module m) {
         // ensure it's initialized
         initDependencies();
-        
+
         Map<String,Set<String>> result = new HashMap<>();
         for (AnnotatedDependency dep: annotatedDependencies) {
             if (dep instanceof Provider) {
@@ -613,8 +613,8 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
                 }
             }
         }
-        return result;        
-    }    
+        return result;
+    }
 
     static Set<Dependence> getDependencies(Module m) {
         // ensure it's initialized
@@ -646,7 +646,7 @@ public abstract class AnnotatedDependency implements Comparable<AnnotatedDepende
         if (annotatedDepsMap != null) {
             return;
         }
-        
+
         // ## for efficiency it would be better to separate the providers
 
         // Build a map of references to its dependencies

@@ -35,7 +35,7 @@ public interface ModuleView  {
      * {@link ModuleInfo} of this view's containing module.
      */
     public ModuleInfo moduleInfo();
-    
+
     /**
      * <p> This view's identifier.</p>
      * This view's identifier has the view's name and its containing

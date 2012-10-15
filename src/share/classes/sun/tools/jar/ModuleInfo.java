@@ -58,7 +58,7 @@ class ModuleInfo {
         addRequires(ms.parseModuleIdQuery("jdk.jre"),
                     EnumSet.of(Modifier.SYNTHESIZED));
     }
-    
+
     ModuleId id() {
         return moduleId;
     }
@@ -82,7 +82,7 @@ class ModuleInfo {
     void addRequires(ModuleIdQuery midq, Set<Modifier> mods) {
         requiresModules.add(new ViewDependence(mods, midq));
     }
-    
+
     void addProvidesService(String service, String impl) {
         Set<String> impls = providers.get(service);
         if (impls == null) {
@@ -113,12 +113,12 @@ class ModuleInfo {
             }
         }
     }
-    
+
     void addExports(File f) throws IOException {
         ClassInfo ci = ClassInfo.read(f);
         addExports(ci);
     }
-    
+
     void addExports(InputStream in, long size, String path) throws IOException {
         ClassInfo ci = ClassInfo.read(in, size, path);
         addExports(ci);
@@ -131,7 +131,7 @@ class ModuleInfo {
         int this_class_idx;
         int moduleNameIndex;
         int moduleIndex;
-        
+
         ModuleInfoWriter() {
             cpinfos.add(0, new CONSTANT_Utf8_info("dummy"));
         }
@@ -152,7 +152,7 @@ class ModuleInfo {
             cpidx += 6;
         }
 
-                
+
         int addModuleIdQuery(ModuleIdQuery query) {
             int nameIdx, versionIdx;
 
@@ -168,7 +168,7 @@ class ModuleInfo {
             cpinfos.add(cpidx, new CONSTANT_ModuleQuery_info(null, nameIdx, versionIdx));
             return cpidx++;
         }
-        
+
         void addModuleRequiresAttribute() {
             ModuleRequires_attribute.Entry[] moduleEntries =
                 new ModuleRequires_attribute.Entry[requiresModules.size()];
@@ -176,7 +176,7 @@ class ModuleInfo {
                 new ModuleRequires_attribute.Entry[0];
             int i=0;
             for (ViewDependence d: requiresModules) {
-                // ## specify a version range in CONSTANT_ModuleQuery_info? 
+                // ## specify a version range in CONSTANT_ModuleQuery_info?
                 int midq = addModuleIdQuery(d.query());
                 int flags = 0;
                 for (Modifier m : d.modifiers()) {
@@ -205,15 +205,15 @@ class ModuleInfo {
             attrs.add(attr);
             cpidx++;
         }
-        
+
         void addModuleProvidesAttribute() {
             // ## multiple views support
             ModuleProvides_attribute.View[] views =
                 new ModuleProvides_attribute.View[1];
-            
+
             int entryPointIndex = mainClass() == null ? 0 : addClassInfo(mainClass());
             int[] exportsCpIds = new int[exports.size()];
-            
+
             ModuleProvides_attribute.Service[] service_table =
                 new ModuleProvides_attribute.Service[providers.size()];
             int i = 0;
@@ -222,32 +222,32 @@ class ModuleInfo {
                 for (String impl: entry.getValue()) {
                     int service_index = addClassInfo(sn);
                     int impl_index = addClassInfo(impl);
-                    service_table[i++] = 
+                    service_table[i++] =
                         new ModuleProvides_attribute.Service(service_index, impl_index);
                 }
             }
-            
+
             i = 0;
             for (String pn : exports) {
                 int index = cpidx++;
                 cpinfos.add(index, new CONSTANT_Utf8_info(pn));
                 exportsCpIds[i++] = index;
             }
-            
-            views[0] = 
+
+            views[0] =
                 new ModuleProvides_attribute.View(0,
-                                                  entryPointIndex, 
+                                                  entryPointIndex,
                                                   new int[0],
                                                   service_table,
                                                   exportsCpIds,
                                                   new int[0]);
-           
+
             cpinfos.add(cpidx, new CONSTANT_Utf8_info(Attribute.ModuleProvides));
             Attribute attr = new ModuleProvides_attribute(cpidx, views);
             attrs.add(attr);
             cpidx++;
         }
- 
+
         int addClassInfo(String cn) {
             String cname = cn.replace('.', '/');
             cpinfos.add(cpidx, new CONSTANT_Utf8_info(cname));

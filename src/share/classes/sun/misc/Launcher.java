@@ -68,7 +68,7 @@ public class Launcher {
     private ClassLoader loader;
     public Launcher() {
         ClassPathContext.loadClassPathConfiguration();
-        
+
         // Create the extension class loader
         ClassLoader extcl;
         try {
@@ -209,7 +209,7 @@ public class Launcher {
                     split = urls.size(); // postpath begins
                 }
             }
-            
+
             int len = urls.size();
             URL[] ua = urls.toArray(new URL[len]);
             // determine prepaths and postpaths for searching native library
@@ -255,7 +255,7 @@ public class Launcher {
             // Default implementation of ClassLoader.findLibrary returns null
             return null;
         }
-    
+
         private String findLibraryFromURLs(String libname, URL[] urls) {
             File prevDir = null;
             for (int i = 0; i < urls.length; i++) {
@@ -479,7 +479,7 @@ public class Launcher {
             }
             return getFileURL(curEntry);
         }
-        
+
         static Enumeration<URL> findResources(String rn)
             throws IOException
         {
@@ -516,7 +516,7 @@ public class Launcher {
     {
        return BootClassPath.findResources(name);
     }
-    
+
     private static URL[] pathToURLs(File[] path) {
         URL[] urls = new URL[path.length];
         for (int i=0; i < urls.length; i++) {

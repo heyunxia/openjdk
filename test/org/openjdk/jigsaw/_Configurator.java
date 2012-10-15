@@ -394,7 +394,7 @@ public class _Configurator {
                          .localClass("p.R", "lr"));
             }
         };
-        
+
         new Test("simple-view", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requiresPublic("yv@1"))
@@ -413,7 +413,7 @@ public class _Configurator {
                          .localClass("y.D", "y").localClass("y.C", "y"));
             }
         };
-        
+
         new Test("view-reexports", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requires("yv@1"))
@@ -442,7 +442,7 @@ public class _Configurator {
             }
         };
 
-  
+
         new Test("view-permits", true, "x@1", "y@1", "lc@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("ll@1").requiresLocal("lr@1")
@@ -476,12 +476,12 @@ public class _Configurator {
                          .localClass("l.L", "ll")
                          .localClass("c.C", "lc")
                          .localClass("r.R", "r")
-                         .localClass("r.v.V", "r"));               
+                         .localClass("r.v.V", "r"));
             }
         };
-        
+
         // Services
-        
+
         new Test("service-one", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requiresService("s"))
@@ -492,7 +492,7 @@ public class _Configurator {
                     .add(context("y@1").service("s", "syImpl1"));
             }
         };
-        
+
         new Test("service-one-with-exports", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requiresService("s"))
@@ -581,7 +581,7 @@ public class _Configurator {
                     .add(context("z@1").service("s", "szImpl1").service("s", "szImpl2"));
             }
         };
-        
+
         new Test("service-many-one-impl", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requiresService("s1").requiresService("s2"))
@@ -655,7 +655,7 @@ public class _Configurator {
                     .add(context("d@1").service("d", "dImpl"));
             }
         };
-        
+
         new Test("service-requiring-previously-required-services", true, "x@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("x@1").requiresService("a").requiresService("c"))
@@ -705,10 +705,10 @@ public class _Configurator {
          * and requires optional. Depending on the order of resolution
          * a module, x, may be linked to a module, z, that is not
          * permitted to do so.
-         * 
+         *
          * Resolution should fail in both cases.
          */
-        
+
         new Test("permits-requires-optional-permissive-linking", true, "z@1") {
             void init(MockLibrary mlib) {
                 mlib.add(module("z@1")
@@ -738,7 +738,7 @@ public class _Configurator {
                     .add(context("x@1"));
             }
         };
-        
+
         /* ## Not yet
 
         new Test("cycle", true, "x@1") {

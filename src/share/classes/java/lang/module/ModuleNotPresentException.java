@@ -31,7 +31,7 @@ package java.lang.module;
  */
 public class ModuleNotPresentException extends RuntimeException {
     private static final long serialVersionUID = 6548519553178935875L;
- 
+
     /**
      * Constructs a {@code ModuleNotPresentException} with no
      * detail message.

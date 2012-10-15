@@ -356,7 +356,7 @@ public final class SimpleLibrary
     public static SimpleLibrary create(File path, File parent)
         throws IOException
     {
-	return SimpleLibrary.create(path, parent, Collections.<StorageOption>emptySet());
+        return SimpleLibrary.create(path, parent, Collections.<StorageOption>emptySet());
     }
 
     public static SimpleLibrary create(File path, Set<StorageOption> opts)
@@ -473,7 +473,7 @@ public final class SimpleLibrary
             for (ModuleId mid : cf.roots()) {
                 out.writeUTF(mid.toString());
             }
-            
+
             // Context names and package names
             // Store these strings only once and the subsequent sections will
             // reference these names by its index.
@@ -499,7 +499,7 @@ public final class SimpleLibrary
             for (String pn : packages) {
                 out.writeUTF(pn);
             }
-            
+
             // Contexts
             for (Context cx : cf.contexts()) {
                 // Module ids, and their libraries
@@ -568,7 +568,7 @@ public final class SimpleLibrary
                 }
             }
         }
-        
+
         // NOTE: jigsaw.c load_config is the native implementation of this method.
         // Any change to the format of StoredConfiguration should be reflectd in
         // both native and Java implementation
@@ -584,21 +584,21 @@ public final class SimpleLibrary
                 roots.add(rmid);
             }
             cf = new Configuration<>(roots);
-            
+
             // Context names
             int nContexts = in.readInt();
             List<String> contexts = new ArrayList<>(nContexts);
             for (int i = 0; i < nContexts; i++) {
                 contexts.add(in.readUTF());
             }
-            
+
             // Package names
             int nPkgs = in.readInt();
             List<String> packages = new ArrayList<>(nPkgs);
             for (int i = 0; i < nPkgs; i++) {
                 packages.add(in.readUTF());
             }
-            
+
             // Contexts
             for (String cxn : contexts) {
                 Context cx = new Context();
@@ -624,7 +624,7 @@ public final class SimpleLibrary
                 cx.freeze();
                 assert cx.name().equals(cxn);
                 cf.add(cx);
-                
+
                 // Local class map
                 int nClasses = in.readInt();
                 for (int j = 0; j < nClasses; j++) {
@@ -633,7 +633,7 @@ public final class SimpleLibrary
                     String cn = (idx == -1) ? name : packages.get(idx) + "." + name;
                     ModuleId mid = mids.get(in.readInt());
                     cx.putModuleForLocalClass(cn, mid);
-                } 
+                }
                 // Remote package map
                 int nPackages = in.readInt();
                 for (int j = 0; j < nPackages; j++) {
@@ -1016,7 +1016,7 @@ public final class SimpleLibrary
             try (OutputStream out = new FileOutputStream(classes);
                  JarOutputStream jos = new JarOutputStream(out))
             {
-	        Pack200.Unpacker unpacker = Pack200.newUnpacker();
+                Pack200.Unpacker unpacker = Pack200.newUnpacker();
                 unpacker.unpack(pf, jos);
             } finally {
                 pf.delete();
@@ -1182,13 +1182,13 @@ public final class SimpleLibrary
 
     @Override
     public void installFromManifests(Collection<Manifest> mfs)
-	throws ConfigurationException, IOException
+        throws ConfigurationException, IOException
     {
-	installFromManifests(mfs, false);
+        installFromManifests(mfs, false);
     }
 
     private ModuleId installWhileLocked(ModuleType type, InputStream is, boolean verifySignature,
-                                        boolean strip) 
+                                        boolean strip)
         throws ConfigurationException, IOException, SignatureException
     {
         switch (type) {
@@ -1205,7 +1205,7 @@ public final class SimpleLibrary
                 return installWhileLocked(is, verifySignature, strip);
         }
     }
-    
+
     private ModuleId installWhileLocked(InputStream is, boolean verifySignature,
                                         boolean strip)
         throws ConfigurationException, IOException, SignatureException
@@ -1471,7 +1471,7 @@ public final class SimpleLibrary
     public void install(Collection<File> mfs, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
-	install(mfs, verifySignature, false);
+        install(mfs, verifySignature, false);
     }
 
     // Public entry point, since the Resolver itself is package-private
@@ -1515,9 +1515,9 @@ public final class SimpleLibrary
                 assert u != null;
                 RemoteRepository rr = repositoryList().firstRepository();
                 assert rr != null;
-                installWhileLocked(rr.fetchMetaData(mid).getType(), 
-                                   rr.fetch(mid), 
-                                   verifySignature, 
+                installWhileLocked(rr.fetchMetaData(mid).getType(),
+                                   rr.fetch(mid),
+                                   verifySignature,
                                    strip);
                 res.locationForName.put(mid.name(), location());
                 // ## If something goes wrong, delete all our modules
@@ -1552,7 +1552,7 @@ public final class SimpleLibrary
     public void install(Resolution res, boolean verifySignature)
         throws ConfigurationException, IOException, SignatureException
     {
-	install(res, verifySignature, false);
+        install(res, verifySignature, false);
     }
 
     @Override

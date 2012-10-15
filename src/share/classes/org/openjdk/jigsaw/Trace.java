@@ -49,8 +49,8 @@ class Trace {
     // e.g. java.util.Formatter) are being loaded.  Cache the traces
     // to avoid infinite loop until the very first call completes.
     static class Cache {
-        static List<String> formats = new ArrayList<String>(); 
-        static List<Object[]> traceArgs = new ArrayList<Object[]>(); 
+        static List<String> formats = new ArrayList<String>();
+        static List<Object[]> traceArgs = new ArrayList<Object[]>();
         static boolean caching = false;
 
         /**
@@ -98,7 +98,7 @@ class Trace {
         }
         sb.append(fmt);
         sb.append("%n");
-       
+
         // Cache the traces until the first call to the format method
         // returns to avoid recursion while classes are being loaded
         if (Cache.add(sb.toString(), args)) {

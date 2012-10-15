@@ -69,7 +69,7 @@ public class RemoteRepository
     public URI location() {
         return uri;
     }
-    
+
     static URI canonicalize(URI u)
         throws IOException
     {
@@ -150,13 +150,13 @@ public class RemoteRepository
     {
         File newfn = new File(dir, "meta.new");
         try (FileOutputStream fos = new FileOutputStream(newfn);
-             DataOutputStream out = new DataOutputStream(new BufferedOutputStream(fos))) 
+             DataOutputStream out = new DataOutputStream(new BufferedOutputStream(fos)))
         {
             fileHeader().write(out);
             out.writeUTF(uri.toString());
             out.writeLong(mtime);
             out.writeUTF(etag == null ? "" : etag);
-            
+
         } catch (IOException x) {
             deleteAfterException(newfn, x);
             throw x;
@@ -182,7 +182,7 @@ public class RemoteRepository
         if (!dir.mkdir())
             throw new IOException(dir + ": Cannot create directory");
         try {
-            rr.storeMeta();  
+            rr.storeMeta();
         } catch (IOException x) {
             deleteAfterException(dir, x);
             throw x;
@@ -220,7 +220,7 @@ public class RemoteRepository
     {
         return open(dir, -1);
     }
-    
+
     /**
      * Deletes this remote repository, including the directory.
      */
@@ -235,11 +235,11 @@ public class RemoteRepository
     private boolean fetchCatalog(boolean head, boolean force)
         throws IOException
     {
-        
+
         URI u = uri.resolve("%25catalog");
         if (tracing)
             trace(1, "fetching catalog %s (head %s, force %s)", u, head, force);
-        
+
         // special-case file protocol for faster copy
         if (u.getScheme().equalsIgnoreCase("file")) {
             Path newfn = dir.toPath().resolve("catalog.new");
@@ -293,7 +293,7 @@ public class RemoteRepository
             if (tracing)
                 trace(2, "new mtime %d, etag %s", mtime, etag);
         }
-        
+
         cat = null;
         storeMeta();
 
@@ -339,7 +339,7 @@ public class RemoteRepository
     {
         catalog().gatherDeclaringModuleIds(mids);
     }
-    
+
     @Override
     protected ModuleInfo readLocalModuleInfo(ModuleId mid)
         throws IOException
@@ -350,11 +350,11 @@ public class RemoteRepository
 
     @Override
     public InputStream fetch(ModuleId mid) throws IOException {
-        ModuleMetaData mmd = fetchMetaData(mid);        
+        ModuleMetaData mmd = fetchMetaData(mid);
         URI u = uri.resolve(mid.toString() + mmd.getType().getFileNameSuffix());
         if (tracing)
             trace(1, "fetching module %s", u);
-        
+
         // special case file protocol for faster access
         if (u.getScheme().equalsIgnoreCase("file")) {
             return Files.newInputStream(Paths.get(u));
@@ -381,8 +381,8 @@ public class RemoteRepository
             throw new IllegalArgumentException(mid.toString());
         return new ModuleMetaData(e.type, e.csize, e.usize);
     }
-    
-    
+
+
     /**
      * Attempts to delete {@code f}. If the delete fails then the exception is
      * added as a suppressed exception to the given exception.

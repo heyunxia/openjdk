@@ -67,7 +67,7 @@ typedef struct {
  * java_home : JAVA_HOME
  * libpath   : allocated buffer to be set with the path
  *             of the system module library
- * len       : length of the allocated libpath buffer 
+ * len       : length of the allocated libpath buffer
  */
 typedef jint
 (*get_system_module_library_fn_t)(const char *java_home,

@@ -36,7 +36,7 @@ final class ContextSet<Cx extends BaseContext> {
     final Set<ModuleInfo> modules;
 
     final Map<String,ModuleView> moduleViewForName;
-            
+
     final Set<Cx> contexts;
 
     final Map<String,Cx> contextForModuleView;

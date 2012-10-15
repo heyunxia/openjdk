@@ -31,7 +31,7 @@ import java.security.spec.*;
 import sun.misc.BASE64Decoder;
 
 /**
- * Utility class to read a PKCS8 encoded key and its associated 
+ * Utility class to read a PKCS8 encoded key and its associated
  * X.509 Certificate from two files and import them into a JKS keystore.
  */
 public class ImportPrivateKey {

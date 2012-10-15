@@ -56,7 +56,7 @@ public class Dependence implements Comparable<Dependence> {
     final Set<Module.View> views = new HashSet<>();
 
     public static Dependence newDependence(Klass k, boolean optional) {
-        Module dm = k.getModule().group();      
+        Module dm = k.getModule().group();
         Dependence dep = new Dependence(dm.name(), optional);
         Module.View view = dm.getView(k);
         if (view == null)
@@ -64,7 +64,7 @@ public class Dependence implements Comparable<Dependence> {
         dep.addView(view);
         return dep;
     }
-    
+
     public Dependence(String module, boolean optional) {
         this(module, modifier(optional));
     }
@@ -90,7 +90,7 @@ public class Dependence implements Comparable<Dependence> {
                 ? EnumSet.noneOf(Modifier.class)
                 : EnumSet.copyOf(ms);
     }
-    
+
     void requiresLocal(Module m) {
         mods.add(Modifier.LOCAL);
         Module.View v = m.getView(module);
@@ -101,8 +101,8 @@ public class Dependence implements Comparable<Dependence> {
         }
         addView(v);
     }
-    
-    void requiresOptional(Module m) {        
+
+    void requiresOptional(Module m) {
         mods.add(Modifier.OPTIONAL);
     }
 

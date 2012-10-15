@@ -38,9 +38,9 @@ public final class ServiceDependence extends Dependence {
      *
      * @param mods    modifiers
      * @param service the fully-qualified name of a service
-     * 
+     *
      * @throws IllegalArgumentException if mods contains the {@link Modifier#LOCAL
-     *         LOCAL} or {@link Modifier#PUBLIC PUBLIC} modifier which is 
+     *         LOCAL} or {@link Modifier#PUBLIC PUBLIC} modifier which is
      *         invalid for a {@code ServiceDependence}.
      */
     public ServiceDependence(Set<Modifier> mods, String service) {
@@ -65,7 +65,7 @@ public final class ServiceDependence extends Dependence {
         return (service.equals(that.service)
                 && modifiers().equals(that.modifiers()));
     }
-    
+
     @Override
     public int hashCode() {
         return service.hashCode() * 43 + modifiers().hashCode();

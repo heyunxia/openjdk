@@ -628,7 +628,7 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
         PermissionCollection perms = super.getPermissions(codesource);
 
         URL url = codesource.getLocation();
-        
+
         Permission p;
         URLConnection urlConnection;
 

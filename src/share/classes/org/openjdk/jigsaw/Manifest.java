@@ -55,7 +55,7 @@ public final class Manifest {
         return module;
     }
 
-    // list of directories, each of which contains 
+    // list of directories, each of which contains
     // classes and resources
     private List<File> classes = new ArrayList<File>();
 

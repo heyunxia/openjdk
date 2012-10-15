@@ -42,29 +42,29 @@ public class ModuleInfoBuilder {
         private MI(ModuleId mid) {
             this.mid = mid;
         }
-       
+
         private Set<ViewDependence> requires
             // We use a linked hash set so as to guarantee deterministic order
             = new LinkedHashSet<>();
         public Set<ViewDependence> requiresModules() { return requires; }
-                
+
         private Set<ServiceDependence> requiredServices = new LinkedHashSet<>();
         public Set<ServiceDependence> requiresServices() {
             return Collections.unmodifiableSet(requiredServices);
         }
-        
+
         Map<String, ModuleViewBuilder> viewBuilders = new HashMap<>();
-        
+
         ModuleView defaultView;
         Set<ModuleView> moduleViews;
         public ModuleView defaultView() {
             return defaultView;
         }
-        
+
         public Set<ModuleView> views() {
             return moduleViews;
         }
-        
+
         ModuleInfo build() {
             moduleViews = new HashSet<>();
             for (ModuleViewBuilder mvb : viewBuilders.values()) {
@@ -99,7 +99,7 @@ public class ModuleInfoBuilder {
          mi.viewBuilders.put(id.name(), mvb);
          return mvb;
     }
-    
+
     public ModuleInfoBuilder requires(EnumSet<Modifier> mods, String mnvq) {
         int i = mnvq.indexOf('@');
         String mn;
@@ -130,7 +130,7 @@ public class ModuleInfoBuilder {
     public ModuleInfoBuilder requiresPublic(String mnvq) {
         return requires(EnumSet.of(Modifier.PUBLIC), mnvq);
     }
-   
+
     public ModuleInfoBuilder requiresService(String serviceInteface) {
         mi.requiredServices.add(new ServiceDependence(null, serviceInteface));
         return this;
@@ -147,7 +147,7 @@ public class ModuleInfoBuilder {
         defaultView.providesService(serviceInterface, serviceProviderClass);
         return this;
     }
-    
+
     public ModuleInfoBuilder alias(String mnv) {
         defaultView.alias(mnv);
         return this;
@@ -157,7 +157,7 @@ public class ModuleInfoBuilder {
         defaultView.exports(pn);
         return this;
     }
-    
+
     public ModuleInfoBuilder permits(String s) {
         defaultView.permits(s);
         return this;
@@ -167,7 +167,7 @@ public class ModuleInfoBuilder {
         defaultView.mainClass = cn;
         return this;
     }
-    
+
     public ModuleInfo build() {
         return mi.build();
     }
@@ -180,7 +180,7 @@ public class ModuleInfoBuilder {
         final Set<String> permits = new HashSet<>();
         final Map<String,Set<String>> services = new LinkedHashMap<>();
         String mainClass;
-        
+
         private ModuleViewBuilder(ModuleInfoBuilder mib, ModuleId id) {
             this.mib = mib;
             this.id = id;
@@ -193,7 +193,7 @@ public class ModuleInfoBuilder {
             mib.mi.viewBuilders.put(id.name(), mvb);
             return mvb;
         }
-        
+
         public ModuleViewBuilder providesService(String serviceInterface,
                                                  String serviceProviderClass) {
             Set<String> spcs = services.get(serviceInterface);
@@ -204,7 +204,7 @@ public class ModuleInfoBuilder {
             spcs.add(serviceProviderClass);
             return this;
         }
-        
+
         public ModuleViewBuilder alias(String mnv) {
             aliases.add(jms.parseModuleId(mnv));
             return this;
@@ -227,7 +227,7 @@ public class ModuleInfoBuilder {
             mainClass = cn;
             return this;
         }
-        
+
         ModuleView build(ModuleInfo mi) {
             return new ModuleViewImpl(mi,
                                       id,
@@ -238,7 +238,7 @@ public class ModuleInfoBuilder {
                                       services);
         }
     }
-    
+
     class ModuleViewImpl
         implements ModuleView
     {
@@ -281,7 +281,7 @@ public class ModuleInfoBuilder {
         public Set<String> exports() {
             return Collections.unmodifiableSet(exports);
         }
-        
+
         public Set<String> permits() {
             return Collections.unmodifiableSet(permits);
         }
@@ -304,5 +304,5 @@ public class ModuleInfoBuilder {
                     + " }";
         }
     }
- 
+
 }

@@ -60,11 +60,11 @@ public final class Platform {
         }
         return false;
     }
-    
+
     public static ModuleClassLoader getBaseModuleLoader() {
         return BootLoader.getBaseModuleLoader();
     }
-     
+
     public static boolean isPlatformLoader(ClassLoader cl) {
         if (cl == null) {
             return true;
@@ -74,10 +74,10 @@ public final class Platform {
             return false;
         }
     }
-    
+
     /**
      * Returns the Module for the given class loaded by the VM
-     * bootstrap class loader. 
+     * bootstrap class loader.
      */
     public static Module getPlatformModule(Class<?> c) {
         try {
@@ -99,7 +99,7 @@ public final class Platform {
             throw new InternalError(x);
         }
     }
-    
+
     /**
      * Tests if the VM is running in module mode.
      */

@@ -59,7 +59,7 @@ public class Context
     protected void putLibraryPathForModule(ModuleId mid, File path) {
         libraryForModule.put(mid, path);
     }
-    
+
     // For each type defined by this context,
     // the id of the module that defines it
     //
@@ -159,7 +159,7 @@ public class Context
     protected void addSupplier(String cxn) {
         suppliers.add(cxn);
     }
-   
+
     // Services provided by this context (service name -> implementation types)
     //
     private Map<String,Set<String>> services = new HashMap<>();
@@ -174,8 +174,8 @@ public class Context
         }
         return Collections.unmodifiableMap(result);
     }
-    
-    /** 
+
+    /**
      * Returns the map of the services implementations supplied by this context.
      * The key is the service name, the value is the set of implementation
      * classes.
@@ -183,7 +183,7 @@ public class Context
     public final Map<String,Set<String>> services() {
         return unmodifiableServices();
     }
-    
+
     protected void putService(String sn, String impl) {
         Set<String> impls = services.get(sn);
         if (impls != null) {
@@ -193,8 +193,8 @@ public class Context
             impls.add(impl);
             services.put(sn, impls);
         }
-    }    
-            
+    }
+
     /**
      * Return the set of remote contexts (read-only).  This includes
      * contexts supplying remote classes as well as any suppliers

@@ -79,7 +79,7 @@ class Commands {
                 out.format("%s  provides service %s with %s%n", indent, sn, impl);
             }
         }
-        
+
         if (!view.exports().isEmpty()) {
             out.format("  %sexports%n", indent);
             Set<String> exports = new TreeSet<>(view.exports());
@@ -88,7 +88,7 @@ class Commands {
             }
         }
     }
-    
+
     private static void listCommand(Catalog cat, ModuleIdQuery midq,
                                     boolean parents, boolean verbose)
         throws Command.Exception
@@ -98,7 +98,7 @@ class Commands {
             List<ModuleId> mids;
             if (midq == null) {
                 mids = parents ? cat.listDeclaringModuleIds() : cat.listLocalDeclaringModuleIds();
-            } else { 
+            } else {
                 List<ModuleId> list = parents ? cat.listModuleIds()
                                               : cat.listLocalModuleIds();
                 mids = new ArrayList<>();
@@ -154,7 +154,7 @@ class Commands {
             for (ModuleId mid : mids) {
                 if (mods.containsKey(mid))
                     continue;
-                
+
                 ModuleInfo mi = c.readModuleInfo(mid);
                 for (ModuleView mv : mi.views()) {
                     mods.put(mid, mi);
@@ -183,7 +183,7 @@ class Commands {
             {
                 mids.addAll(modules);
             }
-            
+
             protected ModuleInfo readLocalModuleInfo(ModuleId mid)
                 throws IOException
             {

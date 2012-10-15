@@ -49,7 +49,7 @@ Java_org_openjdk_jigsaw_ClassPathContext_initBootstrapContexts(JNIEnv *env,
     int len = extCount + cpathCount;
     jsize i, j;
     jstring s;
-    
+
     if (len > 0) {
         modules = (const char**) malloc(len * sizeof(char*));
         for (i=0, j=0; i < extCount; i++, j++) {

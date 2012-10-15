@@ -41,20 +41,20 @@ import static org.openjdk.jigsaw.Trace.*;
 
 final class BootLoader
     extends Loader
-{  
+{
     private static LoaderPool systemLoaderPool = null;
     private static Context baseContext = null;
 
-    // Entry point invoked by the VM 
+    // Entry point invoked by the VM
     static BootLoader getBaseModuleLoader() {
         if (baseContext == null)
             // classpath mode
             return null;
-        
+
         return (BootLoader)systemLoaderPool.findLoader(baseContext);
     }
 
-    // Called only once during the system class loader initialization 
+    // Called only once during the system class loader initialization
     static void setSystemLoaderPool(LoaderPool lp) {
         systemLoaderPool = lp;
         baseContext = lp.config().getContextForModuleName(Platform.BASE_MODULE_NAME);

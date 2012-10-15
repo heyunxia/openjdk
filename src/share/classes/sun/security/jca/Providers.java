@@ -283,7 +283,7 @@ public class Providers {
          *
          * @param  className the classname of the provider
          * @param  argument a String arg passed to the provider's constructor
-         * @return the Provider, or null if it cannot be found or loaded 
+         * @return the Provider, or null if it cannot be found or loaded
          * @throws ProviderException if the Provider's constructor
          *         throws a ProviderException
          * @throws UnsupportedOperationException if the Provider's constructor

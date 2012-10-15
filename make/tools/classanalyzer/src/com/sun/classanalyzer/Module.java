@@ -165,7 +165,7 @@ public class Module implements Comparable<Module> {
     }
 
     Module.View internalView() {
-        return internalView;     
+        return internalView;
     }
 
     Collection<View> views() {
@@ -177,17 +177,17 @@ public class Module implements Comparable<Module> {
         views.put(name, v);
         return v;
     }
-        
+
     private View addView(String name, ModuleConfig.View mcv) {
         View v = new View(this, mcv, name);
         views.put(name, v);
         return v;
     }
-    
+
     Module.View getView(String name) {
         return views.get(name);
     }
-    
+
     Module.View getView(Klass k) {
         String pn = k.getPackageName();
         View view = internalView;
@@ -206,10 +206,10 @@ public class Module implements Comparable<Module> {
             }
         }
         assert view.exports.contains(pn);
-        
+
         return view;
-        
-        
+
+
     }
 
     boolean contains(Klass k) {
@@ -434,13 +434,13 @@ public class Module implements Comparable<Module> {
             PackageInfo pinfo = getPackageInfo(pn, packageForResource);
             pinfo.add(e.getValue());
         }
-                
+
         // rebuild default view's exports after PackageInfo are merged
         buildExports();
 
         // merge requires from module configs
         requires.addAll(m.requires);
-        
+
         // merge views
         for (View v : m.views.values()) {
             if (views.containsKey(v.name)) {
@@ -485,7 +485,7 @@ public class Module implements Comparable<Module> {
             }
         }
 
-        // only show up in module-info.java if there is a reference to it. 
+        // only show up in module-info.java if there is a reference to it.
         View(Module m, String name) {
             this.module = m;
             this.name = name;
@@ -504,23 +504,23 @@ public class Module implements Comparable<Module> {
                     permits.isEmpty() &&
                     aliases.isEmpty();
         }
-        
+
         Set<String> permitNames() {
             return Collections.unmodifiableSet(permitNames);
         }
-        
+
         Set<Module> permits() {
             return Collections.unmodifiableSet(permits);
         }
-        
+
         Set<String> aliases() {
             return Collections.unmodifiableSet(aliases);
         }
-        
+
         Set<String> exports() {
             return Collections.unmodifiableSet(exports);
         }
-        
+
         void addPermit(Module m) {
             permits.add(m);
         }
@@ -530,7 +530,7 @@ public class Module implements Comparable<Module> {
         }
 
         void merge(View v) {
-            // main class is not propagated to the default view            
+            // main class is not propagated to the default view
             this.aliases.addAll(v.aliases);
             this.permitNames.addAll(v.permitNames);
         }
@@ -592,7 +592,7 @@ public class Module implements Comparable<Module> {
             Module m = findModule(name);
             if (m != null)
                 return m;
-            
+
             String[] suffices = getModuleProperty("module.view.suffix", "").split("\\s+");
             for (String s : suffices) {
                 int i = name.lastIndexOf("." + s);
@@ -607,11 +607,11 @@ public class Module implements Comparable<Module> {
             }
             throw new RuntimeException("module " + name + " doesn't exist");
         }
-        
+
         public final Module baseModule() {
             return findModule(Module.baseModuleName);
         }
-        
+
         public final Set<Module> getAllModules() {
             // initialize unknown module (last to add to the list)
             unknownModule();

@@ -70,7 +70,7 @@ public class MonitoredVmUtil {
      * Returns true if the application is a java launcher tool running
      * in module name.
      *
-     * The workaround for multi-entry point support launches 
+     * The workaround for multi-entry point support launches
      * jdk tools by sun.launcher.LauncherHelper in module mode
      * and the module name is added in the java command before the main
      * class name of the tool.
@@ -79,16 +79,16 @@ public class MonitoredVmUtil {
             throws MonitorException
     {
 
-        // It's a java launcher tool if the sun.rt.javaMain value is 
+        // It's a java launcher tool if the sun.rt.javaMain value is
         // different than the first argument in the java command.
         StringMonitor javaMain = (StringMonitor)vm.findByName("sun.rt.javaMain");
         if (javaMain == null)
             return false;
-        
+
         StringMonitor javaModule = (StringMonitor)vm.findByName("sun.rt.javaModule");
         if (javaModule == null || javaModule.stringValue().isEmpty())
             return false;
- 
+
         String name = javaMain.stringValue();
         String moduleId = javaModule.stringValue();
         int i = moduleId.indexOf('@');   // moduleId may contain @version

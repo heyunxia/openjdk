@@ -37,7 +37,7 @@ import static java.util.concurrent.TimeUnit.*;
 
 
 public class TrivialWebServer {
-    
+
     private boolean debug = System.getenv("TWS_DEBUG") != null;
 
     private final PrintStream log;
@@ -54,7 +54,7 @@ public class TrivialWebServer {
             log.format("  %s : %s%n", e.getKey(), e.getValue());
         }
     }
-    
+
     private static final String pattern = "EEE, dd MMM yyyy HH:mm:ss zzz";
     private static final TimeZone gmtTZ = TimeZone.getTimeZone("GMT");
     private static final ThreadLocal<DateFormat> HTTP_DATE =

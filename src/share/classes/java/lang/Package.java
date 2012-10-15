@@ -628,7 +628,7 @@ public class Package implements java.lang.reflect.AnnotatedElement {
             return fn.equals(moduleClassPath);
         }
     }
-    
+
     /*
      * Private storage for the package name and attributes.
      */

@@ -786,7 +786,7 @@ SetModulesBootClassPath(const char *jrepath)
     char *def, *s;
     int slen = 0;
     struct stat statbuf;
-    
+
     /* return if jre/lib/rt.jar exists */
     JLI_Snprintf(pathname, sizeof(pathname), "%s%slib%srt.jar", jrepath, separator, separator);
     if (stat(pathname, &statbuf) == 0) {
@@ -1212,7 +1212,7 @@ ParseArguments(int *pargc, char ***pargv,
         } else if (RemovableOption(arg)) {
             ; /* Do not pass option to vm. */
         } else if (JLI_StrCmp(arg, "-XX:-UseModuleNativeLibs") == 0) {
-            /* A workaround to switch back to not to use the 
+            /* A workaround to switch back to not to use the
              * jigsaw native interface.
              */
             AddOption(arg, NULL);

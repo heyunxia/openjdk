@@ -179,7 +179,7 @@ public class Loader                     // ## Should be final?
             //
             lib = pool.library(context, mid);
 
-            // Find this class's module 
+            // Find this class's module
             //
             m = findModule(lib, mid);
         } catch (IOException x) {
@@ -223,7 +223,7 @@ public class Loader                     // ## Should be final?
             m = AccessController.doPrivileged(
                 new PrivilegedExceptionAction<Module>() {
                     public Module run()
-                        throws IOException 
+                        throws IOException
                     {
                         byte[] bs = l.readLocalModuleInfoBytes(modid);
                         if (bs == null)
@@ -250,7 +250,7 @@ public class Loader                     // ## Should be final?
         return m;
     }
 
-    Class<?> finishFindingClass(final Library lib, final ModuleId mid, 
+    Class<?> finishFindingClass(final Library lib, final ModuleId mid,
                                 Module m, final String cn)
         throws ClassNotFoundException
     {
@@ -291,20 +291,20 @@ public class Loader                     // ## Should be final?
 
     public boolean isModulePresent(String mn) {
         Context cx = pool.config().findContextForModuleName(mn);
-        if (cx == null) return false; 
+        if (cx == null) return false;
 
         return cx == context ||
             context.remoteContexts().contains(cx.name());
     }
-   
+
     /**
      * <p> Find the a map of class loader to fully-qualified service-provider
      * class names available for a given service interface. </p>
-     * 
+     *
      * <p> The value of the map is the set of fully-qualified service-provider
      * class names which can be loaded by the corresponding key that is the
      * class loader. </p>
-     * 
+     *
      * <p> The returned map is invariant to the instance of {@link Loader} and
      * is scoped to the configuration. </p>
      */
@@ -413,7 +413,7 @@ public class Loader                     // ## Should be final?
         try {
             if (tracing)
                 trace(0, "%s: get resource %s", this, rn);
-            
+
             URI u = visitResources(rn, new ResourceVisitor() {
                     public URI accept(URI u) {
                         return u;
@@ -433,7 +433,7 @@ public class Loader                     // ## Should be final?
     {
         if (tracing)
             trace(0, "%s: get resources %s", this, rn);
-        
+
         final List<URL> us = new ArrayList<>();
         visitResources(rn, new ResourceVisitor() {
                 public URI accept(URI u) throws IOException {

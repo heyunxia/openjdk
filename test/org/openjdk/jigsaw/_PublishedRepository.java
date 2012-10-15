@@ -73,10 +73,10 @@ public class _PublishedRepository {
 
     static ModuleId toModuleId(Path p) {
         String fn = p.getFileName().toString();
-        if (fn.endsWith(ModuleType.JAR.getFileNameSuffix())) {            
-            return ms.parseModuleId(fn.replace(ModuleType.JAR.getFileNameSuffix(), ""));            
+        if (fn.endsWith(ModuleType.JAR.getFileNameSuffix())) {
+            return ms.parseModuleId(fn.replace(ModuleType.JAR.getFileNameSuffix(), ""));
         } else {
-            return ms.parseModuleId(fn.replace(ModuleType.JMOD.getFileNameSuffix(), ""));            
+            return ms.parseModuleId(fn.replace(ModuleType.JMOD.getFileNameSuffix(), ""));
         }
     }
 
@@ -92,7 +92,7 @@ public class _PublishedRepository {
         Path m = repo.resolve(mid.toString() + type.getFileNameSuffix());
         return m.toFile().exists() ? m : null;
     }
-    
+
     static byte[] readStream(InputStream in)
         throws Exception
     {
@@ -129,7 +129,7 @@ public class _PublishedRepository {
             ModuleId mid = toModuleId(p);
             try (InputStream ia = Files.newInputStream(p);
                  InputStream ib = pr.fetch(mid)) {
-                assert equals(ia, ib) 
+                assert equals(ia, ib)
                     : String.format("%s %s", mid, p);
             }
         }

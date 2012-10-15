@@ -77,7 +77,7 @@ public abstract class Catalog {
 
     /**
      * <p> Gather the {@link java.lang.module.ModuleId ModuleIds} of the
-     * module views and aliases available locally in this catalog, 
+     * module views and aliases available locally in this catalog,
      * ignoring any parent catalogs. </p>
      *
      * @param  name
@@ -90,7 +90,7 @@ public abstract class Catalog {
     protected abstract void gatherLocalModuleIds(String name,
                                                  Set<ModuleId> mids)
         throws IOException;
-    
+
    /**
      * <p> Gather the {@link java.lang.module.ModuleId ModuleIds} of all
      * declaring modules available locally in this catalog, ignoring any parent
@@ -120,7 +120,7 @@ public abstract class Catalog {
     }
 
     /**
-     * <p> List all of the module views and aliases present in this catalog 
+     * <p> List all of the module views and aliases present in this catalog
      * and in any parent catalogs. </p>
      *
      * @return  The list of requested module ids, sorted in their natural
@@ -139,10 +139,10 @@ public abstract class Catalog {
         Collections.sort(rv);
         return rv;
     }
-    
+
     /**
      * <p> List all of the declaring modules present locally in this catalog,
-     * without regard to any parent catalogs. 
+     * without regard to any parent catalogs.
      *
      * @return  The list of requested module ids, sorted in their natural
      *          order
@@ -156,7 +156,7 @@ public abstract class Catalog {
         Collections.sort(rv);
         return rv;
     }
-    
+
     /**
      * <p> List all of the declaring modules present in this catalog and in
      * any parent catalogs. </p>
@@ -236,7 +236,7 @@ public abstract class Catalog {
      * <p> Find the most recently-versioned module matching the given query in
      * this catalog or in any parent catalogs. </p>
      *
-     * @param   midq 
+     * @param   midq
      *          The query to match against
      *
      * @return  The identification of the latest module matching the given

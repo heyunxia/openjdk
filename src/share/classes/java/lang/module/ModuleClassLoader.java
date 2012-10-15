@@ -31,7 +31,7 @@ import java.security.CodeSource;
 import java.security.SecureClassLoader;
 import sun.reflect.ReflectionFactory;
 
-public abstract class ModuleClassLoader 
+public abstract class ModuleClassLoader
     extends SecureClassLoader
 {
 

@@ -44,7 +44,7 @@ public class ClassPathLoader {
         checkSearchPath(version);
         checkFiles();
     }
-    
+
     static void initialize() {
         systemCL = ClassLoader.getSystemClassLoader();
         extCL = systemCL.getParent();
@@ -67,7 +67,7 @@ public class ClassPathLoader {
                     " expected: " + version);
         }
     }
-    
+
     static void checkFiles() throws Exception {
         // check jdk classes and resources
         checkContext(new BootstrapContext(), systemCL);
@@ -81,7 +81,7 @@ public class ClassPathLoader {
         cx.checkResources(ld);
         cx.checkNativeLibs(ld);
     }
-    
+
     static void checkURLClassLoader(Context cx) throws Exception {
         String home = System.getProperty("java.home");
         File f = new File(new File(home, "lib"), "tools.jar");
@@ -129,11 +129,11 @@ public class ClassPathLoader {
                 System.loadLibrary(name);
             }
         }
-                     
+
         public String[] natlibs() {
             return new String[0];
         }
-        
+
         public String toString() {
             StringBuilder sb = new StringBuilder("context for " + type);
             for (String k : keys) {
@@ -146,7 +146,7 @@ public class ClassPathLoader {
         BootstrapContext() {
             super("Bootstrap", "sun.boot.class.path", "sun.boot.library.path");
         }
-        
+
         @Override
         public String[] classes() {
             return new String[]{
@@ -170,10 +170,10 @@ public class ClassPathLoader {
                 "verify",
                 "instrument"
             };
-        } 
+        }
 
     }
-    
+
     static class ExtensionContext extends Context  {
         ExtensionContext() {
             super("Extension", "java.ext.dirs");
@@ -198,8 +198,8 @@ public class ClassPathLoader {
             return new String[0];
         }
     }
-    
-    
+
+
     static class ToolsContext extends Context  {
 
         ToolsContext() {

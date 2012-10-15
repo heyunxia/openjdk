@@ -122,17 +122,17 @@ public final class LoaderPool {
             throw new AssertionError();
         return findLoader(cx);
     }
-    
+
     Map<ClassLoader, Set<String>> findServices(Class<?> serviceInterface) {
-        // ## finding services will become more efficient when service 
+        // ## finding services will become more efficient when service
         // provider information is moved from the context to the configuration
         String serviceInterfaceName = serviceInterface.getName();
         Map<ClassLoader, Set<String>> loaderToProviderClasses = new HashMap<>();
-        
+
         for (Context cx: config.contexts()) {
-            Set<String> providerClasses = cx.services().get(serviceInterfaceName);            
+            Set<String> providerClasses = cx.services().get(serviceInterfaceName);
             if (providerClasses != null) {
-                // ## make call to findLoader lazy to avoid creation 
+                // ## make call to findLoader lazy to avoid creation
                 // until iterated over?
                 loaderToProviderClasses.put(findLoader(cx), providerClasses);
             }
@@ -140,5 +140,5 @@ public final class LoaderPool {
 
         return loaderToProviderClasses;
     }
-    
+
 }

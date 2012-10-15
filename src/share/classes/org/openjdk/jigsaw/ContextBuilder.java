@@ -97,20 +97,20 @@ final class ContextBuilder<Cx extends BaseContext> {
     // All of our contexts
     //
     private Set<Cx> contexts = new IdentityHashSet<>();
-    
+
     // For each module view, its assigned context; this also serves
     // as the visited-node set during context construction
     //
     private Map<String,Cx> contextForModuleView
         = new HashMap<>();
-    
+
     private void addContextForModuleView(Cx cx, ModuleView mv) {
         contextForModuleView.put(mv.id().name(), cx);
         for (ModuleId alias : mv.aliases()) {
             contextForModuleView.put(alias.name(), cx);
         }
     }
-    
+
     // Add the given module view to the given context, or create a new context for
     // that module view if none is given, and then add all the other modules in the
     // module's locally-connected component to the same context
@@ -161,7 +161,7 @@ final class ContextBuilder<Cx extends BaseContext> {
                     assert cx == scx;
                     continue;
                 }
-                
+
                 build(cx, smv, smi);
             }
         }
@@ -207,7 +207,7 @@ final class ContextBuilder<Cx extends BaseContext> {
 
         for (ModuleIdQuery rq : res.rootQueries)
             assert res.moduleViewForName.get(rq.name()) != null : rq;
-        
+
         ContextBuilder<Cx> cb = new ContextBuilder<Cx>(res, cxf);
         cb.run();
         for (ModuleIdQuery rq : res.rootQueries)

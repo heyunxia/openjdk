@@ -59,7 +59,7 @@
  *
  * There would be quite some amount of code that are implemented
  * in both Java and native.  Revisit: this is not ideal and causes
- * maintainence overhead in keeping the native and Java version 
+ * maintainence overhead in keeping the native and Java version
  * in sync.
  */
 
@@ -597,7 +597,7 @@ jconfig* find_config(struct library* mlib,
     const char* path;
     jconfig* config;
 
-    struct library* lib = mlib; 
+    struct library* lib = mlib;
     while (lib != NULL) {
         int rc = find_declaring_module_dir(lib->path, modulepath, midq, mdir, sizeof(mdir));
         if (rc == 0) {
@@ -952,13 +952,13 @@ JDK_ReadLocalClass(void *module,
  *
  * module    : handle to a module
  * minfo     : a pointer to struct for the module information.
- * 
+ *
  * TODO: what the source should be? It's used by the VM to print
- * verbose output.  Currently set to the path to 
+ * verbose output.  Currently set to the path to
  * <modulename>/<version>/classes.
- * 
+ *
  * defineClass passes the module's code source to the VM.
- * 
+ *
  * Might be better to print module library + module ID in verbose output.
  */
 jint

@@ -152,9 +152,9 @@ public class PersistentTreeMap implements Closeable {
     public void close() throws IOException {
         close0(db);
     }
-    
+
     private static native void initialize();
-    
+
     static {
         initialize();
     }

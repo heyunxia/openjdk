@@ -148,7 +148,7 @@ public final class ReflectUtil {
 
     /**
      * Returns true if package access check is needed for reflective
-     * access from a class loader 'from' to classes or members in 
+     * access from a class loader 'from' to classes or members in
      * a class defined by class loader 'to'.  This method returns true
      * if 'from' is not the same as or an ancestor of 'to'.  All code
      * in a system domain are granted with all permission and so this
@@ -160,7 +160,7 @@ public final class ReflectUtil {
     public static boolean needsPackageAccessCheck(ClassLoader from, ClassLoader to) {
         if (Platform.isPlatformLoader(from) || from == to)
             return false;
- 
+
         if (Platform.isPlatformLoader(to))
             return true;
 

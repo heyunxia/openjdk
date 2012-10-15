@@ -39,10 +39,10 @@ import sun.net.www.ParseUtil;
 /**
  * A ClassPathContext represents the default search path for bootclasspath,
  * extension directory, and the tools.jar.
- * 
+ *
  * <p>Open issue:</p>
  * -Xbootclasspath sets to the default module image is not supported.
- * One potential compatibility risk is when one VM execs another 
+ * One potential compatibility risk is when one VM execs another
  * VM with -Xboothclasspath:<value of "sun.boot.class.path" property>
  * it will no longer work.
  */
@@ -275,7 +275,7 @@ public class ClassPathContext {
     }
 
     private static String[] toolsModules() {
-        // jdk.tools.jre is not in this list because its classes are 
+        // jdk.tools.jre is not in this list because its classes are
         // included in rt.jar in the legacy image.
         String[] modules = new String[] {
             "jdk.tools.base", "jdk.tools.jaxws", "jdk.tools", "jdk.devtools"

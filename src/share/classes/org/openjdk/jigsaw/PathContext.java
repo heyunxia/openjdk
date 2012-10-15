@@ -48,7 +48,7 @@ public class PathContext
     Set<ModuleInfo> moduleInfos = new HashSet<>();
 
     public Set<ModuleInfo> moduleInfos() { return moduleInfos; }
-    
+
     // ## should jigsaw provide the list of exported types to the compiler?
     public void addModule(ModuleInfo mi) {
         moduleInfos.add(mi);
@@ -94,7 +94,7 @@ public class PathContext
      * @return This context's remote-context set
      */
     public Set<PathContext> remoteContexts() { return suppliers; }
-        
+
     public boolean equals(Object ob) {
         if (!(ob instanceof PathContext))
             return false;

@@ -60,7 +60,7 @@ public class _RemoteRepository {
                     || (mv1.mainClass() != null
                         && mv1.mainClass().equals(mv2.mainClass()))));
     }
-    
+
     static final File REM_REPO = new File("z.remote");
 
     static Set<ModuleId> mids = null;

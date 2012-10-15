@@ -68,7 +68,7 @@ public interface LangReflectAccess {
                                              String signature,
                                              byte[] annotations,
                                              byte[] parameterAnnotations);
-     
+
     /** Creates a new java.lang.reflect.Module. */
     public Module newModule(ModuleInfo mi, ModuleClassLoader ld, CodeSource cs);
 

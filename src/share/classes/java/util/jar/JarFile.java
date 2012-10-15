@@ -49,7 +49,7 @@ import sun.misc.SharedSecrets;
  * jar file and its entries.  A jar file with a {@link
  * #MODULEINFO_NAME module-info.class} entry is a modular jar file
  * that can be installed as a module in a module library.
- * 
+ *
  * <p> Unless otherwise noted, passing a <tt>null</tt> argument to a constructor
  * or method in this class will cause a {@link NullPointerException} to be
  * thrown.

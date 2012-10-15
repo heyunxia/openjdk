@@ -81,10 +81,10 @@ final class Resolver {
     private long spaceRequired = 0;
     private long downloadRequired = 0;
 
-    // Cache of service interface to synthesized dependences of 
+    // Cache of service interface to synthesized dependences of
     // service provider modules
     private Map<String,Set<ViewDependence>> synthesizedServiceDependences = new HashMap<>();
-    // FIFO queue of service interfaces corresponding to "requires service" 
+    // FIFO queue of service interfaces corresponding to "requires service"
     // clauses of modules that have been visited by the resolver.
     // ## This queue should be sorted in a topological order
     private Deque<String> serviceInterfaceQueue = new LinkedList<>();
@@ -167,23 +167,23 @@ final class Resolver {
             dep = d;
             next = ch;
         }
-        
+
         public String toString() {
             return (rmi != null ? rmi.id() : "ROOT") + " " + dep;
         }
     }
-    
+
     private static class RootChoice extends Choice {
         private RootChoice(ViewDependence d, Choice ch) {
             super(null, d, ch);
         }
     }
-    
+
     private static class ServiceProviderChoice extends Choice {
         private ServiceProviderChoice(ViewDependence d, Choice ch) {
             super(null, d, ch);
         }
-        
+
         public String toString() {
             return "SERVICE PROVIDER " + dep;
         }
@@ -326,7 +326,7 @@ final class Resolver {
                 break;
             }
         }
-        
+
         // Check this module's permits constraints
         //
         if (!permits(rmi, dep, smv)) {
@@ -375,20 +375,20 @@ final class Resolver {
 
         // Push the service interfaces, if any, onto queue to be processed later
         Set<ServiceDependence> serviceDeps = mi.requiresServices();
-        // Check point the service interface queue size so partial state can be 
+        // Check point the service interface queue size so partial state can be
         // reverted if dependencies of this module cannot be resolved
         int sizeOfServiceInterfaceQueue = serviceInterfaceQueue.size();
-        if (!serviceDeps.isEmpty()) {           
+        if (!serviceDeps.isEmpty()) {
             for (ServiceDependence sd: mi.requiresServices()) {
                 final String serviceInterface = sd.service();
 
                 // If this service interface has not been placed on the queue
                 if (!serviceInterfaceQueue.contains(serviceInterface)) {
                     serviceInterfaceQueue.addLast(serviceInterface);
-                    if (tracing) 
-                        trace(1, depth, "pushing service interface %s", serviceInterface);  
+                    if (tracing)
+                        trace(1, depth, "pushing service interface %s", serviceInterface);
                 }
-            }            
+            }
         }
 
         // Recursively examine the next choice
@@ -399,7 +399,7 @@ final class Resolver {
             while (d-- > 0) {
                 serviceInterfaceQueue.removeLast();
             }
-            
+
             // Revert maps, then fail
             modules.remove(mi);
             for (ModuleView mv : mi.views()) {
@@ -427,20 +427,20 @@ final class Resolver {
 
     // Get the synthesized service provider module dependences for a
     // service interface.
-    // 
+    //
     // The catalog will be searched for service provider modules and the
     // result will be cached since such a search is potentially expensive.
     // TODO: The catalog could index service provider modules.
-    // 
-    private Set<ViewDependence> getServiceProviderDependences(String serviceInterface, 
+    //
+    private Set<ViewDependence> getServiceProviderDependences(String serviceInterface,
                                                                Catalog cat)
-        throws IOException 
+        throws IOException
     {
-        Set<ViewDependence> serviceDependences = 
+        Set<ViewDependence> serviceDependences =
             synthesizedServiceDependences.get(serviceInterface);
-        if (serviceDependences != null) 
+        if (serviceDependences != null)
             return serviceDependences;
-        
+
         serviceDependences = new LinkedHashSet<>();
         for (ModuleId providerId : cat.listDeclaringModuleIds()) {
             final ModuleInfo provider = cat.readModuleInfo(providerId);
@@ -453,12 +453,12 @@ final class Resolver {
                         new ModuleIdQuery(provider.id().name(), null);
                     ViewDependence vd =
                         new ViewDependence(EnumSet.of(Modifier.OPTIONAL), q);
-                    serviceDependences.add(vd);             
+                    serviceDependences.add(vd);
                     break;
                 }
             }
         }
-        synthesizedServiceDependences.put(serviceInterface, serviceDependences);                    
+        synthesizedServiceDependences.put(serviceInterface, serviceDependences);
         return serviceDependences;
     }
 
@@ -469,42 +469,42 @@ final class Resolver {
     // These are treated as distinct phases
     private void resolveServices() throws ConfigurationException, IOException {
         int phase = 0;
-        
+
         while (!serviceInterfaceQueue.isEmpty()) {
             phase++;
             if (tracing)
                 trace(1, 0, "service provider module dependency resolving phase %d", phase);
-            
-            // Get the service provider module dependencies for the 
+
+            // Get the service provider module dependencies for the
             // service interface and create choices
             // ## Include from remote repositories?
             List<Choice> choices = new ArrayList<>();
             while (!serviceInterfaceQueue.isEmpty()) {
                 String serviceInterface = serviceInterfaceQueue.removeFirst();
-                trace(1, 1, "service interface %s", serviceInterface);  
-                
+                trace(1, 1, "service interface %s", serviceInterface);
+
                 Set<ViewDependence> vds = getServiceProviderDependences(serviceInterface, cat);
                 if (vds.isEmpty()) {
-                    trace(1, 2, "no service provider modules found");                          
+                    trace(1, 2, "no service provider modules found");
                 }
-                
+
                 for (ViewDependence vd: vds) {
-                    if (tracing) 
-                        trace(1, 2, "dependency %s", vd);  
+                    if (tracing)
+                        trace(1, 2, "dependency %s", vd);
 
                     // ## Should duplicate service provider dependencies
                     // be retained
                     choices.add(new ServiceProviderChoice(vd, null));
-                }                                        
+                }
             }
-                            
+
             // Resolve each service provider module dependency in this phase
             for (Choice c: choices) {
                 // Result will always be true since dependency is optional
                 resolve(1, c);
-     
-                // ## If the service provider module dependency has not been 
-                // resolved then log warning as to why                    
+
+                // ## If the service provider module dependency has not been
+                // resolved then log warning as to why
             }
         }
     }
@@ -543,12 +543,12 @@ final class Resolver {
                                                     midq);
             ch = new RootChoice(dep,  ch);
         }
-        
+
         // Phase 0: resolve application
         boolean resolved = resolve(0, ch);
-        if (resolved) {       
-            // If success then resolve service provider modules, if any       
-            resolveServices();   
+        if (resolved) {
+            // If success then resolve service provider modules, if any
+            resolveServices();
             ensureServicesPresent();
         }
         return resolved;

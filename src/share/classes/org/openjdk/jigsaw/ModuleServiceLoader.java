@@ -27,13 +27,13 @@ package org.openjdk.jigsaw;
 import java.util.*;
 
 /**
- * A simple module mode service loading facility that is capable of lazily 
- * creating, from the configuration, service instances for a given 
+ * A simple module mode service loading facility that is capable of lazily
+ * creating, from the configuration, service instances for a given
  * service interface.
  * <p>
  * This class can only be utilized in module mode.
  * <p>
- * Unlike {@link java.util.ServiceLoader} this class does not currently cache 
+ * Unlike {@link java.util.ServiceLoader} this class does not currently cache
  * service (provider) instances on subsequent calls to {@link #iterator() }.
  */
 public final class ModuleServiceLoader<S> implements Iterable<S> {
@@ -47,23 +47,23 @@ public final class ModuleServiceLoader<S> implements Iterable<S> {
         this.serviceInterface = serviceInterface;
     }
 
-    private class LazyLoadingIterator implements Iterator<S> {    
+    private class LazyLoadingIterator implements Iterator<S> {
         final Iterator<Map.Entry<ClassLoader, Set<String>>> entries;
-        
+
         ClassLoader serviceProvider;
-        
+
         Iterator<String> providerClassNames;
-        
+
         LazyLoadingIterator(Iterator<Map.Entry<ClassLoader, Set<String>>> entries) {
             this.entries = entries;
         }
-        
+
         public boolean hasNext() {
             if (providerClassNames == null || !providerClassNames.hasNext()) {
                 // move onto the next loader if possible
                 if (!entries.hasNext())
                     return false;
-                
+
                 final Map.Entry<ClassLoader, Set<String>> entry = entries.next();
                 serviceProvider = entry.getKey();
                 providerClassNames = entry.getValue().iterator();
@@ -75,11 +75,11 @@ public final class ModuleServiceLoader<S> implements Iterable<S> {
         public S next() {
             if (!hasNext())
                 throw new NoSuchElementException();
-            
+
             final String cn = providerClassNames.next();
             try {
-                final Object serviceInstance = Class.forName(cn, true, 
-                        serviceProvider).newInstance();                
+                final Object serviceInstance = Class.forName(cn, true,
+                        serviceProvider).newInstance();
                 return serviceInterface.cast(serviceInstance);
             } catch (ClassNotFoundException x) {
                 fail(serviceInterface,
@@ -91,12 +91,12 @@ public final class ModuleServiceLoader<S> implements Iterable<S> {
             }
             throw new Error();          // This cannot happen
         }
-        
+
         public void remove() {
             throw new UnsupportedOperationException();
         }
-    }    
-    
+    }
+
     private static void fail(Class<?> service, String msg, Throwable cause)
             throws ServiceConfigurationError {
         throw new ServiceConfigurationError(service.getName() + ": " + msg,
@@ -109,7 +109,7 @@ public final class ModuleServiceLoader<S> implements Iterable<S> {
     }
 
     @Override
-    public Iterator<S> iterator() {   
+    public Iterator<S> iterator() {
         // Pick a known module class loader
         // In module mode the system class loader will be the class loader
         // of the root module
@@ -117,13 +117,13 @@ public final class ModuleServiceLoader<S> implements Iterable<S> {
         return new LazyLoadingIterator(
                 loader.findServices(serviceInterface).entrySet().iterator());
     }
-        
+
     /**
      * Load the service instances for a given service interface.
-     * 
+     *
      * @param <S> the service interface type
      * @param serviceInterface the service interface
-     * @return the module service loader from which service interfaces can be 
+     * @return the module service loader from which service interfaces can be
      * be iterated over
      */
     public static <S> ModuleServiceLoader<S> load(Class<S> serviceInterface) {

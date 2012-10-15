@@ -39,7 +39,7 @@ public final class Resolution {
     final Collection<ModuleIdQuery> rootQueries;
 
     final Set<ModuleInfo> modules;
-    
+
     final Map<String,ModuleView> moduleViewForName;
 
     final Map<String,URI> locationForName;
@@ -67,7 +67,7 @@ public final class Resolution {
      * install the needed modules </p>
      */
     public long spaceRequired() { return spaceRequired; }
-    
+
     Resolution(Collection<ModuleIdQuery> rqs,
                Set<ModuleInfo> mis,
                Map<String,ModuleView> mvfn,

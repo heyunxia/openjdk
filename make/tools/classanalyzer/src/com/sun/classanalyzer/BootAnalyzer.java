@@ -822,7 +822,7 @@ public class BootAnalyzer {
                 // skip
                 return null;
             }
-            
+
             public String visitModuleQuery(CONSTANT_ModuleQuery_info c, Void p) {
                 // skip
                 return null;

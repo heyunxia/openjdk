@@ -178,16 +178,16 @@ public class PublishedRepository
             if (modp.getFileName().toString().endsWith(type.getFileNameSuffix())) {
                 return type;
             }
-        }   
+        }
 
         // ## check magic numbers?
         throw new IllegalArgumentException(modp + ": Unrecognized module file");
     }
-    
+
     private Path getModulePath(ModuleId mid, String ext) throws IOException {
         return path.resolve(mid.toString() + ext);
     }
-    
+
     private Path getModulePath(ModuleId mid, ModuleType type) throws IOException {
         return getModulePath(mid, type.getFileNameSuffix());
     }
@@ -205,16 +205,16 @@ public class PublishedRepository
     private Entry readModuleInfo(Path modp) throws IOException {
         return readModuleInfo(modp, getModuleType(modp));
     }
-      
+
     private Entry getModuleInfo(ModuleId mid) throws IOException {
         return readModuleInfo(getModulePath(mid));
     }
-    
+
     private Entry readModuleInfo(Path modp, ModuleType type) throws IOException {
         switch(getModuleType(modp)) {
-            case JAR: 
+            case JAR:
                 return readModuleInfoFromModularJarFile(modp);
-            case JMOD: 
+            case JMOD:
                 return readModuleInfoFromJmodFile(modp);
             default:
                 // Cannot occur;
@@ -222,21 +222,21 @@ public class PublishedRepository
         }
     }
 
-    private Entry readModuleInfoFromJmodFile(Path modp) throws IOException {        
+    private Entry readModuleInfoFromJmodFile(Path modp) throws IOException {
         try (InputStream mfis = Files.newInputStream(modp)) {
             ValidatingModuleFileParser parser =
                     ModuleFile.newValidatingParser(mfis);
-            
+
             ModuleFileHeader mfh = parser.fileHeader();
-            
+
             // Move to the module info section
             parser.next();
-            
-            return new Entry(ModuleType.JMOD, 
-                             toByteArray(parser.getContentStream()), 
-                             mfh.getCSize(), 
-                             mfh.getUSize(), 
-                             mfh.getHashType(), 
+
+            return new Entry(ModuleType.JMOD,
+                             toByteArray(parser.getContentStream()),
+                             mfh.getCSize(),
+                             mfh.getUSize(),
+                             mfh.getHashType(),
                              mfh.getHash());
         }
     }
@@ -246,27 +246,27 @@ public class PublishedRepository
         try (JarFile j = new JarFile(jf)) {
             JarEntry moduleInfo = j.getJarEntry(JarFile.MODULEINFO_NAME);
             if (moduleInfo == null) {
-                throw new IllegalArgumentException(modp + ": not a modular JAR file");                
+                throw new IllegalArgumentException(modp + ": not a modular JAR file");
             }
-                        
+
             long usize = 0;
             for (JarEntry je: Collections.list(j.entries())) {
                 if (je.isDirectory()) {
                     continue;
                 }
-                
+
                 usize += je.getSize();
             }
-                        
-            return new Entry(ModuleType.JAR, 
+
+            return new Entry(ModuleType.JAR,
                             toByteArray(j, moduleInfo),
-                            jf.length(), 
-                            usize, 
+                            jf.length(),
+                            usize,
                             HashType.SHA256,
-                            digest(jf));   
+                            digest(jf));
         }
     }
-    
+
     private byte[] digest(File f) throws IOException {
         MessageDigest md;
         try {
@@ -280,17 +280,17 @@ public class PublishedRepository
             byte[] buf = new byte[4096];
             while (in.read(buf) != -1) {
             }
-            
+
             return in.getMessageDigest().digest();
         }
     }
-    
+
     private byte[] toByteArray(JarFile j, JarEntry je) throws IOException {
-        try (InputStream in = j.getInputStream(je)) {    
-            return toByteArray(in);            
+        try (InputStream in = j.getInputStream(je)) {
+            return toByteArray(in);
         }
     }
-    
+
     private byte[] toByteArray(InputStream in) throws IOException {
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
         final byte buf[] = new byte[4096];
@@ -299,7 +299,7 @@ public class PublishedRepository
             baos.write(buf, 0, len);
         }
         return baos.toByteArray();
-    } 
+    }
 
     public void publish(Path modp) throws IOException {
         Entry e = readModuleInfo(modp);
@@ -382,7 +382,7 @@ public class PublishedRepository
             sb.append(type.getFileNameExtension());
         }
         sb.append("}");
-        try (DirectoryStream<Path> ds = Files.newDirectoryStream(path, sb.toString())) { 
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(path, sb.toString())) {
             for (Path modp : ds) {
                 ModuleType type = getModuleType(modp);
                 String fn = modp.getFileName().toString();

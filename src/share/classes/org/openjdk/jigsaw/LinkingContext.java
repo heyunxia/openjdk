@@ -39,7 +39,7 @@ interface LinkingContext {
     // The ModuleInfos of the modules in this context
     //
     public Set<ModuleInfo> moduleInfos();
-    
+
     public void addModule(ModuleInfo mi);
 
 }

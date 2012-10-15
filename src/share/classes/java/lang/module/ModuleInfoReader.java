@@ -132,7 +132,7 @@ import java.lang.module.Dependence.Modifier;
     private static final int ACC_REEXPORT    = 0x4;
     private static final int ACC_SYNTHETIC   = 0x1000;
     private static final int ACC_SYNTHESIZED = 0x10000;
-    
+
     private void readAttributes() throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
@@ -183,7 +183,7 @@ import java.lang.module.Dependence.Modifier;
             }
             requiresModules.add(new ViewDependence(mods, cpool.getModuleIdQuery(index)));
         }
-                       
+
         count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
             String cn = readClassName();
@@ -218,7 +218,7 @@ import java.lang.module.Dependence.Modifier;
             readModuleServices(services);
             readModuleExports(exports);
             readModulePermits(permits);
-            
+
             ModuleView view = new ModuleViewImpl(id,
                                                  mainClass,
                                                  aliases,
@@ -229,25 +229,25 @@ import java.lang.module.Dependence.Modifier;
             if (id.equals(moduleId)) {
                 defaultView = view;
             }
-        }    
+        }
     }
-    
+
     private String readClassName() throws IOException {
         int index = in.readUnsignedShort();
         if (index == 0)
             return null;
-        
+
         return cpool.getClassName(index).replace('/', '.');
     }
-    
+
     private String readViewName() throws IOException {
         int index = in.readUnsignedShort();
         if (index == 0)
             return moduleId.name();
-        
+
         return cpool.getUtf8(index).replace('/', '.');
     }
-        
+
     private void readModuleExports(Set<String> exports) throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
@@ -255,7 +255,7 @@ import java.lang.module.Dependence.Modifier;
             exports.add(cpool.getUtf8(index).replace('/', '.'));
         }
     }
-        
+
     private void readModuleServices(Map<String,Set<String>> services) throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
@@ -267,12 +267,12 @@ import java.lang.module.Dependence.Modifier;
             Set<String> providers = services.get(sn);
             if (providers == null) {
                 providers = new LinkedHashSet<>();
-                services.put(sn, providers); 
+                services.put(sn, providers);
             }
             providers.add(impl);
         }
     }
-    
+
     private void readModulePermits(Set<String> permits) throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
@@ -280,14 +280,14 @@ import java.lang.module.Dependence.Modifier;
             permits.add(mid.name());
         }
     }
-    
+
     private void readModuleAliases(Set<ModuleId> aliases) throws IOException {
         int count = in.readUnsignedShort();
         for (int i = 0; i < count; i++) {
             aliases.add(cpool.getModuleId(in.readUnsignedShort()));
         }
     }
-    
+
     private String readModuleData() throws IOException {
         int index = in.readUnsignedShort();
         return cpool.getUtf8(index);
@@ -319,7 +319,7 @@ import java.lang.module.Dependence.Modifier;
         public ModuleId id() {
             return id;
         }
-        
+
         public Set<ViewDependence> requiresModules() {
             return requiresModules;
         }
@@ -327,7 +327,7 @@ import java.lang.module.Dependence.Modifier;
         public Set<ServiceDependence> requiresServices() {
             return requiresServices;
         }
-        
+
         public ModuleView defaultView() {
             return defaultView;
         }
@@ -335,13 +335,13 @@ import java.lang.module.Dependence.Modifier;
         public Set<ModuleView> views() {
             return views;
         }
-                
+
         @Override
         public String toString() {
             Set<String> names = new LinkedHashSet<>();
             for (ModuleView mv : views) {
                 names.add(mv.id().name());
-            }    
+            }
             return "ModuleInfo { id: " + id
                     + ", requires: " + requiresModules
                     + ", requires service:" + requiresServices
@@ -390,7 +390,7 @@ import java.lang.module.Dependence.Modifier;
         public Set<String> exports() {
             return exports;
         }
-        
+
         public Set<String> permits() {
             return permits;
         }
@@ -413,7 +413,7 @@ import java.lang.module.Dependence.Modifier;
                     + " }";
         }
     }
-    
+
     static class ConstantPool {
 
         private static class Entry {

@@ -476,13 +476,13 @@ public abstract class ResourceBundle {
                         }
                     });
 
-        // In classpath mode, RBClassLoader just delegates to 
+        // In classpath mode, RBClassLoader just delegates to
         // ClassLoader.getSystemClassLoader() that always delegates to
         // the null class loader.
-        // 
+        //
         // In module mode, use the base module's loader to
         // load classes & resource files in the java.base module.
-        // 
+        //
         private static final ClassLoader loader =
             Platform.isModuleMode() ? Platform.getBaseModuleLoader()
                                     : ClassLoader.getSystemClassLoader();

@@ -33,7 +33,7 @@ package org.openjdk.jigsaw;
 public class ModuleFileParserException  // ## Should be ModuleFileParseException
     extends RuntimeException
 {
-    
+
     private static final long serialVersionUID = -1926996961683780088L;
 
     // ## section type/event useful to capture in exception?

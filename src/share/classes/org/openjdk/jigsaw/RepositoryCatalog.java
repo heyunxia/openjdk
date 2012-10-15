@@ -46,7 +46,7 @@ public abstract class RepositoryCatalog {
 
     public abstract void gatherDeclaringModuleIds(Set<ModuleId> mids)
         throws IOException;
-    
+
     public abstract void gatherModuleIds(String moduleName, Set<ModuleId> mids)
         throws IOException;
 
@@ -104,7 +104,7 @@ public abstract class RepositoryCatalog {
         public void gatherDeclaringModuleIds(Set<ModuleId> mids) {
             mids.addAll(modules.keySet());
         }
-        
+
         @Override
         public void gatherModuleIds(String moduleName, Set<ModuleId> mids) {
             for (ModuleId mid : moduleForViewId.keySet()) {

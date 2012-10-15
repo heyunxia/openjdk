@@ -157,12 +157,12 @@ public class ModuleInfo {
                 throw new RuntimeException("module " + module + " requires " + d + " has null view");
             sb.append(format(1, "requires %s%s;%n", mods, d.getModuleView().id()));
         }
-        
+
         for (Map.Entry<String,Boolean> entry: requiresServices.entrySet()) {
             String s = entry.getKey();
             boolean optional = entry.getValue();
-            sb.append(String.format("%srequires %sservice %s;%n", 
-                      INDENT, 
+            sb.append(String.format("%srequires %sservice %s;%n",
+                      INDENT,
                       (optional ? "optional " : ""),
                       s));
         }
@@ -170,8 +170,8 @@ public class ModuleInfo {
         for (Map.Entry<String,List<String>> entry: providesServices.entrySet()) {
             String sn = entry.getKey();
             for (String cn: entry.getValue()) {
-                sb.append(String.format("%sprovides service %s with %s;%n", 
-                          INDENT, 
+                sb.append(String.format("%sprovides service %s with %s;%n",
+                          INDENT,
                           sn,
                           cn));
             }
@@ -201,7 +201,7 @@ public class ModuleInfo {
         assert useCommaSeparator == true;
         if (permits.isEmpty())
             return;
-        
+
         Set<Module> list = new TreeSet<>(permits);
         sb.append(format(level, "permits "));
         int i = 0;
@@ -250,7 +250,7 @@ public class ModuleInfo {
         }
         return s + String.format(fmt, args);
     }
-    
+
     private StringBuilder formatList(StringBuilder sb, int level, String fmt, Collection<?> c) {
         return formatList(sb, level, fmt, c, false);
     }
@@ -258,17 +258,17 @@ public class ModuleInfo {
     private StringBuilder formatList(StringBuilder sb, int level, String fmt, Collection<?> c, boolean newline) {
         if (c.isEmpty())
             return sb;
-     
+
         if (newline)
             sb.append("\n");
-        
+
         TreeSet<?> ls = new TreeSet<>(c);
         for (Object o : ls) {
             sb.append(format(level, fmt, o));
         }
         return sb;
     }
-    
+
     private void printModuleView(int level, StringBuilder sb, Module.View view) {
         if (view.isEmpty())
             return;
@@ -283,7 +283,7 @@ public class ModuleInfo {
         if (view.mainClass() != null) {
             sb.append(format(level+1, "class %s;%n", view.mainClass()));
         }
-        
+
         boolean newline = !view.aliases().isEmpty() || view.mainClass() != null;
         if (!view.exports().isEmpty()) {
             if (level == 0) {
@@ -298,7 +298,7 @@ public class ModuleInfo {
                 exports = new TreeSet<>();
                 for (PackageInfo pi : module.packages()) {
                     String pn = pi.pkgName;
-                    if (pi.publicClassCount > 0 && 
+                    if (pi.publicClassCount > 0 &&
                             !module.defaultView().exports().contains(pn)) {
                         exports.add(pn);
                     }

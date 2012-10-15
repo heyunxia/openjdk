@@ -33,7 +33,7 @@ import java.lang.annotation.Target;
 
 
 /**
- * Indicates that the annotated element requires the named modules be  
+ * Indicates that the annotated element requires the named modules be
  * presented when being referenced.
  *
  * @see ModuleNotPresentException
@@ -44,5 +44,5 @@ public @interface RequireOptionalModule {
     /**
      * The set of modules required by the annotated method.
      */
-    String[] value(); 
+    String[] value();
 }

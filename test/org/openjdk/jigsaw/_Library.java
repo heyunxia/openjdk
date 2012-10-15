@@ -48,7 +48,7 @@ public class _Library {
     private static <T> boolean eq(Collection<T> c1, Collection<T> c2) {
         return c1.containsAll(c2) && c2.containsAll(c1);
     }
-    
+
     private static void checkFooModuleInfo(ModuleInfo mi) {
         eq(mi.id().name(), "com.foo.bar");
         Version v = ms.parseVersion("1.2.3_04-5a");
@@ -56,7 +56,7 @@ public class _Library {
         eq(mi.id().version().toString(), v.toString());
         eq(mi.defaultView().permits(), Arrays.asList("com.foo.buz", "com.oof.byz"));
         eq(mi.defaultView().mainClass(), "com.foo.bar.Main");
-        
+
         List<String> aliases = new ArrayList<>();
         List<String> aliasNames = new ArrayList<>();
         for (ModuleId mid : mi.defaultView().aliases()) {

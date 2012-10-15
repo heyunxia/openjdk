@@ -277,7 +277,7 @@ public class ModuleBuilder {
             }
         }
     }
-    
+
     protected ModuleInfo buildModuleInfo(Module m) {
         Map<Module, Dependence> requires = new LinkedHashMap<Module, Dependence>();
 
@@ -285,11 +285,11 @@ public class ModuleBuilder {
         boolean requiresBase = true;
         for (Dependence d : m.configRequires()) {
             Module dm = getFactory().getModuleForView(d.module);
-            
+
             // check if the base module is listed in the config
             if (base != null && dm == base)
                 requiresBase = false;
-            
+
             // add to requires only if it's a non-empty module or not aggregating modules
             if (dm.isTopLevel()) {
                 if (d.isLocal()) {
@@ -300,7 +300,7 @@ public class ModuleBuilder {
                 addDependence(m, requires, d);
             }
         }
-        
+
         // add "requires" of the base module
         if (!m.isBase() && base != null && requiresBase) {
             Dependence d = new Dependence(base.name(), false);
@@ -364,7 +364,7 @@ public class ModuleBuilder {
             }
         }
 
-        ModuleInfo mi = new ModuleInfo(m, 
+        ModuleInfo mi = new ModuleInfo(m,
                                        requires.values(),
                                        AnnotatedDependency.getServiceDependencies(m),
                                        AnnotatedDependency.getServiceProvides(m));
@@ -373,7 +373,7 @@ public class ModuleBuilder {
 
     private void addDependence(Module m, Map<Module, Dependence> requires,
                                Klass k, boolean optional) {
-        Module dm = k.getModule().group();      
+        Module dm = k.getModule().group();
         Dependence dep = requires.get(dm);
         if (dep == null) {
             dep = new Dependence(dm.name(), optional);
@@ -405,12 +405,12 @@ public class ModuleBuilder {
                     if (dep.views.containsAll(d.views))
                         return;
                     if (d.views.size() == 1 &&
-                        d.views.contains(dm.defaultView()) && 
+                        d.views.contains(dm.defaultView()) &&
                         dep.views.contains(dm.internalView()))
                         return;
                 }
             }
-            throw new RuntimeException("Add dependence " + d + " to module " + 
+            throw new RuntimeException("Add dependence " + d + " to module " +
                     m.name() + " " + dep);
         }
     }

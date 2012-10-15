@@ -43,14 +43,14 @@ public class BaseContext {
     // A map from a module to its views in this context
     //
     protected Map<ModuleId,Set<ModuleId>> modules = new HashMap<>();
-    
+
     /**
      * Add the given module and its views to this context.
      */
     protected void add(ModuleId mid, Set<ModuleId> views) {
         modules.put(mid, new HashSet<>(views));
     }
-    
+
     private Map<ModuleId,Set<ModuleId>> roModules;
 
     /**
@@ -61,7 +61,7 @@ public class BaseContext {
             roModules = Collections.unmodifiableMap(modules);
         return roModules.keySet();
     }
-    
+
     /**
      * The set of module view's id of a given module in this context (read-only).
      */
@@ -70,7 +70,7 @@ public class BaseContext {
             roModules = Collections.unmodifiableMap(modules);
         return roModules.get(mid);
     }
-    
+
     // This context's name
     //
     private String name;
@@ -136,7 +136,7 @@ public class BaseContext {
         hash = hc;
         return hc;
     }
-    
+
     public boolean equals(Object ob) {
         if (!(ob instanceof BaseContext))
             return false;

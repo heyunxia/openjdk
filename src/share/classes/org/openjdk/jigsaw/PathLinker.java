@@ -65,7 +65,7 @@ final class PathLinker {
                 cx.localPath.addAll(cx.modules());
                 continue;
             }
-            
+
             // Order suppliers according to dominance ## Not yet implemented
             cx.localPath.addAll(cx.modules());
             Collections.sort(cx.localPath);

@@ -88,7 +88,7 @@ public class JigsawModuleBuilder extends ClassListReader {
         static Module newModule(ModuleInfo mi) {
             JigsawModule m = new JigsawModule(mi);
             factory.addModule(m);
-            
+
             for (ModuleView mv : mi.views()) {
                 Set<String> exports = mv.exports();
                 if (mv == mi.defaultView()) {

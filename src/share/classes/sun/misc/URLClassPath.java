@@ -89,7 +89,7 @@ public class URLClassPath {
 
     /* ClassLoader that uses this URLClassPath. null if unknown. */
     private final ClassLoader cl;
-            
+
     /**
      * Creates a new URLClassPath for the given URLs. The URLs will be
      * searched in the order specified for classes and resources. A URL
@@ -103,11 +103,11 @@ public class URLClassPath {
     public URLClassPath(URL[] urls, URLStreamHandlerFactory factory) {
         this(null, urls, factory);
     }
-    
+
     public URLClassPath(URL[] urls) {
         this(null, urls, null);
     }
-    
+
     public URLClassPath(ClassLoader cl, URL[] urls, URLStreamHandlerFactory factory) {
         for (int i = 0; i < urls.length; i++) {
             path.add(urls[i]);
@@ -118,11 +118,11 @@ public class URLClassPath {
         }
         this.cl = cl;
     }
-    
+
     public URLClassPath(ClassLoader cl, URL[] urls) {
         this(cl, urls, null);
     }
-    
+
     public synchronized List<IOException> closeLoaders() {
         if (closed) {
             return Collections.emptyList();
@@ -1084,7 +1084,7 @@ public class URLClassPath {
             return null;
         }
     }
-    
+
     /*
      * Inner class used to represent a loader of classes and resources
      * from a context
@@ -1112,7 +1112,7 @@ public class URLClassPath {
             try {
                 final URL u = cx.findLocalResource(name);
                 if (u == null) return null;
-                    
+
                 if (check) {
                     URLClassPath.check(u);
                 }

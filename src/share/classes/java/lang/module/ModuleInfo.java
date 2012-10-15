@@ -55,7 +55,7 @@ public interface ModuleInfo {
 
     /**
      * <p> The default view of this module.</p>
-     * Each module has a default view whose 
+     * Each module has a default view whose
      * {@linkplain ModuleView#id() identifier} is the same as
      * its {@linkplain ModuleId module's identifier}.
      *

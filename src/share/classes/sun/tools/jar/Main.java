@@ -612,7 +612,7 @@ class Main {
             if (entryMap.containsKey(MODULEINFO_NAME) && moduleid != null) {
                 error(getMsg("error.bad.moduleid"));
                 return false;
-            } 
+            }
 
             if (jarIndex != null) {
                 addIndex(jarIndex, zos);
@@ -673,7 +673,7 @@ class Main {
                     if (!name.equals(MODULEINFO_NAME) || moduleid == null) {
                         copyZipEntry(e, zos);
 
-			// when generating a module-info file and this entry is 
+                        // when generating a module-info file and this entry is
                         // a service configuration file then parse it to get the
                         // names of the service implementations.
                         if (service != null) {
@@ -682,7 +682,7 @@ class Main {
                             zos.write(bytes);   // copy the content
                         } else {
                             copy(e, zis, zos, minfo);   // copy the content
-                        }     
+                        }
                         zos.closeEntry();
                     }
                 } else { // replace with the new files
@@ -713,15 +713,15 @@ class Main {
                 // -I is specified
                 minfo.setMainClass(getMainClass(mf));
                 addModuleRequires(minfo, getClassPath(mf));
-                
+
                 // service providers
                 for (Map.Entry<String,Set<String>> entry: providers.entrySet()) {
                     String service = entry.getKey();
                     for (String impl: entry.getValue()) {
                         minfo.addProvidesService(service, impl);
-                    }                    
+                    }
                 }
-                
+
                 writeModuleInfo(minfo, zos, System.currentTimeMillis());
                 if (vflag) {
                     output(getMsg("out.update.moduleinfo"));
@@ -774,7 +774,7 @@ class Main {
             output(getMsg("out.update.manifest"));
         }
     }
-    
+
     /**
      * Parse the given byte array as the raw bytes of a services configuration
      * file, returning the names of the entries.
@@ -792,7 +792,7 @@ class Main {
                 result.add(s);
         }
         return result;
-    }    
+    }
 
     private void writeModuleInfo(ModuleInfo minfo, ZipOutputStream zos, long ts)
         throws IOException
@@ -940,7 +940,7 @@ class Main {
             }
         }
     }
-    
+
     /**
      * A buffer for use only by copy(InputStream, OutputStream).
      * Not as clean as allocating a new buffer as needed by copy,
@@ -962,7 +962,7 @@ class Main {
             to.write(copyBuf, 0, n);
         }
     }
-    
+
     /**
      * Copies all bytes from the input stream to the output stream.
      * Does not close or flush either stream.  Also, add exports
@@ -983,7 +983,7 @@ class Main {
             helper.addExports(minfo, e);
         }
     }
-    
+
     /**
      * Read all bytes from the input stream, returning them in a byte array.
      */
@@ -1013,13 +1013,13 @@ class Main {
             }
         }
         return (capacity == nread) ? buf : Arrays.copyOf(buf, nread);
-    }    
-    
+    }
+
     private ByteStreamHelper helper = new ByteStreamHelper();
     class ByteStreamHelper extends ByteArrayOutputStream {
         void copyFrom(InputStream from) throws IOException {
             reset();
-            
+
             int n;
             while ((n = from.read(copyBuf)) != -1) {
                 this.write(copyBuf, 0, n);
@@ -1028,7 +1028,7 @@ class Main {
         void copyTo(OutputStream to) throws IOException {
             to.write(buf);
         }
-        
+
         void addExports(ModuleInfo minfo, ZipEntry e) throws IOException {
             minfo.addExports(new ByteArrayInputStream(buf), e.getSize(), e.getName());
         }

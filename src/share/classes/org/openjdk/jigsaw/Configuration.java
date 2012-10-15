@@ -116,7 +116,7 @@ public final class Configuration<Cx extends BaseContext> {
             throw new IllegalArgumentException(mn + ": Unknown module");
         return cx;
     }
-    
+
     /**
      * Construct a new configuration from an existing context set and
      * module-view-name-to-context map.
@@ -144,8 +144,8 @@ public final class Configuration<Cx extends BaseContext> {
         this.contextForName = new HashMap<String,Cx>();
     }
 
-    private void dumpServices(String title, Map<String,Set<String>> services, 
-                              PrintStream out) 
+    private void dumpServices(String title, Map<String,Set<String>> services,
+                              PrintStream out)
     {
         if (!services.isEmpty()) {
             out.format("    %s (%d)%n", title, services.size());
@@ -154,15 +154,15 @@ public final class Configuration<Cx extends BaseContext> {
                 Set<String> names = service.getValue();
                 out.format("      %s (%d)%n", service.getKey(), names.size());
                 for (String name : names) {
-                    out.format("        %s%n", name);                    
+                    out.format("        %s%n", name);
                 }
             }
-        }        
+        }
     }
-    
+
     private void dump(Context cx, boolean all, PrintStream out) {
         dumpServices("service providers", cx.services(), out);
-        
+
         if (!cx.localClasses().isEmpty()) {
             Set<String> classes = new TreeSet<>(cx.localClasses());
             out.format("    local (%d)", classes.size());

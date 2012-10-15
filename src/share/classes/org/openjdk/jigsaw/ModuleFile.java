@@ -597,7 +597,7 @@ public final class ModuleFile {
         public HashType getHashType() {
             return hashType;
         }
-        
+
         public byte[] getHash() {
             return hash.clone();
         }
