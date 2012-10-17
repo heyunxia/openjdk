@@ -33,15 +33,16 @@ import java.util.concurrent.Phaser;
 import org.openjdk.jigsaw.PersistentTreeMap;
 import org.openjdk.jigsaw.PersistentTreeMap.StringAndInt;
 
-public class Basher implements Runnable
-{
+
+public class Basher implements Runnable {
+
     // Small values so that the test can be run in constrained
     // test environments. Increase when running manually.
     static final int NUM_THREADS = 50;
     static final int NUM_ENTRIES = 10000;
 
     static final boolean debug = false;
-    static final String FILENAME = "Basher_db.db";
+    static final String FILENAME = "basher.db";
     static volatile int fail;
 
     static enum Mode {
@@ -88,8 +89,7 @@ public class Basher implements Runnable
         createdb(dbFile);
         System.out.print("completed\n");
 
-        PersistentTreeMap pmap = PersistentTreeMap.open(dbFile);
-        try {
+        try (PersistentTreeMap pmap = PersistentTreeMap.open(dbFile)) {
             Thread[] threads = new Thread[NUM_THREADS];
             for (int i=0; i<NUM_THREADS; i++) {
                 threads[i] = new Thread(createBasher(pmap));
@@ -100,13 +100,9 @@ public class Basher implements Runnable
             for (int i=0; i<NUM_THREADS; i++) {
                 threads[i].join();
             }
-
-        } finally {
-            pmap.close();
-            dbFile.delete();
         }
 
-         if (fail > 0)
+        if (fail > 0)
             throw new RuntimeException("Failed: " + fail + " tests failed. " +
                                        "Check output");
     }

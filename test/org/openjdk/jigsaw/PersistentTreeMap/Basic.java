@@ -30,20 +30,17 @@ import java.io.IOException;
 import org.openjdk.jigsaw.PersistentTreeMap;
 import org.openjdk.jigsaw.PersistentTreeMap.StringAndInt;
 
-public class Basic
-{
+
+public class Basic {
+
     static final boolean debug = true;
     static int fail = 0;
-    static String filename = "Basic_db.db";
+    static String filename = "basic.db";
 
     public static void main(String[] args) throws IOException {
         debug("Using database: " + filename + "\n");
         File dbFile = new File(filename);
-        try {
-            test(dbFile);
-        } finally {
-            dbFile.delete();
-        }
+        test(dbFile);
     }
 
     static void test(File dbFile) throws IOException {
