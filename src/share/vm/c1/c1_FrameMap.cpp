@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -92,7 +92,6 @@ CallingConvention* FrameMap::java_calling_convention(const BasicTypeArray* signa
   for (i = 0; i < sizeargs;) {
     BasicType t = sig_bt[i];
     assert(t != T_VOID, "should be skipping these");
-
     LIR_Opr opr = map_to_opr(t, regs + i, outgoing);
     args->append(opr);
     if (opr->is_address()) {

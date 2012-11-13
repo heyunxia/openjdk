@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,6 +23,8 @@
  */
 
 package sun.jvm.hotspot.debugger;
+
+import sun.jvm.hotspot.debugger.cdbg.*;
 
 /** This is a placeholder interface for a thread's context, containing
     only integer registers (no floating-point ones). What it contains
@@ -54,4 +56,6 @@ public interface ThreadContext {
   /** Set the value of the specified register (0..getNumRegisters() -
       1) as an Address */
   public void setRegisterAsAddress(int index, Address value);
+
+  public CFrame getTopFrame(Debugger dbg);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -81,6 +81,10 @@ int ciSymbol::byte_at(int i) {
 // Tests if the symbol starts with the given prefix.
 bool ciSymbol::starts_with(const char* prefix, int len) const {
   GUARDED_VM_ENTRY(return get_symbol()->starts_with(prefix, len);)
+}
+
+bool ciSymbol::is_signature_polymorphic_name()  const {
+  GUARDED_VM_ENTRY(return MethodHandles::is_signature_polymorphic_name(get_symbol());)
 }
 
 // ------------------------------------------------------------------

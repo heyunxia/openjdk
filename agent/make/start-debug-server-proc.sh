@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2002, 2003, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2002, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -25,10 +25,11 @@
 
 . `dirname $0`/saenv.sh
 
-if [ -f $STARTDIR/sa.jar ] ; then
-  CP=$STARTDIR/sa.jar
+if [ -f $STARTDIR/../lib/sa-jdi.jar ] ; then
+  CP=$STARTDIR/../lib/sa-jdi.jar
 else
   CP=$STARTDIR/../build/classes
 fi
 
-$SA_JAVA -classpath $CP ${OPTIONS} -Djava.rmi.server.codebase=file:/$CP -Djava.security.policy=$STARTDIR\/grantAll.policy sun.jvm.hotspot.DebugServer $*
+$STARTDIR/java -classpath $CP ${OPTIONS} -Djava.rmi.server.codebase=file://$CP -Djava.security.policy=${STARTDIR}/grantAll.policy sun.jvm.hotspot.DebugServer $*
+

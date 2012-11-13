@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -108,7 +108,7 @@ ProjectCreatorIDEOptions =       $(ProjectCreatorIDEOptions) \
       -define              HOTSPOT_VM_DISTRO=\\\"$(HOTSPOT_VM_DISTRO)\\\"
 
 $(HOTSPOTBUILDSPACE)/$(ProjectFile): $(HOTSPOTBUILDSPACE)/classes/ProjectCreator.class
-	@$(RUN_JAVA) -Djava.class.path=$(HOTSPOTBUILDSPACE)/classes ProjectCreator WinGammaPlatform$(VcVersion) $(ProjectCreatorIDEOptions)
+	@$(RUN_JAVA) -Djava.class.path="$(HOTSPOTBUILDSPACE)/classes" ProjectCreator WinGammaPlatform$(VcVersion) $(ProjectCreatorIDEOptions)
 
 clean:
 	@rm -rf $(HOTSPOTBUILDSPACE)/classes

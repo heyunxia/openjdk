@@ -27,7 +27,7 @@
 #include "services/memTracker.hpp"
 
 volatile jint SequenceGenerator::_seq_number = 1;
-DEBUG_ONLY(jint SequenceGenerator::_max_seq_number = 1;)
+NOT_PRODUCT(jint SequenceGenerator::_max_seq_number = 1;)
 DEBUG_ONLY(volatile unsigned long SequenceGenerator::_generation = 0;)
 
 jint SequenceGenerator::next() {
@@ -36,39 +36,7 @@ jint SequenceGenerator::next() {
     MemTracker::shutdown(MemTracker::NMT_sequence_overflow);
   }
   assert(seq > 0, "counter overflow");
-  DEBUG_ONLY(_max_seq_number = (seq > _max_seq_number) ? seq : _max_seq_number;)
+  NOT_PRODUCT(_max_seq_number = (seq > _max_seq_number) ? seq : _max_seq_number;)
   return seq;
 }
 
-
-
-bool VMMemRegion::contains(const VMMemRegion* mr) const {
-  assert(base() != 0, "no base address");
-  assert(size() != 0 || committed_size() != 0,
-    "no range");
-  address base_addr = base();
-  address end_addr = base_addr +
-    (is_reserve_record()? reserved_size(): committed_size());
-  if (mr->is_reserve_record()) {
-    if (mr->base() == base_addr && mr->size() == size()) {
-      // the same range
-      return true;
-    }
-    return false;
-  } else if (mr->is_commit_record() || mr->is_uncommit_record()) {
-    assert(mr->base() != 0 && mr->committed_size() > 0,
-      "bad record");
-    return (mr->base() >= base_addr &&
-      (mr->base() + mr->committed_size()) <= end_addr);
-  } else if (mr->is_type_tagging_record()) {
-    assert(mr->base() != 0, "no base");
-    return mr->base() == base_addr;
-  } else if (mr->is_release_record()) {
-    assert(mr->base() != 0 && mr->size() > 0,
-      "bad record");
-    return (mr->base() == base_addr && mr->size() == size());
-  } else {
-    assert(false, "what happened?");
-    return false;
-  }
-}

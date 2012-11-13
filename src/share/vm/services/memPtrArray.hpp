@@ -59,7 +59,7 @@ class MemPointerArray : public CHeapObj<mtNMT> {
   virtual size_t instance_size() const = 0;
   virtual bool shrink() = 0;
 
-  debug_only(virtual int capacity() const = 0;)
+  NOT_PRODUCT(virtual int capacity() const = 0;)
 };
 
 // Iterator interface
@@ -84,11 +84,7 @@ class MemPointerArrayIterator VALUE_OBJ_CLASS_SPEC {
 
 // implementation class
 class MemPointerArrayIteratorImpl : public MemPointerArrayIterator {
-#ifdef ASSERT
  protected:
-#else
- private:
-#endif
   MemPointerArray*  _array;
   int               _pos;
 
@@ -205,7 +201,7 @@ template <class E> class MemPointerArrayImpl : public MemPointerArray {
     return _size;
   }
 
-  debug_only(int capacity() const { return _max_size; })
+  NOT_PRODUCT(int capacity() const { return _max_size; })
 
   void clear() {
     assert(_data != NULL, "Just check");

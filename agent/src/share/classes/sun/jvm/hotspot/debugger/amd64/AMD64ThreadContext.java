@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
 package sun.jvm.hotspot.debugger.amd64;
 
 import sun.jvm.hotspot.debugger.*;
+import sun.jvm.hotspot.debugger.cdbg.*;
 
 /** Specifies the thread context on amd64 platforms; only a sub-portion
  * of the context is guaranteed to be present on all operating
@@ -96,6 +97,10 @@ public abstract class AMD64ThreadContext implements ThreadContext {
 
     public long getRegister(int index) {
         return data[index];
+    }
+
+    public CFrame getTopFrame(Debugger dbg) {
+        return null;
     }
 
     /** This can't be implemented in this class since we would have to

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -84,7 +84,7 @@ public:
   static const char* check_can_parse(ciMethod* callee);
 
   static InlineTree* build_inline_tree_root();
-  static InlineTree* find_subtree_from_root(InlineTree* root, JVMState* jvms, ciMethod* callee, bool create_if_not_found = false);
+  static InlineTree* find_subtree_from_root(InlineTree* root, JVMState* jvms, ciMethod* callee);
 
   // For temporary (stack-allocated, stateless) ilts:
   InlineTree(Compile* c, ciMethod* callee_method, JVMState* caller_jvms, float site_invoke_ratio, int max_inline_level);

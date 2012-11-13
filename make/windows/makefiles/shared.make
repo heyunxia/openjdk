@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1997, 2008, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -36,11 +36,12 @@ CXX=cl.exe
 
 
 !ifdef SUBDIRS
+# \ is used below because $(MAKE) is nmake here, which expects Windows paths
 $(SUBDIRS): FORCE
 	@if not exist $@ mkdir $@
-	@if not exist $@\local.make echo # Empty > $@\local.make
-	@echo nmake $(ACTION) in $(DIR)\$@
-	cd $@ && $(MAKE) /NOLOGO /f $(WorkSpace)\make\windows\makefiles\$@.make $(ACTION) DIR=$(DIR)\$@ BUILD_FLAVOR=$(BUILD_FLAVOR)
+	@if not exist $@/local.make echo # Empty > $@/local.make
+	@echo nmake $(ACTION) in $(DIR)/$@
+	cd $@ && $(MAKE) -NOLOGO -f $(WorkSpace)\make\windows\makefiles\$@.make $(ACTION) DIR=$(DIR)\$@ BUILD_FLAVOR=$(BUILD_FLAVOR)
 !endif
 
 # Creates the needed directory

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -454,6 +454,12 @@ JNIEXPORT void JNICALL
 JVM_ExtendBootClassPath(JNIEnv *env, const char *path);
 
 /*
+ * Append a path to the boot class path
+ */
+JNIEXPORT void JNICALL
+JVM_ExtendBootClassPath(JNIEnv *env, const char *path);
+
+/*
  * Reflection support functions
  */
 
@@ -465,6 +471,9 @@ JVM_GetClassInterfaces(JNIEnv *env, jclass cls);
 
 JNIEXPORT jobject JNICALL
 JVM_GetClassLoader(JNIEnv *env, jclass cls);
+
+JNIEXPORT jobject JNICALL
+JVM_GetModuleLoader(JNIEnv *env, jclass cls);
 
 JNIEXPORT jobject JNICALL
 JVM_GetModuleLoader(JNIEnv *env, jclass cls);
@@ -559,46 +568,46 @@ JNIEXPORT jobject JNICALL
 JVM_GetClassConstantPool(JNIEnv *env, jclass cls);
 
 JNIEXPORT jint JNICALL JVM_ConstantPoolGetSize
-(JNIEnv *env, jobject unused, jobject jcpool);
+(JNIEnv *env, jobject obj, jobject unused);
 
 JNIEXPORT jclass JNICALL JVM_ConstantPoolGetClassAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jclass JNICALL JVM_ConstantPoolGetClassAtIfLoaded
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jobject JNICALL JVM_ConstantPoolGetMethodAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jobject JNICALL JVM_ConstantPoolGetMethodAtIfLoaded
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jobject JNICALL JVM_ConstantPoolGetFieldAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jobject JNICALL JVM_ConstantPoolGetFieldAtIfLoaded
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jobjectArray JNICALL JVM_ConstantPoolGetMemberRefInfoAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jint JNICALL JVM_ConstantPoolGetIntAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jlong JNICALL JVM_ConstantPoolGetLongAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jfloat JNICALL JVM_ConstantPoolGetFloatAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jdouble JNICALL JVM_ConstantPoolGetDoubleAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jstring JNICALL JVM_ConstantPoolGetStringAt
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 JNIEXPORT jstring JNICALL JVM_ConstantPoolGetUTF8At
-(JNIEnv *env, jobject unused, jobject jcpool, jint index);
+(JNIEnv *env, jobject obj, jobject unused, jint index);
 
 /*
  * java.security.*

@@ -28,7 +28,7 @@
 #include "memory/oopFactory.hpp"
 #include "memory/resourceArea.hpp"
 #include "oops/klass.hpp"
-#include "oops/methodOop.hpp"
+#include "oops/method.hpp"
 #include "oops/oop.inline.hpp"
 #include "oops/symbol.hpp"
 #include "runtime/handles.inline.hpp"
@@ -455,7 +455,7 @@ void CompilerOracle::parse_from_line(char* line) {
     //      exclude java/lang/String indexOf
     //      exclude,java/lang/String,indexOf
     // For easy cut-and-paste of method names, allow VM output format
-    // as produced by methodOopDesc::print_short_name:
+    // as produced by Method::print_short_name:
     //      exclude java.lang.String::indexOf
     // For simple implementation convenience here, convert them all to space.
     if (have_colon) {
@@ -574,7 +574,7 @@ void CompilerOracle::parse_from_file() {
   char token[1024];
   int  pos = 0;
   int  c = getc(stream);
-  while(c != EOF) {
+  while(c != EOF && pos < (int)(sizeof(token)-1)) {
     if (c == '\n') {
       token[pos++] = '\0';
       parse_from_line(token);
@@ -595,7 +595,7 @@ void CompilerOracle::parse_from_string(const char* str, void (*parse_line)(char*
   int  pos = 0;
   const char* sp = str;
   int  c = *sp++;
-  while (c != '\0') {
+  while (c != '\0' && pos < (int)(sizeof(token)-1)) {
     if (c == '\n') {
       token[pos++] = '\0';
       parse_line(token);

@@ -82,12 +82,6 @@
 # include "assembler_ppc.inline.hpp"
 # include "nativeInst_ppc.hpp"
 #endif
-#ifdef COMPILER1
-#include "c1/c1_Runtime1.hpp"
-#endif
-#ifdef COMPILER2
-#include "opto/runtime.hpp"
-#endif
 
 // put OS-includes here
 # include <sys/types.h>
@@ -2115,6 +2109,7 @@ void os::pd_print_cpu_info(outputStream* st) {
   }
   st->cr();
 }
+
 // Taken from /usr/include/bits/siginfo.h  Supposed to be architecture specific
 // but they're the same for all the linux arch that we support
 // and they're the same for solaris but there's no common place to put this.

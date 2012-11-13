@@ -29,7 +29,7 @@
 #include "opto/node.hpp"
 #include "opto/opcodes.hpp"
 
-//------------------------------VectorNode--------------------------------------
+//------------------------------VectorNode-------------------------------------
 // Vector Operation
 class VectorNode : public TypeNode {
  public:
@@ -46,23 +46,27 @@ class VectorNode : public TypeNode {
 
   const TypeVect* vect_type() const { return type()->is_vect(); }
   uint length() const { return vect_type()->length(); } // Vector length
+  uint length_in_bytes() const { return vect_type()->length_in_bytes(); }
 
   virtual int Opcode() const;
 
   virtual uint ideal_reg() const { return Matcher::vector_ideal_reg(vect_type()->length_in_bytes()); }
 
   static VectorNode* scalar2vector(Compile* C, Node* s, uint vlen, const Type* opd_t);
-
+  static VectorNode* shift_count(Compile* C, Node* shift, Node* cnt, uint vlen, BasicType bt);
   static VectorNode* make(Compile* C, int opc, Node* n1, Node* n2, uint vlen, BasicType bt);
 
-  static int  opcode(int opc, uint vlen, BasicType bt);
+  static int  opcode(int opc, BasicType bt);
   static bool implemented(int opc, uint vlen, BasicType bt);
-
+  static bool is_shift(Node* n);
+  static bool is_invariant_vector(Node* n);
+  // [Start, end) half-open range defining which operands are vectors
+  static void vector_operands(Node* n, uint* start, uint* end);
 };
 
-//===========================Vector=ALU=Operations====================================
+//===========================Vector=ALU=Operations=============================
 
-//------------------------------AddVBNode---------------------------------------
+//------------------------------AddVBNode--------------------------------------
 // Vector add byte
 class AddVBNode : public VectorNode {
  public:
@@ -70,7 +74,7 @@ class AddVBNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------AddVSNode---------------------------------------
+//------------------------------AddVSNode--------------------------------------
 // Vector add char/short
 class AddVSNode : public VectorNode {
  public:
@@ -78,7 +82,7 @@ class AddVSNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------AddVINode---------------------------------------
+//------------------------------AddVINode--------------------------------------
 // Vector add int
 class AddVINode : public VectorNode {
  public:
@@ -86,7 +90,7 @@ class AddVINode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------AddVLNode---------------------------------------
+//------------------------------AddVLNode--------------------------------------
 // Vector add long
 class AddVLNode : public VectorNode {
  public:
@@ -94,7 +98,7 @@ class AddVLNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------AddVFNode---------------------------------------
+//------------------------------AddVFNode--------------------------------------
 // Vector add float
 class AddVFNode : public VectorNode {
  public:
@@ -102,7 +106,7 @@ class AddVFNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------AddVDNode---------------------------------------
+//------------------------------AddVDNode--------------------------------------
 // Vector add double
 class AddVDNode : public VectorNode {
  public:
@@ -110,7 +114,7 @@ class AddVDNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------SubVBNode---------------------------------------
+//------------------------------SubVBNode--------------------------------------
 // Vector subtract byte
 class SubVBNode : public VectorNode {
  public:
@@ -118,7 +122,7 @@ class SubVBNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------SubVSNode---------------------------------------
+//------------------------------SubVSNode--------------------------------------
 // Vector subtract short
 class SubVSNode : public VectorNode {
  public:
@@ -126,7 +130,7 @@ class SubVSNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------SubVINode---------------------------------------
+//------------------------------SubVINode--------------------------------------
 // Vector subtract int
 class SubVINode : public VectorNode {
  public:
@@ -134,7 +138,7 @@ class SubVINode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------SubVLNode---------------------------------------
+//------------------------------SubVLNode--------------------------------------
 // Vector subtract long
 class SubVLNode : public VectorNode {
  public:
@@ -142,7 +146,7 @@ class SubVLNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------SubVFNode---------------------------------------
+//------------------------------SubVFNode--------------------------------------
 // Vector subtract float
 class SubVFNode : public VectorNode {
  public:
@@ -150,7 +154,7 @@ class SubVFNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------SubVDNode---------------------------------------
+//------------------------------SubVDNode--------------------------------------
 // Vector subtract double
 class SubVDNode : public VectorNode {
  public:
@@ -158,7 +162,23 @@ class SubVDNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------MulVFNode---------------------------------------
+//------------------------------MulVSNode--------------------------------------
+// Vector multiply short
+class MulVSNode : public VectorNode {
+ public:
+  MulVSNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------MulVINode--------------------------------------
+// Vector multiply int
+class MulVINode : public VectorNode {
+ public:
+  MulVINode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------MulVFNode--------------------------------------
 // Vector multiply float
 class MulVFNode : public VectorNode {
  public:
@@ -166,7 +186,7 @@ class MulVFNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------MulVDNode---------------------------------------
+//------------------------------MulVDNode--------------------------------------
 // Vector multiply double
 class MulVDNode : public VectorNode {
  public:
@@ -174,7 +194,7 @@ class MulVDNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------DivVFNode---------------------------------------
+//------------------------------DivVFNode--------------------------------------
 // Vector divide float
 class DivVFNode : public VectorNode {
  public:
@@ -182,7 +202,7 @@ class DivVFNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------DivVDNode---------------------------------------
+//------------------------------DivVDNode--------------------------------------
 // Vector Divide double
 class DivVDNode : public VectorNode {
  public:
@@ -190,56 +210,123 @@ class DivVDNode : public VectorNode {
   virtual int Opcode() const;
 };
 
-//------------------------------LShiftVBNode---------------------------------------
-// Vector lshift byte
+//------------------------------LShiftVBNode-----------------------------------
+// Vector left shift bytes
 class LShiftVBNode : public VectorNode {
  public:
   LShiftVBNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
   virtual int Opcode() const;
 };
 
-//------------------------------LShiftVSNode---------------------------------------
-// Vector lshift shorts
+//------------------------------LShiftVSNode-----------------------------------
+// Vector left shift shorts
 class LShiftVSNode : public VectorNode {
  public:
   LShiftVSNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
   virtual int Opcode() const;
 };
 
-//------------------------------LShiftVINode---------------------------------------
-// Vector lshift ints
+//------------------------------LShiftVINode-----------------------------------
+// Vector left shift ints
 class LShiftVINode : public VectorNode {
  public:
   LShiftVINode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
   virtual int Opcode() const;
 };
 
-//------------------------------URShiftVBNode---------------------------------------
-// Vector urshift bytes
+//------------------------------LShiftVLNode-----------------------------------
+// Vector left shift longs
+class LShiftVLNode : public VectorNode {
+ public:
+  LShiftVLNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------RShiftVBNode-----------------------------------
+// Vector right arithmetic (signed) shift bytes
 class RShiftVBNode : public VectorNode {
  public:
   RShiftVBNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
   virtual int Opcode() const;
 };
 
-//------------------------------URShiftVSNode---------------------------------------
-// Vector urshift shorts
+//------------------------------RShiftVSNode-----------------------------------
+// Vector right arithmetic (signed) shift shorts
 class RShiftVSNode : public VectorNode {
  public:
   RShiftVSNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
   virtual int Opcode() const;
 };
 
-//------------------------------URShiftVINode---------------------------------------
-// Vector urshift ints
+//------------------------------RShiftVINode-----------------------------------
+// Vector right arithmetic (signed) shift ints
 class RShiftVINode : public VectorNode {
  public:
   RShiftVINode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
   virtual int Opcode() const;
 };
 
+//------------------------------RShiftVLNode-----------------------------------
+// Vector right arithmetic (signed) shift longs
+class RShiftVLNode : public VectorNode {
+ public:
+  RShiftVLNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------URShiftVBNode----------------------------------
+// Vector right logical (unsigned) shift bytes
+class URShiftVBNode : public VectorNode {
+ public:
+  URShiftVBNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------URShiftVSNode----------------------------------
+// Vector right logical (unsigned) shift shorts
+class URShiftVSNode : public VectorNode {
+ public:
+  URShiftVSNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------URShiftVINode----------------------------------
+// Vector right logical (unsigned) shift ints
+class URShiftVINode : public VectorNode {
+ public:
+  URShiftVINode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------URShiftVLNode----------------------------------
+// Vector right logical (unsigned) shift longs
+class URShiftVLNode : public VectorNode {
+ public:
+  URShiftVLNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
+  virtual int Opcode() const;
+};
+
+//------------------------------LShiftCntVNode---------------------------------
+// Vector left shift count
+class LShiftCntVNode : public VectorNode {
+ public:
+  LShiftCntVNode(Node* cnt, const TypeVect* vt) : VectorNode(cnt,vt) {}
+  virtual int Opcode() const;
+  virtual uint ideal_reg() const { return Matcher::vector_shift_count_ideal_reg(vect_type()->length_in_bytes()); }
+};
+
+//------------------------------RShiftCntVNode---------------------------------
+// Vector right shift count
+class RShiftCntVNode : public VectorNode {
+ public:
+  RShiftCntVNode(Node* cnt, const TypeVect* vt) : VectorNode(cnt,vt) {}
+  virtual int Opcode() const;
+  virtual uint ideal_reg() const { return Matcher::vector_shift_count_ideal_reg(vect_type()->length_in_bytes()); }
+};
+
+
 //------------------------------AndVNode---------------------------------------
-// Vector and
+// Vector and integer
 class AndVNode : public VectorNode {
  public:
   AndVNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
@@ -247,7 +334,7 @@ class AndVNode : public VectorNode {
 };
 
 //------------------------------OrVNode---------------------------------------
-// Vector or
+// Vector or integer
 class OrVNode : public VectorNode {
  public:
   OrVNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
@@ -255,7 +342,7 @@ class OrVNode : public VectorNode {
 };
 
 //------------------------------XorVNode---------------------------------------
-// Vector xor
+// Vector xor integer
 class XorVNode : public VectorNode {
  public:
   XorVNode(Node* in1, Node* in2, const TypeVect* vt) : VectorNode(in1,in2,vt) {}
@@ -373,17 +460,17 @@ class PackNode : public VectorNode {
   PackNode(Node* in1, Node* n2, const TypeVect* vt) : VectorNode(in1, n2, vt) {}
   virtual int Opcode() const;
 
-  void add_opd(uint i, Node* n) {
-    init_req(i+1, n);
+  void add_opd(Node* n) {
+    add_req(n);
   }
 
   // Create a binary tree form for Packs. [lo, hi) (half-open) range
-  Node* binaryTreePack(Compile* C, int lo, int hi);
+  PackNode* binary_tree_pack(Compile* C, int lo, int hi);
 
   static PackNode* make(Compile* C, Node* s, uint vlen, BasicType bt);
 };
 
-//------------------------------PackBNode---------------------------------------
+//------------------------------PackBNode--------------------------------------
 // Pack byte scalars into vector
 class PackBNode : public PackNode {
  public:
@@ -391,7 +478,7 @@ class PackBNode : public PackNode {
   virtual int Opcode() const;
 };
 
-//------------------------------PackSNode---------------------------------------
+//------------------------------PackSNode--------------------------------------
 // Pack short scalars into a vector
 class PackSNode : public PackNode {
  public:
@@ -400,7 +487,7 @@ class PackSNode : public PackNode {
   virtual int Opcode() const;
 };
 
-//------------------------------PackINode---------------------------------------
+//------------------------------PackINode--------------------------------------
 // Pack integer scalars into a vector
 class PackINode : public PackNode {
  public:
@@ -409,7 +496,7 @@ class PackINode : public PackNode {
   virtual int Opcode() const;
 };
 
-//------------------------------PackLNode---------------------------------------
+//------------------------------PackLNode--------------------------------------
 // Pack long scalars into a vector
 class PackLNode : public PackNode {
  public:
@@ -418,7 +505,7 @@ class PackLNode : public PackNode {
   virtual int Opcode() const;
 };
 
-//------------------------------Pack2LNode--------------------------------------
+//------------------------------Pack2LNode-------------------------------------
 // Pack 2 long scalars into a vector
 class Pack2LNode : public PackNode {
  public:
@@ -426,7 +513,7 @@ class Pack2LNode : public PackNode {
   virtual int Opcode() const;
 };
 
-//------------------------------PackFNode---------------------------------------
+//------------------------------PackFNode--------------------------------------
 // Pack float scalars into vector
 class PackFNode : public PackNode {
  public:
@@ -435,7 +522,7 @@ class PackFNode : public PackNode {
   virtual int Opcode() const;
 };
 
-//------------------------------PackDNode---------------------------------------
+//------------------------------PackDNode--------------------------------------
 // Pack double scalars into a vector
 class PackDNode : public PackNode {
  public:
@@ -444,7 +531,7 @@ class PackDNode : public PackNode {
   virtual int Opcode() const;
 };
 
-//------------------------------Pack2DNode--------------------------------------
+//------------------------------Pack2DNode-------------------------------------
 // Pack 2 double scalars into a vector
 class Pack2DNode : public PackNode {
  public:
@@ -453,9 +540,9 @@ class Pack2DNode : public PackNode {
 };
 
 
-//========================Extract_Scalar_from_Vector===============================
+//========================Extract_Scalar_from_Vector===========================
 
-//------------------------------ExtractNode---------------------------------------
+//------------------------------ExtractNode------------------------------------
 // Extract a scalar from a vector at position "pos"
 class ExtractNode : public Node {
  public:
@@ -468,7 +555,7 @@ class ExtractNode : public Node {
   static Node* make(Compile* C, Node* v, uint position, BasicType bt);
 };
 
-//------------------------------ExtractBNode---------------------------------------
+//------------------------------ExtractBNode-----------------------------------
 // Extract a byte from a vector at position "pos"
 class ExtractBNode : public ExtractNode {
  public:
@@ -478,7 +565,7 @@ class ExtractBNode : public ExtractNode {
   virtual uint ideal_reg() const { return Op_RegI; }
 };
 
-//------------------------------ExtractUBNode--------------------------------------
+//------------------------------ExtractUBNode----------------------------------
 // Extract a boolean from a vector at position "pos"
 class ExtractUBNode : public ExtractNode {
  public:
@@ -488,7 +575,7 @@ class ExtractUBNode : public ExtractNode {
   virtual uint ideal_reg() const { return Op_RegI; }
 };
 
-//------------------------------ExtractCNode---------------------------------------
+//------------------------------ExtractCNode-----------------------------------
 // Extract a char from a vector at position "pos"
 class ExtractCNode : public ExtractNode {
  public:
@@ -498,7 +585,7 @@ class ExtractCNode : public ExtractNode {
   virtual uint ideal_reg() const { return Op_RegI; }
 };
 
-//------------------------------ExtractSNode---------------------------------------
+//------------------------------ExtractSNode-----------------------------------
 // Extract a short from a vector at position "pos"
 class ExtractSNode : public ExtractNode {
  public:
@@ -508,7 +595,7 @@ class ExtractSNode : public ExtractNode {
   virtual uint ideal_reg() const { return Op_RegI; }
 };
 
-//------------------------------ExtractINode---------------------------------------
+//------------------------------ExtractINode-----------------------------------
 // Extract an int from a vector at position "pos"
 class ExtractINode : public ExtractNode {
  public:
@@ -518,7 +605,7 @@ class ExtractINode : public ExtractNode {
   virtual uint ideal_reg() const { return Op_RegI; }
 };
 
-//------------------------------ExtractLNode---------------------------------------
+//------------------------------ExtractLNode-----------------------------------
 // Extract a long from a vector at position "pos"
 class ExtractLNode : public ExtractNode {
  public:
@@ -528,7 +615,7 @@ class ExtractLNode : public ExtractNode {
   virtual uint ideal_reg() const { return Op_RegL; }
 };
 
-//------------------------------ExtractFNode---------------------------------------
+//------------------------------ExtractFNode-----------------------------------
 // Extract a float from a vector at position "pos"
 class ExtractFNode : public ExtractNode {
  public:
@@ -538,7 +625,7 @@ class ExtractFNode : public ExtractNode {
   virtual uint ideal_reg() const { return Op_RegF; }
 };
 
-//------------------------------ExtractDNode---------------------------------------
+//------------------------------ExtractDNode-----------------------------------
 // Extract a double from a vector at position "pos"
 class ExtractDNode : public ExtractNode {
  public:

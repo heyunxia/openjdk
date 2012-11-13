@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -87,21 +87,23 @@ public class VM {
   private StubRoutines stubRoutines;
   private Bytes        bytes;
 
-  private RicochetBlob ricochetBlob;
-
   /** Flags indicating whether we are attached to a core, C1, or C2 build */
   private boolean      usingClientCompiler;
   private boolean      usingServerCompiler;
   /** Flag indicating whether UseTLAB is turned on */
   private boolean      useTLAB;
+  /** Flag indicating whether invokedynamic support is on */
+  private boolean      enableInvokeDynamic;
   /** alignment constants */
   private boolean      isLP64;
   private int          bytesPerLong;
+  private int          bytesPerWord;
   private int          objectAlignmentInBytes;
   private int          minObjAlignmentInBytes;
   private int          logMinObjAlignmentInBytes;
   private int          heapWordSize;
   private int          heapOopSize;
+  private int          klassPtrSize;
   private int          oopSize;
   /** This is only present in a non-core build */
   private CodeCache    codeCache;
@@ -128,6 +130,7 @@ public class VM {
   private static CIntegerType boolType;
   private Boolean sharingEnabled;
   private Boolean compressedOopsEnabled;
+  private Boolean compressedKlassPointersEnabled;
 
   // command line flags supplied to VM - see struct Flag in globals.hpp
   public static final class Flag {
@@ -303,7 +306,7 @@ public class VM {
     // We infer the presence of C1 or C2 from a couple of fields we
     // already have present in the type database
     {
-      Type type = db.lookupType("methodOopDesc");
+      Type type = db.lookupType("Method");
       if (type.getField("_from_compiled_entry", false, false) == null) {
         // Neither C1 nor C2 is present
         usingClientCompiler = false;
@@ -319,11 +322,13 @@ public class VM {
     }
 
     useTLAB = (db.lookupIntConstant("UseTLAB").intValue() != 0);
+    enableInvokeDynamic = (db.lookupIntConstant("EnableInvokeDynamic").intValue() != 0);
 
     if (debugger != null) {
       isLP64 = debugger.getMachineDescription().isLP64();
     }
     bytesPerLong = db.lookupIntConstant("BytesPerLong").intValue();
+    bytesPerWord = db.lookupIntConstant("BytesPerWord").intValue();
     heapWordSize = db.lookupIntConstant("HeapWordSize").intValue();
     oopSize  = db.lookupIntConstant("oopSize").intValue();
 
@@ -345,6 +350,12 @@ public class VM {
       heapOopSize = (int)getIntSize();
     } else {
       heapOopSize = (int)getOopSize();
+    }
+
+    if (isCompressedKlassPointersEnabled()) {
+      klassPtrSize = (int)getIntSize();
+    } else {
+      klassPtrSize = (int)getOopSize(); // same as an oop
     }
   }
 
@@ -370,8 +381,9 @@ public class VM {
       ((Observer) iter.next()).update(null, null);
     }
 
-    debugger.putHeapConst(soleInstance.getHeapOopSize(), Universe.getNarrowOopBase(),
-                          Universe.getNarrowOopShift());
+    debugger.putHeapConst(soleInstance.getHeapOopSize(), soleInstance.getKlassPtrSize(),
+                          Universe.getNarrowOopBase(), Universe.getNarrowOopShift(),
+                          Universe.getNarrowKlassBase(), Universe.getNarrowKlassShift());
   }
 
   /** This is used by the debugging system */
@@ -473,6 +485,11 @@ public class VM {
     return db.lookupIntConstant(name);
   }
 
+  // Convenience function for conversions
+  static public long getAddressValue(Address addr) {
+    return VM.getVM().getDebugger().getAddressValue(addr);
+  }
+
   public long getAddressSize() {
     return db.getAddressSize();
   }
@@ -508,6 +525,10 @@ public class VM {
     return bytesPerLong;
   }
 
+  public int getBytesPerWord() {
+    return bytesPerWord;
+  }
+
   /** Get minimum object alignment in bytes. */
   public int getMinObjAlignmentInBytes() {
     return minObjAlignmentInBytes;
@@ -522,6 +543,10 @@ public class VM {
 
   public int getHeapOopSize() {
     return heapOopSize;
+  }
+
+  public int getKlassPtrSize() {
+    return klassPtrSize;
   }
   /** Utility routine for getting data structure alignment correct */
   public long alignUp(long size, long alignment) {
@@ -552,6 +577,10 @@ public class VM {
   /** Indicates whether Thread-Local Allocation Buffers are used */
   public boolean getUseTLAB() {
     return useTLAB;
+  }
+
+  public boolean getEnableInvokeDynamic() {
+    return enableInvokeDynamic;
   }
 
   public TypeDataBase getTypeDataBase() {
@@ -626,18 +655,6 @@ public class VM {
       stubRoutines = new StubRoutines();
     }
     return stubRoutines;
-  }
-
-  public RicochetBlob ricochetBlob() {
-    if (ricochetBlob == null) {
-      Type ricochetType  = db.lookupType("SharedRuntime");
-      AddressField ricochetBlobAddress = ricochetType.getAddressField("_ricochet_blob");
-      Address addr = ricochetBlobAddress.getValue();
-      if (addr != null) {
-        ricochetBlob = new RicochetBlob(addr);
-      }
-    }
-    return ricochetBlob;
   }
 
   public VMRegImpl getVMRegImplInfo() {
@@ -777,6 +794,15 @@ public class VM {
              (flag.getBool()? Boolean.TRUE: Boolean.FALSE);
     }
     return compressedOopsEnabled.booleanValue();
+  }
+
+  public boolean isCompressedKlassPointersEnabled() {
+    if (compressedKlassPointersEnabled == null) {
+        Flag flag = getCommandLineFlag("UseCompressedKlassPointers");
+        compressedKlassPointersEnabled = (flag == null) ? Boolean.FALSE:
+             (flag.getBool()? Boolean.TRUE: Boolean.FALSE);
+    }
+    return compressedKlassPointersEnabled.booleanValue();
   }
 
   public int getObjectAlignmentInBytes() {

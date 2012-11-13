@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -109,7 +109,7 @@ all: $(EXEC)
 
 $(EXEC) : $(OBJECTS)
 	@echo Making adlc
-	$(QUIETLY) $(HOST.LINK_NOPROF.CXX) -o $(EXEC) $(OBJECTS)
+	$(QUIETLY) $(filter-out $(ARCHFLAG),$(HOST.LINK_NOPROF.CXX)) -o $(EXEC) $(OBJECTS)
 
 # Random dependencies:
 $(OBJECTS): opcodes.hpp classes.hpp adlc.hpp adlcVMDeps.hpp adlparse.hpp archDesc.hpp arena.hpp dict2.hpp filebuff.hpp forms.hpp formsopt.hpp formssel.hpp
@@ -133,8 +133,10 @@ $(GENERATEDFILES): refresh_adfiles
 # Note that product files are updated via "mv", which is atomic.
 TEMPDIR := $(OUTDIR)/mktmp$(shell echo $$$$)
 
-# Debuggable by default
-CFLAGS += -g
+ifneq ($(DEBUG_BINARIES), true)
+  # Debuggable by default (unless already done by DEBUG_BINARIES)
+  CFLAGS += -g
+endif
 
 # Pass -D flags into ADLC.
 ADLCFLAGS += $(SYSDEFS)
@@ -211,14 +213,14 @@ PROCESS_AD_FILES = awk '{ \
 $(OUTDIR)/%.o: %.cpp
 	@echo Compiling $<
 	$(QUIETLY) $(REMOVE_TARGET)
-	$(QUIETLY) $(HOST.COMPILE.CXX) -o $@ $< $(COMPILE_DONE)
+	$(QUIETLY) $(filter-out $(ARCHFLAG),$(HOST.COMPILE.CXX)) -o $@ $< $(COMPILE_DONE)
 
 # Some object files are given a prefix, to disambiguate
 # them from objects of the same name built for the VM.
 $(OUTDIR)/adlc-%.o: %.cpp
 	@echo Compiling $<
 	$(QUIETLY) $(REMOVE_TARGET)
-	$(QUIETLY) $(HOST.COMPILE.CXX) -o $@ $< $(COMPILE_DONE)
+	$(QUIETLY) $(filter-out $(ARCHFLAG),$(HOST.COMPILE.CXX)) -o $@ $< $(COMPILE_DONE)
 
 # #########################################################################
 

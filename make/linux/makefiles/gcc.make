@@ -116,11 +116,6 @@ ifdef CC_INTERP
   CFLAGS += -DCC_INTERP
 endif
 
-# Build for embedded targets
-ifdef JAVASE_EMBEDDED
-  CFLAGS += -DJAVASE_EMBEDDED
-endif
-
 # Keep temporary files (.ii, .s)
 ifdef NEED_ASM
   CFLAGS += -save-temps
@@ -146,10 +141,23 @@ CFLAGS_WARN/DEFAULT = $(WARNINGS_ARE_ERRORS) $(ACCEPTABLE_WARNINGS)
 CFLAGS_WARN/BYFILE = $(CFLAGS_WARN/$@)$(CFLAGS_WARN/DEFAULT$(CFLAGS_WARN/$@)) 
 
 # The flags to use for an Optimized g++ build
-OPT_CFLAGS += -O3
+OPT_CFLAGS/SIZE=-Os
+OPT_CFLAGS/SPEED=-O3
 
 # Hotspot uses very unstrict aliasing turn this optimization off
-OPT_CFLAGS += -fno-strict-aliasing
+# This option is added to CFLAGS rather than OPT_CFLAGS
+# so that OPT_CFLAGS overrides get this option too.
+CFLAGS += -fno-strict-aliasing 
+
+OPT_CFLAGS_DEFAULT ?= SPEED
+
+ifdef OPT_CFLAGS
+  ifneq ("$(origin OPT_CFLAGS)", "command line")
+    $(error " Use OPT_EXTRAS instead of OPT_CFLAGS to add extra flags to OPT_CFLAGS.")
+  endif
+endif
+
+OPT_CFLAGS = $(OPT_CFLAGS/$(OPT_CFLAGS_DEFAULT)) $(OPT_EXTRAS)
 
 # The gcc compiler segv's on ia64 when compiling bytecodeInterpreter.cpp 
 # if we use expensive-optimizations
@@ -215,45 +223,44 @@ AOUT_FLAGS += -Xlinker -export-dynamic
 #------------------------------------------------------------------------
 # Debug flags
 
-# Use the stabs format for debugging information (this is the default
-# on gcc-2.91). It's good enough, has all the information about line
-# numbers and local variables, and libjvm_g.so is only about 16M.
-# Change this back to "-g" if you want the most expressive format.
-# (warning: that could easily inflate libjvm_g.so to 150M!)
-# Note: The Itanium gcc compiler crashes when using -gstabs.
-DEBUG_CFLAGS/ia64  = -g
-DEBUG_CFLAGS/amd64 = -g
-DEBUG_CFLAGS/arm   = -g
-DEBUG_CFLAGS/ppc   = -g
-DEBUG_CFLAGS += $(DEBUG_CFLAGS/$(BUILDARCH))
-ifeq ($(DEBUG_CFLAGS/$(BUILDARCH)),)
-DEBUG_CFLAGS += -gstabs
-endif
-
-ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
-  FASTDEBUG_CFLAGS/ia64  = -g
-  FASTDEBUG_CFLAGS/amd64 = -g
-  FASTDEBUG_CFLAGS/arm   = -g
-  FASTDEBUG_CFLAGS/ppc   = -g
-  FASTDEBUG_CFLAGS += $(DEBUG_CFLAGS/$(BUILDARCH))
-  ifeq ($(FASTDEBUG_CFLAGS/$(BUILDARCH)),)
-    FASTDEBUG_CFLAGS += -gstabs
-  endif
-
-  OPT_CFLAGS/ia64  = -g
-  OPT_CFLAGS/amd64 = -g
-  OPT_CFLAGS/arm   = -g
-  OPT_CFLAGS/ppc   = -g
-  OPT_CFLAGS += $(OPT_CFLAGS/$(BUILDARCH))
-  ifeq ($(OPT_CFLAGS/$(BUILDARCH)),)
-    OPT_CFLAGS += -gstabs
-  endif
-endif
-
-# DEBUG_BINARIES overrides everything, use full -g debug information
+# DEBUG_BINARIES uses full -g debug information for all configs
 ifeq ($(DEBUG_BINARIES), true)
-  DEBUG_CFLAGS = -g
-  CFLAGS += $(DEBUG_CFLAGS)
+  CFLAGS += -g
+else
+  # Use the stabs format for debugging information (this is the default
+  # on gcc-2.91). It's good enough, has all the information about line
+  # numbers and local variables, and libjvm_g.so is only about 16M.
+  # Change this back to "-g" if you want the most expressive format.
+  # (warning: that could easily inflate libjvm_g.so to 150M!)
+  # Note: The Itanium gcc compiler crashes when using -gstabs.
+  DEBUG_CFLAGS/ia64  = -g
+  DEBUG_CFLAGS/amd64 = -g
+  DEBUG_CFLAGS/arm   = -g
+  DEBUG_CFLAGS/ppc   = -g
+  DEBUG_CFLAGS += $(DEBUG_CFLAGS/$(BUILDARCH))
+  ifeq ($(DEBUG_CFLAGS/$(BUILDARCH)),)
+    DEBUG_CFLAGS += -gstabs
+  endif
+  
+  ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
+    FASTDEBUG_CFLAGS/ia64  = -g
+    FASTDEBUG_CFLAGS/amd64 = -g
+    FASTDEBUG_CFLAGS/arm   = -g
+    FASTDEBUG_CFLAGS/ppc   = -g
+    FASTDEBUG_CFLAGS += $(DEBUG_CFLAGS/$(BUILDARCH))
+    ifeq ($(FASTDEBUG_CFLAGS/$(BUILDARCH)),)
+      FASTDEBUG_CFLAGS += -gstabs
+    endif
+  
+    OPT_CFLAGS/ia64  = -g
+    OPT_CFLAGS/amd64 = -g
+    OPT_CFLAGS/arm   = -g
+    OPT_CFLAGS/ppc   = -g
+    OPT_CFLAGS += $(OPT_CFLAGS/$(BUILDARCH))
+    ifeq ($(OPT_CFLAGS/$(BUILDARCH)),)
+      OPT_CFLAGS += -gstabs
+    endif
+  endif
 endif
 
 # If we are building HEADLESS, pass on to VM

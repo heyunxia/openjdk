@@ -371,6 +371,8 @@ private:
     _nodes.at_put(n->_idx, ptn);
   }
 
+  // Utility function for nodes that load an object
+  void add_objload_to_connection_graph(Node *n, Unique_Node_List *delayed_worklist);
   // Create PointsToNode node and add it to Connection Graph.
   void add_node_to_connection_graph(Node *n, Unique_Node_List *delayed_worklist);
 
@@ -512,13 +514,11 @@ private:
       assert(ptn != NULL, "node should be registered");
     }
     add_edge(ptnode_adr(n->_idx), ptn);
-  }
-
+ }
   // Helper functions
-  bool   is_oop_field(Node* n, int offset);
-  static Node* get_addp_base(Node *addp);
-  static Node* find_second_addp(Node* addp, Node* n);
-
+  bool   is_oop_field(Node* n, int offset, bool* unsafe);
+ static Node* get_addp_base(Node *addp);
+ static Node* find_second_addp(Node* addp, Node* n);
   // offset of a field reference
   int address_offset(Node* adr, PhaseTransform *phase);
 

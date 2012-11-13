@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -30,9 +30,15 @@
 
 include $(GAMMADIR)/make/linux/makefiles/rules.make
 
+include $(GAMMADIR)/make/defs.make
+include $(GAMMADIR)/make/altsrc.make
+
 AGENT_DIR = $(GAMMADIR)/agent
 
 include $(GAMMADIR)/make/sa.files
+
+-include $(HS_ALT_MAKE)/linux/makefiles/sa.make
+
 
 TOPDIR    = $(shell echo `pwd`)
 GENERATED = $(TOPDIR)/../generated
@@ -52,17 +58,15 @@ SA_BUILD_VERSION_PROP = "sun.jvm.hotspot.runtime.VM.saBuildVersion=$(SA_BUILD_VE
 SA_PROPERTIES = $(SA_CLASSDIR)/sa.properties
 
 # if $(AGENT_DIR) does not exist, we don't build SA
-# also, we don't build SA on Itanium, PowerPC, ARM or zero.
+# also, we don't build SA on Itanium or zero.
 
 all: 
 	if [ -d $(AGENT_DIR) -a "$(SRCARCH)" != "ia64" \
-             -a "$(SRCARCH)" != "arm" \
-             -a "$(SRCARCH)" != "ppc" \
              -a "$(SRCARCH)" != "zero" ] ; then \
 	   $(MAKE) -f sa.make $(GENERATED)/sa-jdi.jar; \
 	fi
 
-$(GENERATED)/sa-jdi.jar: $(AGENT_FILES)
+$(GENERATED)/sa-jdi.jar:: $(AGENT_FILES)
 	$(QUIETLY) echo "Making $@"
 	$(QUIETLY) if [ "$(BOOT_JAVA_HOME)" = "" ]; then \
 	  echo "ALT_BOOTDIR, BOOTDIR or JAVA_HOME needs to be defined to build SA"; \
@@ -103,11 +107,13 @@ $(GENERATED)/sa-jdi.jar: $(AGENT_FILES)
 	$(QUIETLY) $(REMOTE) $(RUN.JAR) cf $@ -C $(SA_CLASSDIR)/ .
 	$(QUIETLY) $(REMOTE) $(RUN.JAR) uf $@ -C $(AGENT_SRC_DIR) META-INF/services/com.sun.jdi.connect.Connector
 	$(QUIETLY) $(REMOTE) $(RUN.JAVAH) -classpath $(SA_CLASSDIR) -d $(GENERATED) -jni sun.jvm.hotspot.debugger.x86.X86ThreadContext
-	$(QUIETLY) $(REMOTE) $(RUN.JAVAH) -classpath $(SA_CLASSDIR) -d $(GENERATED) -jni sun.jvm.hotspot.debugger.ia64.IA64ThreadContext
 	$(QUIETLY) $(REMOTE) $(RUN.JAVAH) -classpath $(SA_CLASSDIR) -d $(GENERATED) -jni sun.jvm.hotspot.debugger.amd64.AMD64ThreadContext
 	$(QUIETLY) $(REMOTE) $(RUN.JAVAH) -classpath $(SA_CLASSDIR) -d $(GENERATED) -jni sun.jvm.hotspot.debugger.sparc.SPARCThreadContext
+	$(QUIETLY) $(REMOTE) $(RUN.JAVAH) -classpath $(SA_CLASSDIR) -d $(GENERATED) -jni sun.jvm.hotspot.asm.Disassembler
 
 clean:
 	rm -rf $(SA_CLASSDIR)
 	rm -rf $(GENERATED)/sa-jdi.jar
 	rm -rf $(AGENT_FILES_LIST)
+
+-include $(HS_ALT_MAKE)/linux/makefiles/sa-rules.make

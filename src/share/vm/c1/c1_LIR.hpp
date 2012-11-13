@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@
 #define SHARE_VM_C1_C1_LIR_HPP
 
 #include "c1/c1_ValueType.hpp"
+#include "oops/method.hpp"
 
 class BlockBegin;
 class BlockList;
@@ -107,6 +108,14 @@ class LIR_Const: public LIR_OprPtr {
     _value.set_type(T_INT);     _value.set_jint((jint)p);
 #endif
   }
+  LIR_Const(Metadata* m) {
+    _value.set_type(T_METADATA);
+#ifdef _LP64
+    _value.set_jlong((jlong)m);
+#else
+    _value.set_jint((jint)m);
+#endif // _LP64
+  }
 
   virtual BasicType type()       const { return _value.get_type(); }
   virtual LIR_Const* as_constant()     { return this; }
@@ -121,8 +130,10 @@ class LIR_Const: public LIR_OprPtr {
 
 #ifdef _LP64
   address   as_pointer() const         { type_check(T_LONG  ); return (address)_value.get_jlong(); }
+  Metadata* as_metadata() const        { type_check(T_METADATA); return (Metadata*)_value.get_jlong(); }
 #else
   address   as_pointer() const         { type_check(T_INT   ); return (address)_value.get_jint(); }
+  Metadata* as_metadata() const        { type_check(T_METADATA); return (Metadata*)_value.get_jint(); }
 #endif
 
 
@@ -288,6 +299,7 @@ class LIR_OprDesc: public CompilationResourceObj {
     , address_type  = 4 << type_shift
     , float_type    = 5 << type_shift
     , double_type   = 6 << type_shift
+    , metadata_type = 7 << type_shift
   };
   friend OprType as_OprType(BasicType t);
   friend BasicType as_BasicType(OprType t);
@@ -311,6 +323,7 @@ class LIR_OprDesc: public CompilationResourceObj {
       case T_ADDRESS:
       case T_OBJECT:
       case T_ARRAY:
+      case T_METADATA:
         return single_size;
         break;
 
@@ -463,6 +476,7 @@ inline LIR_OprDesc::OprType as_OprType(BasicType type) {
   case T_OBJECT:
   case T_ARRAY:    return LIR_OprDesc::object_type;
   case T_ADDRESS:  return LIR_OprDesc::address_type;
+  case T_METADATA: return LIR_OprDesc::metadata_type;
   case T_ILLEGAL:  // fall through
   default: ShouldNotReachHere(); return LIR_OprDesc::unknown_type;
   }
@@ -476,6 +490,7 @@ inline BasicType as_BasicType(LIR_OprDesc::OprType t) {
   case LIR_OprDesc::double_type:  return T_DOUBLE;
   case LIR_OprDesc::object_type:  return T_OBJECT;
   case LIR_OprDesc::address_type: return T_ADDRESS;
+  case LIR_OprDesc::metadata_type:return T_METADATA;
   case LIR_OprDesc::unknown_type: // fall through
   default: ShouldNotReachHere();  return T_ILLEGAL;
   }
@@ -576,6 +591,12 @@ class LIR_OprFact: public AllStatic {
                                LIR_OprDesc::cpu_register         |
                                LIR_OprDesc::single_size);
   }
+  static LIR_Opr single_cpu_metadata(int reg) {
+    return (LIR_Opr)(intptr_t)((reg  << LIR_OprDesc::reg1_shift) |
+                               LIR_OprDesc::metadata_type        |
+                               LIR_OprDesc::cpu_register         |
+                               LIR_OprDesc::single_size);
+  }
   static LIR_Opr double_cpu(int reg1, int reg2) {
     LP64_ONLY(assert(reg1 == reg2, "must be identical"));
     return (LIR_Opr)(intptr_t)((reg1 << LIR_OprDesc::reg1_shift) |
@@ -644,6 +665,14 @@ class LIR_OprFact: public AllStatic {
       case T_ARRAY:
         res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift)  |
                                             LIR_OprDesc::object_type  |
+                                            LIR_OprDesc::cpu_register |
+                                            LIR_OprDesc::single_size  |
+                                            LIR_OprDesc::virtual_mask);
+        break;
+
+      case T_METADATA:
+        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift)  |
+                                            LIR_OprDesc::metadata_type|
                                             LIR_OprDesc::cpu_register |
                                             LIR_OprDesc::single_size  |
                                             LIR_OprDesc::virtual_mask);
@@ -746,6 +775,12 @@ class LIR_OprFact: public AllStatic {
                                   LIR_OprDesc::single_size);
         break;
 
+      case T_METADATA:
+        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                  LIR_OprDesc::metadata_type         |
+                                  LIR_OprDesc::stack_value           |
+                                  LIR_OprDesc::single_size);
+        break;
       case T_INT:
         res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
                                   LIR_OprDesc::int_type              |
@@ -807,6 +842,7 @@ class LIR_OprFact: public AllStatic {
   static LIR_Opr intptrConst(intptr_t v)         { return (LIR_Opr)(new LIR_Const((void*)v)); }
   static LIR_Opr illegal()                       { return (LIR_Opr)-1; }
   static LIR_Opr addressConst(jint i)            { return (LIR_Opr)(new LIR_Const(i, true)); }
+  static LIR_Opr metadataConst(Metadata* m)      { return (LIR_Opr)(new LIR_Const(m)); }
 
   static LIR_Opr value_type(ValueType* type);
   static LIR_Opr dummy_value_type(ValueType* type);
@@ -927,6 +963,8 @@ enum LIR_Code {
       , lir_alloc_array
       , lir_throw
       , lir_compare_to
+      , lir_xadd
+      , lir_xchg
   , end_op2
   , begin_op3
       , lir_idiv
@@ -1162,8 +1200,9 @@ class LIR_OpJavaCall: public LIR_OpCall {
     return
       is_invokedynamic()  // An invokedynamic is always a MethodHandle call site.
       ||
-      (method()->holder()->name() == ciSymbol::java_lang_invoke_MethodHandle() &&
-       methodOopDesc::is_method_handle_invoke_name(method()->name()->sid()));
+      method()->is_compiled_lambda_form()  // Java-generated adapter
+      ||
+      method()->is_method_handle_intrinsic();  // JVM-generated MH intrinsic
   }
 
   intptr_t vtable_offset() const {
@@ -1539,7 +1578,7 @@ public:
   CodeEmitInfo* info_for_exception() const       { return _info_for_exception; }
   CodeStub* stub() const                         { return _stub;           }
 
-  // methodDataOop profiling
+  // MethodData* profiling
   void set_profiled_method(ciMethod *method)     { _profiled_method = method; }
   void set_profiled_bci(int bci)                 { _profiled_bci = bci;       }
   void set_should_profile(bool b)                { _should_profile = b;       }
@@ -1823,18 +1862,20 @@ class LIR_OpProfileCall : public LIR_Op {
 
  private:
   ciMethod* _profiled_method;
-  int _profiled_bci;
-  LIR_Opr _mdo;
-  LIR_Opr _recv;
-  LIR_Opr _tmp1;
-  ciKlass* _known_holder;
+  int       _profiled_bci;
+  ciMethod* _profiled_callee;
+  LIR_Opr   _mdo;
+  LIR_Opr   _recv;
+  LIR_Opr   _tmp1;
+  ciKlass*  _known_holder;
 
  public:
   // Destroys recv
-  LIR_OpProfileCall(LIR_Code code, ciMethod* profiled_method, int profiled_bci, LIR_Opr mdo, LIR_Opr recv, LIR_Opr t1, ciKlass* known_holder)
+  LIR_OpProfileCall(LIR_Code code, ciMethod* profiled_method, int profiled_bci, ciMethod* profiled_callee, LIR_Opr mdo, LIR_Opr recv, LIR_Opr t1, ciKlass* known_holder)
     : LIR_Op(code, LIR_OprFact::illegalOpr, NULL)  // no result, no info
     , _profiled_method(profiled_method)
     , _profiled_bci(profiled_bci)
+    , _profiled_callee(profiled_callee)
     , _mdo(mdo)
     , _recv(recv)
     , _tmp1(t1)
@@ -1842,6 +1883,7 @@ class LIR_OpProfileCall : public LIR_Op {
 
   ciMethod* profiled_method() const              { return _profiled_method;  }
   int       profiled_bci()    const              { return _profiled_bci;     }
+  ciMethod* profiled_callee() const              { return _profiled_callee;  }
   LIR_Opr   mdo()             const              { return _mdo;              }
   LIR_Opr   recv()            const              { return _recv;             }
   LIR_Opr   tmp1()            const              { return _tmp1;             }
@@ -1990,8 +2032,11 @@ class LIR_List: public CompilationResourceObj {
   }
   void volatile_move(LIR_Opr src, LIR_Opr dst, BasicType type, CodeEmitInfo* info = NULL, LIR_PatchCode patch_code = lir_patch_none) { append(new LIR_Op1(lir_move, src, dst, type, patch_code, info, lir_move_volatile)); }
 
-  void oop2reg  (jobject o, LIR_Opr reg)         { append(new LIR_Op1(lir_move, LIR_OprFact::oopConst(o),    reg));   }
+  void oop2reg  (jobject o, LIR_Opr reg)         { assert(reg->type() == T_OBJECT, "bad reg"); append(new LIR_Op1(lir_move, LIR_OprFact::oopConst(o),    reg));   }
   void oop2reg_patch(jobject o, LIR_Opr reg, CodeEmitInfo* info);
+
+  void metadata2reg  (Metadata* o, LIR_Opr reg)  { assert(reg->type() == T_METADATA, "bad reg"); append(new LIR_Op1(lir_move, LIR_OprFact::metadataConst(o), reg));   }
+  void klass2reg_patch(Metadata* o, LIR_Opr reg, CodeEmitInfo* info);
 
   void return_op(LIR_Opr result)                 { append(new LIR_Op1(lir_return, result)); }
 
@@ -2144,10 +2189,13 @@ class LIR_List: public CompilationResourceObj {
                   LIR_Opr tmp1, LIR_Opr tmp2, LIR_Opr tmp3, bool fast_check,
                   CodeEmitInfo* info_for_exception, CodeEmitInfo* info_for_patch, CodeStub* stub,
                   ciMethod* profiled_method, int profiled_bci);
-  // methodDataOop profiling
-  void profile_call(ciMethod* method, int bci, LIR_Opr mdo, LIR_Opr recv, LIR_Opr t1, ciKlass* cha_klass) {
-    append(new LIR_OpProfileCall(lir_profile_call, method, bci, mdo, recv, t1, cha_klass));
+  // MethodData* profiling
+  void profile_call(ciMethod* method, int bci, ciMethod* callee, LIR_Opr mdo, LIR_Opr recv, LIR_Opr t1, ciKlass* cha_klass) {
+    append(new LIR_OpProfileCall(lir_profile_call, method, bci, callee, mdo, recv, t1, cha_klass));
   }
+
+  void xadd(LIR_Opr src, LIR_Opr add, LIR_Opr res, LIR_Opr tmp) { append(new LIR_Op2(lir_xadd, src, add, res, tmp)); }
+  void xchg(LIR_Opr src, LIR_Opr set, LIR_Opr res, LIR_Opr tmp) { append(new LIR_Op2(lir_xchg, src, set, res, tmp)); }
 };
 
 void print_LIR(BlockList* blocks);
@@ -2244,16 +2292,21 @@ class LIR_OpVisitState: public StackObj {
       LIR_Address* address = opr->as_address_ptr();
       if (address != NULL) {
         // special handling for addresses: add base and index register of the address
-        // both are always input operands!
+        // both are always input operands or temp if we want to extend
+        // their liveness!
+        if (mode == outputMode) {
+          mode = inputMode;
+        }
+        assert (mode == inputMode || mode == tempMode, "input or temp only for addresses");
         if (address->_base->is_valid()) {
           assert(address->_base->is_register(), "must be");
-          assert(_oprs_len[inputMode] < maxNumberOfOperands, "array overflow");
-          _oprs_new[inputMode][_oprs_len[inputMode]++] = &address->_base;
+          assert(_oprs_len[mode] < maxNumberOfOperands, "array overflow");
+          _oprs_new[mode][_oprs_len[mode]++] = &address->_base;
         }
         if (address->_index->is_valid()) {
           assert(address->_index->is_register(), "must be");
-          assert(_oprs_len[inputMode] < maxNumberOfOperands, "array overflow");
-          _oprs_new[inputMode][_oprs_len[inputMode]++] = &address->_index;
+          assert(_oprs_len[mode] < maxNumberOfOperands, "array overflow");
+          _oprs_new[mode][_oprs_len[mode]++] = &address->_index;
         }
 
       } else {

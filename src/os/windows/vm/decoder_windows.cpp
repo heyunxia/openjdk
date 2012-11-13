@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -72,10 +72,10 @@ void WindowsDecoder::initialize() {
 
      // find out if jvm.dll contains private symbols, by decoding
      // current function and comparing the result
-     address addr = (address)Decoder::decode;
+     address addr = (address)Decoder::demangle;
      char buf[MAX_PATH];
      if (decode(addr, buf, sizeof(buf), NULL)) {
-       _can_decode_in_vm = !strcmp(buf, "Decoder::decode");
+       _can_decode_in_vm = !strcmp(buf, "Decoder::demangle");
      }
   }
 }

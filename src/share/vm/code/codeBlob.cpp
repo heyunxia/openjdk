@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -74,6 +74,7 @@ unsigned int CodeBlob::allocation_size(CodeBuffer* cb, int header_size) {
   size = align_code_offset(size);
   size += round_to(cb->total_content_size(), oopSize);
   size += round_to(cb->total_oop_size(), oopSize);
+  size += round_to(cb->total_metadata_size(), oopSize);
   return size;
 }
 
@@ -161,8 +162,10 @@ void CodeBlob::trace_new_stub(CodeBlob* stub, const char* name1, const char* nam
     assert(strlen(name1) + strlen(name2) < sizeof(stub_id), "");
     jio_snprintf(stub_id, sizeof(stub_id), "%s%s", name1, name2);
     if (PrintStubCode) {
+      ttyLocker ttyl;
       tty->print_cr("Decoding %s " INTPTR_FORMAT, stub_id, (intptr_t) stub);
       Disassembler::decode(stub->code_begin(), stub->code_end());
+      tty->cr();
     }
     Forte::register_stub(stub_id, stub->code_begin(), stub->code_end());
 
@@ -359,43 +362,6 @@ void* SingletonBlob::operator new(size_t s, unsigned size) {
 
 
 //----------------------------------------------------------------------------------------------------
-// Implementation of RicochetBlob
-
-RicochetBlob::RicochetBlob(
-  CodeBuffer* cb,
-  int         size,
-  int         bounce_offset,
-  int         exception_offset,
-  int         frame_size
-)
-: SingletonBlob("RicochetBlob", cb, sizeof(RicochetBlob), size, frame_size, (OopMapSet*) NULL)
-{
-  _bounce_offset = bounce_offset;
-  _exception_offset = exception_offset;
-}
-
-
-RicochetBlob* RicochetBlob::create(
-  CodeBuffer* cb,
-  int         bounce_offset,
-  int         exception_offset,
-  int         frame_size)
-{
-  RicochetBlob* blob = NULL;
-  ThreadInVMfromUnknown __tiv;  // get to VM state in case we block on CodeCache_lock
-  {
-    MutexLockerEx mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
-    unsigned int size = allocation_size(cb, sizeof(RicochetBlob));
-    blob = new (size) RicochetBlob(cb, size, bounce_offset, exception_offset, frame_size);
-  }
-
-  trace_new_stub(blob, "RicochetBlob");
-
-  return blob;
-}
-
-
-//----------------------------------------------------------------------------------------------------
 // Implementation of DeoptimizationBlob
 
 DeoptimizationBlob::DeoptimizationBlob(
@@ -584,6 +550,7 @@ void RuntimeStub::verify() {
 }
 
 void RuntimeStub::print_on(outputStream* st) const {
+  ttyLocker ttyl;
   CodeBlob::print_on(st);
   st->print("Runtime Stub (" INTPTR_FORMAT "): ", this);
   st->print_cr(name());
@@ -599,6 +566,7 @@ void SingletonBlob::verify() {
 }
 
 void SingletonBlob::print_on(outputStream* st) const {
+  ttyLocker ttyl;
   CodeBlob::print_on(st);
   st->print_cr(name());
   Disassembler::decode((CodeBlob*)this, st);

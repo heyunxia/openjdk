@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -193,6 +193,7 @@ public:
   // If you want the type of a very new (untransformed) node,
   // you must use type_or_null, and test the result for NULL.
   const Type* type(const Node* n) const {
+    assert(n != NULL, "must not be null");
     const Type* t = _types.fast_lookup(n->_idx);
     assert(t != NULL, "must set before get");
     return t;
@@ -403,6 +404,8 @@ class PhaseIterGVN : public PhaseGVN {
   // Subsume users of node 'old' into node 'nn'
   void subsume_node( Node *old, Node *nn );
 
+  Node_Stack _stack;      // Stack used to avoid recursion
+
 protected:
 
   // Idealize new Node 'n' with respect to its inputs and its value
@@ -438,8 +441,8 @@ public:
   // It is significant only for debugging and profiling.
   Node* register_new_node_with_optimizer(Node* n, Node* orig = NULL);
 
-  // Kill a globally dead Node.   It is allowed to have uses which are
-  // assumed dead and left 'in limbo'.
+  // Kill a globally dead Node.  All uses are also globally dead and are
+  // aggressively trimmed.
   void remove_globally_dead_node( Node *dead );
 
   // Kill all inputs to a dead node, recursively making more dead nodes.
@@ -494,8 +497,8 @@ public:
 #ifndef PRODUCT
 protected:
   // Sub-quadratic implementation of VerifyIterativeGVN.
-  unsigned long _verify_counter;
-  unsigned long _verify_full_passes;
+  julong _verify_counter;
+  julong _verify_full_passes;
   enum { _verify_window_size = 30 };
   Node* _verify_window[_verify_window_size];
   void verify_step(Node* n);

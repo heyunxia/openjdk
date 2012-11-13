@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -53,7 +53,6 @@ address StubRoutines::_throw_AbstractMethodError_entry          = NULL;
 address StubRoutines::_throw_IncompatibleClassChangeError_entry = NULL;
 address StubRoutines::_throw_NullPointerException_at_call_entry = NULL;
 address StubRoutines::_throw_StackOverflowError_entry           = NULL;
-address StubRoutines::_throw_WrongMethodTypeException_entry     = NULL;
 address StubRoutines::_handler_for_unsafe_access_entry          = NULL;
 jint    StubRoutines::_verify_oop_count                         = 0;
 address StubRoutines::_verify_oop_subroutine_entry              = NULL;
@@ -121,6 +120,10 @@ address StubRoutines::_arrayof_jbyte_fill;
 address StubRoutines::_arrayof_jshort_fill;
 address StubRoutines::_arrayof_jint_fill;
 
+address StubRoutines::_aescrypt_encryptBlock               = NULL;
+address StubRoutines::_aescrypt_decryptBlock               = NULL;
+address StubRoutines::_cipherBlockChaining_encryptAESCrypt = NULL;
+address StubRoutines::_cipherBlockChaining_decryptAESCrypt = NULL;
 
 double (* StubRoutines::_intrinsic_log   )(double) = NULL;
 double (* StubRoutines::_intrinsic_log10 )(double) = NULL;
@@ -422,6 +425,7 @@ address StubRoutines::select_fill_function(BasicType t, bool aligned, const char
   case T_ARRAY:
   case T_OBJECT:
   case T_NARROWOOP:
+  case T_NARROWKLASS:
   case T_ADDRESS:
     // Currently unsupported
     return NULL;

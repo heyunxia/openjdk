@@ -449,8 +449,11 @@ bool PhaseChaitin::prompt_use( Block *b, uint lidx ) {
 // USES: If USE is in HRP, split at use to leave main LRG on stack.
 //       Else, hoist LRG back up to register only (ie - split is also DEF)
 // We will compute a new maxlrg as we go
-uint PhaseChaitin::Split( uint maxlrg ) {
+uint PhaseChaitin::Split(uint maxlrg, ResourceArea* split_arena) {
   NOT_PRODUCT( Compile::TracePhase t3("regAllocSplit", &_t_regAllocSplit, TimeCompiler); )
+
+  // Free thread local resources used by this method on exit.
+  ResourceMark rm(split_arena);
 
   uint                 bidx, pidx, slidx, insidx, inpidx, twoidx;
   uint                 non_phi = 1, spill_cnt = 0;
@@ -461,14 +464,17 @@ uint PhaseChaitin::Split( uint maxlrg ) {
   bool                 u1, u2, u3;
   Block               *b, *pred;
   PhiNode             *phi;
-  GrowableArray<uint>  lidxs;
+  GrowableArray<uint>  lidxs(split_arena, _maxlrg, 0, 0);
 
   // Array of counters to count splits per live range
-  GrowableArray<uint>  splits;
+  GrowableArray<uint>  splits(split_arena, _maxlrg, 0, 0);
+
+#define NEW_SPLIT_ARRAY(type, size)\
+  (type*) split_arena->allocate_bytes((size) * sizeof(type))
 
   //----------Setup Code----------
   // Create a convenient mapping from lrg numbers to reaches/leaves indices
-  uint *lrg2reach = NEW_RESOURCE_ARRAY( uint, _maxlrg );
+  uint *lrg2reach = NEW_SPLIT_ARRAY( uint, _maxlrg );
   // Keep track of DEFS & Phis for later passes
   defs = new Node_List();
   phis = new Node_List();
@@ -500,15 +506,15 @@ uint PhaseChaitin::Split( uint maxlrg ) {
   // a Def is UP or DOWN.  UP means that it should get a register (ie -
   // it is always in LRP regions), and DOWN means that it is probably
   // on the stack (ie - it crosses HRP regions).
-  Node ***Reaches     = NEW_RESOURCE_ARRAY( Node**, _cfg._num_blocks+1 );
-  bool  **UP          = NEW_RESOURCE_ARRAY( bool*, _cfg._num_blocks+1 );
-  Node  **debug_defs  = NEW_RESOURCE_ARRAY( Node*, spill_cnt );
-  VectorSet **UP_entry= NEW_RESOURCE_ARRAY( VectorSet*, spill_cnt );
+  Node ***Reaches     = NEW_SPLIT_ARRAY( Node**, _cfg._num_blocks+1 );
+  bool  **UP          = NEW_SPLIT_ARRAY( bool*, _cfg._num_blocks+1 );
+  Node  **debug_defs  = NEW_SPLIT_ARRAY( Node*, spill_cnt );
+  VectorSet **UP_entry= NEW_SPLIT_ARRAY( VectorSet*, spill_cnt );
 
   // Initialize Reaches & UP
   for( bidx = 0; bidx < _cfg._num_blocks+1; bidx++ ) {
-    Reaches[bidx]     = NEW_RESOURCE_ARRAY( Node*, spill_cnt );
-    UP[bidx]          = NEW_RESOURCE_ARRAY( bool, spill_cnt );
+    Reaches[bidx]     = NEW_SPLIT_ARRAY( Node*, spill_cnt );
+    UP[bidx]          = NEW_SPLIT_ARRAY( bool, spill_cnt );
     Node **Reachblock = Reaches[bidx];
     bool *UPblock     = UP[bidx];
     for( slidx = 0; slidx < spill_cnt; slidx++ ) {
@@ -517,9 +523,11 @@ uint PhaseChaitin::Split( uint maxlrg ) {
     }
   }
 
+#undef NEW_SPLIT_ARRAY
+
   // Initialize to array of empty vectorsets
   for( slidx = 0; slidx < spill_cnt; slidx++ )
-    UP_entry[slidx] = new VectorSet(Thread::current()->resource_area());
+    UP_entry[slidx] = new VectorSet(split_arena);
 
   //----------PASS 1----------
   //----------Propagation & Node Insertion Code----------
@@ -638,7 +646,7 @@ uint PhaseChaitin::Split( uint maxlrg ) {
           // create a new phi node and insert it into the block
           // type is taken from left over pointer to a predecessor
           assert(n3,"No non-NULL reaching DEF for a Phi");
-          phi = new (C, b->num_preds()) PhiNode(b->head(), n3->bottom_type());
+          phi = new (C) PhiNode(b->head(), n3->bottom_type());
           // initialize the Reaches entry for this LRG
           Reachblock[slidx] = phi;
 
@@ -1188,7 +1196,7 @@ uint PhaseChaitin::Split( uint maxlrg ) {
           if( OptoReg::is_stack(uselrg.reg()) &&
               uselrg.reg() < LRG::SPILL_REG && // USE is from stack
               deflrg.reg() != uselrg.reg() ) { // Not trivially removed
-            uint def_ideal_reg = Matcher::base2reg[n->bottom_type()->base()];
+            uint def_ideal_reg = n->bottom_type()->ideal_reg();
             const RegMask &def_rm = *Matcher::idealreg2regmask[def_ideal_reg];
             const RegMask &use_rm = n->in_RegMask(copyidx);
             if( def_rm.overlap(use_rm) && n->is_SpillCopy() ) {  // Bug 4707800, 'n' may be a storeSSL

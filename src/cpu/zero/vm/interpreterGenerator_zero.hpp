@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2007 Red Hat, Inc.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -38,6 +38,5 @@
   address generate_empty_entry();
   address generate_accessor_entry();
   address generate_Reference_get_entry();
-  address generate_method_handle_entry();
 
 #endif // CPU_ZERO_VM_INTERPRETERGENERATOR_ZERO_HPP

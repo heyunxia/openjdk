@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,9 +32,7 @@ import sun.jvm.hotspot.runtime.solaris_x86.SolarisX86JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.solaris_amd64.SolarisAMD64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.win32_amd64.Win32AMD64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.win32_x86.Win32X86JavaThreadPDAccess;
-import sun.jvm.hotspot.runtime.win32_ia64.Win32IA64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.linux_x86.LinuxX86JavaThreadPDAccess;
-import sun.jvm.hotspot.runtime.linux_ia64.LinuxIA64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.linux_amd64.LinuxAMD64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.linux_sparc.LinuxSPARCJavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.bsd_x86.BsdX86JavaThreadPDAccess;
@@ -79,18 +77,24 @@ public class Threads {
                 access =  new Win32X86JavaThreadPDAccess();
             } else if (cpu.equals("amd64")) {
                 access =  new Win32AMD64JavaThreadPDAccess();
-            } else if (cpu.equals("ia64")) {
-                access =  new Win32IA64JavaThreadPDAccess();
             }
         } else if (os.equals("linux")) {
             if (cpu.equals("x86")) {
                 access = new LinuxX86JavaThreadPDAccess();
-            } else if (cpu.equals("ia64")) {
-                access = new LinuxIA64JavaThreadPDAccess();
             } else if (cpu.equals("amd64")) {
                 access = new LinuxAMD64JavaThreadPDAccess();
             } else if (cpu.equals("sparc")) {
                 access = new LinuxSPARCJavaThreadPDAccess();
+            } else {
+              try {
+                access = (JavaThreadPDAccess)
+                  Class.forName("sun.jvm.hotspot.runtime.linux_" +
+                     cpu.toLowerCase() + ".Linux" + cpu.toUpperCase() +
+                     "JavaThreadPDAccess").newInstance();
+              } catch (Exception e) {
+                throw new RuntimeException("OS/CPU combination " + os + "/" + cpu +
+                                           " not yet supported");
+              }
             }
         } else if (os.equals("bsd")) {
             if (cpu.equals("x86")) {

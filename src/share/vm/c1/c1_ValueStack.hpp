@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -140,6 +140,10 @@ class ValueStack: public CompilationResourceObj {
     Value x = stack_at(i);
     i += x->type()->size();
     return x;
+  }
+
+  void stack_at_put(int i, Value x) {
+    _stack.at_put(i, x);
   }
 
   // pinning support

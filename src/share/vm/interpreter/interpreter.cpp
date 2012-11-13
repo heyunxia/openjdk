@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,11 +32,12 @@
 #include "memory/allocation.inline.hpp"
 #include "memory/resourceArea.hpp"
 #include "oops/arrayOop.hpp"
-#include "oops/methodDataOop.hpp"
-#include "oops/methodOop.hpp"
+#include "oops/methodData.hpp"
+#include "oops/method.hpp"
 #include "oops/oop.inline.hpp"
 #include "prims/forte.hpp"
 #include "prims/jvmtiExport.hpp"
+#include "prims/methodHandles.hpp"
 #include "runtime/handles.inline.hpp"
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/stubRoutines.hpp"
@@ -59,6 +60,8 @@ void InterpreterCodelet::verify() {
 
 
 void InterpreterCodelet::print_on(outputStream* st) const {
+  ttyLocker ttyl;
+
   if (PrintInterpreter) {
     st->cr();
     st->print_cr("----------------------------------------------------------------------");
@@ -71,7 +74,7 @@ void InterpreterCodelet::print_on(outputStream* st) const {
 
   if (PrintInterpreter) {
     st->cr();
-    Disassembler::decode(code_begin(), code_end(), st);
+    Disassembler::decode(code_begin(), code_end(), st, DEBUG_ONLY(_comments) NOT_DEBUG(CodeComments()));
   }
 }
 
@@ -180,14 +183,21 @@ AbstractInterpreter::MethodKind AbstractInterpreter::method_kind(methodHandle m)
   // Abstract method?
   if (m->is_abstract()) return abstract;
 
-  // Invoker for method handles?
-  if (m->is_method_handle_invoke())  return method_handle;
+  // Method handle primitive?
+  if (m->is_method_handle_intrinsic()) {
+    vmIntrinsics::ID id = m->intrinsic_id();
+    assert(MethodHandles::is_signature_polymorphic(id), "must match an intrinsic");
+    MethodKind kind = (MethodKind)( method_handle_invoke_FIRST +
+                                    ((int)id - vmIntrinsics::FIRST_MH_SIG_POLY) );
+    assert(kind <= method_handle_invoke_LAST, "parallel enum ranges");
+    return kind;
+  }
 
   // Native method?
   // Note: This test must come _before_ the test for intrinsic
   //       methods. See also comments below.
   if (m->is_native()) {
-    assert(!m->is_method_handle_invoke(), "overlapping bits here, watch out");
+    assert(!m->is_method_handle_intrinsic(), "overlapping bits here, watch out");
     return m->is_synchronized() ? native_synchronized : native;
   }
 
@@ -239,6 +249,14 @@ AbstractInterpreter::MethodKind AbstractInterpreter::method_kind(methodHandle m)
 }
 
 
+void AbstractInterpreter::set_entry_for_kind(AbstractInterpreter::MethodKind kind, address entry) {
+  assert(kind >= method_handle_invoke_FIRST &&
+         kind <= method_handle_invoke_LAST, "late initialization only for MH entry points");
+  assert(_entry_table[kind] == _entry_table[abstract], "previous value must be AME entry");
+  _entry_table[kind] = entry;
+}
+
+
 // Return true if the interpreter can prove that the given bytecode has
 // not yet been executed (in Java semantics, not in actual operation).
 bool AbstractInterpreter::is_not_reached(methodHandle method, int bci) {
@@ -270,7 +288,6 @@ void AbstractInterpreter::print_method_kind(MethodKind kind) {
     case empty                  : tty->print("empty"                  ); break;
     case accessor               : tty->print("accessor"               ); break;
     case abstract               : tty->print("abstract"               ); break;
-    case method_handle          : tty->print("method_handle"          ); break;
     case java_lang_math_sin     : tty->print("java_lang_math_sin"     ); break;
     case java_lang_math_cos     : tty->print("java_lang_math_cos"     ); break;
     case java_lang_math_tan     : tty->print("java_lang_math_tan"     ); break;
@@ -278,7 +295,16 @@ void AbstractInterpreter::print_method_kind(MethodKind kind) {
     case java_lang_math_sqrt    : tty->print("java_lang_math_sqrt"    ); break;
     case java_lang_math_log     : tty->print("java_lang_math_log"     ); break;
     case java_lang_math_log10   : tty->print("java_lang_math_log10"   ); break;
-    default                     : ShouldNotReachHere();
+    default:
+      if (kind >= method_handle_invoke_FIRST &&
+          kind <= method_handle_invoke_LAST) {
+        const char* kind_name = vmIntrinsics::name_at(method_handle_intrinsic(kind));
+        if (kind_name[0] == '_')  kind_name = &kind_name[1];  // '_invokeExact' => 'invokeExact'
+        tty->print("method_handle_%s", kind_name);
+        break;
+      }
+      ShouldNotReachHere();
+      break;
   }
 }
 #endif // PRODUCT
@@ -288,7 +314,7 @@ void AbstractInterpreter::print_method_kind(MethodKind kind) {
 // Deoptimization support
 
 // If deoptimization happens, this function returns the point of next bytecode to continue execution
-address AbstractInterpreter::deopt_continue_after_entry(methodOop method, address bcp, int callee_parameters, bool is_top_frame) {
+address AbstractInterpreter::deopt_continue_after_entry(Method* method, address bcp, int callee_parameters, bool is_top_frame) {
   assert(method->contains(bcp), "just checkin'");
   Bytecodes::Code code   = Bytecodes::java_code_at(method, bcp);
   assert(!Interpreter::bytecode_should_reexecute(code), "should not reexecute");
@@ -326,7 +352,7 @@ address AbstractInterpreter::deopt_continue_after_entry(methodOop method, addres
       // (NOT needed for the old calling convension)
       if (!is_top_frame) {
         int index = Bytes::get_native_u4(bcp+1);
-        method->constants()->cache()->secondary_entry_at(index)->set_parameter_size(callee_parameters);
+        method->constants()->invokedynamic_cp_cache_entry_at(index)->set_parameter_size(callee_parameters);
       }
       break;
     }
@@ -358,7 +384,7 @@ address AbstractInterpreter::deopt_continue_after_entry(methodOop method, addres
 // the bytecode.
 // Note: Bytecodes::_athrow is a special case in that it does not return
 //       Interpreter::deopt_entry(vtos, 0) like others
-address AbstractInterpreter::deopt_reexecute_entry(methodOop method, address bcp) {
+address AbstractInterpreter::deopt_reexecute_entry(Method* method, address bcp) {
   assert(method->contains(bcp), "just checkin'");
   Bytecodes::Code code   = Bytecodes::java_code_at(method, bcp);
 #ifdef COMPILER1
@@ -436,5 +462,13 @@ void AbstractInterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
     for (int pages = start_page; pages <= StackShadowPages ; pages++) {
       __ bang_stack_with_offset(pages*page_size);
     }
+  }
+}
+
+void AbstractInterpreterGenerator::initialize_method_handle_entries() {
+  // method handle entry kinds are generated later in MethodHandlesAdapterGenerator::generate:
+  for (int i = Interpreter::method_handle_invoke_FIRST; i <= Interpreter::method_handle_invoke_LAST; i++) {
+    Interpreter::MethodKind kind = (Interpreter::MethodKind) i;
+    Interpreter::_entry_table[kind] = Interpreter::_entry_table[Interpreter::abstract];
   }
 }
