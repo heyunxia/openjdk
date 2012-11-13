@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,7 +32,7 @@ import java.security.*;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeSupport;
+import java.beans.PropertyChangeEvent;
 import java.net.URL;
 import sun.security.action.GetPropertyAction;
 
@@ -151,9 +151,11 @@ public class LogManager {
 
     private final static Handler[] emptyHandlers = { };
     private Properties props = new Properties();
-    private PropertyChangeSupport changes
-                         = new PropertyChangeSupport(LogManager.class);
     private final static Level defaultLevel = Level.INFO;
+
+    // The map of the registered listeners. The map value is the registration
+    // count to allow for cases where the same listener is registered many times.
+    private final Map<PropertyChangeListener,Integer> listenerMap = new HashMap<>();
 
     // Table of named Loggers that maps names to Loggers.
     private Hashtable<String,LoggerWeakRef> namedLoggers = new Hashtable<>();
@@ -309,13 +311,23 @@ public class LogManager {
      * @exception  SecurityException  if a security manager exists and if
      *             the caller does not have LoggingPermission("control").
      * @exception NullPointerException if the PropertyChangeListener is null.
+     * @deprecated The dependency on {@code PropertyChangeListener} creates a
+     *             significant impediment to future modularization of the Java
+     *             platform. This method will be removed in a future release.
+     *             The global {@code LogManager} can detect changes to the
+     *             logging configuration by overridding the {@link
+     *             #readConfiguration readConfiguration} method.
      */
+    @Deprecated
     public void addPropertyChangeListener(PropertyChangeListener l) throws SecurityException {
-        if (l == null) {
-            throw new NullPointerException();
+        PropertyChangeListener listener = Objects.requireNonNull(l);
+        checkPermission();
+        synchronized (listenerMap) {
+            // increment the registration count if already registered
+            Integer value = listenerMap.get(listener);
+            value = (value == null) ? 1 : (value + 1);
+            listenerMap.put(listener, value);
         }
-        checkAccess();
-        changes.addPropertyChangeListener(l);
     }
 
     /**
@@ -331,10 +343,33 @@ public class LogManager {
      * @param l  event listener (can be null)
      * @exception  SecurityException  if a security manager exists and if
      *             the caller does not have LoggingPermission("control").
+     * @deprecated The dependency on {@code PropertyChangeListener} creates a
+     *             significant impediment to future modularization of the Java
+     *             platform. This method will be removed in a future release.
+     *             The global {@code LogManager} can detect changes to the
+     *             logging configuration by overridding the {@link
+     *             #readConfiguration readConfiguration} method.
      */
+    @Deprecated
     public void removePropertyChangeListener(PropertyChangeListener l) throws SecurityException {
-        checkAccess();
-        changes.removePropertyChangeListener(l);
+        checkPermission();
+        if (l != null) {
+            PropertyChangeListener listener = l;
+            synchronized (listenerMap) {
+                Integer value = listenerMap.get(listener);
+                if (value != null) {
+                    // remove from map if registration count is 1, otherwise
+                    // just decrement its count
+                    int i = value.intValue();
+                    if (i == 1) {
+                        listenerMap.remove(listener);
+                    } else {
+                        assert i > 1;
+                        listenerMap.put(listener, i - 1);
+                    }
+                }
+            }
+        }
     }
 
     // Package-level method.
@@ -772,7 +807,7 @@ public class LogManager {
      * @exception  IOException if there are IO problems reading the configuration.
      */
     public void readConfiguration() throws IOException, SecurityException {
-        checkAccess();
+        checkPermission();
 
         // if a configuration class is specified, load it and use it.
         String cname = System.getProperty("java.util.logging.config.class");
@@ -830,7 +865,7 @@ public class LogManager {
      */
 
     public void reset() throws SecurityException {
-        checkAccess();
+        checkPermission();
         synchronized (this) {
             props = new Properties();
             // Since we are doing a reset we no longer want to initialize
@@ -915,7 +950,7 @@ public class LogManager {
      * @exception  IOException if there are problems reading from the stream.
      */
     public void readConfiguration(InputStream ins) throws IOException, SecurityException {
-        checkAccess();
+        checkPermission();
         reset();
 
         // Load the properties
@@ -939,7 +974,23 @@ public class LogManager {
         setLevelsOnExistingLoggers();
 
         // Notify any interested parties that our properties have changed.
-        changes.firePropertyChange(null, null, null);
+        // We first take a copy of the listener map so that we aren't holding any
+        // locks when calling the listeners.
+        Map<PropertyChangeListener,Integer> listeners = null;
+        synchronized (listenerMap) {
+            if (!listenerMap.isEmpty())
+                listeners = new HashMap<>(listenerMap);
+        }
+        if (listeners != null) {
+            PropertyChangeEvent ev = new PropertyChangeEvent(LogManager.class, null, null, null);
+            for (Map.Entry<PropertyChangeListener,Integer> entry : listeners.entrySet()) {
+                PropertyChangeListener listener = entry.getKey();
+                int count = entry.getValue().intValue();
+                for (int i = 0; i < count; i++) {
+                    listener.propertyChange(ev);
+                }
+            }
+        }
 
         // Note that we need to reinitialize global handles when
         // they are first referenced.
@@ -1076,8 +1127,13 @@ public class LogManager {
         loadLoggerHandlers(rootLogger, null, "handlers");
     }
 
+    private final Permission controlPermission = new LoggingPermission("control", null);
 
-    private Permission ourPermission = new LoggingPermission("control", null);
+    void checkPermission() {
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null)
+            sm.checkPermission(controlPermission);
+    }
 
     /**
      * Check that the current context is trusted to modify the logging
@@ -1090,11 +1146,7 @@ public class LogManager {
      *             the caller does not have LoggingPermission("control").
      */
     public void checkAccess() throws SecurityException {
-        SecurityManager sm = System.getSecurityManager();
-        if (sm == null) {
-            return;
-        }
-        sm.checkPermission(ourPermission);
+        checkPermission();
     }
 
     // Nested class to represent a node in our tree of named loggers.

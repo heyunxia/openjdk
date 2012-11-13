@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -195,7 +195,7 @@ public class PaddingTest {
 
     private static void diff(String fname1, String fname2) throws Exception {
         if (!Arrays.equals(Files.readAllBytes(Paths.get(fname1)),
-                Files.readAllBytes(Paths.get(fname1)))) {
+                Files.readAllBytes(Paths.get(fname2)))) {
             throw new Exception(
                     "files " + fname1 + " and " + fname2 + " differ");
         }

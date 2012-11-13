@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1298,11 +1298,9 @@ public final class PKCS12KeyStore extends KeyStoreSpi {
            try {
                 String algName =
                         macData.getDigestAlgName().toUpperCase(Locale.ENGLISH);
-                if (algName.equals("SHA")  ||
-                    algName.equals("SHA1") ||
-                    algName.equals("SHA-1")) {
-                    algName = "SHA1";
-                }
+
+                // Change SHA-1 to SHA1
+                algName = algName.replace("-", "");
 
                 // generate MAC (MAC key is created within JCE)
                 Mac m = Mac.getInstance("HmacPBE" + algName);

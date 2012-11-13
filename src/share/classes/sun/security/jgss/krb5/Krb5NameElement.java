@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,10 +27,8 @@ package sun.security.jgss.krb5;
 
 import org.ietf.jgss.*;
 import sun.security.jgss.spi.*;
-import javax.security.auth.kerberos.*;
 import sun.security.krb5.PrincipalName;
 import sun.security.krb5.KrbException;
-import sun.security.krb5.ServiceName;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -119,8 +117,8 @@ public class Krb5NameElement
                         hostName = components[1];
 
                     String principal = getHostBasedInstance(service, hostName);
-                    principalName = new ServiceName(principal,
-                                            PrincipalName.KRB_NT_SRV_HST);
+                    principalName = new PrincipalName(principal,
+                            PrincipalName.KRB_NT_SRV_HST);
                 }
             }
 

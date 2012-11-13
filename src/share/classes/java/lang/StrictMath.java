@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -365,7 +365,7 @@ public final class StrictMath {
      * @param a the value to be floored or ceiled
      * @param negativeBoundary result for values in (-1, 0)
      * @param positiveBoundary result for values in (0, 1)
-     * @param increment value to add when the argument is non-integral
+     * @param sign the sign of the result
      */
     private static double floorOrCeil(double a,
                                       double negativeBoundary,
@@ -811,7 +811,7 @@ public final class StrictMath {
      * @param value the long value
      * @return the argument as an int
      * @throws ArithmeticException if the {@code argument} overflows an int
-     * @see Math#toIntExact(int)
+     * @see Math#toIntExact(long)
      * @since 1.8
      */
     public static int toIntExact(long value) {

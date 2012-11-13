@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -163,7 +163,7 @@ public final class KerberosClientKeyExchangeImpl
 
             EncryptedData encPart = t.encPart;
             PrincipalName ticketSname = t.sname;
-            Realm ticketRealm = t.realm;
+            Realm ticketRealm = t.sname.getRealm();
 
             String serverPrincipal = serverKeys[0].getPrincipal().getName();
 
@@ -175,8 +175,7 @@ public final class KerberosClientKeyExchangeImpl
              */
 
             // Check that ticket Sname matches serverPrincipal
-            String ticketPrinc = ticketSname.toString().concat("@" +
-                                        ticketRealm.toString());
+            String ticketPrinc = ticketSname.toString();
             if (!ticketPrinc.equals(serverPrincipal)) {
                 if (debug != null && Debug.isOn("handshake"))
                    System.out.println("Service principal in Ticket does not"
@@ -224,7 +223,6 @@ public final class KerberosClientKeyExchangeImpl
 
             if (debug != null && Debug.isOn("handshake")) {
                 System.out.println("server principal: " + serverPrincipal);
-                System.out.println("realm: " + encTicketPart.crealm.toString());
                 System.out.println("cname: " + encTicketPart.cname.toString());
             }
         } catch (IOException e) {

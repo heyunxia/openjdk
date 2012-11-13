@@ -310,7 +310,7 @@ public abstract class LWToolkit extends SunToolkit implements Runnable {
     @Override
     public CanvasPeer createCanvas(Canvas target) {
         PlatformComponent platformComponent = createPlatformComponent();
-        LWCanvasPeer peer = new LWCanvasPeer(target, platformComponent);
+        LWCanvasPeer<?, ?> peer = new LWCanvasPeer<>(target, platformComponent);
         targetCreatedPeer(target, peer);
         peer.initialize();
         return peer;
@@ -415,8 +415,8 @@ public abstract class LWToolkit extends SunToolkit implements Runnable {
     }
 
     @Override
-    public KeyboardFocusManagerPeer createKeyboardFocusManagerPeer(KeyboardFocusManager manager) {
-        return LWKeyboardFocusManagerPeer.getInstance(manager);
+    public KeyboardFocusManagerPeer getKeyboardFocusManagerPeer() {
+        return LWKeyboardFocusManagerPeer.getInstance();
     }
 
     @Override
@@ -520,12 +520,6 @@ public abstract class LWToolkit extends SunToolkit implements Runnable {
 
     public static void postEvent(AWTEvent event) {
         postEvent(targetToAppContext(event.getSource()), event);
-    }
-
-    // use peer's back buffer to implement non-opaque windows.
-    @Override
-    public boolean needUpdateWindow() {
-        return true;
     }
 
     @Override

@@ -497,7 +497,7 @@ module jdk.tools.base {
     }
 
     view jdk.jarsigner {
-       class sun.security.tools.JarSigner;
+       class sun.security.tools.jarsigner.Main;
     }
 
     view jdk.jpkg {
@@ -513,7 +513,7 @@ module jdk.tools.base {
     }
 
     view jdk.keytool {
-       class sun.security.tools.KeyTool;
+       class sun.security.tools.keytool.Main;
     }
 
     view jdk.pack200 {

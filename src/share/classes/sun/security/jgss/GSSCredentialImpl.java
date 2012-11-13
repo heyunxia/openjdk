@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -576,7 +576,7 @@ public class GSSCredentialImpl implements GSSCredential {
         if (element == null)
             throw new GSSExceptionImpl(GSSException.NO_CRED,
                                        "No credential found for: " +
-                                       mechOid + getElementStr(mechOid,
+                                       getElementStr(mechOid,
                                        initiate? INITIATE_ONLY : ACCEPT_ONLY));
         return element;
     }

@@ -602,3 +602,5 @@
 @Provider(optional)
   java.security.Provider -> META-INF/services/java.security.Provider
 
+@Provider(optional)
+  sun.util.spi.XmlPropertiesProvider -> META-INF/services/sun.util.spi.XmlPropertiesProvider

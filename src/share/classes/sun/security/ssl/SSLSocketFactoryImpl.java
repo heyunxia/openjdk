@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -109,6 +109,16 @@ final public class SSLSocketFactoryImpl extends SSLSocketFactory {
         return new SSLSocketImpl(context, s, host, port, autoClose);
     }
 
+    @Override
+    public Socket createSocket(Socket s, InputStream consumed,
+            boolean autoClose) throws IOException {
+        if (s == null) {
+            throw new NullPointerException(
+                    "the existing socket cannot be null");
+        }
+
+        return new SSLSocketImpl(context, s, consumed, autoClose);
+    }
 
     /**
      * Constructs an SSL connection to a server at a specified address
@@ -177,6 +187,6 @@ final public class SSLSocketFactoryImpl extends SSLSocketFactory {
      * certain kinds of certificates to use certain cipher suites.
      */
     public String[] getSupportedCipherSuites() {
-        return context.getSuportedCipherSuiteList().toStringArray();
+        return context.getSupportedCipherSuiteList().toStringArray();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -326,8 +326,10 @@ public final class NetworkInterface {
     }
 
     /**
-     * Returns all the interfaces on this machine. Returns null if no
-     * network interfaces could be found on this machine.
+     * Returns all the interfaces on this machine. The {@code Enumeration}
+     * contains at least one element, possibly representing a loopback
+     * interface that only supports communication between entities on
+     * this machine.
      *
      * NOTE: can use getNetworkInterfaces()+getInetAddresses()
      *       to obtain all IP addresses for this node

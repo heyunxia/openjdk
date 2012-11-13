@@ -109,7 +109,6 @@ static jboolean InitializeJVM(JavaVM **pvm, JNIEnv **penv,
                               InvocationFunctions *ifn);
 static jboolean SetLauncherModule(int *pmode, char **pwhat, const char *jrepath);
 static jstring NewPlatformString(JNIEnv *env, char *s);
-static jobjectArray NewPlatformStringArray(JNIEnv *env, char **strv, int strc);
 static jclass LoadMainClass(JNIEnv *env, int mode, char *name);
 
 static void TranslateApplicationArgs(int jargc, const char **jargv, int *pargc, char ***pargv);
@@ -179,7 +178,7 @@ static jboolean IsWildCardEnabled();
  * Running Java code in primordial thread caused many problems. We will
  * create a new thread to invoke JVM. See 6316197 for more information.
  */
-static jlong threadStackSize = 0;  /* stack size of the new thread */
+static jlong threadStackSize    = 0;  /* stack size of the new thread */
 static jlong maxHeapSize        = 0;  /* max heap size */
 static jlong initialHeapSize    = 0;  /* inital heap size */
 
@@ -238,6 +237,14 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
 
     InitLauncher(javaw);
     DumpState();
+    if (JLI_IsTraceLauncher()) {
+        int i;
+        printf("Command line args:\n");
+        for (i = 0; i < argc ; i++) {
+            printf("argv[%d] = %s\n", i, argv[i]);
+        }
+        AddOption("-Dsun.java.launcher.diag=true", NULL);
+    }
 
     /*
      * Make sure the specified version of the JRE is running.
@@ -257,15 +264,6 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
      *     bugid 5030265 below.)
      */
     SelectVersion(argc, argv, &main_class);
-
-    if (JLI_IsTraceLauncher()) {
-        int i;
-        printf("Command line args:\n");
-        for (i = 0; i < argc ; i++) {
-            printf("argv[%d] = %s\n", i, argv[i]);
-        }
-        AddOption("-Dsun.java.launcher.diag=true", NULL);
-    }
 
     CreateExecutionEnvironment(&argc, &argv,
                                jrepath, sizeof(jrepath),
@@ -493,8 +491,8 @@ JavaMain(void * _args)
                                        "([Ljava/lang/String;)V");
     CHECK_EXCEPTION_NULL_LEAVE(mainID);
 
-    /* Build argument array */
-    mainArgs = NewPlatformStringArray(env, argv, argc);
+    /* Build platform specific argument array */
+    mainArgs = CreateApplicationArgs(env, argv, argc);
     CHECK_EXCEPTION_NULL_LEAVE(mainArgs);
 
     /* Invoke main method. */
@@ -1331,8 +1329,9 @@ InitializeJVM(JavaVM **pvm, JNIEnv **penv, InvocationFunctions *ifn)
 
 static jclass helperClass = NULL;
 
-static jclass
-GetLauncherHelperClass(JNIEnv *env) {
+jclass
+GetLauncherHelperClass(JNIEnv *env)
+{
     if (helperClass == NULL) {
         NULL_CHECK0(helperClass = FindBootStrapClass(env,
                 "sun/launcher/LauncherHelper"));
@@ -1376,7 +1375,7 @@ NewPlatformString(JNIEnv *env, char *s)
  * Returns a new array of Java string objects for the specified
  * array of platform strings.
  */
-static jobjectArray
+jobjectArray
 NewPlatformStringArray(JNIEnv *env, char **strv, int strc)
 {
     jarray cls;
@@ -1421,7 +1420,7 @@ LoadMainClass(JNIEnv *env, int mode, char *name)
         end   = CounterGet();
         printf("%ld micro seconds to load main class\n",
                (long)(jint)Counter2Micros(end-start));
-        printf("----_JAVA_LAUNCHER_DEBUG----\n");
+        printf("----%s----\n", JLDEBUG_ENV_ENTRY);
     }
 
     return (jclass)result;
@@ -2006,7 +2005,6 @@ FreeKnownVMs()
     }
     JLI_MemFree(knownVMs);
 }
-
 
 /*
  * Displays the splash screen according to the jar file name

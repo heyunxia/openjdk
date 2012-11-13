@@ -82,14 +82,18 @@ AWT_ASSERT_APPKIT_THREAD;
     fPAHNeedsToSelect = NO;
 
     mouseIsOver = NO;
+    [self resetTrackingArea];
 
     if (windowLayer != nil) {
         self.cglLayer = windowLayer;
+        //Layer hosting view
+        [self setLayer: cglLayer];
         [self setWantsLayer: YES];
-        [self.layer addSublayer: (CALayer *)cglLayer];
-        [self setLayerContentsRedrawPolicy: NSViewLayerContentsRedrawDuringViewResize];
-        [self setLayerContentsPlacement: NSViewLayerContentsPlacementTopLeft];
-        [self setAutoresizingMask: NSViewHeightSizable | NSViewWidthSizable];
+        //Layer backed view
+        //[self.layer addSublayer: (CALayer *)cglLayer];
+        //[self setLayerContentsRedrawPolicy: NSViewLayerContentsRedrawDuringViewResize];
+        //[self setLayerContentsPlacement: NSViewLayerContentsPlacementTopLeft];
+        //[self setAutoresizingMask: NSViewHeightSizable | NSViewWidthSizable];
 
 #ifdef REMOTELAYER
         CGLLayer *parentLayer = (CGLLayer*)self.cglLayer;
@@ -146,7 +150,7 @@ AWT_ASSERT_APPKIT_THREAD;
         [[self window] makeFirstResponder: self];
     }];
     if ([self window] != NULL) {
-        [self resetTrackingRect];
+        [self resetTrackingArea];
     }
 }
 
@@ -278,7 +282,10 @@ AWT_ASSERT_APPKIT_THREAD;
         return;
     }
 
-    if (![self hasMarkedText] && fKeyEventsNeeded) {
+    NSString *eventCharacters = [event characters];
+    BOOL isDeadKey = (eventCharacters != nil && [eventCharacters length] == 0);
+
+    if ((![self hasMarkedText] && fKeyEventsNeeded) || isDeadKey) {
         [self deliverJavaKeyEventHelper: event];
     }
 
@@ -368,30 +375,31 @@ AWT_ASSERT_APPKIT_THREAD;
     JNFCallVoidMethod(env, m_cPlatformView, jm_deliverMouseEvent, jEvent);
 }
 
-
-- (void) clearTrackingRect {
-    if (rolloverTrackingRectTag > 0) {
-        [self removeTrackingRect:rolloverTrackingRectTag];
-        rolloverTrackingRectTag = 0;
+- (void) resetTrackingArea {
+    if (rolloverTrackingArea != nil) {
+        [self removeTrackingArea:rolloverTrackingArea];
+        [rolloverTrackingArea release];
     }
-}
 
-- (void) resetTrackingRect {
-    [self clearTrackingRect];
-    rolloverTrackingRectTag = [self addTrackingRect:[self visibleRect]
-                                              owner:self
-                                           userData:NULL
-                                       assumeInside:NO];
+    int options = (NSTrackingActiveInActiveApp | NSTrackingMouseEnteredAndExited |
+                   NSTrackingMouseMoved | NSTrackingEnabledDuringMouseDrag);
+
+    rolloverTrackingArea = [[NSTrackingArea alloc] initWithRect:[self visibleRect]
+                                                        options: options
+                                                          owner:self
+                                                       userInfo:nil
+                            ];
+    [self addTrackingArea:rolloverTrackingArea];
 }
 
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
-    [self resetTrackingRect];
+    [self resetTrackingArea];
 }
 
 - (void) resetCursorRects {
     [super resetCursorRects];
-    [self resetTrackingRect];
+    [self resetTrackingArea];
 }
 
 -(void) deliverJavaKeyEventHelper: (NSEvent *) event {
@@ -402,7 +410,7 @@ AWT_ASSERT_APPKIT_THREAD;
     }
     [sLastKeyEvent release];
     sLastKeyEvent = [event retain];
-	
+
     [AWTToolkit eventCountPlusPlus];
     JNIEnv *env = [ThreadUtilities getJNIEnv];
 

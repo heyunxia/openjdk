@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2004, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,6 +30,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import sun.security.util.*;
+import sun.net.www.ParseUtil;
 
 /**
  * This class implements the URIName as required by the GeneralNames
@@ -106,8 +107,13 @@ public class URIName implements GeneralNameInterface {
         try {
             uri = new URI(name);
         } catch (URISyntaxException use) {
-            throw (IOException) new IOException
-                ("invalid URI name:" + name).initCause(use);
+            try {
+                // Try parsing the URI again after encoding/escaping
+                // any illegal characters
+                uri = new URI(ParseUtil.encodePath(name));
+            } catch (URISyntaxException use2) {
+                throw new IOException("invalid URI name:" + name, use2);
+            }
         }
         if (uri.getScheme() == null) {
             throw new IOException("URI name must include scheme:" + name);
@@ -160,8 +166,7 @@ public class URIName implements GeneralNameInterface {
         try {
             uri = new URI(name);
         } catch (URISyntaxException use) {
-            throw (IOException) new IOException
-                ("invalid URI name constraint:" + name).initCause(use);
+            throw new IOException("invalid URI name constraint:" + name, use);
         }
         if (uri.getScheme() == null) {
             String host = uri.getSchemeSpecificPart();
@@ -174,8 +179,7 @@ public class URIName implements GeneralNameInterface {
                 }
                 return new URIName(uri, host, hostDNS);
             } catch (IOException ioe) {
-                throw (IOException) new IOException
-                    ("invalid URI name constraint:" + name).initCause(ioe);
+                throw new IOException("invalid URI name constraint:" + name, ioe);
             }
         } else {
             throw new IOException("invalid URI name constraint (should not " +

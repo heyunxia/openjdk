@@ -47,6 +47,8 @@ include $(BUILDDIR)/common/Defs.gmk
 
 ifneq ($(SYSTEM_ZLIB),true)
   ZIP_SRC = $(SHARE_SRC)/native/java/util/zip/zlib-$(ZLIB_VERSION)
+else # SYSTEM_ZLIB
+  OTHER_CFLAGS += $(ZLIB_CFLAGS)
 endif #SYSTEM_ZLIB
 LAUNCHER_SHARE_SRC = $(SHARE_SRC)/bin
 
@@ -91,7 +93,8 @@ endif # SYSTEM_ZLIB
 
 # add platform specific files
 ifeq ($(PLATFORM), windows)
-  FILES_c += java_md.c
+  FILES_c += java_md.c \
+	     cmdtoargs.c
 else # NIXES
   FILES_c += java_md_common.c
   ifeq ($(PLATFORM), macosx)
@@ -150,7 +153,11 @@ ifeq ($(PLATFORM), windows)
               -export:JLI_ReportErrorMessage \
               -export:JLI_ReportErrorMessageSys \
               -export:JLI_ReportMessage \
-              -export:JLI_ReportExceptionDescription
+              -export:JLI_ReportExceptionDescription \
+	      -export:JLI_MemAlloc \
+	      -export:JLI_CmdToArgs \
+	      -export:JLI_GetStdArgc \
+	      -export:JLI_GetStdArgs
 endif # PLATFORM
 
 OTHER_INCLUDES += -I$(LAUNCHER_SHARE_SRC)
@@ -158,7 +165,7 @@ OTHER_INCLUDES += -I$(LAUNCHER_PLATFORM_SRC)
 ifneq ($(SYSTEM_ZLIB),true)
   OTHER_INCLUDES += -I$(ZIP_SRC)
 else # !SYSTEM_ZLIB
-  LDLIBS += -lz
+  LDLIBS += $(ZLIB_LIBS)
 endif # SYSTEM_ZLIB
 
 #
@@ -184,7 +191,7 @@ ifeq ($(PLATFORM), windows)
 
   $(STATIC_LIBRARY): $(FILES_o)
 	@$(prep-target)
-	$(LIBEXE) -nologo -out:$@ $(FILES_o)
+	$(LIBEXE) -nologo -out:$@ $(sort $(FILES_o))
 
   library:: $(STATIC_LIBRARY)
 endif # PLATFORM
@@ -210,7 +217,7 @@ $(STATIC_LIBRARY_DIR): | $(OBJDIR)
 
 $(STATIC_LIBRARY): $(STATIC_LIBRARY_DIR)
 	@$(prep-target)
-	$(AR) $(ARFLAGS) $@ $(FILES_o)
+	$(AR) $(ARFLAGS) $@ $(sort $(FILES_o))
 
 library:: $(STATIC_LIBRARY)
 

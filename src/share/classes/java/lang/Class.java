@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -233,7 +233,8 @@ public final class Class<T>
      * ensure it's ok to access the bootstrap class loader.
      *
      * @param name       fully qualified name of the desired class
-     * @param initialize whether the class must be initialized
+     * @param initialize if {@code true} the class will be initialized.
+     *                   See Section 12.4 of <em>The Java Language Specification</em>.
      * @param loader     class loader from which the class must be loaded
      * @return           class object representing the desired class
      *
@@ -2983,7 +2984,7 @@ public final class Class<T>
     /**
      * Returns a map from simple name to enum constant.  This package-private
      * method is used internally by Enum to implement
-     *     public static <T extends Enum<T>> T valueOf(Class<T>, String)
+     * {@code public static <T extends Enum<T>> T valueOf(Class<T>, String)}
      * efficiently.  Note that the map is returned by this method is
      * created lazily on first use.  Typically it won't ever get created.
      */

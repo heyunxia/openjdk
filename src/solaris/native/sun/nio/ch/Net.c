@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -38,83 +38,7 @@
 #include "net_util_md.h"
 #include "nio_util.h"
 #include "nio.h"
-
-/**
- * Definitions for source-specific multicast to allow for building
- * with older header files.
- */
-
-#ifdef __solaris__
-
-#ifndef IP_BLOCK_SOURCE
-
-#define IP_BLOCK_SOURCE                 0x15
-#define IP_UNBLOCK_SOURCE               0x16
-#define IP_ADD_SOURCE_MEMBERSHIP        0x17
-#define IP_DROP_SOURCE_MEMBERSHIP       0x18
-
-#define MCAST_BLOCK_SOURCE              0x2b
-#define MCAST_UNBLOCK_SOURCE            0x2c
-#define MCAST_JOIN_SOURCE_GROUP         0x2d
-#define MCAST_LEAVE_SOURCE_GROUP        0x2e
-
-#endif  /* IP_BLOCK_SOURCE */
-
-struct my_ip_mreq_source {
-        struct in_addr  imr_multiaddr;
-        struct in_addr  imr_sourceaddr;
-        struct in_addr  imr_interface;
-};
-
-/*
- * Use #pragma pack() construct to force 32-bit alignment on amd64.
- */
-#if defined(amd64)
-#pragma pack(4)
-#endif
-
-struct my_group_source_req {
-        uint32_t                gsr_interface;  /* interface index */
-        struct sockaddr_storage gsr_group;      /* group address */
-        struct sockaddr_storage gsr_source;     /* source address */
-};
-
-#if defined(amd64)
-#pragma pack()
-#endif
-
-#endif  /* __solaris__ */
-
-
-#ifdef __linux__
-
-#ifndef IP_BLOCK_SOURCE
-
-#define IP_BLOCK_SOURCE                 38
-#define IP_UNBLOCK_SOURCE               37
-#define IP_ADD_SOURCE_MEMBERSHIP        39
-#define IP_DROP_SOURCE_MEMBERSHIP       40
-
-#define MCAST_BLOCK_SOURCE              43
-#define MCAST_UNBLOCK_SOURCE            44
-#define MCAST_JOIN_SOURCE_GROUP         42
-#define MCAST_LEAVE_SOURCE_GROUP        45
-
-#endif  /* IP_BLOCK_SOURCE */
-
-struct my_ip_mreq_source {
-        struct in_addr  imr_multiaddr;
-        struct in_addr  imr_interface;
-        struct in_addr  imr_sourceaddr;
-};
-
-struct my_group_source_req {
-        uint32_t                gsr_interface;  /* interface index */
-        struct sockaddr_storage gsr_group;      /* group address */
-        struct sockaddr_storage gsr_source;     /* source address */
-};
-
-#endif   /* __linux__ */
+#include "sun_nio_ch_PollArrayWrapper.h"
 
 #ifdef _ALLBSD_SOURCE
 
@@ -155,7 +79,12 @@ struct my_group_source_req {
         struct sockaddr_storage gsr_source;     /* source address */
 };
 
-#endif   /* _ALLBSD_SOURCE */
+#else   /* _ALLBSD_SOURCE */
+
+#define my_ip_mreq_source         ip_mreq_source
+#define my_group_source_req       group_source_req
+
+#endif
 
 
 #define COPY_INET6_ADDRESS(env, source, target) \
@@ -576,8 +505,8 @@ Java_sun_nio_ch_Net_joinOrDrop6(JNIEnv *env, jobject this, jboolean join, jobjec
         optval = (void*)&mreq6;
         optlen = sizeof(mreq6);
     } else {
-#if defined (__linux__) || defined(MACOSX)
-        /* Include-mode filtering broken on Mac OS & Linux at least to 2.6.24 */
+#ifdef MACOSX
+        /* no IPv6 include-mode filtering for now */
         return IOS_UNAVAILABLE;
 #else
         initGroupSourceReq(env, group, index, source, &req);
@@ -698,6 +627,26 @@ Java_sun_nio_ch_Net_shutdown(JNIEnv *env, jclass cl, jobject fdo, jint jhow)
     if ((shutdown(fdval(env, fdo), how) < 0) && (errno != ENOTCONN))
         handleSocketError(env, errno);
 }
+
+JNIEXPORT jint JNICALL
+Java_sun_nio_ch_Net_poll(JNIEnv* env, jclass this, jobject fdo, jint events, jlong timeout)
+{
+    struct pollfd pfd;
+    int rv;
+    pfd.fd = fdval(env, fdo);
+    pfd.events = events;
+    rv = poll(&pfd, 1, timeout);
+
+    if (rv >= 0) {
+        return pfd.revents;
+    } else if (errno == EINTR) {
+        return IOS_INTERRUPTED;
+    } else if (rv < 0) {
+        handleSocketError(env, errno);
+        return IOS_THROWN;
+    }
+}
+
 
 /* Declared in nio_util.h */
 

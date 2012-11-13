@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -59,7 +59,6 @@ public class FileCredentialsCache extends CredentialsCache
     public int version;
     public Tag tag; // optional
     public PrincipalName primaryPrincipal;
-    public Realm primaryRealm;
     private Vector<Credentials> credentialsList;
     private static String dir;
     private static boolean DEBUG = Krb5.DEBUG;
@@ -79,7 +78,6 @@ public class FileCredentialsCache extends CredentialsCache
             }
             if (principal != null) {
                 fcc.primaryPrincipal = principal;
-                fcc.primaryRealm = principal.getRealm();
             }
             fcc.load(cacheName);
             return fcc;
@@ -153,7 +151,6 @@ public class FileCredentialsCache extends CredentialsCache
     synchronized void init(PrincipalName principal, String name)
         throws IOException, KrbException {
         primaryPrincipal = principal;
-        primaryRealm = principal.getRealm();
         CCacheOutputStream cos =
             new CCacheOutputStream(new FileOutputStream(name));
         version = KRB5_FCC_FVNO_3;
@@ -183,7 +180,6 @@ public class FileCredentialsCache extends CredentialsCache
             }
         } else
             primaryPrincipal = p;
-        primaryRealm = primaryPrincipal.getRealm();
         credentialsList = new Vector<Credentials> ();
         while (cis.available() > 0) {
             Credentials cred = cis.readCred(version);
@@ -291,18 +287,16 @@ public class FileCredentialsCache extends CredentialsCache
 
     }
 
-    public Credentials getCreds(LoginOptions options,
-                                PrincipalName sname, Realm srealm) {
+    public Credentials getCreds(LoginOptions options, PrincipalName sname) {
         if (options == null) {
-            return getCreds(sname, srealm);
+            return getCreds(sname);
         } else {
             Credentials[] list = getCredsList();
             if (list == null) {
                 return null;
             } else {
                 for (int i = 0; i < list.length; i++) {
-                    if (sname.match(list[i].sname) &&
-                        (srealm.toString().equals(list[i].srealm.toString()))) {
+                    if (sname.match(list[i].sname)) {
                         if (list[i].flags.match(options)) {
                             return list[i];
                         }
@@ -317,16 +311,14 @@ public class FileCredentialsCache extends CredentialsCache
     /**
      * Gets a credentials for a specified service.
      * @param sname service principal name.
-     * @param srealm the realm that the service belongs to.
      */
-    public Credentials getCreds(PrincipalName sname, Realm srealm) {
+    public Credentials getCreds(PrincipalName sname) {
         Credentials[] list = getCredsList();
         if (list == null) {
             return null;
         } else {
             for (int i = 0; i < list.length; i++) {
-                if (sname.match(list[i].sname) &&
-                    (srealm.toString().equals(list[i].srealm.toString()))) {
+                if (sname.match(list[i].sname)) {
                     return list[i];
                 }
             }
@@ -343,7 +335,7 @@ public class FileCredentialsCache extends CredentialsCache
                 if (list[i].sname.toString().startsWith("krbtgt")) {
                     String[] nameStrings = list[i].sname.getNameStrings();
                     // find the TGT for the current realm krbtgt/realm@realm
-                    if (nameStrings[1].equals(list[i].srealm.toString())) {
+                    if (nameStrings[1].equals(list[i].sname.getRealm().toString())) {
                        return list[i];
                     }
                 }
@@ -356,7 +348,7 @@ public class FileCredentialsCache extends CredentialsCache
      * Returns path name of the credentials cache file.
      * The path name is searched in the following order:
      *
-     * 1. KRB5CCNAME
+     * 1. KRB5CCNAME (bare file name without FILE:)
      * 2. /tmp/krb5cc_<uid> on unix systems
      * 3. <user.home>/krb5cc_<user.name>
      * 4. <user.home>/krb5cc (if can't get <user.name>)
@@ -367,11 +359,19 @@ public class FileCredentialsCache extends CredentialsCache
         String stdCacheNameComponent = "krb5cc";
         String name;
 
+        // The env var can start with TYPE:, we only support FILE: here.
+        // http://docs.oracle.com/cd/E19082-01/819-2252/6n4i8rtr3/index.html
         name = java.security.AccessController.doPrivileged(
                 new java.security.PrivilegedAction<String>() {
             @Override
             public String run() {
-                return System.getenv("KRB5CCNAME");
+                String cache = System.getenv("KRB5CCNAME");
+                if (cache != null &&
+                        (cache.length() >= 5) &&
+                        cache.regionMatches(true, 0, "FILE:", 0, 5)) {
+                    cache = cache.substring(5);
+                }
+                return cache;
             }
         });
         if (name != null) {

@@ -126,10 +126,6 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
     native void getWindowBounds(long window, long x, long y, long width, long height);
     private native static void initIDs();
 
-    private static Field isPostedField;
-    private static Field rawCodeField;
-    private static Field primaryLevelUnicodeField;
-    private static Field extendedKeyCodeField;
     static {
         initIDs();
     }
@@ -398,20 +394,11 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
 
     static Method m_sendMessage;
     static void sendEvent(final AWTEvent e) {
-        if (isPostedField == null) {
-            isPostedField = SunToolkit.getField(AWTEvent.class, "isPosted");
-        }
         // The uses of this method imply that the incoming event is system-generated
         SunToolkit.setSystemGenerated(e);
         PeerEvent pe = new PeerEvent(Toolkit.getDefaultToolkit(), new Runnable() {
                 public void run() {
-                    try {
-                        isPostedField.setBoolean(e, true);
-                    } catch (IllegalArgumentException e) {
-                        assert(false);
-                    } catch (IllegalAccessException e) {
-                        assert(false);
-                    }
+                    AWTAccessor.getAWTEventAccessor().setPosted(e);
                     ((Component)e.getSource()).dispatchEvent(e);
                 }
             }, PeerEvent.ULTIMATE_PRIORITY_EVENT);
@@ -1128,7 +1115,10 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
         //  (1) either XIM could not handle it or
         //  (2) it was Latin 1:1 mapping.
         //
-        XKeysym.Keysym2JavaKeycode jkc = XKeysym.getJavaKeycode(ev);
+        // Preserve modifiers to get Java key code for dead keys
+        boolean isDeadKey = isDeadKey(keysym[0]);
+        XKeysym.Keysym2JavaKeycode jkc = isDeadKey ? XKeysym.getJavaKeycode(keysym[0])
+                : XKeysym.getJavaKeycode(ev);
         if( jkc == null ) {
             jkc = new XKeysym.Keysym2JavaKeycode(java.awt.event.KeyEvent.VK_UNDEFINED, java.awt.event.KeyEvent.KEY_LOCATION_UNKNOWN);
         }
@@ -1154,7 +1144,7 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
                              jkc.getJavaKeycode();
         postKeyEvent( java.awt.event.KeyEvent.KEY_PRESSED,
                           ev.get_time(),
-                          jkeyToReturn,
+                          isDeadKey ? jkeyExtended : jkeyToReturn,
                           (unicodeKey == 0 ? java.awt.event.KeyEvent.CHAR_UNDEFINED : unicodeKey),
                           jkc.getKeyLocation(),
                           ev.get_state(),ev.getPData(), XKeyEvent.getSize(), (long)(ev.get_keycode()),
@@ -1162,7 +1152,7 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
                           jkeyExtended);
 
 
-        if( unicodeKey > 0 ) {
+        if (unicodeKey > 0 && !isDeadKey) {
                 keyEventLog.fine("fire _TYPED on "+unicodeKey);
                 postKeyEvent( java.awt.event.KeyEvent.KEY_TYPED,
                               ev.get_time(),
@@ -1189,9 +1179,7 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
     }
     // un-private it if you need to call it from elsewhere
     private void handleKeyRelease(XKeyEvent ev) {
-        long keysym[] = new long[2];
         int unicodeKey = 0;
-        keysym[0] = XConstants.NoSymbol;
 
         if (keyEventLog.isLoggable(PlatformLogger.FINE)) {
             logIncomingKeyEvent( ev );
@@ -1200,7 +1188,11 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
         // and Java KeyEvent keycode should be calculated.
         // For release we should post released event.
         //
-        XKeysym.Keysym2JavaKeycode jkc = XKeysym.getJavaKeycode(ev);
+        // Preserve modifiers to get Java key code for dead keys
+        long keysym = xkeycodeToKeysym(ev);
+        boolean isDeadKey = isDeadKey(keysym);
+        XKeysym.Keysym2JavaKeycode jkc = isDeadKey ? XKeysym.getJavaKeycode(keysym)
+                : XKeysym.getJavaKeycode(ev);
         if( jkc == null ) {
             jkc = new XKeysym.Keysym2JavaKeycode(java.awt.event.KeyEvent.VK_UNDEFINED, java.awt.event.KeyEvent.KEY_LOCATION_UNKNOWN);
         }
@@ -1232,7 +1224,7 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
                              jkc.getJavaKeycode();
         postKeyEvent(  java.awt.event.KeyEvent.KEY_RELEASED,
                           ev.get_time(),
-                          jkeyToReturn,
+                          isDeadKey ? jkeyExtended : jkeyToReturn,
                           (unicodeKey == 0 ? java.awt.event.KeyEvent.CHAR_UNDEFINED : unicodeKey),
                           jkc.getKeyLocation(),
                           ev.get_state(),ev.getPData(), XKeyEvent.getSize(), (long)(ev.get_keycode()),
@@ -1240,6 +1232,11 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
                           jkeyExtended);
 
 
+    }
+
+
+    private boolean isDeadKey(long keysym){
+        return XKeySymConstants.XK_dead_grave <= keysym && keysym <= XKeySymConstants.XK_dead_semivoiced_sound;
     }
 
     /*
@@ -1428,16 +1425,8 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
     }
 
 
-    static Field bdata;
     static void setBData(KeyEvent e, byte[] data) {
-        try {
-            if (bdata == null) {
-                bdata = SunToolkit.getField(java.awt.AWTEvent.class, "bdata");
-            }
-            bdata.set(e, data);
-        } catch (IllegalAccessException ex) {
-            assert false;
-        }
+        AWTAccessor.getAWTEventAccessor().setBData(e, data);
     }
 
     public void postKeyEvent(int id, long when, int keyCode, int keyChar,
@@ -1447,15 +1436,6 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
     {
         long jWhen = XToolkit.nowMillisUTC_offset(when);
         int modifiers = getModifiers(state, 0, keyCode);
-        if (rawCodeField == null) {
-            rawCodeField = XToolkit.getField(KeyEvent.class, "rawCode");
-        }
-        if (primaryLevelUnicodeField == null) {
-            primaryLevelUnicodeField = XToolkit.getField(KeyEvent.class, "primaryLevelUnicode");
-        }
-        if (extendedKeyCodeField == null) {
-            extendedKeyCodeField = XToolkit.getField(KeyEvent.class, "extendedKeyCode");
-        }
 
         KeyEvent ke = new KeyEvent((Component)getEventSource(), id, jWhen,
                                    modifiers, keyCode, (char)keyChar, keyLocation);
@@ -1463,15 +1443,11 @@ public class XWindow extends XBaseWindow implements X11ComponentPeer {
             byte[] data = Native.toBytes(event, eventSize);
             setBData(ke, data);
         }
-        try {
-            rawCodeField.set(ke, rawCode);
-            primaryLevelUnicodeField.set(ke, (long)unicodeFromPrimaryKeysym);
-            extendedKeyCodeField.set(ke, (long)extendedKeyCode);
-        } catch (IllegalArgumentException e) {
-            assert(false);
-        } catch (IllegalAccessException e) {
-            assert(false);
-        }
+
+        AWTAccessor.KeyEventAccessor kea = AWTAccessor.getKeyEventAccessor();
+        kea.setRawCode(ke, rawCode);
+        kea.setPrimaryLevelUnicode(ke, (long)unicodeFromPrimaryKeysym);
+        kea.setExtendedKeyCode(ke, (long)extendedKeyCode);
         postEventToEventQueue(ke);
     }
 

@@ -647,7 +647,7 @@ public abstract class ClassLoader {
             throw new NoClassDefFoundError("IllegalName: " + name);
 
         if ((name != null) && name.startsWith("java.") &&
-              !org.openjdk.jigsaw.Platform.isPlatformLoader(this)) {
+              !sun.misc.VM.isSystemDomainLoader(this)) {
             throw new SecurityException
                 ("Prohibited package name: " +
                  name.substring(0, name.lastIndexOf('.')));
@@ -1397,7 +1397,7 @@ public abstract class ClassLoader {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = getCallerClassLoader();
-            if (ClassLoader.needsClassLoaderPermissionCheck(ccl, this)) {
+            if (needsClassLoaderPermissionCheck(ccl, this)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }
@@ -1467,7 +1467,7 @@ public abstract class ClassLoader {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader ccl = getCallerClassLoader();
-            if (ClassLoader.needsClassLoaderPermissionCheck(ccl, scl)) {
+            if (needsClassLoaderPermissionCheck(ccl, scl)) {
                 sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
             }
         }

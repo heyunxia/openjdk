@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1241,10 +1241,9 @@ public abstract class URLConnection {
 
     /**
      * Gets the Content Handler appropriate for this connection.
-     * @param connection the connection to use.
      */
     synchronized ContentHandler getContentHandler()
-    throws UnknownServiceException
+        throws UnknownServiceException
     {
         String contentType = stripOffParameters(getContentType());
         ContentHandler handler = null;

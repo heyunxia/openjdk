@@ -51,6 +51,14 @@
 
 static JNF_CLASS_CACHE(jc_CPlatformWindow, "sun/lwawt/macosx/CPlatformWindow");
 
+// Cocoa windowDidBecomeKey/windowDidResignKey notifications
+// doesn't provide information about "opposite" window, so we
+// have to do a bit of tracking. This variable points to a window
+// which had been the key window just before a new key window
+// was set. It would be nil if the new key window isn't an AWT 
+// window or the app currently has no key window.
+static AWTWindow* lastKeyWindow = nil;
+
 // --------------------------------------------------------------
 // NSWindow/NSPanel descendants implementation
 #define AWT_NS_WINDOW_IMPLEMENTATION                            \
@@ -178,8 +186,8 @@ AWT_NS_WINDOW_IMPLEMENTATION
         [self.nsWindow setDocumentEdited:IS(bits, DOCUMENT_MODIFIED)];
     }
 
-    if ([self.nsWindow respondsToSelector:@selector(toggleFullScreen:)]) {
-        if (IS(mask, FULLSCREENABLE)) {
+    if (IS(mask, FULLSCREENABLE) && [self.nsWindow respondsToSelector:@selector(toggleFullScreen:)]) {
+        if (IS(bits, FULLSCREENABLE)) {
             [self.nsWindow setCollectionBehavior:(1 << 7) /*NSWindowCollectionBehaviorFullScreenPrimary*/];
         } else {
             [self.nsWindow setCollectionBehavior:NSWindowCollectionBehaviorDefault];
@@ -238,10 +246,12 @@ AWT_ASSERT_APPKIT_THREAD;
     return self;
 }
 
-// checks that this window is under the mouse cursor and this point is not overlapped by others windows
-- (BOOL) isTopmostWindowUnderMouse {
++ (BOOL) isAWTWindow:(NSWindow *)window {
+    return [window isKindOfClass: [AWTWindow_Panel class]] || [window isKindOfClass: [AWTWindow_Normal class]];
+}
 
-    int currentWinID = [self.nsWindow windowNumber];
+// returns id for the topmost window under mouse
++ (NSInteger) getTopmostWindowUnderMouseID {
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
     NSPoint nsMouseLocation = [NSEvent mouseLocation];
@@ -249,53 +259,84 @@ AWT_ASSERT_APPKIT_THREAD;
 
     NSMutableArray *windows = (NSMutableArray *)CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
 
-
     for (NSDictionary *window in windows) {
-        int layer = [[window objectForKey:(id)kCGWindowLayer] intValue];
+        NSInteger layer = [[window objectForKey:(id)kCGWindowLayer] integerValue];
         if (layer == 0) {
-            int winID = [[window objectForKey:(id)kCGWindowNumber] intValue];
             CGRect rect;
             CGRectMakeWithDictionaryRepresentation((CFDictionaryRef)[window objectForKey:(id)kCGWindowBounds], &rect);
             if (CGRectContainsPoint(rect, cgMouseLocation)) {
-                return currentWinID == winID;
-            } else if (currentWinID == winID) {
-                return NO;
+                return [[window objectForKey:(id)kCGWindowNumber] integerValue];
             }
         }
     }
-    return NO;
+    return -1;
 }
 
-- (void) synthesizeMouseEnteredExitedEvents {
+// checks that this window is under the mouse cursor and this point is not overlapped by others windows
+- (BOOL) isTopmostWindowUnderMouse {
+    return [self.nsWindow windowNumber] == [AWTWindow getTopmostWindowUnderMouseID];
+}
 
-    int eventType = 0;
-    BOOL isUnderMouse = [self isTopmostWindowUnderMouse];
-    BOOL mouseIsOver = [[self.nsWindow contentView] mouseIsOver];
++ (AWTWindow *) getTopmostWindowUnderMouse {
+    NSEnumerator *windowEnumerator = [[NSApp windows] objectEnumerator];
+    NSWindow *window;
 
-    if (isUnderMouse && !mouseIsOver) {
-        eventType = NSMouseEntered;
-    } else if (!isUnderMouse && mouseIsOver) {
-        eventType = NSMouseExited;
-    } else {
-        return;
+    NSInteger topmostWindowUnderMouseID = [AWTWindow getTopmostWindowUnderMouseID];
+
+    while ((window = [windowEnumerator nextObject]) != nil) {
+        if ([window windowNumber] == topmostWindowUnderMouseID) {
+            BOOL isAWTWindow = [AWTWindow isAWTWindow: window];
+            return isAWTWindow ? (AWTWindow *) [window delegate] : nil;
+        }
     }
+    return nil;
+}
+
++ (void) synthesizeMouseEnteredExitedEvents:(NSWindow*)window withType:(NSEventType)eventType {
 
     NSPoint screenLocation = [NSEvent mouseLocation];
-    NSPoint windowLocation = [self.nsWindow convertScreenToBase: screenLocation];
+    NSPoint windowLocation = [window convertScreenToBase: screenLocation];
     int modifierFlags = (eventType == NSMouseEntered) ? NSMouseEnteredMask : NSMouseExitedMask;
 
     NSEvent *mouseEvent = [NSEvent enterExitEventWithType: eventType
-                                                  location: windowLocation
-                                             modifierFlags: modifierFlags
-                                                 timestamp: 0
-                                              windowNumber: [self.nsWindow windowNumber]
-                                                   context: nil
-                                               eventNumber: 0
-                                            trackingNumber: 0
-                                                  userData: nil
-                            ];
+                                                 location: windowLocation
+                                            modifierFlags: modifierFlags
+                                                timestamp: 0
+                                             windowNumber: [window windowNumber]
+                                                  context: nil
+                                              eventNumber: 0
+                                           trackingNumber: 0
+                                                 userData: nil
+                           ];
 
-    [[self.nsWindow contentView] deliverJavaMouseEvent: mouseEvent];
+    [[window contentView] deliverJavaMouseEvent: mouseEvent];
+}
+
++ (void) synthesizeMouseEnteredExitedEventsForAllWindows {
+
+    NSInteger topmostWindowUnderMouseID = [AWTWindow getTopmostWindowUnderMouseID];
+    NSArray *windows = [NSApp windows];
+    NSWindow *window;
+
+    NSEnumerator *windowEnumerator = [windows objectEnumerator];
+    while ((window = [windowEnumerator nextObject]) != nil) {
+        if ([AWTWindow isAWTWindow: window]) {
+            BOOL isUnderMouse = ([window windowNumber] == topmostWindowUnderMouseID);
+            BOOL mouseIsOver = [[window contentView] mouseIsOver];
+            if (isUnderMouse && !mouseIsOver) {
+                [AWTWindow synthesizeMouseEnteredExitedEvents:window withType:NSMouseEntered];
+            } else if (!isUnderMouse && mouseIsOver) {
+                [AWTWindow synthesizeMouseEnteredExitedEvents:window withType:NSMouseExited];
+            }
+        }
+    }
+}
+
++ (NSNumber *) getNSWindowDisplayID_AppKitThread:(NSWindow *)window {
+    AWT_ASSERT_APPKIT_THREAD;
+    NSScreen *screen = [window screen];
+    NSDictionary *deviceDescription = [screen deviceDescription];
+    return [deviceDescription objectForKey:@"NSScreenNumber"];
 }
 
 - (void) dealloc {
@@ -472,15 +513,17 @@ AWT_ASSERT_APPKIT_THREAD;
     [self _deliverIconify:JNI_FALSE];
 }
 
-- (void) _deliverWindowFocusEvent:(BOOL)focused {
+- (void) _deliverWindowFocusEvent:(BOOL)focused oppositeWindow:(AWTWindow *)opposite {
 //AWT_ASSERT_APPKIT_THREAD;
-
     JNIEnv *env = [ThreadUtilities getJNIEnvUncached];
     jobject platformWindow = [self.javaPlatformWindow jObjectWithEnv:env];
     if (platformWindow != NULL) {
-        static JNF_MEMBER_CACHE(jm_deliverWindowFocusEvent, jc_CPlatformWindow, "deliverWindowFocusEvent", "(Z)V");
-        JNFCallVoidMethod(env, platformWindow, jm_deliverWindowFocusEvent, (jboolean)focused);
+        jobject oppositeWindow = [opposite.javaPlatformWindow jObjectWithEnv:env];
+
+        static JNF_MEMBER_CACHE(jm_deliverWindowFocusEvent, jc_CPlatformWindow, "deliverWindowFocusEvent", "(ZLsun/lwawt/macosx/CPlatformWindow;)V");
+        JNFCallVoidMethod(env, platformWindow, jm_deliverWindowFocusEvent, (jboolean)focused, oppositeWindow);
         (*env)->DeleteLocalRef(env, platformWindow);
+        (*env)->DeleteLocalRef(env, oppositeWindow);
     }
 }
 
@@ -489,7 +532,10 @@ AWT_ASSERT_APPKIT_THREAD;
 AWT_ASSERT_APPKIT_THREAD;
     [AWTToolkit eventCountPlusPlus];
     [CMenuBar activate:self.javaMenuBar modallyDisabled:NO];
-    [self _deliverWindowFocusEvent:YES];
+    AWTWindow *opposite = [AWTWindow lastKeyWindow];
+    [AWTWindow setLastKeyWindow:nil];
+
+    [self _deliverWindowFocusEvent:YES oppositeWindow: opposite];
 }
 
 - (void) windowDidResignKey: (NSNotification *) notification {
@@ -497,7 +543,18 @@ AWT_ASSERT_APPKIT_THREAD;
 AWT_ASSERT_APPKIT_THREAD;
     [AWTToolkit eventCountPlusPlus];
     [self.javaMenuBar deactivate];
-    [self _deliverWindowFocusEvent:NO];
+
+    // the new key window
+    NSWindow *keyWindow = [NSApp keyWindow];
+    AWTWindow *opposite = nil;
+    if ([AWTWindow isAWTWindow: keyWindow]) {
+        opposite = (AWTWindow *)[keyWindow delegate];
+        [AWTWindow setLastKeyWindow: self];
+    } else {
+        [AWTWindow setLastKeyWindow: nil];
+    }
+
+    [self _deliverWindowFocusEvent:NO oppositeWindow: opposite];
 }
 
 - (void) windowDidBecomeMain: (NSNotification *) notification {
@@ -650,6 +707,17 @@ AWT_ASSERT_APPKIT_THREAD;
         [self.nsWindow setShowsResizeIndicator:flag];
     }
 }
+
++ (void) setLastKeyWindow:(AWTWindow *)window {
+    [window retain];
+    [lastKeyWindow release];
+    lastKeyWindow = window;
+}
+
++ (AWTWindow *) lastKeyWindow {
+    return lastKeyWindow;
+}
+
 
 @end // AWTWindow
 
@@ -825,7 +893,7 @@ AWT_ASSERT_NOT_APPKIT_THREAD;
         // (this will also re-enable screen updates, which were disabled above)
         // TODO: send PaintEvent
 
-        [window synthesizeMouseEnteredExitedEvents];
+        [AWTWindow synthesizeMouseEnteredExitedEventsForAllWindows];
     }];
 
 JNF_COCOA_EXIT(env);
@@ -941,14 +1009,17 @@ JNIEXPORT void JNICALL Java_sun_lwawt_macosx_CPlatformWindow_nativeRevalidateNSW
 (JNIEnv *env, jclass clazz, jlong windowPtr)
 {
 JNF_COCOA_ENTER(env);
-AWT_ASSERT_NOT_APPKIT_THREAD;
 
     NSWindow *nsWindow = OBJC(windowPtr);
-    [JNFRunLoop performOnMainThreadWaiting:NO withBlock:^(){
-        AWT_ASSERT_APPKIT_THREAD;
-
+    if ([NSThread isMainThread]) {
         [nsWindow invalidateShadow];
-    }];
+    } else {
+        [JNFRunLoop performOnMainThreadWaiting:NO withBlock:^(){
+            AWT_ASSERT_APPKIT_THREAD;
+
+            [nsWindow invalidateShadow];
+        }];
+    }
 
 JNF_COCOA_EXIT(env);
 }
@@ -1037,22 +1108,42 @@ JNF_COCOA_EXIT(env);
 
 /*
  * Class:     sun_lwawt_macosx_CPlatformWindow
+ * Method:    nativeGetTopmostPlatformWindowUnderMouse
+ * Signature: (J)V
+ */
+JNIEXPORT jobject
+JNICALL Java_sun_lwawt_macosx_CPlatformWindow_nativeGetTopmostPlatformWindowUnderMouse
+(JNIEnv *env, jclass clazz)
+{
+    jobject topmostWindowUnderMouse = nil;
+
+    JNF_COCOA_ENTER(env);
+    AWT_ASSERT_APPKIT_THREAD;
+
+    AWTWindow *awtWindow = [AWTWindow getTopmostWindowUnderMouse];
+    if (awtWindow != nil) {
+        topmostWindowUnderMouse = [awtWindow.javaPlatformWindow jObject];
+    }
+
+    JNF_COCOA_EXIT(env);
+
+    return topmostWindowUnderMouse;
+}
+
+/*
+ * Class:     sun_lwawt_macosx_CPlatformWindow
  * Method:    nativeSynthesizeMouseEnteredExitedEvents
  * Signature: (J)V
  */
 JNIEXPORT void JNICALL Java_sun_lwawt_macosx_CPlatformWindow_nativeSynthesizeMouseEnteredExitedEvents
-(JNIEnv *env, jclass clazz, jlong windowPtr)
+(JNIEnv *env, jclass clazz)
 {
     JNF_COCOA_ENTER(env);
     AWT_ASSERT_NOT_APPKIT_THREAD;
 
-    NSWindow *nsWindow = OBJC(windowPtr);
     [JNFRunLoop performOnMainThreadWaiting:NO withBlock:^(){
         AWT_ASSERT_APPKIT_THREAD;
-
-        AWTWindow *window = (AWTWindow*)[nsWindow delegate];
-
-        [window synthesizeMouseEnteredExitedEvents];
+        [AWTWindow synthesizeMouseEnteredExitedEventsForAllWindows];
     }];
 
     JNF_COCOA_EXIT(env);
@@ -1064,19 +1155,22 @@ JNIEXPORT void JNICALL Java_sun_lwawt_macosx_CPlatformWindow_nativeSynthesizeMou
  * Signature: (J)I
  */
 JNIEXPORT jint JNICALL
-Java_sun_lwawt_macosx_CPlatformWindow_nativeGetNSWindowDisplayID_1AppKitThread
+Java_sun_lwawt_macosx_CPlatformWindow_nativeGetNSWindowDisplayID
 (JNIEnv *env, jclass clazz, jlong windowPtr)
 {
-    jint ret; // CGDirectDisplayID
+    __block jint ret; // CGDirectDisplayID
 
 JNF_COCOA_ENTER(env);
-AWT_ASSERT_APPKIT_THREAD;
 
     NSWindow *window = OBJC(windowPtr);
-    NSScreen *screen = [window screen];
-    NSDictionary *deviceDescription = [screen deviceDescription];
-    NSNumber *displayID = [deviceDescription objectForKey:@"NSScreenNumber"];
-    ret = (jint)[displayID intValue];
+
+    if ([NSThread isMainThread]) {
+        ret = (jint)[[AWTWindow getNSWindowDisplayID_AppKitThread: window] intValue];
+    } else {
+        [JNFRunLoop performOnMainThreadWaiting:YES withBlock:^(){
+            ret = (jint)[[AWTWindow getNSWindowDisplayID_AppKitThread: window] intValue];
+        }];
+    }
 
 JNF_COCOA_EXIT(env);
 
@@ -1148,6 +1242,10 @@ JNF_COCOA_ENTER(env);
     NSWindow *nsWindow = OBJC(windowPtr);
     [JNFRunLoop performOnMainThreadWaiting:NO withBlock:^(){
         AWTWindow *window = (AWTWindow*)[nsWindow delegate];
+
+        if ([AWTWindow lastKeyWindow] == window) {
+            [AWTWindow setLastKeyWindow: nil];
+        }
 
         // AWTWindow holds a reference to the NSWindow in its nsWindow
         // property. Unsetting the delegate allows it to be deallocated

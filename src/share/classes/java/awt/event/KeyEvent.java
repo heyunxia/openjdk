@@ -25,12 +25,12 @@
 
 package java.awt.event;
 
-import java.awt.Event;
 import java.awt.Component;
 import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import sun.awt.AWTAccessor;
 
 /**
  * An event which indicates that a keystroke occurred in a component.
@@ -914,6 +914,27 @@ public class KeyEvent extends InputEvent {
         if (!GraphicsEnvironment.isHeadless()) {
             initIDs();
         }
+
+        AWTAccessor.setKeyEventAccessor(
+            new AWTAccessor.KeyEventAccessor() {
+                public void setRawCode(KeyEvent ev, long rawCode) {
+                    ev.rawCode = rawCode;
+                }
+
+                public void setPrimaryLevelUnicode(KeyEvent ev,
+                                                   long primaryLevelUnicode) {
+                    ev.primaryLevelUnicode = primaryLevelUnicode;
+                }
+
+                public void setExtendedKeyCode(KeyEvent ev,
+                                               long extendedKeyCode) {
+                    ev.extendedKeyCode = extendedKeyCode;
+                }
+
+                public Component getOriginalSource( KeyEvent ev ) {
+                    return ev.originalSource;
+                }
+            });
     }
 
     /**
@@ -921,6 +942,14 @@ public class KeyEvent extends InputEvent {
      * accessed from C.
      */
     private static native void initIDs();
+
+    /**
+     * The original event source.
+     *
+     * Event source can be changed during processing, but in some cases
+     * we need to be able to obtain original source.
+     */
+    private Component originalSource;
 
     private KeyEvent(Component source, int id, long when, int modifiers,
                     int keyCode, char keyChar, int keyLocation, boolean isProxyActive) {
@@ -1006,6 +1035,7 @@ public class KeyEvent extends InputEvent {
         } else if ((getModifiers() == 0) && (getModifiersEx() != 0)) {
             setOldModifiers();
         }
+        originalSource = source;
     }
 
     /**

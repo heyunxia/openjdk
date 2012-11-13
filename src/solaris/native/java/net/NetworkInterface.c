@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -147,7 +147,7 @@ static struct  sockaddr *getBroadcast(JNIEnv *env, int sock, const char *name, s
 static short   getSubnet(JNIEnv *env, int sock, const char *ifname);
 static int     getIndex(int sock, const char *ifname);
 
-static int     getFlags(int sock, const char *ifname);
+static int     getFlags(int sock, const char *ifname, int *flags);
 static int     getMacAddress(JNIEnv *env, int sock,  const char* ifname, const struct in_addr* addr, unsigned char *buf);
 static int     getMTU(JNIEnv *env, int sock, const char *ifname);
 
@@ -561,6 +561,7 @@ static int getFlags0(JNIEnv *env, jstring name) {
     jboolean isCopy;
     int ret, sock;
     const char* name_utf;
+    int flags = 0;
 
     name_utf = (*env)->GetStringUTFChars(env, name, &isCopy);
 
@@ -571,7 +572,7 @@ static int getFlags0(JNIEnv *env, jstring name) {
 
     name_utf = (*env)->GetStringUTFChars(env, name, &isCopy);
 
-    ret = getFlags(sock, name_utf);
+    ret = getFlags(sock, name_utf, &flags);
 
     close(sock);
     (*env)->ReleaseStringUTFChars(env, name, name_utf);
@@ -581,7 +582,7 @@ static int getFlags0(JNIEnv *env, jstring name) {
         return -1;
     }
 
-    return ret;
+    return flags;
 }
 
 
@@ -768,14 +769,14 @@ static netif *enumInterfaces(JNIEnv *env) {
         return NULL;
     }
 
-    /* return partial list if exception occure in the middle of process ???*/
+    /* return partial list if an exception occurs in the middle of process ???*/
 
     /*
      * If IPv6 is available then enumerate IPv6 addresses.
      */
 #ifdef AF_INET6
 
-        /* User can disable ipv6 expicitly by -Djava.net.preferIPv4Stack=true,
+        /* User can disable ipv6 explicitly by -Djava.net.preferIPv4Stack=true,
          * so we have to call ipv6_available()
          */
         if (ipv6_available()) {
@@ -804,7 +805,7 @@ static netif *enumInterfaces(JNIEnv *env) {
        do{ \
         _pointer = (_type)malloc( _size ); \
         if (_pointer == NULL) { \
-            JNU_ThrowOutOfMemoryError(env, "heap allocation failed"); \
+            JNU_ThrowOutOfMemoryError(env, "Native heap allocation failed"); \
             return ifs; /* return untouched list */ \
         } \
        } while(0)
@@ -852,6 +853,7 @@ netif *addif(JNIEnv *env, int sock, const char * if_name, netif *ifs, struct soc
     int mask;
     int isVirtual = 0;
     int addr_size;
+    int flags = 0;
 
     /*
      * If the interface name is a logical interface then we
@@ -885,7 +887,7 @@ netif *addif(JNIEnv *env, int sock, const char * if_name, netif *ifs, struct soc
     addrP->next = 0;
     if (family == AF_INET) {
       /*
-       * Deal with brodcast addr & subnet mask
+       * Deal with broadcast addr & subnet mask
        */
        struct sockaddr * brdcast_to = (struct sockaddr *) ((char *) addrP + sizeof(netaddr) + addr_size);
        addrP->brdcast = getBroadcast(env, sock, name,  brdcast_to );
@@ -896,7 +898,7 @@ netif *addif(JNIEnv *env, int sock, const char * if_name, netif *ifs, struct soc
      }
 
     /**
-     * Deal with virtual interface with colon notaion e.g. eth0:1
+     * Deal with virtual interface with colon notation e.g. eth0:1
      */
     name_colonP = strchr(name, ':');
     if (name_colonP != NULL) {
@@ -906,7 +908,7 @@ netif *addif(JNIEnv *env, int sock, const char * if_name, netif *ifs, struct soc
        * the 'parent' interface with the new records.
        */
         *name_colonP = 0;
-        if (getFlags(sock, name) < 0) {
+        if (getFlags(sock, name, &flags) < 0 || flags < 0) {
             // failed to access parent interface do not create parent.
             // We are a virtual interface with no parent.
             isVirtual = 1;
@@ -1278,9 +1280,8 @@ static int getMTU(JNIEnv *env, int sock,  const char *ifname) {
     return  if2.ifr_mtu;
 }
 
-static int getFlags(int sock, const char *ifname) {
+static int getFlags(int sock, const char *ifname, int *flags) {
   struct ifreq if2;
-  int ret = -1;
 
   memset((char *) &if2, 0, sizeof(if2));
   strcpy(if2.ifr_name, ifname);
@@ -1289,7 +1290,12 @@ static int getFlags(int sock, const char *ifname) {
       return -1;
   }
 
-  return if2.ifr_flags;
+  if (sizeof(if2.ifr_flags) == sizeof(short)) {
+      *flags = (if2.ifr_flags & 0xffff);
+  } else {
+      *flags = if2.ifr_flags;
+  }
+  return 0;
 }
 
 #endif
@@ -1321,13 +1327,13 @@ static int openSocketWithFallback(JNIEnv *env, const char *ifname){
    }
 
      /**
-      * Solaris requires that we have IPv6 socket to query an
-      * interface without IPv4 address - check it here
-      * POSIX 1 require the kernell to return ENOTTY if the call is
-      * unappropriate for device e.g. NETMASK for device having IPv6
-      * only address but not all devices follows the standart so
-      * fallback on any error.  It's not an ecology friendly but more
-      * reliable.
+      * Solaris requires that we have an IPv6 socket to query an
+      * interface without an IPv4 address - check it here.
+      * POSIX 1 require the kernel to return ENOTTY if the call is
+      * inappropriate for a device e.g. the NETMASK for a device having IPv6
+      * only address but not all devices follow the standard so
+      * fall back on any error. It's not an ecologically friendly gesture
+      * but more reliable.
       */
 
     if (! alreadyV6 ){
@@ -1353,7 +1359,7 @@ static int openSocketWithFallback(JNIEnv *env, const char *ifname){
 
 /*
  * Enumerates and returns all IPv4 interfaces
- * (linux verison)
+ * (linux verision)
  */
 
 static netif *enumIPv4Interfaces(JNIEnv *env, int sock, netif *ifs) {
@@ -1663,7 +1669,7 @@ static int getMTU(JNIEnv *env, int sock,  const char *ifname) {
 }
 
 
-static int getFlags(int sock, const char *ifname) {
+static int getFlags(int sock, const char *ifname, int *flags) {
      struct   lifreq lifr;
      memset((caddr_t)&lifr, 0, sizeof(lifr));
      strcpy((caddr_t)&(lifr.lifr_name), ifname);
@@ -1672,7 +1678,8 @@ static int getFlags(int sock, const char *ifname) {
          return -1;
      }
 
-     return  lifr.lifr_flags;
+     *flags = lifr.lifr_flags;
+     return 0;
 }
 
 
@@ -1968,7 +1975,7 @@ static int getMTU(JNIEnv *env, int sock,  const char *ifname) {
     return  if2.ifr_mtu;
 }
 
-static int getFlags(int sock, const char *ifname) {
+static int getFlags(int sock, const char *ifname, int *flags) {
   struct ifreq if2;
   int ret = -1;
 
@@ -1979,7 +1986,12 @@ static int getFlags(int sock, const char *ifname) {
       return -1;
   }
 
-  return (((int) if2.ifr_flags) & 0xffff);
+  if (sizeof(if2.ifr_flags) == sizeof(short)) {
+    *flags = (if2.ifr_flags & 0xffff);
+  } else {
+    *flags = if2.ifr_flags;
+  }
+  return 0;
 }
 
 #endif

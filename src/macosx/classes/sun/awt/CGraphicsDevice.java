@@ -33,9 +33,7 @@ import java.awt.DisplayMode;
 
 import sun.java2d.opengl.CGLGraphicsConfig;
 
-import sun.awt.FullScreenCapable;
-
-public class CGraphicsDevice extends GraphicsDevice {
+public final class CGraphicsDevice extends GraphicsDevice {
 
     // CoreGraphics display ID
     private final int displayID;
@@ -47,6 +45,9 @@ public class CGraphicsDevice extends GraphicsDevice {
     private final int DEFAULT_CONFIG = 0;
 
     private static AWTPermission fullScreenExclusivePermission;
+
+    // Save/restore DisplayMode for the Full Screen mode
+    private DisplayMode originalMode;
 
     public CGraphicsDevice(int displayID) {
         this.displayID = displayID;
@@ -105,11 +106,6 @@ public class CGraphicsDevice extends GraphicsDevice {
         return nativeGetYResolution(displayID);
     }
 
-    public int getScreenResolution() {
-        // TODO: report non-72 value when HiDPI is turned on
-        return 72;
-    }
-
     private static native double nativeGetXResolution(int displayID);
     private static native double nativeGetYResolution(int displayID);
 
@@ -124,18 +120,22 @@ public class CGraphicsDevice extends GraphicsDevice {
         }
 
         boolean fsSupported = isFullScreenSupported();
+
         if (fsSupported && old != null) {
             // enter windowed mode (and restore original display mode)
             exitFullScreenExclusive(old);
-
-            // TODO: restore display mode
+            if (originalMode != null) {
+                setDisplayMode(originalMode);
+                originalMode = null;
+            }
         }
 
         super.setFullScreenWindow(w);
 
         if (fsSupported && w != null) {
-            // TODO: save current display mode
-
+            if (isDisplayChangeSupported()) {
+                originalMode = getDisplayMode();
+            }
             // enter fullscreen mode
             enterFullScreenExclusive(w);
         }
@@ -187,6 +187,9 @@ public class CGraphicsDevice extends GraphicsDevice {
 
     @Override
     public void setDisplayMode(DisplayMode dm) {
+        if (dm == null) {
+            throw new IllegalArgumentException("Invalid display mode");
+        }
         nativeSetDisplayMode(displayID, dm.getWidth(), dm.getHeight(), dm.getBitDepth(), dm.getRefreshRate());
         if (isFullScreenSupported() && getFullScreenWindow() != null) {
             getFullScreenWindow().setSize(dm.getWidth(), dm.getHeight());

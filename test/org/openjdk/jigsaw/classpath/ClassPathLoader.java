@@ -189,7 +189,7 @@ public class ClassPathLoader {
         @Override
         public String[] resources() {
             return new String[] {
-                "sun/text/resources/thai_dict"
+                "sun/text/resources/th/thai_dict"
             };
         }
 

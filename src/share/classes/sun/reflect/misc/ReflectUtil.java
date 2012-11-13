@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -146,6 +146,19 @@ public final class ReflectUtil {
         return true;
     }
 
+    // Returns true if p is an ancestor of cl i.e. class loader 'p' can
+    // be found in the cl's delegation chain
+    private static boolean isAncestor(ClassLoader p, ClassLoader cl) {
+        ClassLoader acl = cl;
+        do {
+            acl = acl.getParent();
+            if (p == acl) {
+                return true;
+            }
+        } while (acl != null);
+        return false;
+    }
+
     /**
      * Returns true if package access check is needed for reflective
      * access from a class loader 'from' to classes or members in
@@ -164,15 +177,6 @@ public final class ReflectUtil {
         if (Platform.isPlatformLoader(to))
             return true;
 
-        // If from class loader is in the to's class loader's delegation chain.
-        // no need for package access check.
-        ClassLoader acl = to;
-        do {
-            acl = acl.getParent();
-            if (from == acl) {
-                return false;
-            }
-        } while (acl != null);
-        return true;
+        return !isAncestor(from, to);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@
  * @test
  * @bug 6299712
  * @library ../../httptest/
- * @build HttpCallback HttpServer ClosedChannelList HttpTransaction
+ * @build HttpCallback TestHttpServer ClosedChannelList HttpTransaction
  * @run main/othervm B6299712
  * @summary  NullPointerException in sun.net.www.protocol.http.HttpURLConnection.followRedirect
  */
@@ -49,7 +49,7 @@ import java.util.*;
  */
 public class B6299712 {
     static SimpleHttpTransaction httpTrans;
-    static HttpServer server;
+    static TestHttpServer server;
 
     public static void main(String[] args) throws Exception {
         ResponseCache.setDefault(new DeployCacheHandler());
@@ -61,7 +61,7 @@ public class B6299712 {
     public static void startHttpServer() {
         try {
             httpTrans = new SimpleHttpTransaction();
-            server = new HttpServer(httpTrans, 1, 10, 0);
+            server = new TestHttpServer(httpTrans, 1, 10, 0);
         } catch (IOException e) {
             e.printStackTrace();
         }

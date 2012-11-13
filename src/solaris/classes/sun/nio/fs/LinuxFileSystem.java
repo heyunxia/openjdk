@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -82,7 +82,7 @@ class LinuxFileSystem extends UnixFileSystem {
             try {
                 for (;;) {
                     UnixMountEntry entry = new UnixMountEntry();
-                    int res = getextmntent(fp, entry);
+                    int res = getmntent(fp, entry);
                     if (res < 0)
                         break;
                     entries.add(entry);

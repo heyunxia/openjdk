@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -242,10 +242,6 @@ public class TestHttpCookie {
         // whitespace between attr and = sign
         test("set-cookie2: Customer = \"WILE_E_COYOTE\"; Version = \"1\"; Path = \"/acme\"")
         .n("Customer").v("WILE_E_COYOTE").ver(1).p("/acme");
-
-        // $NAME is reserved; result should be null
-        test("set-cookie2: $Customer = \"WILE_E_COYOTE\"; Version = \"1\"; Path = \"/acme\"")
-        .nil();
 
         // a 'full' cookie
         test("set-cookie2: Customer=\"WILE_E_COYOTE\"" +

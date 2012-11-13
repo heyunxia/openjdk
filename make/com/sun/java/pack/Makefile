@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -78,8 +78,8 @@ ifeq ($(STANDALONE),true)
   OTHER_CXXFLAGS += $(ZINCLUDE)
   LDDFLAGS += $(ZIPOBJS)
  else
-  LDDFLAGS += -lz
-  OTHER_CXXFLAGS += -DSYSTEM_ZLIB
+  LDDFLAGS += $(ZLIB_LIBS)
+  OTHER_CXXFLAGS += $(ZLIB_CFLAGS) -DSYSTEM_ZLIB
  endif
 else
   OTHER_CXXFLAGS += -DNO_ZLIB -DUNPACK_JNI
@@ -95,9 +95,9 @@ ifeq ($(PLATFORM), windows)
   LDOUTPUT = -Fe
 
   # JDK name required here
-  RC_FLAGS += /D "JDK_FNAME=$(PGRM).exe" \
-	/D "JDK_INTERNAL_NAME=$(PGRM)" \
-	/D "JDK_FTYPE=0x1L"
+  RC_FLAGS += -D "JDK_FNAME=$(PGRM).exe" \
+	-D "JDK_INTERNAL_NAME=$(PGRM)" \
+	-D "JDK_FTYPE=0x1L"
 
   RES = $(OBJDIR)/$(PGRM).res
 else
@@ -157,9 +157,9 @@ $(UNPACK_EXE): $(UNPACK_EXE_FILES_o) updatefiles winres
 	$(prep-target)
 	$(RM) $(TEMPDIR)/mapfile-vers
 	$(CP) mapfile-vers-unpack200 $(TEMPDIR)/mapfile-vers
-	$(LINKER)  $(LDDFLAGS) $(UNPACK_EXE_FILES_o) $(RES) $(LIBCXX) $(LDOUTPUT)$(TEMPDIR)/unpack200$(EXE_SUFFIX)
+	$(LINKER)  $(LDDFLAGS) $(sort $(UNPACK_EXE_FILES_o)) $(RES) $(LIBCXX) $(LDOUTPUT)$(TEMPDIR)/unpack200$(EXE_SUFFIX)
 ifdef MT
-	$(MT) /manifest $(OBJDIR)/unpack200$(EXE_SUFFIX).manifest /outputresource:$(TEMPDIR)/unpack200$(EXE_SUFFIX);#1
+	$(MT) -manifest $(OBJDIR)/unpack200$(EXE_SUFFIX).manifest -outputresource:$(TEMPDIR)/unpack200$(EXE_SUFFIX);#1
 endif
 	$(CP) $(TEMPDIR)/unpack200$(EXE_SUFFIX) $(UNPACK_EXE)
 	@$(call binary_file_verification,$@)

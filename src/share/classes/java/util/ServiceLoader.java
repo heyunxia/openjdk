@@ -232,10 +232,8 @@ public final class ServiceLoader<S>
     }
 
     private ServiceLoader(Class<S> svc, ClassLoader cl) {
-        service = svc;
-        loader = (cl == null && Platform.isModuleMode())
-            ? ClassLoader.getSystemClassLoader()
-            : cl;
+        service = Objects.requireNonNull(svc, "Service interface cannot be null");
+        loader = (cl == null) ? ClassLoader.getSystemClassLoader() : cl;
         reload();
     }
 
@@ -380,14 +378,21 @@ public final class ServiceLoader<S>
             }
             String cn = nextName;
             nextName = null;
+            Class<?> c = null;
             try {
-                S p = service.cast(Class.forName(cn, true, loader)
-                                   .newInstance());
-                providers.put(cn, p);
-                return p;
+                c = Class.forName(cn, false, loader);
             } catch (ClassNotFoundException x) {
                 fail(service,
                      "Provider " + cn + " not found");
+            }
+            if (!service.isAssignableFrom(c)) {
+                fail(service,
+                     "Provider " + cn  + " not a subtype");
+            }
+            try {
+                S p = service.cast(c.newInstance());
+                providers.put(cn, p);
+                return p;
             } catch (Throwable x) {
                 fail(service,
                      "Provider " + cn + " could not be instantiated: " + x,
@@ -545,7 +550,8 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> load(Class<S> service) {
-        return new ServiceLoader<>(service, Thread.currentThread().getContextClassLoader());
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        return ServiceLoader.load(service, cl);
     }
 
     /**
@@ -579,7 +585,7 @@ public final class ServiceLoader<S>
             prev = cl;
             cl = cl.getParent();
         }
-        return new ServiceLoader<>(service, prev);
+        return ServiceLoader.load(service, prev);
     }
 
     /**

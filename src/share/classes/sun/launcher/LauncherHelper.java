@@ -25,6 +25,20 @@
 
 package sun.launcher;
 
+/*
+ *
+ *  <p><b>This is NOT part of any API supported by Sun Microsystems.
+ *  If you write code that depends on this, you do so at your own
+ *  risk.  This code and its internal interfaces are subject to change
+ *  or deletion without notice.</b>
+ *
+ */
+
+/**
+ * A utility package for the java(1), javaw(1) launchers.
+ * The following are helper methods that the native launcher uses
+ * to perform checks etc. using JNI, see src/share/bin/java.c
+ */
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -34,6 +48,9 @@ import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ResourceBundle;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -48,28 +65,12 @@ import java.util.TreeSet;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.Arrays;
 
-
-/*
- * <p><b>This is NOT part of any API supported by Sun Microsystems.
- * If you write code that depends on this, you do so at your own
- * risk.  This code and its internal interfaces are subject to change
- * or deletion without notice.</b>
- */
-
-/**
- * A utility package for the java(1), javaw(1) launchers.
- * The following are helper methods that the native launcher uses
- * to perform checks etc. using JNI, see src/share/bin/java.c
- */
-
-public class LauncherHelper {
-
+public enum LauncherHelper {
+    INSTANCE;
     private static final String MAIN_CLASS = "Main-Class";
 
     private static StringBuilder outBuf = new StringBuilder();
-
 
     private static final String INDENT = "    ";
     private static final String VM_SETTINGS     = "VM settings:";
@@ -78,6 +79,7 @@ public class LauncherHelper {
 
     // sync with java.c and sun.misc.VM
     private static final String diagprop = "sun.java.launcher.diag";
+    final static boolean trace = sun.misc.VM.getSavedProperty(diagprop) != null;
 
     private static final String defaultBundleName =
             "sun.launcher.resources.launcher";
@@ -418,7 +420,7 @@ public class LauncherHelper {
 
 
     // From src/share/bin/java.c:
-    //   enum LaunchMode { LM_UNKNOWN = 0, LM_CLASS, LM_JAR, LM_MODULE };
+    //   enum LaunchMode { LM_UNKNOWN = 0, LM_CLASS, LM_JAR };
 
     private static final int LM_UNKNOWN = 0;
     private static final int LM_CLASS   = 1;
@@ -429,7 +431,7 @@ public class LauncherHelper {
         if (msgKey != null) {
             ostream.println(getLocalizedMessage(msgKey, args));
         }
-        if (sun.misc.VM.getSavedProperty(diagprop) != null) {
+        if (trace) {
             if (t != null) {
                 t.printStackTrace();
             } else {
@@ -443,7 +445,7 @@ public class LauncherHelper {
      * This method does the following:
      * 1. gets the classname from a Jar's manifest, if necessary
      * 2. loads the class using the System ClassLoader
-     * 3. ensures the availability and accessibility of the main method:
+     * 3. ensures the availability and accessibility of the main method,
      *    using signatureDiagnostic method.
      *    a. does the class exist
      *    b. is there a main
@@ -462,7 +464,6 @@ public class LauncherHelper {
                                             String what) {
         final PrintStream ostream = (printToStderr) ? System.err : System.out;
         final ClassLoader ld = ClassLoader.getSystemClassLoader();
-
         // get the class name
         String cn = null;
         switch (mode) {
@@ -472,9 +473,9 @@ public class LauncherHelper {
             case LM_JAR:
                 cn = getMainClassFromJar(ostream, what);
                 break;
-        case LM_MODULE:
-            cn = org.openjdk.jigsaw.Launcher.mainClass(ld);
-            break;
+            case LM_MODULE:
+                cn = org.openjdk.jigsaw.Launcher.mainClass(ld);
+                break;
             default:
                 // should never happen
                 throw new InternalError("" + mode + ": Unknown launch mode");
@@ -537,4 +538,82 @@ public class LauncherHelper {
         }
         return null; // keep the compiler happy
     }
+
+    static String[] expandArgs(String[] argArray) {
+        List<StdArg> aList = new ArrayList<>();
+        for (String x : argArray) {
+            aList.add(new StdArg(x));
+        }
+        return expandArgs(aList);
+    }
+
+    static String[] expandArgs(List<StdArg> argList) {
+        ArrayList<String> out = new ArrayList<>();
+        if (trace) {
+            System.err.println("Incoming arguments:");
+        }
+        for (StdArg a : argList) {
+            if (trace) {
+                System.err.println(a);
+            }
+            if (a.needsExpansion) {
+                File x = new File(a.arg);
+                File parent = x.getParentFile();
+                String glob = x.getName();
+                if (parent == null) {
+                    parent = new File(".");
+                }
+                try (DirectoryStream<Path> dstream =
+                        Files.newDirectoryStream(parent.toPath(), glob)) {
+                    int entries = 0;
+                    for (Path p : dstream) {
+                        out.add(p.normalize().toString());
+                        entries++;
+                    }
+                    if (entries == 0) {
+                        out.add(a.arg);
+                    }
+                } catch (Exception e) {
+                    out.add(a.arg);
+                    if (trace) {
+                        System.err.println("Warning: passing argument as-is " + a);
+                        System.err.print(e);
+                    }
+                }
+            } else {
+                out.add(a.arg);
+            }
+        }
+        String[] oarray = new String[out.size()];
+        out.toArray(oarray);
+
+        if (trace) {
+            System.err.println("Expanded arguments:");
+            for (String x : oarray) {
+                System.err.println(x);
+            }
+        }
+        return oarray;
+    }
+
+    /* duplicate of the native StdArg struct */
+    private static class StdArg {
+        final String arg;
+        final boolean needsExpansion;
+        StdArg(String arg, boolean expand) {
+            this.arg = arg;
+            this.needsExpansion = expand;
+        }
+        // protocol: first char indicates whether expansion is required
+        // 'T' = true ; needs expansion
+        // 'F' = false; needs no expansion
+        StdArg(String in) {
+            this.arg = in.substring(1);
+            needsExpansion = in.charAt(0) == 'T';
+        }
+        public String toString() {
+            return "StdArg{" + "arg=" + arg + ", needsExpansion=" + needsExpansion + '}';
+        }
+    }
 }
+

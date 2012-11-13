@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -278,11 +278,13 @@ FILES_java += \
 	sun/nio/ch/UnixAsynchronousServerSocketChannelImpl.java \
 	sun/nio/ch/UnixAsynchronousSocketChannelImpl.java \
 	\
-	sun/nio/fs/GnomeFileTypeDetector.java \
 	sun/nio/fs/BsdFileStore.java \
 	sun/nio/fs/BsdFileSystem.java \
 	sun/nio/fs/BsdFileSystemProvider.java \
 	sun/nio/fs/BsdNativeDispatcher.java \
+	sun/nio/fs/MacOSXFileSystemProvider.java \
+	sun/nio/fs/MacOSXFileSystem.java \
+	sun/nio/fs/MacOSXNativeDispatcher.java \
 	sun/nio/fs/PollingWatchService.java \
 	sun/nio/fs/UnixChannelFactory.java \
 	sun/nio/fs/UnixCopyFile.java \
@@ -310,8 +312,8 @@ FILES_c += \
 	UnixAsynchronousServerSocketChannelImpl.c \
 	UnixAsynchronousSocketChannelImpl.c \
 	\
-	GnomeFileTypeDetector.c \
 	BsdNativeDispatcher.c \
+	MacOSXNativeDispatcher.c \
 	UnixCopyFile.c \
 	UnixNativeDispatcher.c \
 	\
@@ -326,7 +328,6 @@ FILES_export += \
 	sun/nio/ch/UnixAsynchronousServerSocketChannelImpl.java \
 	sun/nio/ch/UnixAsynchronousSocketChannelImpl.java \
 	\
-	sun/nio/fs/GnomeFileTypeDetector.java \
 	sun/nio/fs/BsdNativeDispatcher.java \
 	sun/nio/fs/UnixCopyFile.java \
 	sun/nio/fs/UnixNativeDispatcher.java
@@ -386,7 +387,7 @@ ifeq ($(PLATFORM), linux)
 OTHER_LDLIBS += -L$(LIBDIR)/$(LIBARCH) -ljava -lnet -lpthread $(LIBDL)
 endif
 ifeq ($(PLATFORM), macosx)
-OTHER_LDLIBS += -L$(LIBDIR) -ljava -lnet -pthread
+OTHER_LDLIBS += -L$(LIBDIR) -ljava -lnet -pthread -framework CoreFoundation
 endif
 ifeq ($(PLATFORM), solaris)
 OTHER_LDLIBS += $(JVMLIB) $(LIBSOCKET) -lposix4 $(LIBDL) -lsendfile \

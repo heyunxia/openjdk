@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2004, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
  * @test
  * @bug 5026745
  * @library ../../httpstest/
+ * @build TestHttpsServer HttpCallback
  * @run main/othervm Test
  *
  *     SunJSSE does not support dynamic system properties, no way to re-use
@@ -275,7 +276,7 @@ public class Test implements HttpCallback {
         }
     }
 
-    static HttpServer server;
+    static TestHttpsServer server;
 
     public static void main (String[] args) throws Exception {
         // setup properties to do ssl
@@ -296,7 +297,7 @@ public class Test implements HttpCallback {
             HttpsURLConnection.setDefaultHostnameVerifier(new NameVerifier());
 
             try {
-                server = new HttpServer (new Test(), 1, 10, 0);
+                server = new TestHttpsServer (new Test(), 1, 10, 0);
                 System.out.println ("Server started: listening on port: " + server.getLocalPort());
                 // the test server doesn't support keep-alive yet
                 // test1("http://localhost:"+server.getLocalPort()+"/d0");

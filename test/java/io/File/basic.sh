@@ -1,7 +1,7 @@
 #! /bin/sh
 
 #
-# Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1998, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -33,7 +33,16 @@ fi
 rm -rf x.Basic.*
 rm -f x.Basic.non
 printf "%s" "xyzzyN" > x.Basic.rw
-touch x.Basic.ro; chmod ugo-w x.Basic.ro
+touch x.Basic.ro
+OS=`uname -s`
+case "$OS" in
+  Windows_* | CYGWIN*)
+    attrib +R x.Basic.ro
+    ;;
+  *)
+    chmod ugo-w x.Basic.ro
+    ;;
+esac
 mkdir x.Basic.dir
 if $TESTJAVA/bin/java $* -classpath "$TESTCLASSES" Basic; then
   [ -f x.Basic.rw ] && (echo "x.Basic.rw not deleted"; exit 1)

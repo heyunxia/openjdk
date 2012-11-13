@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -52,7 +52,8 @@ public final class IIOPHelper {
         AccessController.doPrivileged(new PrivilegedAction<IIOPProxy>() {
             public IIOPProxy run() {
                 try {
-                    Class<?> c = Class.forName(IMPL_CLASS);
+                    Class<?> c = Class.forName(IMPL_CLASS, true,
+                                               IIOPHelper.class.getClassLoader());
                     return (IIOPProxy)c.newInstance();
                 } catch (ClassNotFoundException cnf) {
                     return null;

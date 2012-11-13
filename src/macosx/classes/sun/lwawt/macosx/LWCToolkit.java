@@ -42,7 +42,7 @@ import java.util.concurrent.Callable;
 import sun.awt.*;
 import sun.lwawt.*;
 import sun.lwawt.LWWindowPeer.PeerType;
-
+import sun.security.action.GetBooleanAction;
 
 class NamedCursor extends Cursor {
     NamedCursor(String name) {
@@ -53,7 +53,7 @@ class NamedCursor extends Cursor {
 /**
  * Mac OS X Cocoa-based AWT Toolkit.
  */
-public class LWCToolkit extends LWToolkit {
+public final class LWCToolkit extends LWToolkit {
     // While it is possible to enumerate all mouse devices
     // and query them for the number of buttons, the code
     // that does it is rather complex. Instead, we opt for
@@ -79,14 +79,6 @@ public class LWCToolkit extends LWToolkit {
         if (!GraphicsEnvironment.isHeadless()) {
             initIDs();
         }
-    }
-
-    static String getSystemProperty(final String name, final String deflt) {
-        return AccessController.doPrivileged (new PrivilegedAction<String>() {
-            public String run() {
-                return System.getProperty(name, deflt);
-            }
-        });
     }
 
     public LWCToolkit() {
@@ -156,6 +148,10 @@ public class LWCToolkit extends LWToolkit {
                 });
             }
            });
+    }
+
+    public static LWCToolkit getLWCToolkit() {
+        return (LWCToolkit)Toolkit.getDefaultToolkit();
     }
 
     @Override
@@ -286,7 +282,6 @@ public class LWCToolkit extends LWToolkit {
         return new CMouseInfoPeer();
     }
 
-
     @Override
     protected int getScreenHeight() {
         return GraphicsEnvironment.getLocalGraphicsEnvironment()
@@ -341,8 +336,9 @@ public class LWCToolkit extends LWToolkit {
 
     @Override
     public int getScreenResolution() throws HeadlessException {
-        return ((CGraphicsDevice) GraphicsEnvironment
-                .getLocalGraphicsEnvironment().getDefaultScreenDevice()).getScreenResolution();
+        return (int) ((CGraphicsDevice) GraphicsEnvironment
+                .getLocalGraphicsEnvironment().getDefaultScreenDevice())
+                .getXResolution();
     }
 
     @Override
@@ -414,7 +410,6 @@ public class LWCToolkit extends LWToolkit {
     public int getNumberOfButtons(){
         return BUTTONS;
     }
-
 
     @Override
     public boolean isTraySupported() {
@@ -497,6 +492,22 @@ public class LWCToolkit extends LWToolkit {
         synchronized(ret) { return ret[0]; }
     }
 
+    /**
+     * Just a wrapper for LWCToolkit.invokeAndWait. Posts an empty event to the
+     * appropriate event queue and waits for it to finish.
+     */
+    public static void flushPendingEventsOnAppkit(final Component component) {
+        try {
+            invokeAndWait(new Runnable() {
+                @Override
+                public void run() {
+                }
+            }, component);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     // Kicks an event over to the appropriate eventqueue and waits for it to finish
     // To avoid deadlocking, we manually run the NSRunLoop while waiting
     // Any selector invoked using ThreadUtilities performOnMainThread will be processed in doAWTRunLoop
@@ -544,7 +555,7 @@ public class LWCToolkit extends LWToolkit {
             SunToolkit.postEvent(appContext, invocationEvent);
 
             // 3746956 - flush events from PostEventQueue to prevent them from getting stuck and causing a deadlock
-            sun.awt.SunToolkitSubclass.flushPendingEvents(appContext);
+            SunToolkit.flushPendingEvents(appContext);
         } else {
             // This should be the equivalent to EventQueue.invokeAndWait
             ((LWCToolkit)Toolkit.getDefaultToolkit()).getSystemEventQueueForInvokeAndWait().postEvent(invocationEvent);
@@ -569,7 +580,7 @@ public class LWCToolkit extends LWToolkit {
             SunToolkit.postEvent(appContext, invocationEvent);
 
             // 3746956 - flush events from PostEventQueue to prevent them from getting stuck and causing a deadlock
-            sun.awt.SunToolkitSubclass.flushPendingEvents(appContext);
+            SunToolkit.flushPendingEvents(appContext);
         } else {
             // This should be the equivalent to EventQueue.invokeAndWait
             ((LWCToolkit)Toolkit.getDefaultToolkit()).getSystemEventQueueForInvokeAndWait().postEvent(invocationEvent);
@@ -700,8 +711,8 @@ public class LWCToolkit extends LWToolkit {
      */
     public synchronized static boolean getSunAwtDisableCALayers() {
         if (sunAwtDisableCALayers == null) {
-            sunAwtDisableCALayers =
-            getBooleanSystemProperty("sun.awt.disableCALayers");
+            sunAwtDisableCALayers = AccessController.doPrivileged(
+                new GetBooleanAction("sun.awt.disableCALayers"));
         }
         return sunAwtDisableCALayers.booleanValue();
     }
@@ -750,12 +761,21 @@ public class LWCToolkit extends LWToolkit {
     }
 
     @Override
+    public boolean isWindowShapingSupported() {
+        return true;
+    }
+
+    @Override
     public boolean isWindowTranslucencySupported() {
         return true;
     }
 
     @Override
     public boolean isTranslucencyCapable(GraphicsConfiguration gc) {
+        return true;
+    }
+
+    public boolean isSwingBackbufferTranslucencySupported() {
         return true;
     }
 

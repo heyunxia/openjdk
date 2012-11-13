@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -270,7 +270,7 @@ int enumInterfaces(JNIEnv *env, netif **netifPP)
             }
         }
         if (curr == NULL) {
-            JNU_ThrowOutOfMemoryError(env, "heap allocation failure");
+            JNU_ThrowOutOfMemoryError(env, "Native heap allocation failure");
             free_netif(netifP);
             free(tableP);
             return -1;
@@ -370,7 +370,7 @@ int enumAddresses_win(JNIEnv *env, netif *netifP, netaddr **netaddrPP)
 
             netaddr *curr = (netaddr *)malloc(sizeof(netaddr));
             if (curr == NULL) {
-                JNU_ThrowOutOfMemoryError(env, "heap allocation failure");
+                JNU_ThrowOutOfMemoryError(env, "Native heap allocation failure");
                 free_netaddr(netaddrP);
                 free(tableP);
                 return -1;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -82,7 +82,7 @@ public final class Unsafe {
      */
     public static Unsafe getUnsafe() {
         Class<?> cc = sun.reflect.Reflection.getCallerClass(2);
-        if (!org.openjdk.jigsaw.Platform.isPlatformLoader(cc.getClassLoader()))
+        if (!VM.isSystemDomainLoader(cc.getClassLoader()))
             throw new SecurityException("Unsafe");
         return theUnsafe;
     }
@@ -676,6 +676,14 @@ public final class Unsafe {
      * this class.
      */
     public native Object staticFieldBase(Field f);
+
+    /**
+     * Detect if the given class may need to be initialized. This is often
+     * needed in conjunction with obtaining the static field base of a
+     * class.
+     * @return false only if a call to {@code ensureClassInitialized} would have no effect
+     */
+    public native boolean shouldBeInitialized(Class<?> c);
 
     /**
      * Ensure the given class has been initialized. This is often

@@ -129,7 +129,6 @@ AUTO_FILES_JAVA_DIRS = $(PKGDIR)
 # Exclude the sources that get built by ../other/Makefile
 #
 AUTO_JAVA_PRUNE = \
-    ECKeyFactory.java \
     ECParameters.java \
     ECPrivateKeyImpl.java \
     ECPublicKeyImpl.java \
@@ -248,9 +247,9 @@ build-jar: $(UNSIGNED_DIR)/sunec.jar
 #
 # Build sunec.jar.
 #
-$(UNSIGNED_DIR)/sunec.jar: build
+$(UNSIGNED_DIR)/sunec.jar: build $(JCE_MANIFEST_FILE)
 	$(prep-target)
-	$(BOOT_JAR_CMD) cf $@ $(JAR_DIRS) \
+	$(BOOT_JAR_CMD) cmf $(JCE_MANIFEST_FILE) $@ $(JAR_DIRS) \
 	    $(BOOT_JAR_JFLAGS)
 	@$(java-vm-cleanup)
 

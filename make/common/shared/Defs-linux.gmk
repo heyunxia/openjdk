@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -128,6 +128,11 @@ endif
 # Always build headless on Linux
 BUILD_HEADLESS = true
 LIBM=-lm
+
+# Set ZLIB_LIBS if not already set
+ifeq ("$(ZLIB_LIBS)", "")
+  ZLIB_LIBS=-lz
+endif
 
 # GCC29_COMPILER_PATH: is the path to where the gcc 2.9 compiler is installed
 #  NOTE: Must end with / so that it could be empty, allowing PATH usage.

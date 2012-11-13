@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,8 +46,6 @@ static jfieldID entry_name;
 static jfieldID entry_dir;
 static jfieldID entry_fstype;
 static jfieldID entry_options;
-static jfieldID entry_dev;
-
 
 struct fsstat_iter {
     struct statfs *buf;
@@ -81,7 +79,6 @@ Java_sun_nio_fs_BsdNativeDispatcher_initIDs(JNIEnv* env, jclass this)
     entry_dir = (*env)->GetFieldID(env, clazz, "dir", "[B");
     entry_fstype = (*env)->GetFieldID(env, clazz, "fstype", "[B");
     entry_options = (*env)->GetFieldID(env, clazz, "opts", "[B");
-    entry_dev = (*env)->GetFieldID(env, clazz, "dev", "J");
 }
 
 JNIEXPORT jlong JNICALL
@@ -160,7 +157,6 @@ Java_sun_nio_fs_BsdNativeDispatcher_fsstatEntry(JNIEnv* env, jclass this,
         options="ro";
     else
         options="";
-    dev = 0;
 
     iter->pos++;
 
@@ -192,9 +188,6 @@ Java_sun_nio_fs_BsdNativeDispatcher_fsstatEntry(JNIEnv* env, jclass this,
     (*env)->SetByteArrayRegion(env, bytes, 0, len, (jbyte*)options);
     (*env)->SetObjectField(env, entry, entry_options, bytes);
 
-    if (dev != 0)
-        (*env)->SetLongField(env, entry, entry_dev, (jlong)dev);
-
     return 0;
 }
 
@@ -208,3 +201,4 @@ Java_sun_nio_fs_BsdNativeDispatcher_endfsstat(JNIEnv* env, jclass this, jlong va
         free(iter);
     }
 }
+

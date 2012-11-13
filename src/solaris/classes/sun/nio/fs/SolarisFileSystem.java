@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.util.*;
 import java.security.AccessController;
 import sun.security.action.GetPropertyAction;
-import static sun.nio.fs.UnixNativeDispatcher.*;
+import static sun.nio.fs.SolarisNativeDispatcher.*;
 
 /**
  * Solaris implementation of FileSystem

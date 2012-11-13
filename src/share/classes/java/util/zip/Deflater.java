@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -79,6 +79,8 @@ class Deflater {
     private int level, strategy;
     private boolean setParams;
     private boolean finish, finished;
+    private long bytesRead;
+    private long bytesWritten;
 
     /**
      * Compression method for the deflate algorithm (the only one currently
@@ -423,8 +425,13 @@ class Deflater {
         synchronized (zsRef) {
             ensureOpen();
             if (flush == NO_FLUSH || flush == SYNC_FLUSH ||
-                flush == FULL_FLUSH)
-                return deflateBytes(zsRef.address(), b, off, len, flush);
+                flush == FULL_FLUSH) {
+                int thisLen = this.len;
+                int n = deflateBytes(zsRef.address(), b, off, len, flush);
+                bytesWritten += n;
+                bytesRead += (thisLen - this.len);
+                return n;
+            }
             throw new IllegalArgumentException();
         }
     }
@@ -462,7 +469,7 @@ class Deflater {
     public long getBytesRead() {
         synchronized (zsRef) {
             ensureOpen();
-            return getBytesRead(zsRef.address());
+            return bytesRead;
         }
     }
 
@@ -488,7 +495,7 @@ class Deflater {
     public long getBytesWritten() {
         synchronized (zsRef) {
             ensureOpen();
-            return getBytesWritten(zsRef.address());
+            return bytesWritten;
         }
     }
 
@@ -503,6 +510,7 @@ class Deflater {
             finish = false;
             finished = false;
             off = len = 0;
+            bytesRead = bytesWritten = 0;
         }
     }
 
@@ -543,8 +551,6 @@ class Deflater {
     private native int deflateBytes(long addr, byte[] b, int off, int len,
                                     int flush);
     private native static int getAdler(long addr);
-    private native static long getBytesRead(long addr);
-    private native static long getBytesWritten(long addr);
     private native static void reset(long addr);
     private native static void end(long addr);
 }

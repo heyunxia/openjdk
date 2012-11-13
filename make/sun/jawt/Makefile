@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -30,6 +30,13 @@ LIBRARY = jawt
 PRODUCT = sun
 
 include $(BUILDDIR)/common/Defs.gmk
+
+#
+# libjawt links to other programs, but nothing links to it directly. An RPATH
+# entry has been added to the launcher so third-party programs linked against
+# it will be able to find it no matter where the JDK or the third-party program
+# is located.
+#
 
 #
 # Files

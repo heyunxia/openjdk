@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,16 +37,16 @@ public class BadKdc1 {
            throws Exception {
        Security.setProperty("krb5.kdc.bad.policy", "tryLess");
        BadKdc.go(
-               new int[]{1,2,1,2,1,2,2,2,2,2,2,2,3,2,1,2,2,2,3,2}, // 1, 2
-               // The above line means try kdc1 for 2 seconds, then kdc1
-               // for 2 seconds,..., finally kdc3 for 2 seconds.
-               new int[]{1,2,2,2,3,2,1,2,2,2,3,2}, // 1, 2
+               "121212222222(32){1,2}1222(32){1,2}", // 1 2
+               // The above line means try kdc1 for 2 seconds then kdc1
+               // for 2 seconds... finally kdc3 for 2 seconds.
+               "1222(32){1,2}1222(32){1,2}",    // 1 2
                // refresh
-               new int[]{1,2,1,2,1,2,2,2,2,2,2,2,3,2,1,2,2,2,3,2}, // 1, 2
-               // k3 off, k2 on
-               new int[]{1,2,2,2,1,2,2,2}, // 1
+               "121212222222(32){1,2}1222(32){1,2}",  // 1 2
+               // k3 off k2 on
+               "(122212(22){1,2}|1222323232-)", // 1
                // k1 on
-               new int[]{1,2,1,2}  // empty
+               "(12(12){1,2}|122232-)"  // empty
        );
    }
 }

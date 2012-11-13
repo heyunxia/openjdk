@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,14 +37,14 @@ public class BadKdc3 {
             throws Exception {
         Security.setProperty("krb5.kdc.bad.policy", "tryLast");
         BadKdc.go(
-                new int[]{1,2,1,2,1,2,2,2,2,2,2,2,3,2,3,2}, // 1, 2
-                new int[]{3,2,3,2}, // 1, 2
+                "121212222222(32){2,4}", // 1 2
+                "(32){2,4}", // 1 2
                 // refresh
-                new int[]{1,2,1,2,1,2,2,2,2,2,2,2,3,2,3,2}, // 1, 2
-                // k3 off, k2 on
-                new int[]{3,2,3,2,3,2,1,2,1,2,1,2,2,2,2,2}, // 1, 3
+                "121212222222(32){2,4}", // 1 2
+                // k3 off k2 on
+                "323232121212(22){2,4}", // 1 3
                 // k1 on
-                new int[]{2,2,2,2}  // 1, 3
+                "(22){2,4}"  // 1 3
         );
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,7 +29,6 @@
  * @summary DatagramPacket spec needs clarification (reuse buf)
  */
 import java.net.*;
-import java.io.*;
 
 public class ReuseBuf {
     static String msgs[] = {"Hello World", "Java", "Good Bye"};
@@ -74,7 +73,7 @@ public class ReuseBuf {
         DatagramPacket dp = new DatagramPacket(b,b.length);
         for (int i = 0; i < msgs.length; i++) {
             ds.send(new DatagramPacket(msgs[i].getBytes(),msgs[i].length(),
-                                       InetAddress.getByName("LocalHost"),
+                                       InetAddress.getLocalHost(),
                                        port));
             ds.receive(dp);
             if (!msgs[i].equals(new String(dp.getData(), dp.getOffset(), dp.getLength()))) {
