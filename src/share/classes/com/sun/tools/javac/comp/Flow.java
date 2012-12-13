@@ -2309,6 +2309,9 @@ public class Flow {
 
         /* ------------ Visitor methods for various sorts of trees -------------*/
 
+        public void visitModuleDef(JCModuleDecl tree) {
+        }
+
         public void visitClassDef(JCClassDecl tree) {
             JCTree prevTree = currentTree;
             try {

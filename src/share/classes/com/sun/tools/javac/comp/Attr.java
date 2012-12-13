@@ -3743,7 +3743,7 @@ public class Attr extends JCTree.Visitor {
                 int PUBLIC_STATIC = PUBLIC | STATIC;
                 if (e.sym.kind == MTH && ((e.sym.flags() & PUBLIC_STATIC) == PUBLIC_STATIC)) {
                     MethodSymbol m = (MethodSymbol) e.sym;
-                    if (m.getReturnType().hasTag(TypeTag.VOID))
+                    if (!m.getReturnType().hasTag(TypeTag.VOID))
                         continue;
                     List<VarSymbol> params = m.params();
                     if (params.size() != 1)
