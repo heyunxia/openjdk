@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,9 +25,10 @@
  * @test
  * @bug 6968063 7127924
  * @summary provide examples of code that generate diagnostics
- * @build Example CheckExamples
+ * @build Example CheckExamples DocCommentProcessor
  * @run main/othervm CheckExamples
  */
+
 /*
  *      See CR 7127924 for info on why othervm is used.
  */

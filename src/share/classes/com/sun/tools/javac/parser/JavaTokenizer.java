@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -110,8 +110,7 @@ public class JavaTokenizer {
      * {@code input[input.length -1]} is a white space character.
      *
      * @param fac the factory which created this Scanner
-     * @param input the input, might be modified
-     * @param inputLength the size of the input.
+     * @param buf the input, might be modified
      * Must be positive and less than or equal to input.length.
      */
     protected JavaTokenizer(ScannerFactory fac, CharBuffer buf) {
@@ -653,7 +652,7 @@ public class JavaTokenizer {
                             reader.scanCommentChar();
                         } while (reader.ch != CR && reader.ch != LF && reader.bp < reader.buflen);
                         if (reader.bp < reader.buflen) {
-                            comments = addDocReader(comments, processComment(pos, reader.bp, CommentStyle.LINE));
+                            comments = addComment(comments, processComment(pos, reader.bp, CommentStyle.LINE));
                         }
                         break;
                     } else if (reader.ch == '*') {
@@ -679,7 +678,7 @@ public class JavaTokenizer {
                         }
                         if (reader.ch == '/') {
                             reader.scanChar();
-                            comments = addDocReader(comments, processComment(pos, reader.bp, style));
+                            comments = addComment(comments, processComment(pos, reader.bp, style));
                             break;
                         } else {
                             lexError(pos, "unclosed.comment");
@@ -720,10 +719,6 @@ public class JavaTokenizer {
                         lexError(pos, "unclosed.str.lit");
                     }
                     break loop;
-                case '#':
-                    reader.scanChar();
-                    tk = TokenKind.HASH;
-                    break loop;
                 default:
                     if (isSpecial(reader.ch)) {
                         scanOperator();
@@ -749,7 +744,10 @@ public class JavaTokenizer {
                             tk = TokenKind.EOF;
                             pos = reader.buflen;
                         } else {
-                            lexError(pos, "illegal.char", String.valueOf((int)reader.ch));
+                            String arg = (32 < reader.ch && reader.ch < 127) ?
+                                            String.format("%s", reader.ch) :
+                                            String.format("\\u%04x", (int)reader.ch);
+                            lexError(pos, "illegal.char", arg);
                             reader.scanChar();
                         }
                     }
@@ -775,10 +773,10 @@ public class JavaTokenizer {
         }
     }
     //where
-        List<Comment> addDocReader(List<Comment> docReaders, Comment docReader) {
-            return docReaders == null ?
-                    List.of(docReader) :
-                    docReaders.prepend(docReader);
+        List<Comment> addComment(List<Comment> comments, Comment comment) {
+            return comments == null ?
+                    List.of(comment) :
+                    comments.prepend(comment);
         }
 
     /** Return the position where a lexical error occurred;
@@ -860,6 +858,10 @@ public class JavaTokenizer {
 
         public String getText() {
             return null;
+        }
+
+        public int getSourcePos(int pos) {
+            return -1;
         }
 
         public CommentStyle getStyle() {

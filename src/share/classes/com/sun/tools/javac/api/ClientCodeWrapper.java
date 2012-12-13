@@ -153,7 +153,7 @@ public class ClientCodeWrapper {
             return fo;
     }
 
-    <T /*super JavaFileOject*/> DiagnosticListener<T> wrap(DiagnosticListener<T> dl) {
+    public <T /*super JavaFileOject*/> DiagnosticListener<T> wrap(DiagnosticListener<T> dl) {
         if (dl == null || isTrusted(dl))
             return dl;
         return new WrappedDiagnosticListener<T>(dl);

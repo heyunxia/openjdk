@@ -37,6 +37,7 @@ import com.sun.tools.javac.jvm.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.List;
 import static com.sun.tools.javac.code.Flags.*;
+import static com.sun.tools.javac.code.TypeTag.*;
 import static com.sun.tools.javac.jvm.ByteCodes.*;
 
 /** A class that defines all predefined constants and operators
@@ -65,16 +66,16 @@ public class Symtab {
 
     /** Builtin types.
      */
-    public final Type byteType = new Type(TypeTags.BYTE, null);
-    public final Type charType = new Type(TypeTags.CHAR, null);
-    public final Type shortType = new Type(TypeTags.SHORT, null);
-    public final Type intType = new Type(TypeTags.INT, null);
-    public final Type longType = new Type(TypeTags.LONG, null);
-    public final Type floatType = new Type(TypeTags.FLOAT, null);
-    public final Type doubleType = new Type(TypeTags.DOUBLE, null);
-    public final Type booleanType = new Type(TypeTags.BOOLEAN, null);
+    public final Type byteType = new Type(BYTE, null);
+    public final Type charType = new Type(CHAR, null);
+    public final Type shortType = new Type(SHORT, null);
+    public final Type intType = new Type(INT, null);
+    public final Type longType = new Type(LONG, null);
+    public final Type floatType = new Type(FLOAT, null);
+    public final Type doubleType = new Type(DOUBLE, null);
+    public final Type booleanType = new Type(BOOLEAN, null);
     public final Type botType = new BottomType();
-    public final JCNoType voidType = new JCNoType(TypeTags.VOID);
+    public final JCNoType voidType = new JCNoType(VOID);
 
     private final Names names;
     private final ClassReader reader;
@@ -139,7 +140,10 @@ public class Symtab {
     public final Type cloneableType;
     public final Type serializableType;
     public final Type methodHandleType;
+    public final Type methodHandleLookupType;
+    public final Type methodTypeType;
     public final Type nativeHeaderType;
+    public final Type nativeHeaderType_old;
     public final Type throwableType;
     public final Type errorType;
     public final Type interruptedExceptionType;
@@ -169,6 +173,11 @@ public class Symtab {
     public final Type systemType;
     public final Type autoCloseableType;
     public final Type trustMeType;
+    public final Type lambdaMetafactory;
+    public final Type containedByType;
+    public final Type containerForType;
+    public final Type documentedType;
+    public final Type elementTypeType;
 
     /** The symbol representing the length field of an array.
      */
@@ -185,11 +194,15 @@ public class Symtab {
 
     /** The predefined type that belongs to a tag.
      */
-    public final Type[] typeOfTag = new Type[TypeTags.TypeTagCount];
+    public final Type[] typeOfTag = new Type[TypeTag.getTypeTagCount()];
 
     /** The name of the class that belongs to a basic type tag.
      */
-    public final Name[] boxedName = new Name[TypeTags.TypeTagCount];
+    public final Name[] boxedName = new Name[TypeTag.getTypeTagCount()];
+
+    /** A set containing all operator names.
+     */
+    public final Set<Name> operatorNames = new HashSet<Name>();
 
     /** The name of the base module.
      */
@@ -228,7 +241,7 @@ public class Symtab {
 
     public void initType(Type type, ClassSymbol c) {
         type.tsym = c;
-        typeOfTag[type.tag] = type;
+        typeOfTag[type.tag.ordinal()] = type;
     }
 
     public void initType(Type type, String name) {
@@ -240,7 +253,7 @@ public class Symtab {
 
     public void initType(Type type, String name, String bname) {
         initType(type, name);
-            boxedName[type.tag] = names.fromString("java.lang." + bname);
+            boxedName[type.tag.ordinal()] = names.fromString("java.lang." + bname);
     }
 
     /** The class symbol that owns all predefined symbols.
@@ -274,7 +287,7 @@ public class Symtab {
                             int opcode) {
         predefClass.members().enter(
             new OperatorSymbol(
-                names.fromString(name),
+                makeOperatorName(name),
                 new MethodType(List.of(left, right), res,
                                List.<Type>nil(), methodClass),
                 opcode,
@@ -282,7 +295,8 @@ public class Symtab {
     }
 
     /** Enter a binary operation, as above but with two opcodes,
-     *  which get encoded as (opcode1 << ByteCodeTags.preShift) + opcode2.
+     *  which get encoded as
+     *  {@code (opcode1 << ByteCodeTags.preShift) + opcode2 }.
      *  @param opcode1     First opcode.
      *  @param opcode2     Second opcode.
      */
@@ -304,7 +318,7 @@ public class Symtab {
                                      Type res,
                                      int opcode) {
         OperatorSymbol sym =
-            new OperatorSymbol(names.fromString(name),
+            new OperatorSymbol(makeOperatorName(name),
                                new MethodType(List.of(arg),
                                               res,
                                               List.<Type>nil(),
@@ -315,8 +329,18 @@ public class Symtab {
         return sym;
     }
 
+    /**
+     * Create a new operator name from corresponding String representation
+     * and add the name to the set of known operator names.
+     */
+    private Name makeOperatorName(String name) {
+        Name opName = names.fromString(name);
+        operatorNames.add(opName);
+        return opName;
+    }
+
     /** Enter a class into symbol table.
-     *  @param    The name of the class.
+     *  @param s The name of the class.
      */
     private Type enterClass(String s) {
         return reader.enterClass(names.fromString(s)).type;
@@ -339,7 +363,7 @@ public class Symtab {
     }
 
     public void synthesizeBoxTypeIfMissing(final Type type) {
-        ClassSymbol sym = reader.enterClass(boxedName[type.tag]);
+        ClassSymbol sym = reader.enterClass(boxedName[type.tag.ordinal()]);
         final Completer completer = sym.completer;
         if (completer != null) {
             sym.completer = new Completer() {
@@ -381,7 +405,7 @@ public class Symtab {
         target = Target.instance(context);
 
         // Create the unknown type
-        unknownType = new Type(TypeTags.UNKNOWN, null) {
+        unknownType = new Type(UNKNOWN, null) {
             @Override
             public <R, P> R accept(TypeVisitor<R, P> v, P p) {
                 return v.visitUnknown(this, p);
@@ -480,6 +504,8 @@ public class Symtab {
         throwableType = enterClass("java.lang.Throwable");
         serializableType = enterClass("java.io.Serializable");
         methodHandleType = enterClass("java.lang.invoke.MethodHandle");
+        methodHandleLookupType = enterClass("java.lang.invoke.MethodHandles$Lookup");
+        methodTypeType = enterClass("java.lang.invoke.MethodType");
         errorType = enterClass("java.lang.Error");
         illegalArgumentExceptionType = enterClass("java.lang.IllegalArgumentException");
         interruptedExceptionType = enterClass("java.lang.InterruptedException");
@@ -513,6 +539,10 @@ public class Symtab {
         deprecatedType = enterClass("java.lang.Deprecated");
         suppressWarningsType = enterClass("java.lang.SuppressWarnings");
         inheritedType = enterClass("java.lang.annotation.Inherited");
+        containedByType = enterClass("java.lang.annotation.ContainedBy");
+        containerForType = enterClass("java.lang.annotation.ContainerFor");
+        documentedType = enterClass("java.lang.annotation.Documented");
+        elementTypeType = enterClass("java.lang.annotation.ElementType");
         systemType = enterClass("java.lang.System");
         autoCloseableType = enterClass("java.lang.AutoCloseable");
         autoCloseableClose = new MethodSymbol(PUBLIC,
@@ -521,11 +551,14 @@ public class Symtab {
                                             List.of(exceptionType), methodClass),
                              autoCloseableType.tsym);
         trustMeType = enterClass("java.lang.SafeVarargs");
-        nativeHeaderType = enterClass("javax.tools.annotation.GenerateNativeHeader");
+        nativeHeaderType = enterClass("java.lang.annotation.Native");
+        nativeHeaderType_old = enterClass("javax.tools.annotation.GenerateNativeHeader");
+        lambdaMetafactory = enterClass("java.lang.invoke.LambdaMetafactory");
 
         synthesizeEmptyInterfaceIfMissing(autoCloseableType);
         synthesizeEmptyInterfaceIfMissing(cloneableType);
         synthesizeEmptyInterfaceIfMissing(serializableType);
+        synthesizeEmptyInterfaceIfMissing(lambdaMetafactory);
         synthesizeBoxTypeIfMissing(doubleType);
         synthesizeBoxTypeIfMissing(floatType);
         synthesizeBoxTypeIfMissing(voidType);

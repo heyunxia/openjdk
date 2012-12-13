@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,13 +25,16 @@
 
 package com.sun.tools.doclets.formats.html;
 
-import com.sun.tools.doclets.internal.toolkit.*;
-import com.sun.tools.doclets.internal.toolkit.util.*;
+import java.net.*;
+import java.util.*;
+
+import javax.tools.JavaFileManager;
 
 import com.sun.javadoc.*;
-import java.util.*;
-import java.io.*;
-import java.net.*;
+import com.sun.tools.doclets.internal.toolkit.*;
+import com.sun.tools.doclets.internal.toolkit.util.*;
+import com.sun.tools.javac.file.JavacFileManager;
+import com.sun.tools.javac.util.Context;
 
 /**
  * Configure the output based on the command line options.
@@ -46,6 +49,11 @@ import java.net.*;
  * use "-helpfile" option when already "-nohelp" option is used.
  * </p>
  *
+ *  <p><b>This is NOT part of any supported API.
+ *  If you write code that depends on this, you do so at your own risk.
+ *  This code and its internal interfaces are subject to change or
+ *  deletion without notice.</b>
+ *
  * @author Robert Field.
  * @author Atul Dambalkar.
  * @author Jamie Ho
@@ -53,18 +61,11 @@ import java.net.*;
  */
 public class ConfigurationImpl extends Configuration {
 
-    private static ConfigurationImpl instance = new ConfigurationImpl();
-
     /**
      * The build date.  Note: For now, we will use
      * a version number instead of a date.
      */
     public static final String BUILD_DATE = System.getProperty("java.version");
-
-    /**
-     * The name of the constant values file.
-     */
-    public static final String CONSTANTS_FILE_NAME = "constant-values.html";
 
     /**
      * Argument for command line option "-header".
@@ -179,39 +180,26 @@ public class ConfigurationImpl extends Configuration {
      * First file to appear in the right-hand frame in the generated
      * documentation.
      */
-    public String topFile = "";
+    public DocPath topFile = DocPath.empty;
 
     /**
      * The classdoc for the class file getting generated.
      */
-    public ClassDoc currentcd = null;  // Set this classdoc in the
-    // ClassWriter.
+    public ClassDoc currentcd = null;  // Set this classdoc in the ClassWriter.
 
     /**
-     * Constructor. Initialises resource for the
-     * {@link com.sun.tools.doclets.MessageRetriever}.
+     * Constructor. Initializes resource for the
+     * {@link com.sun.tools.doclets.internal.toolkit.util.MessageRetriever MessageRetriever}.
      */
-    private ConfigurationImpl() {
+    public ConfigurationImpl() {
         standardmessage = new MessageRetriever(this,
             "com.sun.tools.doclets.formats.html.resources.standard");
     }
 
     /**
-     * Reset to a fresh new ConfigurationImpl, to allow multiple invocations
-     * of javadoc within a single VM. It would be better not to be using
-     * static fields at all, but .... (sigh).
-     */
-    public static void reset() {
-        instance = new ConfigurationImpl();
-    }
-
-    public static ConfigurationImpl getInstance() {
-        return instance;
-    }
-
-    /**
      * Return the build date for the doclet.
      */
+    @Override
     public String getDocletSpecificBuildDate() {
         return BUILD_DATE;
     }
@@ -222,51 +210,50 @@ public class ConfigurationImpl extends Configuration {
      *
      * @param options The array of option names and values.
      */
+    @Override
     public void setSpecificDocletOptions(String[][] options) {
         for (int oi = 0; oi < options.length; ++oi) {
             String[] os = options[oi];
             String opt = os[0].toLowerCase();
             if (opt.equals("-footer")) {
-                footer =  os[1];
-            } else  if (opt.equals("-header")) {
-                header =  os[1];
-            } else  if (opt.equals("-packagesheader")) {
-                packagesheader =  os[1];
-            } else  if (opt.equals("-doctitle")) {
-                doctitle =  os[1];
-            } else  if (opt.equals("-windowtitle")) {
-                windowtitle =  os[1];
-            } else  if (opt.equals("-top")) {
-                top =  os[1];
-            } else  if (opt.equals("-bottom")) {
-                bottom =  os[1];
-            } else  if (opt.equals("-helpfile")) {
-                helpfile =  os[1];
-            } else  if (opt.equals("-stylesheetfile")) {
-                stylesheetfile =  os[1];
-            } else  if (opt.equals("-charset")) {
-                charset =  os[1];
+                footer = os[1];
+            } else if (opt.equals("-header")) {
+                header = os[1];
+            } else if (opt.equals("-packagesheader")) {
+                packagesheader = os[1];
+            } else if (opt.equals("-doctitle")) {
+                doctitle = os[1];
+            } else if (opt.equals("-windowtitle")) {
+                windowtitle = os[1];
+            } else if (opt.equals("-top")) {
+                top = os[1];
+            } else if (opt.equals("-bottom")) {
+                bottom = os[1];
+            } else if (opt.equals("-helpfile")) {
+                helpfile = os[1];
+            } else if (opt.equals("-stylesheetfile")) {
+                stylesheetfile = os[1];
+            } else if (opt.equals("-charset")) {
+                charset = os[1];
             } else if (opt.equals("-xdocrootparent")) {
                 docrootparent = os[1];
-            } else  if (opt.equals("-nohelp")) {
+            } else if (opt.equals("-nohelp")) {
                 nohelp = true;
-            } else  if (opt.equals("-splitindex")) {
+            } else if (opt.equals("-splitindex")) {
                 splitindex = true;
-            } else  if (opt.equals("-noindex")) {
+            } else if (opt.equals("-noindex")) {
                 createindex = false;
-            } else  if (opt.equals("-use")) {
+            } else if (opt.equals("-use")) {
                 classuse = true;
-            } else  if (opt.equals("-notree")) {
+            } else if (opt.equals("-notree")) {
                 createtree = false;
-            } else  if (opt.equals("-nodeprecatedlist")) {
+            } else if (opt.equals("-nodeprecatedlist")) {
                 nodeprecatedlist = true;
-            } else  if (opt.equals("-nosince")) {
-                nosince = true;
-            } else  if (opt.equals("-nonavbar")) {
+            } else if (opt.equals("-nonavbar")) {
                 nonavbar = true;
-            } else  if (opt.equals("-nooverview")) {
+            } else if (opt.equals("-nooverview")) {
                 nooverview = true;
-            } else  if (opt.equals("-overview")) {
+            } else if (opt.equals("-overview")) {
                 overview = true;
             }
         }
@@ -342,6 +329,7 @@ public class ConfigurationImpl extends Configuration {
     /**
      * {@inheritDoc}
      */
+    @Override
     public boolean validOptions(String options[][],
             DocErrorReporter reporter) {
         boolean helpfile = false;
@@ -369,7 +357,7 @@ public class ConfigurationImpl extends Configuration {
                         "-helpfile"));
                     return false;
                 }
-                File help = new File(os[1]);
+                DocFile help = DocFile.createFileForInput(this, os[1]);
                 if (!help.exists()) {
                     reporter.printError(getText("doclet.File_not_found", os[1]));
                     return false;
@@ -430,6 +418,7 @@ public class ConfigurationImpl extends Configuration {
     /**
      * {@inheritDoc}
      */
+    @Override
     public MessageRetriever getDocletSpecificMsg() {
         return standardmessage;
     }
@@ -449,18 +438,17 @@ public class ConfigurationImpl extends Configuration {
             return;
         }
         if (createoverview) {
-            topFile = "overview-summary.html";
+            topFile = DocPaths.OVERVIEW_SUMMARY;
         } else {
             if (packages.length == 1 && packages[0].name().equals("")) {
                 if (root.classes().length > 0) {
                     ClassDoc[] classarr = root.classes();
                     Arrays.sort(classarr);
                     ClassDoc cd = getValidClass(classarr);
-                    topFile = DirectoryManager.getPathToClass(cd);
+                    topFile = DocPath.forClass(cd);
                 }
             } else {
-                topFile = DirectoryManager.getPathToPackage(packages[0],
-                                                            "package-summary.html");
+                topFile = DocPath.forPackage(packages[0]).resolve(DocPaths.PACKAGE_SUMMARY);
             }
         }
     }
@@ -500,6 +488,7 @@ public class ConfigurationImpl extends Configuration {
     /**
      * {@inheritDoc}
      */
+    @Override
     public WriterFactory getWriterFactory() {
         return new WriterFactoryImpl(this);
     }
@@ -507,6 +496,7 @@ public class ConfigurationImpl extends Configuration {
     /**
      * {@inheritDoc}
      */
+    @Override
     public Comparator<ProgramElementDoc> getMemberComparator() {
         return null;
     }
@@ -514,10 +504,27 @@ public class ConfigurationImpl extends Configuration {
     /**
      * {@inheritDoc}
      */
+    @Override
     public Locale getLocale() {
         if (root instanceof com.sun.tools.javadoc.RootDocImpl)
             return ((com.sun.tools.javadoc.RootDocImpl)root).getLocale();
         else
             return Locale.getDefault();
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public JavaFileManager getFileManager() {
+        if (fileManager == null) {
+            if (root instanceof com.sun.tools.javadoc.RootDocImpl)
+                fileManager = ((com.sun.tools.javadoc.RootDocImpl)root).getFileManager();
+            else
+                fileManager = new JavacFileManager(new Context(), false, null);
+        }
+        return fileManager;
+    }
+
+    private JavaFileManager fileManager;
 }

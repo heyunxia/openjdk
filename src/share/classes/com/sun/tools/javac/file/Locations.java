@@ -53,6 +53,7 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
 
+import javax.tools.StandardJavaFileManager;
 import static javax.tools.StandardLocation.*;
 import static com.sun.tools.javac.main.Option.*;
 
@@ -463,7 +464,7 @@ public class Locations {
             }
         }
 
-        /** @see JavaFileManager#handleOption. */
+        /** @see JavaFileManager#handleOption */
         abstract boolean handleOption(Option option, String value);
         /** @see StandardJavaFileManager#getLocation. */
         abstract Collection<File> getLocation();
@@ -543,10 +544,6 @@ public class Locations {
             return true;
         }
 
-        protected Path computePath(String value) {
-            return new Path().addFiles(value);
-        }
-
         @Override
         Collection<File> getLocation() {
             return searchPath;
@@ -558,9 +555,17 @@ public class Locations {
             if (files == null) {
                 p = computePath(null);
             } else {
-                p = new Path().addFiles(files);
+                p = createPath().addFiles(files);
             }
             searchPath = p.toFiles();
+        }
+
+        protected Path computePath(String value) {
+            return createPath().addFiles(value);
+        }
+
+        protected Path createPath() {
+            return new Path();
         }
     }
 
@@ -596,11 +601,15 @@ public class Locations {
             // Default to current working directory.
             if (cp == null) cp = ".";
 
+            return createPath().addFiles(cp);
+        }
+
+        @Override
+        protected Path createPath() {
             return new Path()
-                .expandJarClassPaths(true)        // Only search user jars for Class-Paths
-                .emptyPathDefault(new File("."))  // Empty path elt ==> current directory
-                .addFiles(cp);
-            }
+                .expandJarClassPaths(true)         // Only search user jars for Class-Paths
+                .emptyPathDefault(new File("."));  // Empty path elt ==> current directory
+        }
 
         private void lazy() {
             if (searchPath == null)
@@ -710,7 +719,6 @@ public class Locations {
             String extdirsOpt = optionValues.get(EXTDIRS);
             String xbootclasspathPrependOpt = optionValues.get(XBOOTCLASSPATH_PREPEND);
             String xbootclasspathAppendOpt = optionValues.get(XBOOTCLASSPATH_APPEND);
-
             path.addFiles(xbootclasspathPrependOpt);
 
             if (endorseddirsOpt != null)
@@ -919,11 +927,7 @@ public class Locations {
                 urls[count++] = url;
             }
         }
-        if (urls.length != count) {
-            URL[] tmp = new URL[count];
-            System.arraycopy(urls, 0, tmp, 0, count);
-            urls = tmp;
-        }
+        urls = Arrays.copyOf(urls, count);
         return urls;
     }
 

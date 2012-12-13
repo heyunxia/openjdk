@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,7 +30,8 @@ import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 
-import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.TypeTag.BOT;
+import static com.sun.tools.javac.code.TypeTag.INT;
 import static com.sun.tools.javac.jvm.ByteCodes.*;
 import static com.sun.tools.javac.jvm.UninitializedType.*;
 import static com.sun.tools.javac.jvm.ClassWriter.StackMapTableFrame;
@@ -122,7 +123,7 @@ public class Code {
 
 /*---------- internal fields: --------------- */
 
-    /** Are we generating code with jumps >= 32K?
+    /** Are we generating code with jumps &ge; 32K?
      */
     public boolean fatcode;
 
@@ -224,7 +225,7 @@ public class Code {
      *  JVM architecture).
      */
     public static int typecode(Type type) {
-        switch (type.tag) {
+        switch (type.getTag()) {
         case BYTE: return BYTEcode;
         case SHORT: return SHORTcode;
         case CHAR: return CHARcode;
@@ -242,7 +243,7 @@ public class Code {
         case UNINITIALIZED_THIS:
         case UNINITIALIZED_OBJECT:
             return OBJECTcode;
-        default: throw new AssertionError("typecode " + type.tag);
+        default: throw new AssertionError("typecode " + type.getTag());
         }
     }
 
@@ -281,7 +282,7 @@ public class Code {
     /** Given a type, return its code for allocating arrays of that type.
      */
     public static int arraycode(Type type) {
-        switch (type.tag) {
+        switch (type.getTag()) {
         case BYTE: return 8;
         case BOOLEAN: return 4;
         case SHORT: return 9;
@@ -314,11 +315,7 @@ public class Code {
      */
     private  void emit1(int od) {
         if (!alive) return;
-        if (cp == code.length) {
-            byte[] newcode = new byte[cp * 2];
-            System.arraycopy(code, 0, newcode, 0, cp);
-            code = newcode;
-        }
+        code = ArrayUtils.ensureCapacity(code, cp);
         code[cp++] = (byte)od;
     }
 
@@ -481,7 +478,7 @@ public class Code {
             state.pop(1);
             //sometimes 'null type' is treated as a one-dimensional array type
             //see Gen.visitLiteral - we should handle this case accordingly
-            Type stackType = a.tag == BOT ?
+            Type stackType = a.hasTag(BOT) ?
                 syms.objectType :
                 types.erasure(types.elemtype(a));
             state.push(stackType); }
@@ -903,6 +900,8 @@ public class Code {
         if (o instanceof Double) return syms.doubleType;
         if (o instanceof ClassSymbol) return syms.classType;
         if (o instanceof Type.ArrayType) return syms.classType;
+        if (o instanceof Type.MethodType) return syms.methodTypeType;
+        if (o instanceof Pool.MethodHandle) return syms.methodHandleType;
         throw new AssertionError(o);
     }
 
@@ -1077,13 +1076,15 @@ public class Code {
             while (cp % incr != 0) emitop0(nop);
     }
 
-    /** Place a byte into code at address pc. Pre: pc + 1 <= cp.
+    /** Place a byte into code at address pc.
+     *  Pre: {@literal pc + 1 <= cp }.
      */
     private void put1(int pc, int op) {
         code[pc] = (byte)op;
     }
 
-    /** Place two bytes into code at address pc. Pre: pc + 2 <= cp.
+    /** Place two bytes into code at address pc.
+     *  Pre: {@literal pc + 2 <= cp }.
      */
     private void put2(int pc, int od) {
         // pre: pc + 2 <= cp
@@ -1091,7 +1092,8 @@ public class Code {
         put1(pc+1, od);
     }
 
-    /** Place four  bytes into code at address pc. Pre: pc + 4 <= cp.
+    /** Place four  bytes into code at address pc.
+     *  Pre: {@literal pc + 4 <= cp }.
      */
     public void put4(int pc, int od) {
         // pre: pc + 4 <= cp
@@ -1242,12 +1244,8 @@ public class Code {
 
         if (stackMapBuffer == null) {
             stackMapBuffer = new StackMapFrame[20];
-        } else if (stackMapBuffer.length == stackMapBufferSize) {
-            StackMapFrame[] newStackMapBuffer =
-                new StackMapFrame[stackMapBufferSize << 1];
-            System.arraycopy(stackMapBuffer, 0, newStackMapBuffer,
-                             0, stackMapBufferSize);
-            stackMapBuffer = newStackMapBuffer;
+        } else {
+            stackMapBuffer = ArrayUtils.ensureCapacity(stackMapBuffer, stackMapBufferSize);
         }
         StackMapFrame frame =
             stackMapBuffer[stackMapBufferSize++] = new StackMapFrame();
@@ -1315,12 +1313,10 @@ public class Code {
 
         if (stackMapTableBuffer == null) {
             stackMapTableBuffer = new StackMapTableFrame[20];
-        } else if (stackMapTableBuffer.length == stackMapBufferSize) {
-            StackMapTableFrame[] newStackMapTableBuffer =
-                new StackMapTableFrame[stackMapBufferSize << 1];
-            System.arraycopy(stackMapTableBuffer, 0, newStackMapTableBuffer,
-                             0, stackMapBufferSize);
-            stackMapTableBuffer = newStackMapTableBuffer;
+        } else {
+            stackMapTableBuffer = ArrayUtils.ensureCapacity(
+                                    stackMapTableBuffer,
+                                    stackMapBufferSize);
         }
         stackMapTableBuffer[stackMapBufferSize++] =
                 StackMapTableFrame.getInstance(frame, lastFrame.pc, lastFrame.locals, types);
@@ -1646,10 +1642,8 @@ public class Code {
         void lock(int register) {
             if (locks == null) {
                 locks = new int[20];
-            } else if (locks.length == nlocks) {
-                int[] newLocks = new int[locks.length << 1];
-                System.arraycopy(locks, 0, newLocks, 0, locks.length);
-                locks = newLocks;
+            } else {
+                locks = ArrayUtils.ensureCapacity(locks, nlocks);
             }
             locks[nlocks] = register;
             nlocks++;
@@ -1663,23 +1657,19 @@ public class Code {
 
         void push(Type t) {
             if (debugCode) System.err.println("   pushing " + t);
-            switch (t.tag) {
-            case TypeTags.VOID:
+            switch (t.getTag()) {
+            case VOID:
                 return;
-            case TypeTags.BYTE:
-            case TypeTags.CHAR:
-            case TypeTags.SHORT:
-            case TypeTags.BOOLEAN:
+            case BYTE:
+            case CHAR:
+            case SHORT:
+            case BOOLEAN:
                 t = syms.intType;
                 break;
             default:
                 break;
             }
-            if (stacksize+2 >= stack.length) {
-                Type[] newstack = new Type[2*stack.length];
-                System.arraycopy(stack, 0, newstack, 0, stack.length);
-                stack = newstack;
-            }
+            stack = ArrayUtils.ensureCapacity(stack, stacksize+2);
             stack[stacksize++] = t;
             switch (width(t)) {
             case 1:
@@ -1733,7 +1723,7 @@ public class Code {
          *  of its current type. */
         void forceStackTop(Type t) {
             if (!alive) return;
-            switch (t.tag) {
+            switch (t.getTag()) {
             case CLASS:
             case ARRAY:
                 int width = width(t);
@@ -1835,7 +1825,7 @@ public class Code {
         }
     }
 
-    static Type jsrReturnValue = new Type(TypeTags.INT, null);
+    static Type jsrReturnValue = new Type(INT, null);
 
 
 /* **************************************************************************
@@ -1866,13 +1856,7 @@ public class Code {
     /** Add a new local variable. */
     private void addLocalVar(VarSymbol v) {
         int adr = v.adr;
-        if (adr+1 >= lvar.length) {
-            int newlength = lvar.length << 1;
-            if (newlength <= adr) newlength = adr + 10;
-            LocalVar[] new_lvar = new LocalVar[newlength];
-            System.arraycopy(lvar, 0, new_lvar, 0, lvar.length);
-            lvar = new_lvar;
-        }
+        lvar = ArrayUtils.ensureCapacity(lvar, adr+1);
         Assert.checkNull(lvar[adr]);
         if (pendingJumps != null) resolvePending();
         lvar[adr] = new LocalVar(v);
@@ -1952,11 +1936,8 @@ public class Code {
         if ((var.sym.flags() & Flags.SYNTHETIC) != 0) return;
         if (varBuffer == null)
             varBuffer = new LocalVar[20];
-        else if (varBufferSize >= varBuffer.length) {
-            LocalVar[] newVarBuffer = new LocalVar[varBufferSize*2];
-            System.arraycopy(varBuffer, 0, newVarBuffer, 0, varBuffer.length);
-            varBuffer = newVarBuffer;
-        }
+        else
+            varBuffer = ArrayUtils.ensureCapacity(varBuffer, varBufferSize);
         varBuffer[varBufferSize++] = var;
     }
 
@@ -1990,7 +1971,7 @@ public class Code {
         nextreg = max_locals;
     }
 
-    /** End scopes of all variables with registers >= first.
+    /** End scopes of all variables with registers &ge; first.
      */
     public void endScopes(int first) {
         int prevNextReg = nextreg;

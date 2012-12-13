@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -49,7 +49,7 @@ import static com.sun.tools.javac.code.Kinds.*;
  *  the symbol table. The pass consists of two phases, organized as
  *  follows:
  *
- *  <p>In the first phase, all class symbols are intered into their
+ *  <p>In the first phase, all class symbols are entered into their
  *  enclosing scope, descending recursively down the tree for classes
  *  which are members of other classes. The class symbols are given a
  *  MemberEnter object as completer.
@@ -77,12 +77,12 @@ import static com.sun.tools.javac.code.Kinds.*;
  *
  *  <p>Classes migrate from one phase to the next via queues:
  *
- *  <pre>
+ *  <pre>{@literal
  *  class enter -> (Enter.uncompleted)         --> member enter (1)
  *              -> (MemberEnter.halfcompleted) --> member enter (2)
  *              -> (Todo)                      --> attribute
  *                                              (only for toplevel classes)
- *  </pre>
+ *  }</pre>
  *
  *  <p><b>This is NOT part of any supported API.
  *  If you write code that depends on this, you do so at your own risk.
@@ -161,7 +161,7 @@ public class Enter extends JCTree.Visitor {
         Env<AttrContext> lintEnv = localEnv;
         while (lintEnv.info.lint == null)
             lintEnv = lintEnv.next;
-        localEnv.info.lint = lintEnv.info.lint.augment(sym.attributes_field, sym.flags());
+        localEnv.info.lint = lintEnv.info.lint.augment(sym.annotations, sym.flags());
         return localEnv;
     }
 
@@ -336,7 +336,7 @@ public class Enter extends JCTree.Visitor {
                                 tree.packge);
                     if (addEnv || (tree0.getPackageAnnotations().isEmpty() &&
                                    tree.docComments != null &&
-                                   tree.docComments.get(tree) != null)) {
+                                   tree.docComments.hasComment(tree))) {
                         typeEnvs.put(tree.packge, treeEnv);
                     }
                 }
@@ -393,9 +393,7 @@ public class Enter extends JCTree.Visitor {
                 // We are seeing a member class.
                 c = reader.enterClass(tree.name, (TypeSymbol)owner);
                 if ((owner.flags_field & INTERFACE) != 0) {
-                    if ((tree.mods.flags & MODULE) == 0)
-                        tree.mods.flags |= PUBLIC;
-                    tree.mods.flags |= STATIC;
+                    tree.mods.flags |= PUBLIC | STATIC;
                 }
             } else {
                 // We are seeing a local class.

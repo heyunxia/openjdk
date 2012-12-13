@@ -62,6 +62,7 @@ import com.sun.tools.javac.tree.*;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.Log.WriterKind;
+import static com.sun.tools.javac.code.TypeTag.CLASS;
 import static com.sun.tools.javac.main.Option.*;
 import static com.sun.tools.javac.util.JCDiagnostic.DiagnosticFlag.*;
 import static com.sun.tools.javac.util.ListBuffer.lb;
@@ -269,6 +270,10 @@ public class JavaCompiler {
      */
     protected TransTypes transTypes;
 
+    /** The lambda translator.
+     */
+    protected LambdaToMethod lambdaToMethod;
+
     /** The syntactic sugar desweetener.
      */
     protected Lower lower;
@@ -367,6 +372,8 @@ public class JavaCompiler {
 
         options = Options.instance(context);
 
+        lambdaToMethod = LambdaToMethod.instance(context);
+
         verbose       = options.isSet(VERBOSE);
         sourceOutput  = options.isSet(PRINTSOURCE); // used to be -s
         stubOutput    = options.isSet("-stubs");
@@ -405,10 +412,17 @@ public class JavaCompiler {
             ? names.fromString(options.get("failcomplete"))
             : null;
 
-        shouldStopPolicy =
-            options.isSet("shouldStopPolicy")
+        shouldStopPolicyIfError =
+            options.isSet("shouldStopPolicy") // backwards compatible
             ? CompileState.valueOf(options.get("shouldStopPolicy"))
-            : null;
+            : options.isSet("shouldStopPolicyIfError")
+            ? CompileState.valueOf(options.get("shouldStopPolicyIfError"))
+            : CompileState.INIT;
+        shouldStopPolicyIfNoError =
+            options.isSet("shouldStopPolicyIfNoError")
+            ? CompileState.valueOf(options.get("shouldStopPolicyIfNoError"))
+            : CompileState.GENERATE;
+
         if (options.isUnset("oldDiags"))
             log.setDiagnosticFormatter(RichDiagnosticFormatter.instance(context));
     }
@@ -485,12 +499,20 @@ public class JavaCompiler {
     public boolean verboseCompilePolicy;
 
     /**
-     * Policy of how far to continue processing. null means until first
-     * error.
+     * Policy of how far to continue compilation after errors have occurred.
+     * Set this to minimum CompileState (INIT) to stop as soon as possible
+     * after errors.
      */
-    public CompileState shouldStopPolicy;
+    public CompileState shouldStopPolicyIfError;
 
-    /** A queue of all as yet unattributed classes.
+    /**
+     * Policy of how far to continue compilation when no errors have occurred.
+     * Set this to maximum CompileState (GENERATE) to perform full compilation.
+     * Set this lower to perform partial compilation, such as -proc:only.
+     */
+    public CompileState shouldStopPolicyIfNoError;
+
+    /** A queue of all as yet unattributed classes.oLo
      */
     public Todo todo;
 
@@ -500,19 +522,25 @@ public class JavaCompiler {
 
     /** Ordered list of compiler phases for each compilation unit. */
     public enum CompileState {
+        INIT(0),
         PARSE(1),
         ENTER(2),
         PROCESS(3),
         ATTR(4),
         FLOW(5),
         TRANSTYPES(6),
-        LOWER(7),
-        GENERATE(8);
+        UNLAMBDA(7),
+        LOWER(8),
+        GENERATE(9);
+
         CompileState(int value) {
             this.value = value;
         }
-        boolean isDone(CompileState other) {
-            return value >= other.value;
+        boolean isAfter(CompileState other) {
+            return value > other.value;
+        }
+        public static CompileState max(CompileState a, CompileState b) {
+            return a.value > b.value ? a : b;
         }
         private int value;
     };
@@ -523,7 +551,7 @@ public class JavaCompiler {
         private static final long serialVersionUID = 1812267524140424433L;
         boolean isDone(Env<AttrContext> env, CompileState cs) {
             CompileState ecs = get(env);
-            return ecs != null && ecs.isDone(cs);
+            return (ecs != null) && !cs.isAfter(ecs);
         }
     }
     private CompileStates compileStates = new CompileStates();
@@ -535,10 +563,10 @@ public class JavaCompiler {
     protected Set<JavaFileObject> inputFiles = new HashSet<JavaFileObject>();
 
     protected boolean shouldStop(CompileState cs) {
-        if (shouldStopPolicy == null)
-            return (errorCount() > 0 || unrecoverableError());
-        else
-            return cs.ordinal() > shouldStopPolicy.ordinal();
+        CompileState shouldStopPolicy = (errorCount() > 0 || unrecoverableError())
+            ? shouldStopPolicyIfError
+            : shouldStopPolicyIfNoError;
+        return cs.isAfter(shouldStopPolicy);
     }
 
     /** The number of errors reported so far.
@@ -587,7 +615,7 @@ public class JavaCompiler {
 
     /** Parse contents of input stream.
      *  @param filename     The name of the file from which input stream comes.
-     *  @param input        The input stream to be parsed.
+     *  @param content      The characters to be parsed.
      */
     protected JCCompilationUnit parse(JavaFileObject filename, CharSequence content) {
         long msec = now();
@@ -947,6 +975,18 @@ public class JavaCompiler {
     }
 
     /**
+     * Enter the symbols found in a list of parse trees if the compilation
+     * is expected to proceed beyond anno processing into attr.
+     * As a side-effect, this puts elements on the "todo" list.
+     * Also stores a list of all top level classes in rootClasses.
+     */
+    public List<JCCompilationUnit> enterTreesIfNeeded(List<JCCompilationUnit> roots) {
+       if (shouldStop(CompileState.ATTR))
+           return List.nil();
+        return enterTrees(roots);
+    }
+
+    /**
      * Enter the symbols found in a list of parse trees.
      * As a side-effect, this puts elements on the "todo" list.
      * Also stores a list of all top level classes in rootClasses.
@@ -1003,6 +1043,8 @@ public class JavaCompiler {
      */
     boolean processAnnotations = false;
 
+    Log.DeferredDiagnosticHandler deferredDiagnosticHandler;
+
     /**
      * Object to handle annotation processing.
      */
@@ -1023,7 +1065,8 @@ public class JavaCompiler {
         if (options.isSet(PROC, "none")) {
             processAnnotations = false;
         } else if (procEnvImpl == null) {
-            procEnvImpl = new JavacProcessingEnvironment(context, processors);
+            procEnvImpl = JavacProcessingEnvironment.instance(context);
+            procEnvImpl.setProcessors(processors);
             processAnnotations = procEnvImpl.atLeastOneProcessor();
 
             if (processAnnotations) {
@@ -1033,7 +1076,7 @@ public class JavaCompiler {
                 genEndPos = true;
                 if (!taskListener.isEmpty())
                     taskListener.started(new TaskEvent(TaskEvent.Kind.ANNOTATION_PROCESSING));
-                log.deferDiagnostics = true;
+                deferredDiagnosticHandler = new Log.DeferredDiagnosticHandler(log);
             } else { // free resources
                 procEnvImpl.close();
             }
@@ -1064,7 +1107,8 @@ public class JavaCompiler {
             // or other errors during enter which cannot be fixed by running
             // any annotation processors.
             if (unrecoverableError()) {
-                log.reportDeferredDiagnostics();
+                deferredDiagnosticHandler.reportDeferredDiagnostics();
+                log.popDiagnosticHandler(deferredDiagnosticHandler);
                 return this;
             }
         }
@@ -1087,9 +1131,11 @@ public class JavaCompiler {
                 log.error("proc.no.explicit.annotation.processing.requested",
                           classnames);
             }
-            log.reportDeferredDiagnostics();
+            Assert.checkNull(deferredDiagnosticHandler);
             return this; // continue regular compilation
         }
+
+        Assert.checkNonNull(deferredDiagnosticHandler);
 
         try {
             List<ClassSymbol> classSymbols = List.nil();
@@ -1100,7 +1146,8 @@ public class JavaCompiler {
                 if (!explicitAnnotationProcessingRequested()) {
                     log.error("proc.no.explicit.annotation.processing.requested",
                               classnames);
-                    log.reportDeferredDiagnostics();
+                    deferredDiagnosticHandler.reportDeferredDiagnostics();
+                    log.popDiagnosticHandler(deferredDiagnosticHandler);
                     return this; // TODO: Will this halt compilation?
                 } else {
                     boolean errors = false;
@@ -1133,33 +1180,36 @@ public class JavaCompiler {
                         }
                     }
                     if (errors) {
-                        log.reportDeferredDiagnostics();
+                        deferredDiagnosticHandler.reportDeferredDiagnostics();
+                        log.popDiagnosticHandler(deferredDiagnosticHandler);
                         return this;
                     }
                 }
             }
             try {
-                JavaCompiler c = procEnvImpl.doProcessing(context, roots, classSymbols, pckSymbols);
+                JavaCompiler c = procEnvImpl.doProcessing(context, roots, classSymbols, pckSymbols,
+                        deferredDiagnosticHandler);
                 if (c != this)
                     annotationProcessingOccurred = c.annotationProcessingOccurred = true;
                 // doProcessing will have handled deferred diagnostics
-                Assert.check(c.log.deferDiagnostics == false
-                        && c.log.deferredDiagnostics.size() == 0);
                 return c;
             } finally {
                 procEnvImpl.close();
             }
         } catch (CompletionFailure ex) {
             log.error("cant.access", ex.sym, ex.getDetailValue());
-            log.reportDeferredDiagnostics();
+            deferredDiagnosticHandler.reportDeferredDiagnostics();
+            log.popDiagnosticHandler(deferredDiagnosticHandler);
             return this;
         }
     }
 
     private boolean unrecoverableError() {
-        for (JCDiagnostic d: log.deferredDiagnostics) {
-            if (d.getKind() == JCDiagnostic.Kind.ERROR && !d.isFlagSet(RECOVERABLE))
-                return true;
+        if (deferredDiagnosticHandler != null) {
+            for (JCDiagnostic d: deferredDiagnosticHandler.getDiagnostics()) {
+                if (d.getKind() == JCDiagnostic.Kind.ERROR && !d.isFlagSet(RECOVERABLE))
+                    return true;
+            }
         }
         return false;
     }
@@ -1219,7 +1269,7 @@ public class JavaCompiler {
             if (errorCount() > 0 && !shouldStop(CompileState.ATTR)) {
                 //if in fail-over mode, ensure that AST expression nodes
                 //are correctly initialized (e.g. they have a type/symbol)
-                attr.postAttr(env);
+                attr.postAttr(env.tree);
             }
             compileStates.put(env, CompileState.ATTR);
         }
@@ -1343,7 +1393,7 @@ public class JavaCompiler {
             @Override
             public void visitClassDef(JCClassDecl node) {
                 Type st = types.supertype(node.sym.type);
-                if (st.tag == TypeTags.CLASS) {
+                if (st.hasTag(CLASS)) {
                     ClassSymbol c = st.tsym.outermostClass();
                     Env<AttrContext> stEnv = enter.getEnv(c);
                     if (stEnv != null && env != stEnv) {
@@ -1410,6 +1460,12 @@ public class JavaCompiler {
 
             env.tree = transTypes.translateTopLevelClass(env.tree, localMake);
             compileStates.put(env, CompileState.TRANSTYPES);
+
+            if (shouldStop(CompileState.UNLAMBDA))
+                return;
+
+            env.tree = lambdaToMethod.translateTopLevelClass(env, env.tree, localMake);
+            compileStates.put(env, CompileState.UNLAMBDA);
 
             if (shouldStop(CompileState.LOWER))
                 return;
@@ -1671,6 +1727,8 @@ public class JavaCompiler {
         hasBeenUsed = true;
         closeables = prev.closeables;
         prev.closeables = List.nil();
+        shouldStopPolicyIfError = prev.shouldStopPolicyIfError;
+        shouldStopPolicyIfNoError = prev.shouldStopPolicyIfNoError;
     }
 
     public static void enableLogging() {

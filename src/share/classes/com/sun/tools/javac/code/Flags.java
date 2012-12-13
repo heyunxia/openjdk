@@ -25,10 +25,11 @@
 
 package com.sun.tools.javac.code;
 
-import java.util.EnumSet;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+
 import javax.lang.model.element.Modifier;
 
 /** Access flags and other modifiers for Java classes and members.
@@ -66,6 +67,7 @@ public class Flags {
         if ((mask&NATIVE) != 0) flags.add(Flag.NATIVE);
         if ((mask&INTERFACE) != 0) flags.add(Flag.INTERFACE);
         if ((mask&ABSTRACT) != 0) flags.add(Flag.ABSTRACT);
+        if ((mask&DEFAULT) != 0) flags.add(Flag.DEFAULT);
         if ((mask&STRICTFP) != 0) flags.add(Flag.STRICTFP);
         if ((mask&BRIDGE) != 0) flags.add(Flag.BRIDGE);
         if ((mask&SYNTHETIC) != 0) flags.add(Flag.SYNTHETIC);
@@ -112,10 +114,7 @@ public class Flags {
      *  classfile v49.0. */
     public static final int ENUM         = 1<<14;
 
-    /** Module access, added in classfile v51.0. */
-    public static final int MODULE       = 1<<15;
-
-    public static final int StandardFlags = 0x8fff;
+    public static final int StandardFlags = 0x0fff;
     public static final int ModifierFlags = StandardFlags & ~INTERFACE;
 
     // Because the following access flags are overloaded with other
@@ -254,22 +253,36 @@ public class Flags {
      */
     public static final long CLASH = 1L<<42;
 
+    /**
+     * Flag that marks either a default method or an interface containing default methods
+     */
+    public static final long DEFAULT = 1L<<43;
+
+    /**
+     * Flag that marks class as auxiliary, ie a non-public class following
+     * the public class in a source file, that could block implicit compilation.
+     */
+    public static final long AUXILIARY = 1L<<44;
+
     /** Modifier masks.
      */
     public static final int
-        AccessFlags           = PUBLIC | PROTECTED | PRIVATE | MODULE,
+        AccessFlags           = PUBLIC | PROTECTED | PRIVATE,
         LocalClassFlags       = FINAL | ABSTRACT | STRICTFP | ENUM | SYNTHETIC,
         MemberClassFlags      = LocalClassFlags | INTERFACE | AccessFlags,
-        ClassFlags            = LocalClassFlags | INTERFACE | PUBLIC | MODULE | ANNOTATION,
-        InterfaceVarFlags     = FINAL | STATIC | PUBLIC | MODULE,
+        ClassFlags            = LocalClassFlags | INTERFACE | PUBLIC | ANNOTATION,
+        InterfaceVarFlags     = FINAL | STATIC | PUBLIC,
         VarFlags              = AccessFlags | FINAL | STATIC |
                                 VOLATILE | TRANSIENT | ENUM,
         ConstructorFlags      = AccessFlags,
-        InterfaceMethodFlags  = ABSTRACT | PUBLIC | MODULE,
+        InterfaceMethodFlags  = ABSTRACT | PUBLIC,
         MethodFlags           = AccessFlags | ABSTRACT | STATIC | NATIVE |
                                 SYNCHRONIZED | FINAL | STRICTFP;
     public static final long
-        LocalVarFlags         = FINAL | PARAMETER;
+        ExtendedStandardFlags       = (long)StandardFlags | DEFAULT,
+        InterfaceDefaultMethodMask  = ABSTRACT | PUBLIC | STRICTFP | SYNCHRONIZED | DEFAULT,
+        LocalVarFlags               = FINAL | PARAMETER;
+
 
     public static Set<Modifier> asModifierSet(long flags) {
         Set<Modifier> modifiers = modifierSets.get(flags);
@@ -278,7 +291,6 @@ public class Flags {
             if (0 != (flags & PUBLIC))    modifiers.add(Modifier.PUBLIC);
             if (0 != (flags & PROTECTED)) modifiers.add(Modifier.PROTECTED);
             if (0 != (flags & PRIVATE))   modifiers.add(Modifier.PRIVATE);
-            if (0 != (flags & MODULE))    modifiers.add(Modifier.MODULE);
             if (0 != (flags & ABSTRACT))  modifiers.add(Modifier.ABSTRACT);
             if (0 != (flags & STATIC))    modifiers.add(Modifier.STATIC);
             if (0 != (flags & FINAL))     modifiers.add(Modifier.FINAL);
@@ -310,10 +322,6 @@ public class Flags {
         return symbol.getConstValue() != null;
     }
 
-    public static boolean isModuleAccess(Symbol symbol) {
-        return (symbol.flags() & MODULE) != 0;
-    }
-
     public enum Flag {
 
         PUBLIC("public"),
@@ -327,13 +335,13 @@ public class Flags {
         NATIVE("native"),
         INTERFACE("interface"),
         ABSTRACT("abstract"),
+        DEFAULT("default"),
         STRICTFP("strictfp"),
         BRIDGE("bridge"),
         SYNTHETIC("synthetic"),
         DEPRECATED("deprecated"),
         HASINIT("hasinit"),
         ENUM("enum"),
-        MODULE("module"),
         IPROXY("iproxy"),
         NOOUTERTHIS("noouterthis"),
         EXISTS("exists"),

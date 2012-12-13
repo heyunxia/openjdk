@@ -26,6 +26,8 @@
 package com.sun.tools.javac.jvm;
 
 import java.io.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 
@@ -46,7 +48,7 @@ import javax.tools.ModuleFileManager;
 import static com.sun.tools.javac.code.BoundKind.*;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
-import static com.sun.tools.javac.code.TypeTags.*;
+import static com.sun.tools.javac.code.TypeTag.*;
 import static com.sun.tools.javac.jvm.UninitializedType.*;
 import static com.sun.tools.javac.main.Option.*;
 import static javax.tools.StandardLocation.CLASS_OUTPUT;
@@ -138,6 +140,11 @@ public class ClassWriter extends ClassFile {
      */
     ListBuffer<ClassSymbol> innerClassesQueue;
 
+    /** The bootstrap methods to be written in the corresponding class attribute
+     *  (one for each invokedynamic)
+     */
+    Map<MethodSymbol, Pool.MethodHandle> bootstrapMethods;
+
     /** The log to use for verbose output.
      */
     private final Log log;
@@ -165,7 +172,7 @@ public class ClassWriter extends ClassFile {
 
     /** Construct a class writer, given an options table.
      */
-    private ClassWriter(Context context) {
+    protected ClassWriter(Context context) {
         context.put(classWriterKey, this);
 
         log = Log.instance(context);
@@ -267,7 +274,7 @@ public class ClassWriter extends ClassFile {
     /** Assemble signature of given type in string buffer.
      */
     void assembleSig(Type type) {
-        switch (type.tag) {
+        switch (type.getTag()) {
         case BYTE:
             sigbuf.appendByte('B');
             break;
@@ -354,13 +361,13 @@ public class ClassWriter extends ClassFile {
             assembleSig(types.erasure(((UninitializedType)type).qtype));
             break;
         default:
-            throw new AssertionError("typeSig " + type.tag);
+            throw new AssertionError("typeSig " + type.getTag());
         }
     }
 
     boolean hasTypeVar(List<Type> l) {
         while (l.nonEmpty()) {
-            if (l.head.tag == TypeTags.TYPEVAR) return true;
+            if (l.head.hasTag(TYPEVAR)) return true;
             l = l.tail;
         }
         return false;
@@ -432,9 +439,9 @@ public class ClassWriter extends ClassFile {
      *  external representation.
      */
     public Name xClassName(Type t) {
-        if (t.tag == CLASS) {
+        if (t.hasTag(CLASS)) {
             return names.fromUtf(externalize(t.tsym.flatName()));
-        } else if (t.tag == ARRAY) {
+        } else if (t.hasTag(ARRAY)) {
             return typeSig(types.erasure(t));
         } else {
             throw new AssertionError("xClassName");
@@ -477,11 +484,27 @@ public class ClassWriter extends ClassFile {
 
             if (value instanceof MethodSymbol) {
                 MethodSymbol m = (MethodSymbol)value;
-                poolbuf.appendByte((m.owner.flags() & INTERFACE) != 0
-                          ? CONSTANT_InterfaceMethodref
-                          : CONSTANT_Methodref);
-                poolbuf.appendChar(pool.put(m.owner));
-                poolbuf.appendChar(pool.put(nameType(m)));
+                if (!m.isDynamic()) {
+                    poolbuf.appendByte((m.owner.flags() & INTERFACE) != 0
+                              ? CONSTANT_InterfaceMethodref
+                              : CONSTANT_Methodref);
+                    poolbuf.appendChar(pool.put(m.owner));
+                    poolbuf.appendChar(pool.put(nameType(m)));
+                } else {
+                    //invokedynamic
+                    DynamicMethodSymbol dynSym = (DynamicMethodSymbol)m;
+                    Pool.MethodHandle handle = new Pool.MethodHandle(dynSym.bsmKind, dynSym.bsm);
+                    bootstrapMethods.put(dynSym, handle);
+                    //init cp entries
+                    pool.put(names.BootstrapMethods);
+                    pool.put(handle);
+                    for (Object staticArg : dynSym.staticArgs) {
+                        pool.put(staticArg);
+                    }
+                    poolbuf.appendByte(CONSTANT_InvokeDynamic);
+                    poolbuf.appendChar(bootstrapMethods.size() - 1);
+                    poolbuf.appendChar(pool.put(nameType(dynSym)));
+                }
             } else if (value instanceof VarSymbol) {
                 VarSymbol v = (VarSymbol)value;
                 poolbuf.appendByte(CONSTANT_Fieldref);
@@ -498,7 +521,7 @@ public class ClassWriter extends ClassFile {
                 ClassSymbol c = (ClassSymbol)value;
                 if (c.owner.kind == TYP) pool.put(c.owner);
                 poolbuf.appendByte(CONSTANT_Class);
-                if (c.type.tag == ARRAY) {
+                if (c.type.hasTag(ARRAY)) {
                     poolbuf.appendChar(pool.put(typeSig(c.type)));
                 } else {
                     poolbuf.appendChar(pool.put(names.fromUtf(externalize(c.flatname))));
@@ -526,9 +549,13 @@ public class ClassWriter extends ClassFile {
             } else if (value instanceof String) {
                 poolbuf.appendByte(CONSTANT_String);
                 poolbuf.appendChar(pool.put(names.fromString((String)value)));
+            } else if (value instanceof MethodType) {
+                MethodType mtype = (MethodType)value;
+                poolbuf.appendByte(CONSTANT_MethodType);
+                poolbuf.appendChar(pool.put(typeSig(mtype)));
             } else if (value instanceof Type) {
                 Type type = (Type)value;
-                if (type.tag == CLASS) enterInner((ClassSymbol)type.tsym);
+                if (type.hasTag(CLASS)) enterInner((ClassSymbol)type.tsym);
                 poolbuf.appendByte(CONSTANT_Class);
                 poolbuf.appendChar(pool.put(xClassName(type)));
             } else if (value instanceof ModuleSymbol) {
@@ -546,6 +573,11 @@ public class ClassWriter extends ClassFile {
                 poolbuf.appendByte(CONSTANT_ModuleQuery);
                 poolbuf.appendChar(pool.put(names.fromUtf(externalize(mid.name))));
                 poolbuf.appendChar(mid.versionQuery == null ? 0 : pool.put(mid.versionQuery));
+            } else if (value instanceof Pool.MethodHandle) {
+                Pool.MethodHandle ref = (Pool.MethodHandle)value;
+                poolbuf.appendByte(CONSTANT_MethodHandle);
+                poolbuf.appendByte(ref.refKind);
+                poolbuf.appendChar(pool.put(ref.refSym));
             } else {
                 Assert.error("writePool " + value);
             }
@@ -616,12 +648,20 @@ public class ClassWriter extends ClassFile {
      *  Returns the number of attributes written (0 or 1).
      */
     int writeEnclosingMethodAttribute(ClassSymbol c) {
-        if (!target.hasEnclosingMethodAttribute() ||
-            c.owner.kind != MTH && // neither a local class
+        if (!target.hasEnclosingMethodAttribute())
+            return 0;
+        return writeEnclosingMethodAttribute(names.EnclosingMethod, c);
+    }
+
+    /** Write the EnclosingMethod attribute with a specified name.
+     *  Returns the number of attributes written (0 or 1).
+     */
+    protected int writeEnclosingMethodAttribute(Name attributeName, ClassSymbol c) {
+        if (c.owner.kind != MTH && // neither a local class
             c.name != names.empty) // nor anonymous
             return 0;
 
-        int alenIdx = writeAttr(names.EnclosingMethod);
+        int alenIdx = writeAttr(attributeName);
         ClassSymbol enclClass = c.owner.enclClass();
         MethodSymbol enclMethod =
             (c.owner.type == null // local to init block
@@ -790,7 +830,7 @@ public class ClassWriter extends ClassFile {
     class AttributeWriter implements Attribute.Visitor {
         public void visitConstant(Attribute.Constant _value) {
             Object value = _value.value;
-            switch (_value.type.tag) {
+            switch (_value.type.getTag()) {
             case BYTE:
                 databuf.appendByte('B');
                 break;
@@ -832,7 +872,7 @@ public class ClassWriter extends ClassFile {
         }
         public void visitClass(Attribute.Class clazz) {
             databuf.appendByte('c');
-            databuf.appendChar(pool.put(typeSig(clazz.type)));
+            databuf.appendChar(pool.put(typeSig(clazz.classType)));
         }
         public void visitCompound(Attribute.Compound compound) {
             databuf.appendByte('@');
@@ -965,7 +1005,7 @@ public class ClassWriter extends ClassFile {
             System.err.println("error: " + c + ": " + ex.getMessage());
             throw ex;
         }
-        if (c.type.tag != CLASS) return; // arrays
+        if (!c.type.hasTag(CLASS)) return; // arrays
         if (pool != null && // pool might be null if called from xClassName
             c.owner.enclClass() != null &&
             c.owner.kind != MDL &&
@@ -1007,6 +1047,25 @@ public class ClassWriter extends ClassFile {
             databuf.appendChar(
                 !inner.name.isEmpty() ? pool.get(inner.name) : 0);
             databuf.appendChar(flags);
+        }
+        endAttr(alenIdx);
+    }
+
+    /** Write "bootstrapMethods" attribute.
+     */
+    void writeBootstrapMethods() {
+        int alenIdx = writeAttr(names.BootstrapMethods);
+        databuf.appendChar(bootstrapMethods.size());
+        for (Map.Entry<MethodSymbol, Pool.MethodHandle> entry : bootstrapMethods.entrySet()) {
+            DynamicMethodSymbol dsym = (DynamicMethodSymbol)entry.getKey();
+            //write BSM handle
+            databuf.appendChar(pool.get(entry.getValue()));
+            //write static args length
+            databuf.appendChar(dsym.staticArgs.length);
+            //write static args array
+            for (Object o : dsym.staticArgs) {
+                databuf.appendChar(pool.get(o));
+            }
         }
         endAttr(alenIdx);
     }
@@ -1253,7 +1312,7 @@ public class ClassWriter extends ClassFile {
                 if (debugstackmap) System.out.print("empty");
                 databuf.appendByte(0);
             }
-            else switch(t.tag) {
+            else switch(t.getTag()) {
             case BYTE:
             case CHAR:
             case SHORT:
@@ -1476,7 +1535,7 @@ public class ClassWriter extends ClassFile {
         }
 
         static boolean isInt(Type t) {
-            return (t.tag < TypeTags.INT || t.tag == TypeTags.BOOLEAN);
+            return (t.getTag().isStrictSubRangeOf(INT)  || t.hasTag(BOOLEAN));
         }
 
         static boolean isSameType(Type t1, Type t2, Types types) {
@@ -1485,15 +1544,15 @@ public class ClassWriter extends ClassFile {
 
             if (isInt(t1) && isInt(t2)) { return true; }
 
-            if (t1.tag == UNINITIALIZED_THIS) {
-                return t2.tag == UNINITIALIZED_THIS;
-            } else if (t1.tag == UNINITIALIZED_OBJECT) {
-                if (t2.tag == UNINITIALIZED_OBJECT) {
+            if (t1.hasTag(UNINITIALIZED_THIS)) {
+                return t2.hasTag(UNINITIALIZED_THIS);
+            } else if (t1.hasTag(UNINITIALIZED_OBJECT)) {
+                if (t2.hasTag(UNINITIALIZED_OBJECT)) {
                     return ((UninitializedType)t1).offset == ((UninitializedType)t2).offset;
                 } else {
                     return false;
                 }
-            } else if (t2.tag == UNINITIALIZED_THIS || t2.tag == UNINITIALIZED_OBJECT) {
+            } else if (t2.hasTag(UNINITIALIZED_THIS) || t2.hasTag(UNINITIALIZED_OBJECT)) {
                 return false;
             }
 
@@ -1596,12 +1655,13 @@ public class ClassWriter extends ClassFile {
         pool = c.pool;
         innerClasses = null;
         innerClassesQueue = null;
+        bootstrapMethods = new LinkedHashMap<MethodSymbol, Pool.MethodHandle>();
 
         Type supertype = types.supertype(c.type);
         List<Type> interfaces = types.interfaces(c.type);
         List<Type> typarams = c.type.getTypeArguments();
 
-        int flags = adjustFlags(c.flags());
+        int flags = adjustFlags(c.flags() & ~DEFAULT);
         if ((flags & PROTECTED) != 0) flags |= PUBLIC;
         flags = flags & ClassFlags & ~STRICTFP;
         if ((flags & INTERFACE) == 0) flags |= ACC_SUPER;
@@ -1615,7 +1675,7 @@ public class ClassWriter extends ClassFile {
         databuf.appendChar(flags);
 
         databuf.appendChar(pool.put(c));
-        databuf.appendChar(supertype.tag == CLASS ? pool.put(supertype.tsym) : 0);
+        databuf.appendChar(supertype.hasTag(CLASS) ? pool.put(supertype.tsym) : 0);
         databuf.appendChar(interfaces.length());
         for (List<Type> l = interfaces; l.nonEmpty(); l = l.tail)
             databuf.appendChar(pool.put(l.head.tsym));
@@ -1694,6 +1754,7 @@ public class ClassWriter extends ClassFile {
             acount += writeModuleAttribute(c);
             acount += writeModuleMetadata(c.modle);
         }
+        acount += writeExtraClassAttributes(c);
 
         poolbuf.appendInt(JAVA_MAGIC);
         poolbuf.appendChar(target.minorVersion);
@@ -1705,6 +1766,12 @@ public class ClassWriter extends ClassFile {
             writeInnerClasses();
             acount++;
         }
+
+        if (!bootstrapMethods.isEmpty()) {
+            writeBootstrapMethods();
+            acount++;
+        }
+
         endAttrs(acountIdx, acount);
 
         poolbuf.appendBytes(databuf.elems, 0, databuf.length);
@@ -1712,6 +1779,14 @@ public class ClassWriter extends ClassFile {
 
         pool = c.pool = null; // to conserve space
      }
+
+    /**Allows subclasses to write additional class attributes
+     *
+     * @return the number of attributes written
+     */
+    protected int writeExtraClassAttributes(ClassSymbol c) {
+        return 0;
+    }
 
     int adjustFlags(final long flags) {
         int result = (int)flags;
@@ -1726,6 +1801,8 @@ public class ClassWriter extends ClassFile {
             result |= ACC_BRIDGE;
         if ((flags & VARARGS) != 0  && target.useVarargsFlag())
             result |= ACC_VARARGS;
+        if ((flags & DEFAULT) != 0)
+            result &= ~ABSTRACT;
         return result;
     }
 

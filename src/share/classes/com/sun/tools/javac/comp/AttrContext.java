@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -56,11 +56,7 @@ public class AttrContext {
 
     /** Are arguments to current function applications boxed into an array for varargs?
      */
-    boolean varArgs = false;
-
-    /** A list of type variables that are all-quantified in current context.
-     */
-    List<Type> tvars = List.nil();
+    Resolve.MethodResolutionPhase pendingResolutionPhase = null;
 
     /** A record of the lint/SuppressWarnings currently in effect.
      */
@@ -74,6 +70,15 @@ public class AttrContext {
     /** The module context for the current module. */
     ModuleContext modcon;
 
+    /** ResultInfo to be used for attributing 'return' statement expressions
+     * (set by Attr.visitMethod and Attr.visitLambda)
+     */
+    Attr.ResultInfo returnResult = null;
+
+    /** Symbol corresponding to the site of a qualified default super call
+     */
+    Type defaultSuperCallSite = null;
+
     /** Duplicate this context, replacing scope field and copying all others.
      */
     AttrContext dup(Scope scope) {
@@ -82,11 +87,12 @@ public class AttrContext {
         info.staticLevel = staticLevel;
         info.isSelfCall = isSelfCall;
         info.selectSuper = selectSuper;
-        info.varArgs = varArgs;
-        info.tvars = tvars;
+        info.pendingResolutionPhase = pendingResolutionPhase;
         info.lint = lint;
         info.enclVar = enclVar;
         info.modcon = modcon == null ? null : modcon.dup();
+        info.returnResult = returnResult;
+        info.defaultSuperCallSite = defaultSuperCallSite;
         return info;
     }
 
@@ -100,6 +106,11 @@ public class AttrContext {
         if (scope == null)
             return List.nil();
         return scope.getElements();
+    }
+
+    boolean lastResolveVarargs() {
+        return pendingResolutionPhase != null &&
+                pendingResolutionPhase.isVarargsRequired();
     }
 
     @Override

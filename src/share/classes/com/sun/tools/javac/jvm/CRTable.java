@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,7 +31,7 @@ import com.sun.tools.javac.tree.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.tree.JCTree.*;
-import com.sun.tools.javac.parser.EndPosTable;
+import com.sun.tools.javac.tree.EndPosTable;
 
 /** This class contains the CharacterRangeTable for some method
  *  and the hashtable for mapping trees or lists of trees to their
@@ -162,7 +162,7 @@ implements CRTFlags {
     }
 
     /** Source file positions in CRT are integers in the format:
-     *  line-number << LINESHIFT + column-number
+     *  {@literal line-number << LINESHIFT + column-number }
      */
      private int encodePosition(int pos, Position.LineMap lineMap, Log log) {
          int line = lineMap.getLineNumber(pos);
@@ -503,6 +503,14 @@ implements CRTFlags {
             result = sr;
         }
 
+        @Override
+        public void visitLetExpr(LetExpr tree) {
+            SourceRange sr = new SourceRange(startPos(tree), endPos(tree));
+            sr.mergeWith(csp(tree.defs));
+            sr.mergeWith(csp(tree.expr));
+            result = sr;
+        }
+
         public void visitTypeParameter(JCTypeParameter tree) {
             SourceRange sr = new SourceRange(startPos(tree), endPos(tree));
             sr.mergeWith(csp(tree.bounds));
@@ -525,7 +533,7 @@ implements CRTFlags {
          */
         public int startPos(JCTree tree) {
             if (tree == null) return Position.NOPOS;
-            return tree.pos;
+            return TreeInfo.getStartPos(tree);
         }
 
         /** The end position of given tree, if it has
@@ -533,9 +541,7 @@ implements CRTFlags {
          */
         public int endPos(JCTree tree) {
             if (tree == null) return Position.NOPOS;
-            if (tree.hasTag(JCTree.Tag.BLOCK))
-                return ((JCBlock) tree).endpos;
-            return endPosTable.getEndPos(tree);
+            return TreeInfo.getEndPos(tree, endPosTable);
         }
     }
 

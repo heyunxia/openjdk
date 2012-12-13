@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,7 +27,6 @@ package com.sun.tools.javac.util;
 
 import java.util.EnumSet;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 import javax.tools.Diagnostic;
@@ -35,7 +34,7 @@ import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.api.DiagnosticFormatter;
 import com.sun.tools.javac.code.Lint.LintCategory;
-import com.sun.tools.javac.parser.EndPosTable;
+import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
 
 import static com.sun.tools.javac.util.JCDiagnostic.DiagnosticType.*;
@@ -214,7 +213,6 @@ public class JCDiagnostic implements Diagnostic<JavaFileObject> {
          * Create a new diagnostic of the given kind, which is not mandatory and which has
          * no lint category.
          *  @param kind        The diagnostic kind
-         *  @param ls          The lint category, if applicable, or null
          *  @param source      The source of the compilation unit, if any, in which to report the message.
          *  @param pos         The source position at which to report the message.
          *  @param key         The key for the localized message.
@@ -229,7 +227,7 @@ public class JCDiagnostic implements Diagnostic<JavaFileObject> {
          * Create a new diagnostic of the given kind.
          *  @param kind        The diagnostic kind
          *  @param lc          The lint category, if applicable, or null
-         *  @param isMandatory is diagnostic mandatory?
+         *  @param flags       The set of flags for the diagnostic
          *  @param source      The source of the compilation unit, if any, in which to report the message.
          *  @param pos         The source position at which to report the message.
          *  @param key         The key for the localized message.
@@ -364,7 +362,7 @@ public class JCDiagnostic implements Diagnostic<JavaFileObject> {
 
     /**
      * Create a diagnostic object.
-     * @param fomatter the formatter to use for the diagnostic
+     * @param formatter the formatter to use for the diagnostic
      * @param dt the type of diagnostic
      * @param lc     the lint category for the diagnostic
      * @param source the name of the source file, or null if none.

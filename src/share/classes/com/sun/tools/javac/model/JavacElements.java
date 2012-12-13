@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,14 +28,17 @@ package com.sun.tools.javac.model;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
 import java.util.Map;
+
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.util.Elements;
 import javax.tools.JavaFileObject;
+import static javax.lang.model.util.ElementFilter.methodsIn;
+
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.code.Symbol.*;
-import com.sun.tools.javac.code.TypeTags;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
@@ -47,9 +50,8 @@ import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.Name;
-
+import static com.sun.tools.javac.code.TypeTag.CLASS;
 import static com.sun.tools.javac.tree.JCTree.Tag.*;
-import static javax.lang.model.util.ElementFilter.methodsIn;
 
 /**
  * Utility methods for operating on program elements.
@@ -123,7 +125,7 @@ public class JavacElements implements Elements {
             if (result != null || !inherited)
                 break;
             Type sup = annotated.getSuperclass();
-            if (sup.tag != TypeTags.CLASS || sup.isErroneous())
+            if (!sup.hasTag(CLASS) || sup.isErroneous())
                 break;
             annotated = (ClassSymbol) sup.tsym;
         }
@@ -361,7 +363,7 @@ public class JavacElements implements Elements {
         JCCompilationUnit toplevel = treeTop.snd;
         if (toplevel.docComments == null)
             return null;
-        return toplevel.docComments.get(tree);
+        return toplevel.docComments.getCommentText(tree);
     }
 
     public PackageElement getPackageOf(Element e) {
@@ -443,7 +445,7 @@ public class JavacElements implements Elements {
         List<Attribute.Compound> annos = sym.getAnnotationMirrors();
         while (sym.getKind() == ElementKind.CLASS) {
             Type sup = ((ClassSymbol) sym).getSuperclass();
-            if (sup.tag != TypeTags.CLASS || sup.isErroneous() ||
+            if (!sup.hasTag(CLASS) || sup.isErroneous() ||
                     sup.tsym == syms.objectType.tsym) {
                 break;
             }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -101,7 +101,7 @@ public class JavacFileManager
         EnumSet.of(JavaFileObject.Kind.SOURCE, JavaFileObject.Kind.CLASS);
 
     protected boolean mmappedIO;
-    protected boolean ignoreSymbolFile;
+    protected boolean symbolFileEnabled;
 
     protected enum SortFiles implements Comparator<File> {
         FORWARD {
@@ -153,12 +153,19 @@ public class JavacFileManager
             zipFileIndexCache = ZipFileIndexCache.getSharedInstance();
 
         mmappedIO = options.isSet("mmappedIO");
-        ignoreSymbolFile = options.isSet("ignore.symbol.file");
+        symbolFileEnabled = !options.isSet("ignore.symbol.file");
 
         String sf = options.get("sortFiles");
         if (sf != null) {
             sortFiles = (sf.equals("reverse") ? SortFiles.REVERSE : SortFiles.FORWARD);
         }
+    }
+
+    /**
+     * Set whether or not to use ct.sym as an alternate to rt.jar.
+     */
+    public void setSymbolFileEnabled(boolean b) {
+        symbolFileEnabled = b;
     }
 
     @Override
@@ -651,7 +658,7 @@ public class JavacFileManager
      */
     private Archive openArchive(Location location, File zipFileName, boolean useOptimizedZip) throws IOException {
         File origZipFileName = zipFileName;
-        if (!ignoreSymbolFile && locations.isDefaultBootClassPathRtJar(zipFileName)) {
+        if (symbolFileEnabled && locations.isDefaultBootClassPathRtJar(zipFileName)) {
             File file = zipFileName.getParentFile().getParentFile(); // ${java.home}
             if (new File(file.getName()).equals(new File("jre")))
                 file = file.getParentFile();
@@ -1047,8 +1054,8 @@ public class JavacFileManager
     }
 
     /**
-     * Enforces the specification of a "relative" URI as used in
-     * {@linkplain #getFileForInput(Location,String,URI)
+     * Enforces the specification of a "relative" name as used in
+     * {@linkplain #getFileForInput(Location,String,String)
      * getFileForInput}.  This method must follow the rules defined in
      * that method, do not make any changes without consulting the
      * specification.

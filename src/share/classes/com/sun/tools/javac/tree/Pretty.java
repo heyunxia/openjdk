@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,17 +27,13 @@ package com.sun.tools.javac.tree;
 
 import com.sun.source.tree.RequiresFlag;
 import java.io.*;
-import java.util.*;
 
 import com.sun.source.tree.MemberReferenceTree.ReferenceMode;
-
-import com.sun.tools.javac.util.*;
-import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.code.*;
-
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.tree.JCTree.*;
-
+import com.sun.tools.javac.util.*;
+import com.sun.tools.javac.util.List;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Flags.ANNOTATION;
 import static com.sun.tools.javac.tree.JCTree.Tag.*;
@@ -79,10 +75,21 @@ public class Pretty extends JCTree.Visitor {
      */
     Name enclClassName;
 
-    /** A hashtable mapping trees to their documentation comments
+    /** A table mapping trees to their documentation comments
      *  (can be null)
      */
-    Map<JCTree, String> docComments = null;
+    DocCommentTable docComments = null;
+
+    /**
+     * A string sequence to be used when Pretty output should be constrained
+     * to fit into a given size
+     */
+    private final static String trimSequence = "[...]";
+
+    /**
+     * Max number of chars to be generated when output should fit into a single line
+     */
+    private final static int PREFERRED_LENGTH = 20;
 
     /** Align code to be indented to left margin.
      */
@@ -130,6 +137,31 @@ public class Pretty extends JCTree.Visitor {
      */
     public void println() throws IOException {
         out.write(lineSep);
+    }
+
+    public static String toSimpleString(JCTree tree) {
+        return toSimpleString(tree, PREFERRED_LENGTH);
+    }
+
+    public static String toSimpleString(JCTree tree, int maxLength) {
+        StringWriter s = new StringWriter();
+        try {
+            new Pretty(s, false).printExpr(tree);
+        }
+        catch (IOException e) {
+            // should never happen, because StringWriter is defined
+            // never to throw any IOExceptions
+            throw new AssertionError(e);
+        }
+        //we need to (i) replace all line terminators with a space and (ii) remove
+        //occurrences of 'missing' in the Pretty output (generated when types are missing)
+        String res = s.toString().replaceAll("\\s+", " ").replaceAll("/\\*missing\\*/", "");
+        if (res.length() < maxLength) {
+            return res;
+        } else {
+            int split = (maxLength - trimSequence.length()) * 2 / 3;
+            return res.substring(0, split) + trimSequence + res.substring(split);
+        }
     }
 
     String lineSep = System.getProperty("line.separator");
@@ -217,7 +249,7 @@ public class Pretty extends JCTree.Visitor {
     public void printFlags(long flags) throws IOException {
         if ((flags & SYNTHETIC) != 0) print("/*synthetic*/ ");
         print(TreeInfo.flagNames(flags));
-        if ((flags & StandardFlags) != 0) print(" ");
+        if ((flags & ExtendedStandardFlags) != 0) print(" ");
         if ((flags & ANNOTATION) != 0) print("@");
     }
 
@@ -234,7 +266,7 @@ public class Pretty extends JCTree.Visitor {
      */
     public void printDocComment(JCTree tree) throws IOException {
         if (docComments != null) {
-            String dc = docComments.get(tree);
+            String dc = docComments.getCommentText(tree);
             if (dc != null) {
                 print("/**"); println();
                 int pos = 0;
@@ -259,7 +291,8 @@ public class Pretty extends JCTree.Visitor {
         return pos;
     }
 
-    /** If type parameter list is non-empty, print it enclosed in "<...>" brackets.
+    /** If type parameter list is non-empty, print it enclosed in
+     *  {@literal "<...>"} brackets.
      */
     public void printTypeParameters(List<JCTypeParameter> trees) throws IOException {
         if (trees.nonEmpty()) {
@@ -641,7 +674,7 @@ public class Pretty extends JCTree.Visitor {
 
     public void visitVarDef(JCVariableDecl tree) {
         try {
-            if (docComments != null && docComments.get(tree) != null) {
+            if (docComments != null && docComments.hasComment(tree)) {
                 println(); align();
             }
             printDocComment(tree);
@@ -1073,7 +1106,16 @@ public class Pretty extends JCTree.Visitor {
     public void visitLambda(JCLambda tree) {
         try {
             print("(");
-            printExprs(tree.params);
+            if (TreeInfo.isExplicitLambda(tree)) {
+                printExprs(tree.params);
+            } else {
+                String sep = "";
+                for (JCVariableDecl param : tree.params) {
+                    print(sep);
+                    print(param.name);
+                    sep = ",";
+                }
+            }
             print(")->");
             printExpr(tree.body);
         } catch (IOException e) {
@@ -1229,7 +1271,7 @@ public class Pretty extends JCTree.Visitor {
     public void visitReference(JCMemberReference tree) {
         try {
             printExpr(tree.expr);
-            print("#");
+            print("::");
             if (tree.typeargs != null) {
                 print("<");
                 printExprs(tree.typeargs);
@@ -1252,28 +1294,28 @@ public class Pretty extends JCTree.Visitor {
     public void visitLiteral(JCLiteral tree) {
         try {
             switch (tree.typetag) {
-                case TypeTags.INT:
+                case INT:
                     print(tree.value.toString());
                     break;
-                case TypeTags.LONG:
+                case LONG:
                     print(tree.value + "L");
                     break;
-                case TypeTags.FLOAT:
+                case FLOAT:
                     print(tree.value + "F");
                     break;
-                case TypeTags.DOUBLE:
+                case DOUBLE:
                     print(tree.value.toString());
                     break;
-                case TypeTags.CHAR:
+                case CHAR:
                     print("\'" +
                             Convert.quote(
                             String.valueOf((char)((Number)tree.value).intValue())) +
                             "\'");
                     break;
-                case TypeTags.BOOLEAN:
+                case BOOLEAN:
                     print(((Number)tree.value).intValue() == 1 ? "true" : "false");
                     break;
-                case TypeTags.BOT:
+                case BOT:
                     print("null");
                     break;
                 default:
@@ -1288,31 +1330,31 @@ public class Pretty extends JCTree.Visitor {
     public void visitTypeIdent(JCPrimitiveTypeTree tree) {
         try {
             switch(tree.typetag) {
-                case TypeTags.BYTE:
+                case BYTE:
                     print("byte");
                     break;
-                case TypeTags.CHAR:
+                case CHAR:
                     print("char");
                     break;
-                case TypeTags.SHORT:
+                case SHORT:
                     print("short");
                     break;
-                case TypeTags.INT:
+                case INT:
                     print("int");
                     break;
-                case TypeTags.LONG:
+                case LONG:
                     print("long");
                     break;
-                case TypeTags.FLOAT:
+                case FLOAT:
                     print("float");
                     break;
-                case TypeTags.DOUBLE:
+                case DOUBLE:
                     print("double");
                     break;
-                case TypeTags.BOOLEAN:
+                case BOOLEAN:
                     print("boolean");
                     break;
-                case TypeTags.VOID:
+                case VOID:
                     print("void");
                     break;
                 default:

@@ -72,7 +72,7 @@ import com.sun.tools.javac.util.List;
 
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
-import static com.sun.tools.javac.code.TypeTags.CLASS;
+import static com.sun.tools.javac.code.TypeTag.CLASS;
 import static com.sun.tools.javac.jvm.ClassFile.*;
 import static com.sun.tools.javac.jvm.ClassFile.Version.*;
 import static com.sun.tools.javac.main.Option.VERBOSE;
@@ -131,6 +131,9 @@ public class ClassReader implements Completer {
      */
     boolean lintClassfile;
 
+    /** Switch: allow default methods
+     */
+    boolean allowDefaultMethods;
 
     /** Switch: allow modules
      */
@@ -213,7 +216,7 @@ public class ClassReader implements Completer {
 
     /** The current input pointer.
      */
-    int bp;
+    protected int bp;
 
     /** The objects of the constant pool.
      */
@@ -307,6 +310,7 @@ public class ClassReader implements Completer {
         allowAnnotations = source.allowAnnotations();
         allowSimplifiedVarargs = source.allowSimplifiedVarargs();
         allowModules     = source.allowModules();
+        allowDefaultMethods = source.allowDefaultMethods();
         saveParameterNames = options.isSet("save-parameter-names");
         cacheCompletionFailure = options.isUnset("dev");
         preferSource = "source".equals(options.get("-Xprefer"));
@@ -982,13 +986,13 @@ public class ClassReader implements Completer {
 
     protected enum AttributeKind { CLASS, MEMBER };
     protected abstract class AttributeReader {
-        AttributeReader(Name name, ClassFile.Version version, Set<AttributeKind> kinds) {
+        protected AttributeReader(Name name, ClassFile.Version version, Set<AttributeKind> kinds) {
             this.name = name;
             this.version = version;
             this.kinds = kinds;
         }
 
-        boolean accepts(AttributeKind kind) {
+        protected boolean accepts(AttributeKind kind) {
             if (kinds.contains(kind)) {
                 if (majorVersion > version.major || (majorVersion == version.major && minorVersion >= version.minor))
                     return true;
@@ -1007,11 +1011,11 @@ public class ClassReader implements Completer {
             return false;
         }
 
-        abstract void read(Symbol sym, int attrLen);
+        protected abstract void read(Symbol sym, int attrLen);
 
-        final Name name;
-        final ClassFile.Version version;
-        final Set<AttributeKind> kinds;
+        protected final Name name;
+        protected final ClassFile.Version version;
+        protected final Set<AttributeKind> kinds;
     }
 
     protected Set<AttributeKind> CLASS_ATTRIBUTE =
@@ -1028,7 +1032,7 @@ public class ClassReader implements Completer {
             // v45.3 attributes
 
             new AttributeReader(names.Code, V45_3, MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     if (readAllOfClassFile || saveParameterNames)
                         ((MethodSymbol)sym).code = readCode(sym);
                     else
@@ -1037,7 +1041,7 @@ public class ClassReader implements Completer {
             },
 
             new AttributeReader(names.ConstantValue, V45_3, MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     Object v = readPool(nextChar());
                     // Ignore ConstantValue attribute if field not final.
                     if ((sym.flags() & FINAL) != 0)
@@ -1046,13 +1050,13 @@ public class ClassReader implements Completer {
             },
 
             new AttributeReader(names.Deprecated, V45_3, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     sym.flags_field |= DEPRECATED;
                 }
             },
 
             new AttributeReader(names.Exceptions, V45_3, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     int nexceptions = nextChar();
                     List<Type> thrown = List.nil();
                     for (int j = 0; j < nexceptions; j++)
@@ -1063,14 +1067,14 @@ public class ClassReader implements Completer {
             },
 
             new AttributeReader(names.InnerClasses, V45_3, CLASS_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     ClassSymbol c = (ClassSymbol) sym;
                     readInnerClasses(c);
                 }
             },
 
             new AttributeReader(names.LocalVariableTable, V45_3, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     int newbp = bp + attrLen;
                     if (saveParameterNames) {
                         // Pick up parameter names from the variable table.
@@ -1106,15 +1110,24 @@ public class ClassReader implements Completer {
             },
 
             new AttributeReader(names.SourceFile, V45_3, CLASS_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     ClassSymbol c = (ClassSymbol) sym;
                     Name n = readName(nextChar());
                     c.sourcefile = new SourceFileObject(n, c.flatname);
+                    // If the class is a toplevel class, originating from a Java source file,
+                    // but the class name does not match the file name, then it is
+                    // an auxiliary class.
+                    String sn = n.toString();
+                    if (c.owner.kind == Kinds.PCK &&
+                        sn.endsWith(".java") &&
+                        !sn.equals(c.name.toString()+".java")) {
+                        c.flags_field |= AUXILIARY;
+                    }
                 }
             },
 
             new AttributeReader(names.Synthetic, V45_3, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     // bridge methods are visible when generics not enabled
                     if (allowGenerics || (sym.flags_field & BRIDGE) == 0)
                         sym.flags_field |= SYNTHETIC;
@@ -1124,7 +1137,7 @@ public class ClassReader implements Completer {
             // standard v49 attributes
 
             new AttributeReader(names.EnclosingMethod, V49, CLASS_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     int newbp = bp + attrLen;
                     readEnclosingMethodAttr(sym);
                     bp = newbp;
@@ -1133,11 +1146,11 @@ public class ClassReader implements Completer {
 
             new AttributeReader(names.Signature, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
                 @Override
-                boolean accepts(AttributeKind kind) {
+                protected boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowGenerics;
                 }
 
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP) {
                         ClassSymbol c = (ClassSymbol) sym;
                         readingClassAttr = true;
@@ -1166,31 +1179,31 @@ public class ClassReader implements Completer {
             // v49 annotation attributes
 
             new AttributeReader(names.AnnotationDefault, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     attachAnnotationDefault(sym);
                 }
             },
 
             new AttributeReader(names.RuntimeInvisibleAnnotations, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     attachAnnotations(sym);
                 }
             },
 
             new AttributeReader(names.RuntimeInvisibleParameterAnnotations, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     attachParameterAnnotations(sym);
                 }
             },
 
             new AttributeReader(names.RuntimeVisibleAnnotations, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     attachAnnotations(sym);
                 }
             },
 
             new AttributeReader(names.RuntimeVisibleParameterAnnotations, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     attachParameterAnnotations(sym);
                 }
             },
@@ -1198,14 +1211,14 @@ public class ClassReader implements Completer {
             // additional "legacy" v49 attributes, superceded by flags
 
             new AttributeReader(names.Annotation, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     if (allowAnnotations)
                         sym.flags_field |= ANNOTATION;
                 }
             },
 
             new AttributeReader(names.Bridge, V49, MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     sym.flags_field |= BRIDGE;
                     if (!allowGenerics)
                         sym.flags_field &= ~SYNTHETIC;
@@ -1213,13 +1226,13 @@ public class ClassReader implements Completer {
             },
 
             new AttributeReader(names.Enum, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     sym.flags_field |= ENUM;
                 }
             },
 
             new AttributeReader(names.Varargs, V49, CLASS_OR_MEMBER_ATTRIBUTE) {
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     if (allowVarargs)
                         sym.flags_field |= VARARGS;
                 }
@@ -1229,10 +1242,10 @@ public class ClassReader implements Completer {
 
             new AttributeReader(names.Module, V52, CLASS_ATTRIBUTE) {
                 @Override
-                boolean accepts(AttributeKind kind) {
+                protected boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
                 }
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP && sym.owner.kind == MDL) {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
                         ModuleId mid = readModuleId(nextChar());
@@ -1244,10 +1257,10 @@ public class ClassReader implements Completer {
 
             new AttributeReader(names.ModuleProvides, V52, CLASS_ATTRIBUTE) {
                 @Override
-                boolean accepts(AttributeKind kind) {
+                protected boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
                 }
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP && sym.owner.kind == MDL) {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
                         int numViews = nextChar();
@@ -1303,10 +1316,10 @@ public class ClassReader implements Completer {
 
             new AttributeReader(names.ModuleRequires, V52, CLASS_ATTRIBUTE) {
                 @Override
-                boolean accepts(AttributeKind kind) {
+                protected boolean accepts(AttributeKind kind) {
                     return super.accepts(kind) && allowModules;
                 }
-                void read(Symbol sym, int attrLen) {
+                protected void read(Symbol sym, int attrLen) {
                     if (sym.kind == TYP && sym.owner.kind == MDL) {
                         ModuleSymbol msym = (ModuleSymbol) sym.owner;
                         int numModules = nextChar();
@@ -1345,7 +1358,7 @@ public class ClassReader implements Completer {
             printCCF("ccf.unrecognized.attribute", attrName);
     }
 
-    void readEnclosingMethodAttr(Symbol sym) {
+    protected void readEnclosingMethodAttr(Symbol sym) {
         // sym is a nested class with an "Enclosing Method" attribute
         // remove sym from it's current owners scope and place it in
         // the scope specified by the attribute
@@ -1516,7 +1529,7 @@ public class ClassReader implements Completer {
                 else
                     proxies.append(proxy);
             }
-            annotate.later(new AnnotationCompleter(sym, proxies.toList()));
+            annotate.normal(new AnnotationCompleter(sym, proxies.toList()));
         }
     }
 
@@ -1542,7 +1555,7 @@ public class ClassReader implements Completer {
     void attachAnnotationDefault(final Symbol sym) {
         final MethodSymbol meth = (MethodSymbol)sym; // only on methods
         final Attribute value = readAttributeValue();
-        annotate.later(new AnnotationDefaultCompleter(meth, value));
+        annotate.normal(new AnnotationDefaultCompleter(meth, value));
     }
 
     Type readTypeOrClassSymbol(int i) {
@@ -1888,10 +1901,13 @@ public class ClassReader implements Completer {
             JavaFileObject previousClassFile = currentClassFile;
             try {
                 currentClassFile = classFile;
+                Annotations annotations = sym.annotations;
                 List<Attribute.Compound> newList = deproxyCompoundList(l);
-                sym.attributes_field = ((sym.attributes_field == null)
-                                        ? newList
-                                        : newList.prependList(sym.attributes_field));
+                if (annotations.pendingCompletion()) {
+                    annotations.setAttributes(newList);
+                } else {
+                    annotations.append(newList);
+                }
             } finally {
                 currentClassFile = previousClassFile;
             }
@@ -1922,6 +1938,17 @@ public class ClassReader implements Completer {
         long flags = adjustMethodFlags(nextChar());
         Name name = readName(nextChar());
         Type type = readType(nextChar());
+        if (currentOwner.isInterface() &&
+                (flags & ABSTRACT) == 0 && !name.equals(names.clinit)) {
+            if (majorVersion > Target.JDK1_8.majorVersion ||
+                    (majorVersion == Target.JDK1_8.majorVersion && minorVersion >= Target.JDK1_8.minorVersion)) {
+                currentOwner.flags_field |= DEFAULT;
+                flags |= DEFAULT | ABSTRACT;
+            } else {
+                //protect against ill-formed classfiles
+                throw new CompletionFailure(currentOwner, "default method found in pre JDK 8 classfile");
+            }
+        }
         if (name == names.init && currentOwner.hasOuterInstance()) {
             // Sometimes anonymous classes don't have an outer
             // instance, however, there is no reliable way to tell so
@@ -2064,7 +2091,7 @@ public class ClassReader implements Completer {
      *  `typevars'.
      */
     protected void enterTypevars(Type t) {
-        if (t.getEnclosingType() != null && t.getEnclosingType().tag == CLASS)
+        if (t.getEnclosingType() != null && t.getEnclosingType().hasTag(CLASS))
             enterTypevars(t.getEnclosingType());
         for (List<Type> xs = t.getTypeArguments(); xs.nonEmpty(); xs = xs.tail)
             typevars.enter(xs.head.tsym);
@@ -2089,7 +2116,7 @@ public class ClassReader implements Completer {
 
         // prepare type variable table
         typevars = typevars.dup(currentOwner);
-        if (ct.getEnclosingType().tag == CLASS)
+        if (ct.getEnclosingType().hasTag(CLASS))
             enterTypevars(ct.getEnclosingType());
 
         // read flags, or skip if this is an inner class

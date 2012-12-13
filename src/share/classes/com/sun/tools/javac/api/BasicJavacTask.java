@@ -26,6 +26,7 @@
 package com.sun.tools.javac.api;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Locale;
 
 import javax.annotation.processing.Processor;
@@ -43,7 +44,6 @@ import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.model.JavacTypes;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.Context;
-import java.util.Collection;
 
 /**
  * Provides basic functionality for implementations of JavacTask.
@@ -136,4 +136,19 @@ public class BasicJavacTask extends JavacTask {
         throw new IllegalStateException();
     }
 
+    /**
+     * For internal use only.  This method will be
+     * removed without warning.
+     */
+    public Context getContext() {
+        return context;
+    }
+
+    /**
+     * For internal use only.  This method will be
+     * removed without warning.
+     */
+    public void updateContext(Context newContext) {
+        context = newContext;
+    }
 }

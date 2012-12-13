@@ -49,8 +49,8 @@ import static com.sun.tools.javac.parser.Tokens.TokenKind.GT;
 import static com.sun.tools.javac.parser.Tokens.TokenKind.IMPORT;
 import static com.sun.tools.javac.parser.Tokens.TokenKind.LT;
 import static com.sun.tools.javac.parser.Tokens.TokenKind.PACKAGE;
-import static com.sun.tools.javac.util.ListBuffer.lb;
 import static com.sun.tools.javac.tree.JCTree.Tag.*;
+import static com.sun.tools.javac.util.ListBuffer.lb;
 
 /** The parser maps a token sequence into an abstract syntax
  *  tree. It operates by recursive descent, with code derived
@@ -90,6 +90,15 @@ public class JavacParser implements Parser {
     /** End position mappings container */
     private final AbstractEndPosTable endPosTable;
 
+    interface ErrorRecoveryAction {
+        JCTree doRecover(JavacParser parser);
+    }
+
+    enum BasicErrorRecoveryAction implements ErrorRecoveryAction {
+        BLOCK_STMT {public JCTree doRecover(JavacParser parser) { return parser.parseStatementAsBlock(); }},
+        CATCH_CLAUSE {public JCTree doRecover(JavacParser parser) { return parser.catchClause(); }}
+    }
+
     /** Construct a parser from a given scanner, tree factory and log.
      */
     protected JavacParser(ParserFactory fac,
@@ -114,13 +123,12 @@ public class JavacParser implements Parser {
         this.allowDiamond = source.allowDiamond();
         this.allowMulticatch = source.allowMulticatch();
         this.allowStringFolding = fac.options.getBoolean("allowStringFolding", true);
-        this.allowLambda = source.allowLambda() &&
-                fac.options.isSet("allowLambda");
-        this.allowMethodReferences = source.allowMethodReferences() &&
-                fac.options.isSet("allowMethodReferences");
+        this.allowLambda = source.allowLambda();
+        this.allowMethodReferences = source.allowMethodReferences();
+        this.allowDefaultMethods = source.allowDefaultMethods();
         this.allowModules = source.allowModules();
         this.keepDocComments = keepDocComments;
-        docComments = keepDocComments ? new HashMap<JCTree,String>() : null;
+        docComments = newDocCommentTable(keepDocComments, fac);
         this.keepLineMap = keepLineMap;
         this.errorTree = F.Erroneous();
         endPosTable = newEndPosTable(keepEndPositions);
@@ -131,6 +139,11 @@ public class JavacParser implements Parser {
                 ? new SimpleEndPosTable()
                 : new EmptyEndPosTable();
     }
+
+    protected DocCommentTable newDocCommentTable(boolean keepDocComments, ParserFactory fac) {
+        return keepDocComments ? new LazyDocCommentTable(fac) : null;
+    }
+
     /** Switch: Should generics be recognized?
      */
     boolean allowGenerics;
@@ -187,6 +200,10 @@ public class JavacParser implements Parser {
      */
     boolean allowModules;
 
+    /** Switch: should we allow default methods in interfaces?
+     */
+    boolean allowDefaultMethods;
+
     /** Switch: should we keep docComments?
      */
     boolean keepDocComments;
@@ -219,7 +236,11 @@ public class JavacParser implements Parser {
 
     protected Token token;
 
-    protected void nextToken() {
+    public Token token() {
+        return token;
+    }
+
+    public void nextToken() {
         S.nextToken();
         token = S.token();
     }
@@ -424,21 +445,21 @@ public class JavacParser implements Parser {
 
 /* ---------- doc comments --------- */
 
-    /** A hashtable to store all documentation comments
+    /** A table to store all documentation comments
      *  indexed by the tree nodes they refer to.
      *  defined only if option flag keepDocComment is set.
      */
-    private final Map<JCTree, String> docComments;
+    private final DocCommentTable docComments;
 
     /** Make an entry into docComments hashtable,
      *  provided flag keepDocComments is set and given doc comment is non-null.
      *  @param tree   The tree to be used as index in the hashtable
      *  @param dc     The doc comment to associate with the tree, or null.
      */
-    void attach(JCTree tree, String dc) {
+    void attach(JCTree tree, Comment dc) {
         if (keepDocComments && dc != null) {
 //          System.out.println("doc comment = ");System.out.println(dc);//DEBUG
-            docComments.put(tree, dc);
+            docComments.putComment(tree, dc);
         }
     }
 
@@ -570,7 +591,7 @@ public class JavacParser implements Parser {
         case INTLITERAL:
             try {
                 t = F.at(pos).Literal(
-                    TypeTags.INT,
+                    TypeTag.INT,
                     Convert.string2int(strval(prefix), token.radix()));
             } catch (NumberFormatException ex) {
                 error(token.pos, "int.number.too.large", strval(prefix));
@@ -579,7 +600,7 @@ public class JavacParser implements Parser {
         case LONGLITERAL:
             try {
                 t = F.at(pos).Literal(
-                    TypeTags.LONG,
+                    TypeTag.LONG,
                     new Long(Convert.string2long(strval(prefix), token.radix())));
             } catch (NumberFormatException ex) {
                 error(token.pos, "int.number.too.large", strval(prefix));
@@ -601,7 +622,7 @@ public class JavacParser implements Parser {
             else if (n.floatValue() == Float.POSITIVE_INFINITY)
                 error(token.pos, "fp.number.too.large");
             else
-                t = F.at(pos).Literal(TypeTags.FLOAT, n);
+                t = F.at(pos).Literal(TypeTag.FLOAT, n);
             break;
         }
         case DOUBLELITERAL: {
@@ -620,27 +641,27 @@ public class JavacParser implements Parser {
             else if (n.doubleValue() == Double.POSITIVE_INFINITY)
                 error(token.pos, "fp.number.too.large");
             else
-                t = F.at(pos).Literal(TypeTags.DOUBLE, n);
+                t = F.at(pos).Literal(TypeTag.DOUBLE, n);
             break;
         }
         case CHARLITERAL:
             t = F.at(pos).Literal(
-                TypeTags.CHAR,
+                TypeTag.CHAR,
                 token.stringVal().charAt(0) + 0);
             break;
         case STRINGLITERAL:
             t = F.at(pos).Literal(
-                TypeTags.CLASS,
+                TypeTag.CLASS,
                 token.stringVal());
             break;
         case TRUE: case FALSE:
             t = F.at(pos).Literal(
-                TypeTags.BOOLEAN,
+                TypeTag.BOOLEAN,
                 (token.kind == TRUE ? 1 : 0));
             break;
         case NULL:
             t = F.at(pos).Literal(
-                TypeTags.BOT,
+                TypeTag.BOT,
                 null);
             break;
         default:
@@ -686,6 +707,7 @@ public class JavacParser implements Parser {
     }
 
     /**
+     *  {@literal
      *  Expression = Expression1 [ExpressionRest]
      *  ExpressionRest = [AssignmentOperator Expression1]
      *  AssignmentOperator = "=" | "+=" | "-=" | "*=" | "/=" |
@@ -695,6 +717,7 @@ public class JavacParser implements Parser {
      *  TypeNoParams = TypeNoParams1
      *  StatementExpression = Expression
      *  ConstantExpression = Expression
+     *  }
      */
     JCExpression term() {
         JCExpression t = term1();
@@ -820,9 +843,9 @@ public class JavacParser implements Parser {
         t = odStack[0];
 
         if (t.hasTag(JCTree.Tag.PLUS)) {
-            StringBuffer buf = foldStrings(t);
+            StringBuilder buf = foldStrings(t);
             if (buf != null) {
-                t = toP(F.at(startPos).Literal(TypeTags.CLASS, buf.toString()));
+                t = toP(F.at(startPos).Literal(TypeTag.CLASS, buf.toString()));
             }
         }
 
@@ -847,16 +870,16 @@ public class JavacParser implements Parser {
         /** If tree is a concatenation of string literals, replace it
          *  by a single literal representing the concatenated string.
          */
-        protected StringBuffer foldStrings(JCTree tree) {
+        protected StringBuilder foldStrings(JCTree tree) {
             if (!allowStringFolding)
                 return null;
             List<String> buf = List.nil();
             while (true) {
                 if (tree.hasTag(LITERAL)) {
                     JCLiteral lit = (JCLiteral) tree;
-                    if (lit.typetag == TypeTags.CLASS) {
-                        StringBuffer sbuf =
-                            new StringBuffer((String)lit.value);
+                    if (lit.typetag == TypeTag.CLASS) {
+                        StringBuilder sbuf =
+                            new StringBuilder((String)lit.value);
                         while (buf.nonEmpty()) {
                             sbuf.append(buf.head);
                             buf = buf.tail;
@@ -867,7 +890,7 @@ public class JavacParser implements Parser {
                     JCBinary op = (JCBinary)tree;
                     if (op.rhs.hasTag(LITERAL)) {
                         JCLiteral lit = (JCLiteral) op.rhs;
-                        if (lit.typetag == TypeTags.CLASS) {
+                        if (lit.typetag == TypeTag.CLASS) {
                             buf = buf.prepend((String) lit.value);
                             tree = op.lhs;
                             continue;
@@ -900,9 +923,12 @@ public class JavacParser implements Parser {
             return opStack;
         }
 
-    /** Expression3    = PrefixOp Expression3
+    /**
+     *  Expression3    = PrefixOp Expression3
      *                 | "(" Expr | TypeNoParams ")" Expression3
      *                 | Primary {Selector} {PostfixOp}
+     *
+     *  {@literal
      *  Primary        = "(" Expression ")"
      *                 | Literal
      *                 | [TypeArguments] THIS [Arguments]
@@ -917,6 +943,8 @@ public class JavacParser implements Parser {
      *                   | "." ( CLASS | THIS | [TypeArguments] SUPER Arguments | NEW [TypeArguments] InnerCreator )
      *                   ]
      *                 | BasicType BracketsOpt "." CLASS
+     *  }
+     *
      *  PrefixOp       = "++" | "--" | "!" | "~" | "+" | "-"
      *  PostfixOp      = "++" | "--"
      *  Type3          = Ident { "." Ident } [TypeArguments] {TypeSelector} BracketsOpt
@@ -959,12 +987,13 @@ public class JavacParser implements Parser {
             break;
         case LPAREN:
             if (typeArgs == null && (mode & EXPR) != 0) {
-                if (peekToken(FINAL) ||
+                if (peekToken(MONKEYS_AT) ||
+                        peekToken(FINAL) ||
                         peekToken(RPAREN) ||
                         peekToken(IDENTIFIER, COMMA) ||
                         peekToken(IDENTIFIER, RPAREN, ARROW)) {
                     //implicit n-ary lambda
-                    t = lambdaExpressionOrStatement(true, peekToken(FINAL), pos);
+                    t = lambdaExpressionOrStatement(true, peekToken(MONKEYS_AT) || peekToken(FINAL), pos);
                     break;
                 } else {
                     nextToken();
@@ -1168,7 +1197,7 @@ public class JavacParser implements Parser {
                     case LT:
                         if ((mode & TYPE) == 0 && isUnboundMemberRef()) {
                             //this is an unbound method reference whose qualifier
-                            //is a generic type i.e. A<S>#m
+                            //is a generic type i.e. A<S>::m
                             int pos1 = token.pos;
                             accept(LT);
                             ListBuffer<JCExpression> args = new ListBuffer<JCExpression>();
@@ -1186,7 +1215,8 @@ public class JavacParser implements Parser {
                                 t = toP(F.at(token.pos).Select(t, ident()));
                                 t = typeArgumentsOpt(t);
                             }
-                            if (token.kind != HASH) {
+                            t = bracketsOpt(t);
+                            if (token.kind != COLCOL) {
                                 //method reference expected here
                                 t = illegal();
                             }
@@ -1212,7 +1242,7 @@ public class JavacParser implements Parser {
             if ((mode & EXPR) != 0) {
                 nextToken();
                 if (token.kind == DOT) {
-                    JCPrimitiveTypeTree ti = toP(F.at(pos).TypeIdent(TypeTags.VOID));
+                    JCPrimitiveTypeTree ti = toP(F.at(pos).TypeIdent(TypeTag.VOID));
                     t = bracketsSuffix(ti);
                 } else {
                     return illegal(pos);
@@ -1221,7 +1251,7 @@ public class JavacParser implements Parser {
                 // Support the corner case of myMethodHandle.<void>invoke() by passing
                 // a void type (like other primitive types) to the next phase.
                 // The error will be reported in Attr.attribTypes or Attr.visitApply.
-                JCPrimitiveTypeTree ti = to(F.at(pos).TypeIdent(TypeTags.VOID));
+                JCPrimitiveTypeTree ti = to(F.at(pos).TypeIdent(TypeTag.VOID));
                 nextToken();
                 return ti;
                 //return illegal();
@@ -1246,6 +1276,10 @@ public class JavacParser implements Parser {
                         nextToken();
                         t = bracketsOpt(t);
                         t = toP(F.at(pos1).TypeArray(t));
+                        if (token.kind == COLCOL) {
+                            mode = EXPR;
+                            continue;
+                        }
                         return t;
                     }
                     mode = oldmode;
@@ -1278,10 +1312,10 @@ public class JavacParser implements Parser {
                     t = argumentsOpt(typeArgs, typeArgumentsOpt(t));
                     typeArgs = null;
                 }
-            } else if ((mode & EXPR) != 0 && token.kind == HASH) {
+            } else if ((mode & EXPR) != 0 && token.kind == COLCOL) {
                 mode = EXPR;
                 if (typeArgs != null) return illegal();
-                accept(HASH);
+                accept(COLCOL);
                 t = memberReferenceSuffix(pos1, t);
             } else {
                 break;
@@ -1320,9 +1354,11 @@ public class JavacParser implements Parser {
                 case GT:
                     depth--;
                     if (depth == 0) {
+                        TokenKind nextKind = S.token(pos + 1).kind;
                         return
-                            S.token(pos + 1).kind == TokenKind.DOT ||
-                            S.token(pos + 1).kind == TokenKind.HASH;
+                            nextKind == TokenKind.DOT ||
+                            nextKind == TokenKind.LBRACKET ||
+                            nextKind == TokenKind.COLCOL;
                     }
                     break;
                 default:
@@ -1352,11 +1388,6 @@ public class JavacParser implements Parser {
     }
 
     JCExpression lambdaExpressionOrStatementRest(List<JCVariableDecl> args, int pos) {
-        if (token.kind != ARROW) {
-            //better error recovery
-            return F.at(pos).Erroneous(args);
-        }
-
         checkLambda();
         accept(ARROW);
 
@@ -1381,7 +1412,7 @@ public class JavacParser implements Parser {
         nextToken();
         if (token.kind == LPAREN || typeArgs != null) {
             t = arguments(typeArgs, t);
-        } else if (token.kind == HASH) {
+        } else if (token.kind == COLCOL) {
             if (typeArgs != null) return illegal();
             t = memberReferenceSuffix(t);
         } else {
@@ -1469,7 +1500,10 @@ public class JavacParser implements Parser {
         return null;
     }
 
-    /**  TypeArguments  = "<" TypeArgument {"," TypeArgument} ">"
+    /**
+     *  {@literal
+     *  TypeArguments  = "<" TypeArgument {"," TypeArgument} ">"
+     *  }
      */
     List<JCExpression> typeArguments(boolean diamondAllowed) {
         if (token.kind == LT) {
@@ -1506,10 +1540,13 @@ public class JavacParser implements Parser {
         }
     }
 
-    /** TypeArgument = Type
+    /**
+     *  {@literal
+     *  TypeArgument = Type
      *               | "?"
      *               | "?" EXTENDS Type {"&" Type}
      *               | "?" SUPER Type
+     *  }
      */
     JCExpression typeArgument() {
         if (token.kind != QUES) return parseType();
@@ -1586,20 +1623,22 @@ public class JavacParser implements Parser {
                 t = toP(F.at(pos).Select(t, names._class));
             }
         } else if ((mode & TYPE) != 0) {
-            mode = TYPE;
-        } else {
+            if (token.kind != COLCOL) {
+                mode = TYPE;
+            }
+        } else if (token.kind != COLCOL) {
             syntaxError(token.pos, "dot.class.expected");
         }
         return t;
     }
 
     /**
-     * MemberReferenceSuffix = "#" [TypeArguments] Ident
-     *                       | "#" [TypeArguments] "new"
+     * MemberReferenceSuffix = "::" [TypeArguments] Ident
+     *                       | "::" [TypeArguments] "new"
      */
     JCExpression memberReferenceSuffix(JCExpression t) {
         int pos1 = token.pos;
-        accept(HASH);
+        accept(COLCOL);
         return memberReferenceSuffix(pos1, t);
     }
 
@@ -1879,7 +1918,7 @@ public class JavacParser implements Parser {
             return List.of(parseStatement());
         case MONKEYS_AT:
         case FINAL: {
-            String dc = token.comment(CommentStyle.JAVADOC);
+            Comment dc = token.comment(CommentStyle.JAVADOC);
             JCModifiers mods = modifiersOpt();
             if (token.kind == INTERFACE ||
                 token.kind == CLASS ||
@@ -1896,13 +1935,13 @@ public class JavacParser implements Parser {
             }
         }
         case ABSTRACT: case STRICTFP: {
-            String dc = token.comment(CommentStyle.JAVADOC);
+            Comment dc = token.comment(CommentStyle.JAVADOC);
             JCModifiers mods = modifiersOpt();
             return List.of(classOrInterfaceOrEnumDeclaration(mods, dc));
         }
         case INTERFACE:
         case CLASS:
-            String dc = token.comment(CommentStyle.JAVADOC);
+            Comment dc = token.comment(CommentStyle.JAVADOC);
             return List.of(classOrInterfaceOrEnumDeclaration(modifiersOpt(), dc));
         case ENUM:
         case ASSERT:
@@ -2094,11 +2133,15 @@ public class JavacParser implements Parser {
             nextToken();
             return toP(F.at(pos).Skip());
         case ELSE:
-            return toP(F.Exec(syntaxError("else.without.if")));
+            int elsePos = token.pos;
+            nextToken();
+            return doRecover(elsePos, BasicErrorRecoveryAction.BLOCK_STMT, "else.without.if");
         case FINALLY:
-            return toP(F.Exec(syntaxError("finally.without.try")));
+            int finallyPos = token.pos;
+            nextToken();
+            return doRecover(finallyPos, BasicErrorRecoveryAction.BLOCK_STMT, "finally.without.try");
         case CATCH:
-            return toP(F.Exec(syntaxError("catch.without.try")));
+            return doRecover(token.pos, BasicErrorRecoveryAction.CATCH_CLAUSE, "catch.without.try");
         case ASSERT: {
             if (allowAsserts && token.kind == ASSERT) {
                 nextToken();
@@ -2129,6 +2172,13 @@ public class JavacParser implements Parser {
                 return stat;
             }
         }
+    }
+
+    private JCStatement doRecover(int startPos, ErrorRecoveryAction action, String key) {
+        int errPos = S.errPos();
+        JCTree stm = action.doRecover(this);
+        S.errPos(errPos);
+        return toP(F.Exec(syntaxError(startPos, List.<JCTree>of(stm), key)));
     }
 
     /** CatchClause     = CATCH "(" FormalParameter ")" Block
@@ -2168,27 +2218,10 @@ public class JavacParser implements Parser {
         while (true) {
             int pos = token.pos;
             switch (token.kind) {
-            case CASE: {
-                nextToken();
-                JCExpression pat = parseExpression();
-                accept(COLON);
-                List<JCStatement> stats = blockStatements();
-                JCCase c = F.at(pos).Case(pat, stats);
-                if (stats.isEmpty())
-                    storeEnd(c, S.prevToken().endPos);
-                cases.append(c);
+            case CASE:
+            case DEFAULT:
+                cases.append(switchBlockStatementGroup());
                 break;
-            }
-            case DEFAULT: {
-                nextToken();
-                accept(COLON);
-                List<JCStatement> stats = blockStatements();
-                JCCase c = F.at(pos).Case(null, stats);
-                if (stats.isEmpty())
-                    storeEnd(c, S.prevToken().endPos);
-                cases.append(c);
-                break;
-            }
             case RBRACE: case EOF:
                 return cases.toList();
             default:
@@ -2197,6 +2230,32 @@ public class JavacParser implements Parser {
                     CASE, DEFAULT, RBRACE);
             }
         }
+    }
+
+    protected JCCase switchBlockStatementGroup() {
+        int pos = token.pos;
+        List<JCStatement> stats;
+        JCCase c;
+        switch (token.kind) {
+        case CASE:
+            nextToken();
+            JCExpression pat = parseExpression();
+            accept(COLON);
+            stats = blockStatements();
+            c = F.at(pos).Case(pat, stats);
+            if (stats.isEmpty())
+                storeEnd(c, S.prevToken().endPos);
+            return c;
+        case DEFAULT:
+            nextToken();
+            accept(COLON);
+            stats = blockStatements();
+            c = F.at(pos).Case(null, stats);
+            if (stats.isEmpty())
+                storeEnd(c, S.prevToken().endPos);
+            return c;
+        }
+        throw new AssertionError("should not reach here");
     }
 
     /** MoreStatementExpressions = { COMMA StatementExpression }
@@ -2300,6 +2359,7 @@ public class JavacParser implements Parser {
             case SYNCHRONIZED: flag = Flags.SYNCHRONIZED; break;
             case STRICTFP    : flag = Flags.STRICTFP; break;
             case MONKEYS_AT  : flag = Flags.ANNOTATION; break;
+            case DEFAULT     : checkDefaultMethods(); flag = Flags.DEFAULT; break;
             case ERROR       : flag = 0; nextToken(); break;
             default: break loop;
             }
@@ -2439,7 +2499,7 @@ public class JavacParser implements Parser {
                                                                      JCExpression type,
                                                                      Name name,
                                                                      boolean reqInit,
-                                                                     String dc,
+                                                                     Comment dc,
                                                                      T vdefs)
     {
         vdefs.append(variableDeclaratorRest(pos, mods, type, name, reqInit, dc));
@@ -2455,7 +2515,7 @@ public class JavacParser implements Parser {
     /** VariableDeclarator = Ident VariableDeclaratorRest
      *  ConstantDeclarator = Ident ConstantDeclaratorRest
      */
-    JCVariableDecl variableDeclarator(JCModifiers mods, JCExpression type, boolean reqInit, String dc) {
+    JCVariableDecl variableDeclarator(JCModifiers mods, JCExpression type, boolean reqInit, Comment dc) {
         return variableDeclaratorRest(token.pos, mods, type, ident(), reqInit, dc);
     }
 
@@ -2466,7 +2526,7 @@ public class JavacParser implements Parser {
      *  @param dc       The documentation comment for the variable declarations, or null.
      */
     JCVariableDecl variableDeclaratorRest(int pos, JCModifiers mods, JCExpression type, Name name,
-                                  boolean reqInit, String dc) {
+                                  boolean reqInit, Comment dc) {
         type = bracketsOpt(type);
         JCExpression init = null;
         if (token.kind == EQ) {
@@ -2552,7 +2612,7 @@ public class JavacParser implements Parser {
                 pid = qualident();
                 accept(SEMI);
                 JCPackageDecl pd = F.at(firstToken.pos).Package(packageAnnotations, pid);
-                String docComment = firstToken.comment(CommentStyle.JAVADOC);
+                Comment docComment = firstToken.comment(CommentStyle.JAVADOC);
                 consumedToplevelDoc = true;
                 attach(pd, docComment);
                 defs.append(pd);
@@ -2571,7 +2631,7 @@ public class JavacParser implements Parser {
                     seenImport = true;
                     defs.append(importDeclaration());
                 } else {
-                    String docComment = token.comment(CommentStyle.JAVADOC);
+                    Comment docComment = token.comment(CommentStyle.JAVADOC);
                     if (firstTypeDecl && !seenImport && !seenPackage) {
                         docComment = firstToken.comment(CommentStyle.JAVADOC);
                         consumedToplevelDoc = true;
@@ -2606,7 +2666,7 @@ public class JavacParser implements Parser {
      *
      * called after MODULE has been seen
      */
-    JCModuleDecl moduleDecl(JCModifiers mods, String dc) {
+    JCModuleDecl moduleDecl(JCModifiers mods, Comment dc) {
         int pos = token.pos;
         if (!allowModules) {
             log.error(pos, "modules.not.supported.in.source", source.name);
@@ -2844,7 +2904,7 @@ public class JavacParser implements Parser {
     /** TypeDeclaration = ClassOrInterfaceOrEnumDeclaration
      *                  | ";"
      */
-    JCTree typeDeclaration(JCModifiers mods, String docComment) {
+    JCTree typeDeclaration(JCModifiers mods, Comment docComment) {
         int pos = token.pos;
         if (mods == null && token.kind == SEMI) {
             nextToken();
@@ -2859,7 +2919,7 @@ public class JavacParser implements Parser {
      *  @param mods     Any modifiers starting the class or interface declaration
      *  @param dc       The documentation comment for the class, or null.
      */
-    JCStatement classOrInterfaceOrEnumDeclaration(JCModifiers mods, String dc) {
+    JCStatement classOrInterfaceOrEnumDeclaration(JCModifiers mods, Comment dc) {
         if (token.kind == CLASS) {
             return classDeclaration(mods, dc);
         } else if (token.kind == INTERFACE) {
@@ -2903,7 +2963,7 @@ public class JavacParser implements Parser {
      *  @param mods    The modifiers starting the class declaration
      *  @param dc       The documentation comment for the class, or null.
      */
-    protected JCClassDecl classDeclaration(JCModifiers mods, String dc) {
+    protected JCClassDecl classDeclaration(JCModifiers mods, Comment dc) {
         int pos = token.pos;
         accept(CLASS);
         Name name = ident();
@@ -2932,7 +2992,7 @@ public class JavacParser implements Parser {
      *  @param mods    The modifiers starting the interface declaration
      *  @param dc       The documentation comment for the interface, or null.
      */
-    protected JCClassDecl interfaceDeclaration(JCModifiers mods, String dc) {
+    protected JCClassDecl interfaceDeclaration(JCModifiers mods, Comment dc) {
         int pos = token.pos;
         accept(INTERFACE);
         Name name = ident();
@@ -2955,7 +3015,7 @@ public class JavacParser implements Parser {
      *  @param mods    The modifiers starting the enum declaration
      *  @param dc       The documentation comment for the enum, or null.
      */
-    protected JCClassDecl enumDeclaration(JCModifiers mods, String dc) {
+    protected JCClassDecl enumDeclaration(JCModifiers mods, Comment dc) {
         int pos = token.pos;
         accept(ENUM);
         Name name = ident();
@@ -3014,7 +3074,7 @@ public class JavacParser implements Parser {
     /** EnumeratorDeclaration = AnnotationsOpt [TypeArguments] IDENTIFIER [ Arguments ] [ "{" ClassBody "}" ]
      */
     JCTree enumeratorDeclaration(Name enumName) {
-        String dc = token.comment(CommentStyle.JAVADOC);
+        Comment dc = token.comment(CommentStyle.JAVADOC);
         int flags = Flags.PUBLIC|Flags.STATIC|Flags.FINAL|Flags.ENUM;
         if (token.deprecatedFlag()) {
             flags |= Flags.DEPRECATED;
@@ -3103,7 +3163,7 @@ public class JavacParser implements Parser {
             nextToken();
             return List.<JCTree>nil();
         } else {
-            String dc = token.comment(CommentStyle.JAVADOC);
+            Comment dc = token.comment(CommentStyle.JAVADOC);
             int pos = token.pos;
             JCModifiers mods = modifiersOpt();
             if (token.kind == CLASS ||
@@ -3128,7 +3188,7 @@ public class JavacParser implements Parser {
                 JCExpression type;
                 boolean isVoid = token.kind == VOID;
                 if (isVoid) {
-                    type = to(F.at(pos).TypeIdent(TypeTags.VOID));
+                    type = to(F.at(pos).TypeIdent(TypeTag.VOID));
                     nextToken();
                 } else {
                     type = parseType();
@@ -3183,7 +3243,7 @@ public class JavacParser implements Parser {
                               Name name,
                               List<JCTypeParameter> typarams,
                               boolean isInterface, boolean isVoid,
-                              String dc) {
+                              Comment dc) {
         List<JCVariableDecl> params = formalParameters();
         if (!isVoid) type = bracketsOpt(type);
         List<JCExpression> thrown = List.nil();
@@ -3233,7 +3293,10 @@ public class JavacParser implements Parser {
         return ts.toList();
     }
 
-    /** TypeParametersOpt = ["<" TypeParameter {"," TypeParameter} ">"]
+    /**
+     *  {@literal
+     *  TypeParametersOpt = ["<" TypeParameter {"," TypeParameter} ">"]
+     *  }
      */
     List<JCTypeParameter> typeParametersOpt() {
         if (token.kind == LT) {
@@ -3252,9 +3315,12 @@ public class JavacParser implements Parser {
         }
     }
 
-    /** TypeParameter = TypeVariable [TypeParameterBound]
+    /**
+     *  {@literal
+     *  TypeParameter = TypeVariable [TypeParameterBound]
      *  TypeParameterBound = EXTENDS Type {"&" Type}
      *  TypeVariable = Ident
+     *  }
      */
     JCTypeParameter typeParameter() {
         int pos = token.pos;
@@ -3485,28 +3551,28 @@ public class JavacParser implements Parser {
     }
 
     /** Return type tag of basic type represented by token,
-     *  -1 if token is not a basic type identifier.
+     *  NONE if token is not a basic type identifier.
      */
-    static int typetag(TokenKind token) {
+    static TypeTag typetag(TokenKind token) {
         switch (token) {
         case BYTE:
-            return TypeTags.BYTE;
+            return TypeTag.BYTE;
         case CHAR:
-            return TypeTags.CHAR;
+            return TypeTag.CHAR;
         case SHORT:
-            return TypeTags.SHORT;
+            return TypeTag.SHORT;
         case INT:
-            return TypeTags.INT;
+            return TypeTag.INT;
         case LONG:
-            return TypeTags.LONG;
+            return TypeTag.LONG;
         case FLOAT:
-            return TypeTags.FLOAT;
+            return TypeTag.FLOAT;
         case DOUBLE:
-            return TypeTags.DOUBLE;
+            return TypeTag.DOUBLE;
         case BOOLEAN:
-            return TypeTags.BOOLEAN;
+            return TypeTag.BOOLEAN;
         default:
-            return -1;
+            return TypeTag.NONE;
         }
     }
 
@@ -3568,6 +3634,12 @@ public class JavacParser implements Parser {
         if (!allowMethodReferences) {
             log.error(token.pos, "method.references.not.supported.in.source", source.name);
             allowMethodReferences = true;
+        }
+    }
+    void checkDefaultMethods() {
+        if (!allowDefaultMethods) {
+            log.error(token.pos, "default.methods.not.supported.in.source", source.name);
+            allowDefaultMethods = true;
         }
     }
 

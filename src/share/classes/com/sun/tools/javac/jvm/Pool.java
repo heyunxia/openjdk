@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,11 +25,18 @@
 
 package com.sun.tools.javac.jvm;
 
+import com.sun.tools.javac.code.Kinds;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.*;
+
+import com.sun.tools.javac.util.ArrayUtils;
+import com.sun.tools.javac.util.Assert;
+import com.sun.tools.javac.util.Filter;
+import com.sun.tools.javac.util.Name;
+
 import java.util.*;
 
-import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.util.Assert;
-
 /** An internal structure that corresponds to the constant pool of a classfile.
  *
  *  <p><b>This is NOT part of any supported API.
@@ -84,38 +91,39 @@ public class Pool {
         indices.clear();
     }
 
-    /** Double pool buffer in size.
-     */
-    private void doublePool() {
-        Object[] newpool = new Object[pool.length * 2];
-        System.arraycopy(pool, 0, newpool, 0, pool.length);
-        pool = newpool;
-    }
-
     /** Place an object in the pool, unless it is already there.
      *  If object is a symbol also enter its owner unless the owner is a
      *  package.  Return the object's index in the pool.
      */
     public int put(Object value) {
         Assert.checkNonNull(value);
-        if (value instanceof MethodSymbol)
-            value = new Method((MethodSymbol)value);
-        else if (value instanceof VarSymbol)
-            value = new Variable((VarSymbol)value);
+        value = makePoolValue(value);
 //      assert !(value instanceof Type.TypeVar);
         Integer index = indices.get(value);
         if (index == null) {
 //          System.err.println("put " + value + " " + value.getClass());//DEBUG
             index = pp;
             indices.put(value, index);
-            if (pp == pool.length) doublePool();
+            pool = ArrayUtils.ensureCapacity(pool, pp);
             pool[pp++] = value;
             if (value instanceof Long || value instanceof Double) {
-                if (pp == pool.length) doublePool();
+                pool = ArrayUtils.ensureCapacity(pool, pp);
                 pool[pp++] = null;
             }
         }
         return index.intValue();
+    }
+
+    Object makePoolValue(Object o) {
+        if (o instanceof DynamicMethodSymbol) {
+            return new DynamicMethod((DynamicMethodSymbol)o);
+        } else if (o instanceof MethodSymbol) {
+            return new Method((MethodSymbol)o);
+        } else if (o instanceof VarSymbol) {
+            return new Variable((VarSymbol)o);
+        } else {
+            return o;
+        }
     }
 
     /** Return the given object's index in the pool,
@@ -148,6 +156,36 @@ public class Pool {
         }
     }
 
+    static class DynamicMethod extends Method {
+
+        DynamicMethod(DynamicMethodSymbol m) {
+            super(m);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!super.equals(other)) return false;
+            if (!(other instanceof DynamicMethod)) return false;
+            DynamicMethodSymbol dm1 = (DynamicMethodSymbol)m;
+            DynamicMethodSymbol dm2 = (DynamicMethodSymbol)((DynamicMethod)other).m;
+            return dm1.bsm == dm2.bsm &&
+                        dm1.bsmKind == dm2.bsmKind &&
+                        Arrays.equals(dm1.staticArgs, dm2.staticArgs);
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = super.hashCode();
+            DynamicMethodSymbol dm = (DynamicMethodSymbol)m;
+            hash += dm.bsmKind * 7 +
+                    dm.bsm.hashCode() * 11;
+            for (int i = 0; i < dm.staticArgs.length; i++) {
+                hash += (dm.staticArgs[i].hashCode() * 23);
+            }
+            return hash;
+        }
+    }
+
     static class Variable extends DelegatedSymbol {
         VarSymbol v;
         Variable(VarSymbol v) {
@@ -168,5 +206,87 @@ public class Pool {
                 v.owner.hashCode() * 9 +
                 v.type.hashCode();
         }
+    }
+
+    public static class MethodHandle {
+
+        /** Reference kind - see ClassFile */
+        int refKind;
+
+        /** Reference symbol */
+        Symbol refSym;
+
+        public MethodHandle(int refKind, Symbol refSym) {
+            this.refKind = refKind;
+            this.refSym = refSym;
+            checkConsistent();
+        }
+        public boolean equals(Object other) {
+            if (!(other instanceof MethodHandle)) return false;
+            MethodHandle mr = (MethodHandle) other;
+            if (mr.refKind != refKind)  return false;
+            Symbol o = mr.refSym;
+            return
+                o.name == refSym.name &&
+                o.owner == refSym.owner &&
+                o.type.equals(refSym.type);
+        }
+        public int hashCode() {
+            return
+                refKind * 65 +
+                refSym.name.hashCode() * 33 +
+                refSym.owner.hashCode() * 9 +
+                refSym.type.hashCode();
+        }
+
+        /**
+         * Check consistency of reference kind and symbol (see JVMS 4.4.8)
+         */
+        @SuppressWarnings("fallthrough")
+        private void checkConsistent() {
+            boolean staticOk = false;
+            int expectedKind = -1;
+            Filter<Name> nameFilter = nonInitFilter;
+            boolean interfaceOwner = false;
+            switch (refKind) {
+                case ClassFile.REF_getStatic:
+                case ClassFile.REF_putStatic:
+                    staticOk = true;
+                case ClassFile.REF_getField:
+                case ClassFile.REF_putField:
+                    expectedKind = Kinds.VAR;
+                    break;
+                case ClassFile.REF_newInvokeSpecial:
+                    nameFilter = initFilter;
+                    expectedKind = Kinds.MTH;
+                    break;
+                case ClassFile.REF_invokeInterface:
+                    interfaceOwner = true;
+                    expectedKind = Kinds.MTH;
+                    break;
+                case ClassFile.REF_invokeStatic:
+                    staticOk = true;
+                case ClassFile.REF_invokeVirtual:
+                case ClassFile.REF_invokeSpecial:
+                    expectedKind = Kinds.MTH;
+                    break;
+            }
+            Assert.check(!refSym.isStatic() || staticOk);
+            Assert.check(refSym.kind == expectedKind);
+            Assert.check(nameFilter.accepts(refSym.name));
+            Assert.check(!refSym.owner.isInterface() || interfaceOwner);
+        }
+        //where
+                Filter<Name> nonInitFilter = new Filter<Name>() {
+                    public boolean accepts(Name n) {
+                        return n != n.table.names.init && n != n.table.names.clinit;
+                    }
+                };
+
+                Filter<Name> initFilter = new Filter<Name>() {
+                    public boolean accepts(Name n) {
+                        return n == n.table.names.init;
+                    }
+                };
     }
 }
