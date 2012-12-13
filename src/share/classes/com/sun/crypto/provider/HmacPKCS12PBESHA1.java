@@ -89,7 +89,7 @@ public final class HmacPKCS12PBESHA1 extends HmacCore {
             // generate default for salt and iteration count if necessary
             if (salt == null) {
                 salt = new byte[20];
-                SunJCE.RANDOM.nextBytes(salt);
+                SunJCE.getRandom().nextBytes(salt);
             }
             if (iCount == 0) iCount = 100;
         } else if (!(params instanceof PBEParameterSpec)) {

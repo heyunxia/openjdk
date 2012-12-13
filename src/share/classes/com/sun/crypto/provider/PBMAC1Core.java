@@ -123,7 +123,7 @@ abstract class PBMAC1Core extends HmacCore {
             // generate default for salt and iteration count if necessary
             if (salt == null) {
                 salt = new byte[DEFAULT_SALT_LENGTH];
-                SunJCE.RANDOM.nextBytes(salt);
+                SunJCE.getRandom().nextBytes(salt);
             }
             if (iCount == 0) iCount = DEFAULT_COUNT;
         } else if (!(params instanceof PBEParameterSpec)) {

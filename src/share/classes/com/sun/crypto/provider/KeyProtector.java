@@ -99,7 +99,7 @@ final class KeyProtector {
     {
         // create a random salt (8 bytes)
         byte[] salt = new byte[8];
-        SunJCE.RANDOM.nextBytes(salt);
+        SunJCE.getRandom().nextBytes(salt);
 
         // create PBE parameters from salt and iteration count
         PBEParameterSpec pbeSpec = new PBEParameterSpec(salt, 20);
@@ -284,7 +284,7 @@ final class KeyProtector {
     {
         // create a random salt (8 bytes)
         byte[] salt = new byte[8];
-        SunJCE.RANDOM.nextBytes(salt);
+        SunJCE.getRandom().nextBytes(salt);
 
         // create PBE parameters from salt and iteration count
         PBEParameterSpec pbeSpec = new PBEParameterSpec(salt, 20);

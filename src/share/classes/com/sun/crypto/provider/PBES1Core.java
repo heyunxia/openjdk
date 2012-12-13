@@ -164,7 +164,7 @@ final class PBES1Core {
         AlgorithmParameters params = null;
         if (salt == null) {
             salt = new byte[8];
-            SunJCE.RANDOM.nextBytes(salt);
+            SunJCE.getRandom().nextBytes(salt);
         }
         PBEParameterSpec pbeSpec = new PBEParameterSpec(salt, iCount);
         try {

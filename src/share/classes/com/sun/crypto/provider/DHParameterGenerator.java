@@ -131,7 +131,7 @@ extends AlgorithmParameterGeneratorSpi {
         }
 
         if (this.random == null)
-            this.random = SunJCE.RANDOM;
+            this.random = SunJCE.getRandom();
 
         try {
             AlgorithmParameterGenerator paramGen;

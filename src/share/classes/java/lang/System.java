@@ -25,6 +25,7 @@
 package java.lang;
 
 import java.io.*;
+import java.lang.reflect.Module;
 import java.util.Properties;
 import java.util.PropertyPermission;
 import java.util.StringTokenizer;
@@ -1201,6 +1202,9 @@ public final class System {
             }
             public void blockedOn(Thread t, Interruptible b) {
                 t.blockedOn(b);
+            }
+            public void setModule(Class c, Module m) {
+                c.setModule(m);
             }
             public void registerShutdownHook(int slot, boolean registerShutdownInProgress, Runnable hook) {
                 Shutdown.add(slot, registerShutdownInProgress, hook);

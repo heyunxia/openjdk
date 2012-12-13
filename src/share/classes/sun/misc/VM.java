@@ -222,7 +222,7 @@ public class VM {
      * in which all permissions are granted.
      */
     public static boolean isSystemDomainLoader(ClassLoader loader) {
-        return loader == null;
+        return org.openjdk.jigsaw.Platform.isPlatformLoader(loader);
     }
 
     /**
@@ -298,6 +298,12 @@ public class VM {
 
         // used by sun.launcher.LauncherHelper
         props.remove("sun.java.launcher.diag");
+
+        // used by sun.misc.Launcher
+
+        props.remove("sun.boot.module.classpath");
+        props.remove("sun.boot.class.prepend.path");
+        props.remove("sun.boot.class.append.path");
     }
 
     // Initialize any miscellenous operating system settings that need to be

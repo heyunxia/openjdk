@@ -70,12 +70,13 @@ sanity-base: pre-sanity \
     sane-cacerts \
     sane-ant_version \
     sane-zip_version \
-    sane-msvcrt_path
+    sane-msvcrt_path \
+    sane-build_modules
 
 # The rules sanity-* have a one-to-one correspondence with the major targets
 # Each sanity-* rule should have no body to ensure that the post-sanity-* is the
-# last rule executed. The pre-sanity rule should be the first dependency. This design 
-# expects the execution of pre-sanity only once per gnumake command invocation, 
+# last rule executed. The pre-sanity rule should be the first dependency. This design
+# expects the execution of pre-sanity only once per gnumake command invocation,
 # thus, info written to ERROR_FILE and/or WARNING_FILE will not be removed by subsequent
 # targets in the same 'gnumake' command line.
 
@@ -91,10 +92,11 @@ sanity-all:: sanity-base \
     sane-alt_bootdir \
     sane-bootdir \
     sane-local-bootdir \
+    sane-alt_host_path \
     sane-alsa-headers
 
 ifdef OPENJDK
-sanity-all:: sane-freetype 
+sanity-all:: sane-freetype
 endif
 
 
@@ -103,6 +105,10 @@ ifneq ($(PLATFORM), windows)
 sanity-all:: \
     sane-cups
 endif
+
+# Check Berkeley DB import library/headers
+sanity-all:: \
+    sane-libdb
 
 # Always check hotspot binary paths even if we are building them from scratch
 HOTSPOT_IMPORT_CHECK=true

@@ -38,6 +38,8 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 
 import sun.util.spi.XmlPropertiesProvider;
+import java.lang.module.RequireOptionalModule;
+import java.lang.module.ModuleNotPresentException;
 
 /**
  * The {@code Properties} class represents a persistent set of
@@ -869,14 +871,18 @@ class Properties extends Hashtable<Object,Object> {
      * @throws InvalidPropertiesFormatException Data on input stream does not
      *         constitute a valid XML document with the mandated document type.
      * @throws NullPointerException if {@code in} is null.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #storeToXML(OutputStream, String, String)
      * @see    <a href="http://www.w3.org/TR/REC-xml/#charencoding">Character
      *         Encoding in Entities</a>
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public synchronized void loadFromXML(InputStream in)
         throws IOException, InvalidPropertiesFormatException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         XmlSupport.load(this, Objects.requireNonNull(in));
         in.close();
     }
@@ -898,12 +904,16 @@ class Properties extends Hashtable<Object,Object> {
      * @throws ClassCastException  if this {@code Properties} object
      *         contains any keys or values that are not
      *         {@code Strings}.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #loadFromXML(InputStream)
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void storeToXML(OutputStream os, String comment)
         throws IOException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         storeToXML(os, comment, "UTF-8");
     }
 
@@ -941,14 +951,18 @@ class Properties extends Hashtable<Object,Object> {
      * @throws ClassCastException  if this {@code Properties} object
      *         contains any keys or values that are not
      *         {@code Strings}.
+     * @throws ModuleNotPresentException if XML module is not present.
      * @see    #loadFromXML(InputStream)
      * @see    <a href="http://www.w3.org/TR/REC-xml/#charencoding">Character
      *         Encoding in Entities</a>
      * @since 1.5
      */
+    @RequireOptionalModule("jdk.jaxp")
     public void storeToXML(OutputStream os, String comment, String encoding)
         throws IOException
     {
+        Properties.class.requireModulePresent("jdk.jaxp");
+
         XmlSupport.save(this, Objects.requireNonNull(os), comment,
                         Objects.requireNonNull(encoding));
     }

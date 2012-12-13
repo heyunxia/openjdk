@@ -98,7 +98,7 @@ final class KeyGeneratorCore {
     // generate the key
     SecretKey implGenerateKey() {
         if (random == null) {
-            random = SunJCE.RANDOM;
+            random = SunJCE.getRandom();
         }
         byte[] b = new byte[(keySize + 7) >> 3];
         random.nextBytes(b);

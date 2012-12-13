@@ -27,6 +27,7 @@ BUILDDIR = ../../..
 PACKAGE = com.apple.osx
 LIBRARY = osx
 PRODUCT = sun
+MODULE = base
 include $(BUILDDIR)/common/Defs.gmk
 
 

@@ -109,8 +109,6 @@ else
   # debug variants always get Full Debug Symbols (if available)
   ENABLE_FULL_DEBUG_SYMBOLS = 1
 endif
-_JUNK_ := $(shell \
-  echo >&2 "INFO: ENABLE_FULL_DEBUG_SYMBOLS=$(ENABLE_FULL_DEBUG_SYMBOLS)")
 # since objcopy is optional, we set ZIP_DEBUGINFO_FILES later
 
 ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
@@ -118,7 +116,6 @@ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
   DEF_OBJCOPY=/usr/sfw/bin/gobjcopy
   OBJCOPY=$(shell test -x $(DEF_OBJCOPY) && echo $(DEF_OBJCOPY))
   ifneq ($(ALT_OBJCOPY),)
-    _JUNK_ := $(shell echo >&2 "INFO: ALT_OBJCOPY=$(ALT_OBJCOPY)")
     # disable .debuginfo support by setting ALT_OBJCOPY to a non-existent path
     OBJCOPY=$(shell test -x $(ALT_OBJCOPY) && echo $(ALT_OBJCOPY))
   endif
@@ -131,13 +128,8 @@ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
   # particular library or program supports FDS.
 
   ifeq ($(OBJCOPY),)
-    _JUNK_ := $(shell \
-      echo >&2 "INFO: no objcopy cmd found so cannot create .debuginfo files.")
     ENABLE_FULL_DEBUG_SYMBOLS=0
   else
-    _JUNK_ := $(shell \
-      echo >&2 "INFO: $(OBJCOPY) cmd found so will create .debuginfo files.")
-
     # Library stripping policies for .debuginfo configs:
     #   all_strip - strips everything from the library
     #   min_strip - strips most stuff from the library; leaves minimum symbols
@@ -149,14 +141,7 @@ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
     #
     # Currently, STRIP_POLICY is only used when Full Debug Symbols is enabled.
     STRIP_POLICY ?= min_strip
-
-    _JUNK_ := $(shell \
-      echo >&2 "INFO: STRIP_POLICY=$(STRIP_POLICY)")
-
     ZIP_DEBUGINFO_FILES ?= 1
-
-    _JUNK_ := $(shell \
-      echo >&2 "INFO: ZIP_DEBUGINFO_FILES=$(ZIP_DEBUGINFO_FILES)")
   endif
 endif
 
@@ -792,7 +777,6 @@ JA_SOURCE_ENCODING = eucJP
 JA_TARGET_ENCODINGS = eucJP UTF-8 PCK
 
 # Settings for the JDI - Serviceability Agent binding.
-HOTSPOT_SALIB_PATH   = $(HOTSPOT_IMPORT_PATH)/jre/lib/$(LIBARCH)
 SALIB_NAME = $(LIB_PREFIX)saproc.$(LIBRARY_SUFFIX)
 SA_DEBUGINFO_NAME = $(LIB_PREFIX)saproc.debuginfo
 SA_DIZ_NAME = $(LIB_PREFIX)saproc.diz

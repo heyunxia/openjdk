@@ -140,7 +140,7 @@ public final class DHKeyPairGenerator extends KeyPairGeneratorSpi {
      */
     public KeyPair generateKeyPair() {
         if (random == null) {
-            random = SunJCE.RANDOM;
+            random = SunJCE.getRandom();
         }
 
         if (params == null) {

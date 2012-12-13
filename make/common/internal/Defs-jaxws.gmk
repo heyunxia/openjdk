@@ -65,3 +65,12 @@ IMPORT_TOOLS_PACKAGES += \
      com/sun/tools/internal/ws/wscompile/plugin/at_generated
 
 
+#
+# Modules that contain IMPORT_RT_PACKAGES and IMPORT_TOOLS_PACKAGES
+#
+IMPORT_RT_MODULES += \
+     $(JAXWS_MODULE) \
+     $(JX_ANNOTATION_MODULE)
+
+IMPORT_TOOLS_MODULES += \
+     $(JAXWS_TOOLS_MODULE)

@@ -29,6 +29,7 @@ NO_ROBOT = true
 MOTIF_VERSION = none
 MOTIF_VERSION_STRING=none
 
+MODULE  = awt
 PACKAGE = sun.awt
 LIBRARY = awt_headless
 PRODUCT = sun

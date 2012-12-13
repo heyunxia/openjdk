@@ -222,6 +222,7 @@ ALL_SETTINGS+=$(call addHeading,External File/Binary Locations)
 ALL_SETTINGS+=$(call addRequiredSetting,USRJDKINSTANCES_PATH)
 ALL_SETTINGS+=$(call addAltSetting,BUILD_JDK_IMPORT_PATH)
 ALL_SETTINGS+=$(call addAltSetting,JDK_IMPORT_PATH)
+ALL_SETTINGS+=$(call addAltSetting,JDK_HOST_PATH)
 ALL_SETTINGS+=$(call addAltSetting,LANGTOOLS_DIST)
 ALL_SETTINGS+=$(call addAltSetting,CORBA_DIST)
 ALL_SETTINGS+=$(call addAltSetting,JAXP_DIST)
@@ -254,6 +255,13 @@ ifndef OPENJDK
 endif
 ifneq ($(PLATFORM),windows)
   ALL_SETTINGS+=$(call addAltSetting,CUPS_HEADERS_PATH)
+endif
+ifdef USE_SYSTEM_BDB
+  ifneq ($(PLATFORM), windows)
+    ALL_SETTINGS+=$(call addAltSetting,BDB_HEADERS_PATH)
+  endif
+else
+  ALL_SETTINGS+=$(call addAltSetting,BDB_IMPORT_PATH)
 endif
 
 ifdef OPENJDK

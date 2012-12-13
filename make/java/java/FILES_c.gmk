@@ -61,6 +61,7 @@ FILES_c = \
 	io_util.c \
 	io_util_md.c \
 	jio.c \
+	jigsaw.c \
 	logging.c \
 	jni_util.c \
 	jni_util_md.c \
@@ -78,4 +79,7 @@ FILES_c = \
 	Version.c \
 	VM.c \
 	VMSupport.c \
-	HostLocaleProviderAdapter_md.c
+	HostLocaleProviderAdapter_md.c \
+        ClassPathContext.c \
+        PersistentTreeMap.c \
+        PersistentTreeMap_md.c \
