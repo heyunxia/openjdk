@@ -275,10 +275,10 @@ public class ClassPathContext {
     }
 
     private static String[] toolsModules() {
-        // jdk.tools.jre is not in this list because its classes are
-        // included in rt.jar in the legacy image.
+        // jdk.tools.base and jdk.tools.jre are not in this list because some classes
+        // (e.g. keytool, policytool) are included in rt.jar in the legacy image.
         String[] modules = new String[] {
-            "jdk.tools.base", "jdk.tools.jaxws", "jdk.tools", "jdk.devtools"
+            "jdk.tools.jaxws", "jdk.tools", "jdk.devtools"
         };
         // ## modulepath
         // JDK development build - all classes are loaded by bootstrap loader
