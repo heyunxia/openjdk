@@ -28,6 +28,7 @@
 #include "classfile/classLoader.hpp"
 #include "classfile/classLoaderData.inline.hpp"
 #include "classfile/javaClasses.hpp"
+#include "classfile/jigsaw.h"
 #include "classfile/systemDictionary.hpp"
 #include "classfile/vmSymbols.hpp"
 #include "compiler/compileBroker.hpp"
@@ -90,6 +91,13 @@ static ReadMappedEntry_t ReadMappedEntry    = NULL;
 static GetNextEntry_t    GetNextEntry       = NULL;
 static canonicalize_fn_t CanonicalizeEntry  = NULL;
 
+// Entry points for libjava.so for loading modules
+static load_module_context_fn_t JDK_LoadContexts = NULL;
+static find_local_module_class_fn_t JDK_FindLocalClass = NULL;
+static read_local_module_class_fn_t JDK_ReadLocalClass = NULL;
+static get_module_info_fn_t JDK_GetModuleInfo = NULL;
+static get_system_module_library_fn_t JDK_GetSystemModuleLibraryPath = NULL;
+
 // Globals
 
 PerfCounter*    ClassLoader::_perf_accumulated_time = NULL;
@@ -107,12 +115,17 @@ PerfCounter*    ClassLoader::_perf_class_parse_selftime = NULL;
 PerfCounter*    ClassLoader::_perf_sys_class_lookup_time = NULL;
 PerfCounter*    ClassLoader::_perf_shared_classload_time = NULL;
 PerfCounter*    ClassLoader::_perf_sys_classload_time = NULL;
+PerfCounter*    ClassLoader::_perf_sys_classload_selftime = NULL;
+PerfCounter*    ClassLoader::_perf_sys_classload_count = NULL;
 PerfCounter*    ClassLoader::_perf_app_classload_time = NULL;
 PerfCounter*    ClassLoader::_perf_app_classload_selftime = NULL;
 PerfCounter*    ClassLoader::_perf_app_classload_count = NULL;
 PerfCounter*    ClassLoader::_perf_define_appclasses = NULL;
 PerfCounter*    ClassLoader::_perf_define_appclass_time = NULL;
 PerfCounter*    ClassLoader::_perf_define_appclass_selftime = NULL;
+PerfCounter*    ClassLoader::_perf_define_sysclasses = NULL;
+PerfCounter*    ClassLoader::_perf_define_sysclass_time = NULL;
+PerfCounter*    ClassLoader::_perf_define_sysclass_selftime = NULL;
 PerfCounter*    ClassLoader::_perf_app_classfile_bytes_read = NULL;
 PerfCounter*    ClassLoader::_perf_sys_classfile_bytes_read = NULL;
 PerfCounter*    ClassLoader::_sync_systemLoaderLockContentionRate = NULL;
@@ -123,10 +136,16 @@ PerfCounter*    ClassLoader::_sync_JNIDefineClassLockFreeCounter = NULL;
 PerfCounter*    ClassLoader::_unsafe_defineClassCallCounter = NULL;
 PerfCounter*    ClassLoader::_isUnsyncloadClass = NULL;
 PerfCounter*    ClassLoader::_load_instance_class_failCounter = NULL;
+PerfCounter*    ClassLoader::_perf_getstackacc_count = NULL;
+PerfCounter*    ClassLoader::_perf_getstackacc_frames_count = NULL;
+PerfCounter*    ClassLoader::_perf_getstackacc_priv_count = NULL;
+PerfCounter*    ClassLoader::_perf_getstackacc_newacc_count = NULL;
 
 ClassPathEntry* ClassLoader::_first_entry         = NULL;
 ClassPathEntry* ClassLoader::_last_entry          = NULL;
 PackageHashtable* ClassLoader::_package_hash_table = NULL;
+void*           ClassLoader::_base_context         = NULL;
+char*           ClassLoader::_libpath              = NULL;
 
 // helper routines
 bool string_starts_with(const char* str, const char* str_to_find) {
@@ -343,7 +362,10 @@ void ClassLoader::setup_meta_index() {
   const char* known_version = "% VERSION 2";
   char* meta_index_path = Arguments::get_meta_index_path();
   char* meta_index_dir  = Arguments::get_meta_index_dir();
-  FILE* file = fopen(meta_index_path, "r");
+  FILE* file = NULL;
+  if (meta_index_path != NULL) { // Will be null if we booted from a module
+    file = fopen(meta_index_path, "r");
+  }
   int line_no = 0;
   if (file != NULL) {
     ResourceMark rm;
@@ -448,6 +470,7 @@ void ClassLoader::setup_bootstrap_search_path() {
 
   int len = (int)strlen(sys_class_path);
   int end = 0;
+  int total_found = 0;
 
   // Iterate over class path entries
   for (int start = 0; start < len; start = end) {
@@ -457,7 +480,20 @@ void ClassLoader::setup_bootstrap_search_path() {
     char* path = NEW_C_HEAP_ARRAY(char, end-start+1, mtClass);
     strncpy(path, &sys_class_path[start], end-start);
     path[end-start] = '\0';
-    update_class_path_entry_list(path, false);
+    bool found = update_class_path_entry_list(path, false);
+    
+    if (found) {
+      total_found++;
+    }
+
+    if (UseModuleNativeLibs && Arguments::has_module_image()) {
+      if (Arguments::boot_module_index() == 0) {
+        if (strcmp(path, Arguments::get_boot_module_base()) == 0) {
+          Arguments::set_boot_module_index(total_found-1);
+        }
+      }
+    }
+
     FREE_C_HEAP_ARRAY(char, path, mtClass);
     while (sys_class_path[end] == os::path_separator()[0]) {
       end++;
@@ -572,21 +608,28 @@ void ClassLoader::add_to_list(ClassPathEntry *new_entry) {
   }
 }
 
-void ClassLoader::update_class_path_entry_list(const char *path,
+// returns true if entry is added to the list
+bool ClassLoader::update_class_path_entry_list(const char *path,
                                                bool check_for_duplicates) {
   struct stat st;
+  bool found = false;
   if (os::stat((char *)path, &st) == 0) {
     // File or directory found
     ClassPathEntry* new_entry = NULL;
     create_class_path_entry((char *)path, st, &new_entry, LazyBootClassLoader);
-    // The kernel VM adds dynamically to the end of the classloader path and
-    // doesn't reorder the bootclasspath which would break java.lang.Package
-    // (see PackageInfo).
-    // Add new entry to linked list
+    // The kernel VM, and Jigsaw, add dynamically to the end of the classloader
+    // path and don't reorder the bootclasspath, which would break
+    // java.lang.Package (see PackageInfo).
     if (!check_for_duplicates || !contains_entry(new_entry)) {
+      // Add new entry to linked list
       add_to_list(new_entry);
+      found = true;
+      if (TraceClassLoading) {
+        print_bootclasspath();
+      }
     }
   }
+  return found;
 }
 
 void ClassLoader::print_bootclasspath() {
@@ -631,6 +674,23 @@ void ClassLoader::load_zip_library() {
   CanonicalizeEntry = CAST_TO_FN_PTR(canonicalize_fn_t, os::dll_lookup(javalib_handle, "Canonicalize"));
   // This lookup only works on 1.3. Do not check for non-null here
 }
+
+void ClassLoader::load_module_search_library() {
+  // Lookup module entries in libjava.dll
+  void *javalib_handle = os::native_java_library();
+
+  JDK_GetSystemModuleLibraryPath = CAST_TO_FN_PTR(get_system_module_library_fn_t, os::dll_lookup(javalib_handle, "JDK_GetSystemModuleLibraryPath"));
+  
+  JDK_LoadContexts = CAST_TO_FN_PTR(load_module_context_fn_t, os::dll_lookup(javalib_handle, "JDK_LoadContexts"));
+  JDK_FindLocalClass = CAST_TO_FN_PTR(find_local_module_class_fn_t, os::dll_lookup(javalib_handle, "JDK_FindLocalClass"));
+  JDK_ReadLocalClass = CAST_TO_FN_PTR(read_local_module_class_fn_t, os::dll_lookup(javalib_handle, "JDK_ReadLocalClass"));
+  JDK_GetModuleInfo = CAST_TO_FN_PTR(get_module_info_fn_t, os::dll_lookup(javalib_handle, "JDK_GetModuleInfo"));
+
+  if (JDK_LoadContexts == NULL || JDK_FindLocalClass == NULL || JDK_ReadLocalClass == NULL || JDK_GetSystemModuleLibraryPath == NULL) {
+      vm_exit_during_initialization("Corrupted Module Native library");
+  }
+}
+
 
 // PackageInfo data exists in order to support the java.lang.Package
 // class.  A Package object provides information about a java package
@@ -834,7 +894,7 @@ bool ClassLoader::add_package(const char *pkgname, int classpath_index, TRAPS) {
   }
 }
 
-
+// With module images, the JDK has a module loader that knows package -> module source information
 oop ClassLoader::get_system_package(const char* name, TRAPS) {
   PackageInfo* pp;
   {
@@ -849,7 +909,7 @@ oop ClassLoader::get_system_package(const char* name, TRAPS) {
   }
 }
 
-
+// With module images, the JDK has a module loader that knows package -> module source information
 objArrayOop ClassLoader::get_system_packages(TRAPS) {
   ResourceMark rm(THREAD);
   int nof_entries;
@@ -875,11 +935,159 @@ objArrayOop ClassLoader::get_system_packages(TRAPS) {
   return result();
 }
 
-
-instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
+instanceKlassHandle ClassLoader::load_class_from_module_library(Symbol* h_name, TRAPS) {
   ResourceMark rm(THREAD);
   EventMark m("loading class " INTPTR_FORMAT, (address)h_name);
   ThreadProfilerMark tpm(ThreadProfilerMark::classLoaderRegion);
+
+  stringStream st;
+  // st.print() uses too much stack space while handling a StackOverflowError
+  // st.print("%s.class", h_name->as_utf8());
+  st.print_raw(h_name->as_utf8());
+  //  st.print_raw(".class");
+  char* name = st.as_string();
+  
+  instanceKlassHandle result;
+  ClassFileStream* stream = NULL;
+
+  char *java_home = Arguments::get_java_home();
+  // TODO: check modulequery format?
+  // TODO: note: libs don't support @version yet - just give a classname
+  const char* modulequery = Arguments::sun_java_launcher_module();
+  const char* modulepath = NULL;
+
+  void *module;
+
+  jint len = 0;
+  jint getliberr = 0;
+  jint contexterr = 0;
+  jint finderr = 0;
+  jint readerr = 0;
+  jint getinfoerr = 0;
+
+  JavaThread* jt = (JavaThread*)THREAD;
+
+  {
+    ThreadToNativeFromVM ttn(jt);
+    if (_base_context == NULL) {
+      _libpath = (char *)Arguments::sun_java_launcher_module_library();
+      if (_libpath != NULL) {
+        // check if file exists
+        struct stat st;
+        if (os::stat(_libpath, &st) != 0) {
+          _libpath = NULL;
+        }
+      }
+
+      if (_libpath == NULL) {
+        // First find the default module library if not set via -L
+        _libpath = (char*) NEW_RESOURCE_ARRAY(char, JVM_MAXPATHLEN);
+        getliberr = JDK_GetSystemModuleLibraryPath(java_home, _libpath, JVM_MAXPATHLEN);
+      }
+      if (getliberr == 0) {
+        // Next load the context of the module query (name@version) in the module library
+        contexterr = JDK_LoadContexts(_libpath, modulepath, modulequery, &_base_context);
+        if (contexterr != 0) {
+          if (TraceClassLoading && Verbose) {
+            tty->print("[module context not found for modulequery(null for non-modular app): %s in libpath:%s,  error:%d]\n", 
+            modulequery==NULL ? "NULL" : modulequery, _libpath, contexterr);
+          }
+        }
+      } else {
+        if (TraceClassLoading && Verbose) {
+          tty->print("[default module library not found, error:%d]\n", getliberr);
+        }
+      }
+    }
+  
+    if (_base_context != NULL) {
+      PerfClassTraceTime vmtimer(perf_sys_class_lookup_time(),
+                                 jt->get_thread_stat()->perf_timers_addr(),
+                                 PerfClassTraceTime::CLASS_LOAD);
+      // Find the class local to the base context
+      finderr = JDK_FindLocalClass(_base_context, name, &module, &len);
+  
+      if (finderr == 0) {
+        // Read contents into resource array
+        u1* buffer = NEW_RESOURCE_ARRAY(u1, len);
+        jint readerr = JDK_ReadLocalClass(module, name, buffer, len);
+        if (readerr == 0) {
+          jmodule minfo;
+          JDK_GetModuleInfo(module, &minfo);
+          if (UsePerfData) {
+            ClassLoader::perf_sys_classfile_bytes_read()->inc(len);
+          }
+          stream = new ClassFileStream(buffer, len, (char*)minfo.source); // Resource allocated
+        }
+      } else {
+        if (TraceClassLoading && Verbose) {
+          tty->print("[module class not found:%s, err:%d]\n", name, finderr);
+        }
+      }
+    // close lookup_time
+    } 
+  }
+
+  if (stream != NULL) {
+    instanceKlassHandle ikh;
+    {
+      PerfClassTraceTime vmtimer(ClassLoader::perf_define_sysclass_time(),
+                                 ClassLoader::perf_define_sysclass_selftime(),
+                                 ClassLoader::perf_define_sysclasses(),
+                                 jt->get_thread_stat()->perf_recursion_counts_addr(),
+                                 jt->get_thread_stat()->perf_timers_addr(),
+                                 PerfClassTraceTime::DEFINE_CLASS);
+
+      // class file found, parse it
+      ClassFileParser parser(stream);
+      ClassLoaderData* loader_data = ClassLoaderData::the_null_class_loader_data();
+      Handle protection_domain;
+      TempNewSymbol parsed_name = NULL;
+      ikh = parser.parseClassFile(h_name,
+                                  loader_data,
+                                  protection_domain,
+                                  parsed_name,
+                                  false,
+                                  CHECK_(result));
+    } // end of timer
+    // add to package table
+    // JDK will match this name and look up the actual module in the module library
+    if (add_package(name, Arguments::boot_module_index(), THREAD)) {
+      result = ikh;
+    }
+  }
+  return result;
+}
+
+instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
+
+  instanceKlassHandle nk;
+
+  // Have to check both, command-line can set UseModuleNativeLibs after
+  // we determine there is no module image
+  if (UseModuleNativeLibs && Arguments::has_module_image()) {
+    // search prepended path
+    nk = load_class_from_classpath(h_name, 0, Arguments::boot_module_index(),CHECK_(nk));
+    // search module library
+    if (nk == NULL) {
+      nk = load_class_from_module_library(h_name, CHECK_(nk));
+      // search appended path
+      if (nk == NULL) {
+        nk = load_class_from_classpath(h_name, Arguments::boot_module_index()+1, JVM_MAXPATHLEN, CHECK_(nk));
+      }
+    }
+  } else {
+    nk = load_class_from_classpath(h_name, 0, JVM_MAXPATHLEN, CHECK_(nk));
+  }
+  return nk;
+}
+
+// Search bootclasspath from (inclusive) to end (exclusive)
+instanceKlassHandle ClassLoader::load_class_from_classpath(Symbol* h_name, int start, int end, TRAPS) {
+  ResourceMark rm(THREAD);
+  EventMark m("loading class " INTPTR_FORMAT, (address)h_name);
+  ThreadProfilerMark tpm(ThreadProfilerMark::classLoaderRegion);
+  JavaThread* jt = (JavaThread*)THREAD;
 
   stringStream st;
   // st.print() uses too much stack space while handling a StackOverflowError
@@ -890,13 +1098,13 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
 
   // Lookup stream for parsing .class file
   ClassFileStream* stream = NULL;
-  int classpath_index = 0;
+  int classpath_index = start;
   {
     PerfClassTraceTime vmtimer(perf_sys_class_lookup_time(),
-                               ((JavaThread*) THREAD)->get_thread_stat()->perf_timers_addr(),
+                               jt->get_thread_stat()->perf_timers_addr(),
                                PerfClassTraceTime::CLASS_LOAD);
     ClassPathEntry* e = _first_entry;
-    while (e != NULL) {
+    while (e != NULL && classpath_index < end) {
       stream = e->open_stream(name);
       if (stream != NULL) {
         break;
@@ -908,19 +1116,28 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
 
   instanceKlassHandle h;
   if (stream != NULL) {
+     instanceKlassHandle result;
+    {
+      PerfClassTraceTime vmtimer(ClassLoader::perf_define_sysclass_time(),
+                                 ClassLoader::perf_define_sysclass_selftime(),
+                                 ClassLoader::perf_define_sysclasses(),
+                                 jt->get_thread_stat()->perf_recursion_counts_addr(),
+                                 jt->get_thread_stat()->perf_timers_addr(),
+                                 PerfClassTraceTime::DEFINE_CLASS);
 
-    // class file found, parse it
-    ClassFileParser parser(stream);
-    ClassLoaderData* loader_data = ClassLoaderData::the_null_class_loader_data();
-    Handle protection_domain;
-    TempNewSymbol parsed_name = NULL;
-    instanceKlassHandle result = parser.parseClassFile(h_name,
-                                                       loader_data,
-                                                       protection_domain,
-                                                       parsed_name,
-                                                       false,
-                                                       CHECK_(h));
+      // class file found, parse it
+      ClassFileParser parser(stream);
+      ClassLoaderData* loader_data = ClassLoaderData::the_null_class_loader_data();
+      Handle protection_domain;
+      TempNewSymbol parsed_name = NULL;
+      result = parser.parseClassFile(h_name,
+                                     loader_data,
+                                     protection_domain,
+                                     parsed_name,
+                                     false,
+                                     CHECK_(h));
 
+      } // end of timer
     // add to package table
     if (add_package(name, classpath_index, THREAD)) {
       h = result;
@@ -974,12 +1191,19 @@ void ClassLoader::initialize() {
     NEWPERFTICKCOUNTER(_perf_sys_class_lookup_time, SUN_CLS, "lookupSysClassTime");
     NEWPERFTICKCOUNTER(_perf_shared_classload_time, SUN_CLS, "sharedClassLoadTime");
     NEWPERFTICKCOUNTER(_perf_sys_classload_time, SUN_CLS, "sysClassLoadTime");
+    NEWPERFTICKCOUNTER(_perf_sys_classload_selftime, SUN_CLS, "sysClassLoadTime.self");
+    NEWPERFEVENTCOUNTER(_perf_sys_classload_count, SUN_CLS, "sysClassLoadCount");
+
     NEWPERFTICKCOUNTER(_perf_app_classload_time, SUN_CLS, "appClassLoadTime");
     NEWPERFTICKCOUNTER(_perf_app_classload_selftime, SUN_CLS, "appClassLoadTime.self");
     NEWPERFEVENTCOUNTER(_perf_app_classload_count, SUN_CLS, "appClassLoadCount");
+
     NEWPERFTICKCOUNTER(_perf_define_appclasses, SUN_CLS, "defineAppClasses");
     NEWPERFTICKCOUNTER(_perf_define_appclass_time, SUN_CLS, "defineAppClassTime");
     NEWPERFTICKCOUNTER(_perf_define_appclass_selftime, SUN_CLS, "defineAppClassTime.self");
+    NEWPERFTICKCOUNTER(_perf_define_sysclasses, SUN_CLS, "defineSysClasses");
+    NEWPERFTICKCOUNTER(_perf_define_sysclass_time, SUN_CLS, "defineSysClassTime");
+    NEWPERFTICKCOUNTER(_perf_define_sysclass_selftime, SUN_CLS, "defineSysClassTime.self");
     NEWPERFBYTECOUNTER(_perf_app_classfile_bytes_read, SUN_CLS, "appClassBytes");
     NEWPERFBYTECOUNTER(_perf_sys_classfile_bytes_read, SUN_CLS, "sysClassBytes");
 
@@ -1014,18 +1238,30 @@ void ClassLoader::initialize() {
     if (UnsyncloadClass) {
       _isUnsyncloadClass->inc();
     }
+    NEWPERFEVENTCOUNTER(_perf_getstackacc_count, SUN_CLS, "getStackACCCount");
+    NEWPERFEVENTCOUNTER(_perf_getstackacc_frames_count, SUN_CLS, "getStackACCFrames");
+    NEWPERFEVENTCOUNTER(_perf_getstackacc_priv_count, SUN_CLS, "getStackACCPrivFound");
+    NEWPERFEVENTCOUNTER(_perf_getstackacc_newacc_count, SUN_CLS, "getStackACCNewACCCount");
   }
 
-  // lookup zip library entry points
+  // lookup zip library entry points, note libjava.dll also counts on zip library for modules
   load_zip_library();
   // initialize search path
   setup_bootstrap_search_path();
+
+  // If we have already committed to a module native library, load it
+  if (UseModuleNativeLibs && Arguments::has_module_image()) {
+    // lookup module loader entry points for module mode
+    load_module_search_library();
+    // No need for meta-index with module library
+    LazyBootClassLoader = false;
+  } 
+
   if (LazyBootClassLoader) {
     // set up meta index which makes boot classpath initialization lazier
     setup_meta_index();
   }
 }
-
 
 jlong ClassLoader::classloader_time_ms() {
   return UsePerfData ?

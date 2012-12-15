@@ -44,6 +44,7 @@
 #include "runtime/interfaceSupport.hpp"
 #include "runtime/javaCalls.hpp"
 #include "runtime/orderAccess.hpp"
+#include "services/threadService.hpp"
 #include "runtime/os.hpp"
 #ifdef TARGET_ARCH_x86
 # include "bytes_x86.hpp"
@@ -126,6 +127,19 @@ bool Verifier::verify(instanceKlassHandle klass, Verifier::Mode mode, bool shoul
     if (TraceClassInitialization) {
       tty->print_cr("Start class verification for: %s", klassName);
     }
+
+    assert(THREAD->is_Java_thread(), "non-JavaThread in verifier");
+    JavaThread* jt = (JavaThread*)THREAD;
+
+    // Timer includes any side effects of class verification (resolution,
+    // etc), but not recursive entry into verify_code().
+    PerfClassTraceTime timer(ClassLoader::perf_class_verify_time(),
+                             ClassLoader::perf_class_verify_selftime(),
+                             ClassLoader::perf_classes_verified(),
+                             jt->get_thread_stat()->perf_recursion_counts_addr(),
+                             jt->get_thread_stat()->perf_timers_addr(),
+                             PerfClassTraceTime::CLASS_VERIFY);
+
     if (UseSplitVerifier &&
         klass->major_version() >= STACKMAP_ATTRIBUTE_MAJOR_VERSION) {
       ClassVerifier split_verifier(klass, THREAD);

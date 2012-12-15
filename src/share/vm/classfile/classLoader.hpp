@@ -167,12 +167,17 @@ class ClassLoader: AllStatic {
   static PerfCounter* _perf_sys_class_lookup_time;
   static PerfCounter* _perf_shared_classload_time;
   static PerfCounter* _perf_sys_classload_time;
+  static PerfCounter* _perf_sys_classload_selftime;
+  static PerfCounter* _perf_sys_classload_count;
   static PerfCounter* _perf_app_classload_time;
   static PerfCounter* _perf_app_classload_selftime;
   static PerfCounter* _perf_app_classload_count;
   static PerfCounter* _perf_define_appclasses;
   static PerfCounter* _perf_define_appclass_time;
   static PerfCounter* _perf_define_appclass_selftime;
+  static PerfCounter* _perf_define_sysclasses;
+  static PerfCounter* _perf_define_sysclass_time;
+  static PerfCounter* _perf_define_sysclass_selftime;
   static PerfCounter* _perf_app_classfile_bytes_read;
   static PerfCounter* _perf_sys_classfile_bytes_read;
 
@@ -181,6 +186,11 @@ class ClassLoader: AllStatic {
   static PerfCounter* _sync_JVMFindLoadedClassLockFreeCounter;
   static PerfCounter* _sync_JVMDefineClassLockFreeCounter;
   static PerfCounter* _sync_JNIDefineClassLockFreeCounter;
+
+  static PerfCounter* _perf_getstackacc_count;
+  static PerfCounter* _perf_getstackacc_frames_count;
+  static PerfCounter* _perf_getstackacc_priv_count;
+  static PerfCounter* _perf_getstackacc_newacc_count;
 
   static PerfCounter* _unsafe_defineClassCallCounter;
   static PerfCounter* _isUnsyncloadClass;
@@ -193,6 +203,9 @@ class ClassLoader: AllStatic {
   // Hash table used to keep track of loaded packages
   static PackageHashtable* _package_hash_table;
   static const char* _shared_archive;
+  // For module library loading
+  static void* _base_context;
+  static char* _libpath;
 
   // Hash function
   static unsigned int hash(const char *s, int n);
@@ -207,14 +220,21 @@ class ClassLoader: AllStatic {
   static void setup_meta_index();
   static void setup_bootstrap_search_path();
   static void load_zip_library();
+  static void load_module_search_library();
   static void create_class_path_entry(char *path, struct stat st, ClassPathEntry **new_entry, bool lazy);
 
   // Canonicalizes path names, so strcmp will work properly. This is mainly
   // to avoid confusing the zip library
   static bool get_canonical_path(char* orig, char* out, int len);
+
+  // Load individual .class file from a module library 
+  static instanceKlassHandle load_class_from_module_library(Symbol* h_name, TRAPS);
+  // Load individual .class file from classpath
+  static instanceKlassHandle load_class_from_classpath(Symbol* h_name, int start, int end, TRAPS);
+
  public:
-  // Used by the kernel jvm.
-  static void update_class_path_entry_list(const char *path,
+  // Used by the kernel jvm, and by Jigsaw via JVM_ExtendBootClassPath
+  static bool update_class_path_entry_list(const char *path,
                                            bool check_for_duplicates);
   static void print_bootclasspath();
 
@@ -237,11 +257,20 @@ class ClassLoader: AllStatic {
   static PerfCounter* perf_app_classload_time()       { return _perf_app_classload_time; }
   static PerfCounter* perf_app_classload_selftime()   { return _perf_app_classload_selftime; }
   static PerfCounter* perf_app_classload_count()      { return _perf_app_classload_count; }
+  static PerfCounter* perf_sys_classload_selftime()   { return _perf_sys_classload_selftime; }
+  static PerfCounter* perf_sys_classload_count()      { return _perf_sys_classload_count; }
   static PerfCounter* perf_define_appclasses()        { return _perf_define_appclasses; }
   static PerfCounter* perf_define_appclass_time()     { return _perf_define_appclass_time; }
   static PerfCounter* perf_define_appclass_selftime() { return _perf_define_appclass_selftime; }
+  static PerfCounter* perf_define_sysclasses()        { return _perf_define_sysclasses; }
+  static PerfCounter* perf_define_sysclass_time()     { return _perf_define_sysclass_time; }
+  static PerfCounter* perf_define_sysclass_selftime() { return _perf_define_sysclass_selftime; }
   static PerfCounter* perf_app_classfile_bytes_read() { return _perf_app_classfile_bytes_read; }
   static PerfCounter* perf_sys_classfile_bytes_read() { return _perf_sys_classfile_bytes_read; }
+  static PerfCounter* perf_getstackacc_count()        { return _perf_getstackacc_count; }
+  static PerfCounter* perf_getstackacc_priv_count()   { return _perf_getstackacc_priv_count; }
+  static PerfCounter* perf_getstackacc_frames_count() { return _perf_getstackacc_frames_count; }
+  static PerfCounter* perf_getstackacc_newacc_count() { return _perf_getstackacc_newacc_count; }
 
   // Record how often system loader lock object is contended
   static PerfCounter* sync_systemLoaderLockContentionRate() {

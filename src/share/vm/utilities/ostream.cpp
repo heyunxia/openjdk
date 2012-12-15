@@ -657,7 +657,9 @@ void defaultStream::init_log() {
       // Print it as a java-style property list.
       // System properties don't generally contain newlines, so don't bother with unparsing.
       for (SystemProperty* p = Arguments::system_properties(); p != NULL; p = p->next()) {
-        xs->text()->print_cr("%s=%s", p->key(), p->value());
+        if (p->value() != NULL) {
+          xs->text()->print_cr("%s=%s", p->key(), p->value());
+        }
       }
       xs->tail("properties");
     }

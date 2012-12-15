@@ -110,6 +110,7 @@
   template(sun_jkernel_DownloadManager,               "sun/jkernel/DownloadManager")              \
   template(getBootClassPathEntryForClass_name,        "getBootClassPathEntryForClass")            \
   template(sun_misc_PostVMInitHook,                   "sun/misc/PostVMInitHook")                  \
+  template(org_openjdk_jigsaw_BootLoader,             "org/openjdk/jigsaw/BootLoader")            \
   template(sun_misc_Launcher_ExtClassLoader,          "sun/misc/Launcher$ExtClassLoader")         \
                                                                                                   \
   /* Java runtime version access */                                                               \
@@ -321,6 +322,7 @@
   template(getFromClass_name,                         "getFromClass")                             \
   template(dispatch_name,                             "dispatch")                                 \
   template(getSystemClassLoader_name,                 "getSystemClassLoader")                     \
+  template(getBaseModuleLoader_name,                  "getBaseModuleLoader")                      \
   template(fillInStackTrace_name,                     "fillInStackTrace")                         \
   template(fillInStackTrace0_name,                    "fillInStackTrace0")                        \
   template(getCause_name,                             "getCause")                                 \
@@ -451,6 +453,7 @@
   template(int_int_void_signature,                    "(II)V")                                                    \
   template(long_long_void_signature,                  "(JJ)V")                                                    \
   template(void_classloader_signature,                "()Ljava/lang/ClassLoader;")                                \
+  template(void_module_bootloader_signature,          "()Lorg/openjdk/jigsaw/BootLoader;")                        \
   template(void_object_signature,                     "()Ljava/lang/Object;")                                     \
   template(void_class_signature,                      "()Ljava/lang/Class;")                                      \
   template(void_string_signature,                     "()Ljava/lang/String;")                                     \
