@@ -25,6 +25,7 @@
 
 package com.sun.tools.javac.tree;
 
+import com.sun.source.tree.RequiresFlag;
 import java.io.*;
 
 import com.sun.source.tree.MemberReferenceTree.ReferenceMode;
@@ -366,33 +367,40 @@ public class Pretty extends JCTree.Visitor {
      *  @param cdef     The class definition, which is assumed to be part of the
      *                  toplevel tree.
      */
+    @SuppressWarnings("fallthrough")
     public void printUnit(JCCompilationUnit tree, JCClassDecl cdef) throws IOException {
         docComments = tree.docComments;
         printDocComment(tree);
-        if (tree.pid != null) {
-            print("package ");
-            printExpr(tree.pid);
-            print(";");
-            println();
-        }
-        boolean firstImport = true;
-        for (List<JCTree> l = tree.defs;
-        l.nonEmpty() && (cdef == null || l.head.hasTag(IMPORT));
-        l = l.tail) {
-            if (l.head.hasTag(IMPORT)) {
-                JCImport imp = (JCImport)l.head;
-                Name name = TreeInfo.name(imp.qualid);
-                if (name == name.table.names.asterisk ||
-                        cdef == null ||
-                        isUsed(TreeInfo.symbol(imp.qualid), cdef)) {
-                    if (firstImport) {
-                        firstImport = false;
+        boolean inImports = false;
+        for (List<JCTree> l = tree.defs; l.nonEmpty(); l = l.tail) {
+            switch (l.head.getTag()) {
+                case IMPORT:
+                    JCImport imp = (JCImport)l.head;
+                    Name name = TreeInfo.name(imp.qualid);
+                    if (name == name.table.names.asterisk ||
+                            cdef == null ||
+                            isUsed(TreeInfo.symbol(imp.qualid), cdef)) {
+                        if (!inImports) {
+                            inImports = true;
+                            println();
+                        }
+                        printStat(imp);
+                    }
+                    break;
+
+                default:
+                    if (cdef != null)
+                        break;
+                    // fall-through
+
+                case MODULE:
+                case PACKAGE:
+                    if (inImports) {
+                        inImports = false;
                         println();
                     }
-                    printStat(imp);
-                }
-            } else {
-                printStat(l.head);
+                    printStat(l.head);
+                    break;
             }
         }
         if (cdef != null) {
@@ -423,6 +431,159 @@ public class Pretty extends JCTree.Visitor {
     public void visitTopLevel(JCCompilationUnit tree) {
         try {
             printUnit(tree, null);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitModuleDef(JCModuleDecl tree) {
+        try {
+            print("module ");
+            printExpr(tree.id);
+            if (tree.directives == null) {
+                print(";");
+            } else {
+                printBlock(tree.directives);
+            }
+            println();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitModuleId(JCModuleId tree) {
+        try {
+            printExpr(tree.qualId);
+            if (tree.version != null) {
+                print(" @ ");
+                print(tree.version);  // JIGSAW FIXME -- CHECK IF QUOTES REQUIRED
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitModuleQuery(JCModuleQuery tree) {
+        try {
+            printExpr(tree.qualId);
+            if (tree.versionQuery != null) {
+                print(" @ ");
+                print(tree.versionQuery);  // JIGSAW FIXME -- CHECK IF QUOTES REQUIRED
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitEntrypoint(JCEntrypointDirective tree) {
+        try {
+            print("class ");
+            printExpr(tree.qualId);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitExports(JCExportDirective tree) {
+        try {
+            print("export ");
+            printExpr(tree.qualid);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitPermits(JCPermitsDirective tree) {
+        try {
+            print("permits ");
+            printExpr(tree.moduleName);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitProvidesModule(JCProvidesModuleDirective tree) {
+        try {
+            print("provides ");
+            printExpr(tree.moduleId);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitProvidesService(JCProvidesServiceDirective tree) {
+        try {
+            print("provides service ");
+            printExpr(tree.serviceName);
+            print(" with ");
+            printExpr(tree.implName);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitRequiresModule(JCRequiresModuleDirective tree) {
+        try {
+            print("requires ");
+            for (List<RequiresFlag> l = tree.flags; l.nonEmpty(); l = l.tail ) {
+                print(l.head);
+                print(" ");
+            }
+            printExpr(tree.moduleQuery);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitRequiresService(JCRequiresServiceDirective tree) {
+        try {
+            print("requires service ");
+            for (List<RequiresFlag> l = tree.flags; l.nonEmpty(); l = l.tail ) {
+                print(l.head);
+                print(" ");
+            }
+            printExpr(tree.serviceName);
+            print(";");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void visitView(JCViewDecl tree) {
+        try {
+            print("module ");
+            printExpr(tree.name);
+            printBlock(tree.directives);
+            println();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void visitPackageDef(JCPackageDecl tree) {
+        try {
+            printAnnotations(tree.annots);
+            print("package ");
+            printExpr(tree.packageId);
+            print(";");
+            println();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

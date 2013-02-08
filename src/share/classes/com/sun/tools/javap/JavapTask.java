@@ -442,7 +442,7 @@ public class JavapTask implements DisassemblerTool.DisassemblerTask, Messages {
             handleOptions(args);
 
             // the following gives consistent behavior with javac
-            if (classes == null || classes.size() == 0) {
+            if (classes == null || classes.isEmpty()) {
                 if (options.help || options.version || options.fullVersion)
                     return EXIT_OK;
                 else
@@ -529,7 +529,7 @@ public class JavapTask implements DisassemblerTool.DisassemblerTask, Messages {
             throw new BadArgs("err.incompatible.options", sb);
         }
 
-        if ((classes == null || classes.size() == 0) &&
+        if ((classes == null || classes.isEmpty()) &&
                 !(noArgs || options.help || options.version || options.fullVersion)) {
             throw new BadArgs("err.no.classes.specified");
         }
@@ -571,7 +571,7 @@ public class JavapTask implements DisassemblerTool.DisassemblerTask, Messages {
     }
 
     public boolean run() {
-        if (classes == null || classes.size() == 0)
+        if (classes == null || classes.isEmpty())
             return false;
 
         context.put(PrintWriter.class, log);

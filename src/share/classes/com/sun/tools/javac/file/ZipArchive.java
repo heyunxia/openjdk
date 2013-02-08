@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -41,14 +43,13 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.file.JavacFileManager.Archive;
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
 import com.sun.tools.javac.file.RelativePath.RelativeFile;
 import com.sun.tools.javac.util.List;
-import java.lang.ref.Reference;
-import java.lang.ref.SoftReference;
 
 /**
  * <p><b>This is NOT part of any supported API.
@@ -58,12 +59,13 @@ import java.lang.ref.SoftReference;
  */
 public class ZipArchive implements Archive {
 
-    public ZipArchive(JavacFileManager fm, ZipFile zfile) throws IOException {
-        this(fm, zfile, true);
+    public ZipArchive(JavacFileManager fm, Location location, ZipFile zfile) throws IOException {
+        this(fm, location, zfile, true);
     }
 
-    protected ZipArchive(JavacFileManager fm, ZipFile zfile, boolean initMap) throws IOException {
+    protected ZipArchive(JavacFileManager fm, Location location, ZipFile zfile, boolean initMap) throws IOException {
         this.fileManager = fm;
+        this.location = location;
         this.zfile = zfile;
         this.map = new HashMap<RelativeDirectory,List<String>>();
         if (initMap)
@@ -141,7 +143,13 @@ public class ZipArchive implements Archive {
     /**
      * The file manager that created this archive.
      */
-    protected JavacFileManager fileManager;
+    protected final JavacFileManager fileManager;
+
+    /**
+     * The location containing this archive.
+     */
+    protected final Location location;
+
     /**
      * The index for the contents of this archive.
      */
@@ -165,7 +173,7 @@ public class ZipArchive implements Archive {
         ZipEntry entry;
 
         protected ZipFileObject(ZipArchive zarch, String name, ZipEntry entry) {
-            super(zarch.fileManager);
+            super(zarch.fileManager, zarch.location);
             this.zarch = zarch;
             this.name = name;
             this.entry = entry;
@@ -249,6 +257,12 @@ public class ZipArchive implements Archive {
         protected String inferBinaryName(Iterable<? extends File> path) {
             String entryName = entry.getName();
             return removeExtension(entryName).replace('/', '.');
+        }
+
+        @Override
+        protected String inferModuleTag(String binaryName) {
+            File zf = new File(zarch.zfile.getName());
+            return removeExtension(zf.getName());
         }
 
         @Override

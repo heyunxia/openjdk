@@ -134,4 +134,16 @@ public class Scanner implements Lexer {
     public void errPos(int pos) {
         tokenizer.errPos(pos);
     }
+
+    public boolean allowVersionLiteral() {
+        return tokenizer.allowVersionLiteral();
+    }
+
+    public void allowVersionLiteral(boolean allow) {
+        tokenizer.allowVersionLiteral(allow);
+    }
+
+    public UnicodeReader getReader() {
+        return tokenizer.reader;
+    }
 }

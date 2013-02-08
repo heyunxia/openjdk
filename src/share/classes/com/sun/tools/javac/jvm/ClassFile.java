@@ -85,6 +85,8 @@ public class ClassFile {
     public final static int CONSTANT_MethodHandle = 15;
     public final static int CONSTANT_MethodType = 16;
     public final static int CONSTANT_InvokeDynamic = 18;
+    public final static int CONSTANT_ModuleId = 19;
+    public final static int CONSTANT_ModuleQuery = 20;
 
     public final static int REF_getField = 1;
     public final static int REF_getStatic = 2;
@@ -106,8 +108,9 @@ public class ClassFile {
         V45_3(45, 3), // base level for all attributes
         V49(49, 0),   // JDK 1.5: enum, generics, annotations
         V50(50, 0),   // JDK 1.6: stackmaps
-        V51(51, 0),   // JDK 1.7
-        V52(52, 0);   // JDK 1.8: lambda, type annos, param names
+        V51(51, 0),   // JDK 1.7: invokedynamic
+        V52(52, 0),   // JDK 1.8: lambda, type annos, param names
+        V53(52, 0);   // JDK 1.9: Jigsaw !!! FIXME -- the 52 is deliberate but temporary and should be corrected eventually
         Version(int major, int minor) {
             this.major = major;
             this.minor = minor;

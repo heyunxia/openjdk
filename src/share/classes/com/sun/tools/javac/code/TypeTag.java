@@ -90,6 +90,11 @@ public enum TypeTag {
      */
     PACKAGE,
 
+    /** The tag of all module "types".
+     */
+    MODULE,
+
+
     /** The tag of all (source-level) type variables.
      */
     TYPEVAR,

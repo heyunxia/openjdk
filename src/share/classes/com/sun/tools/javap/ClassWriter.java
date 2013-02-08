@@ -202,13 +202,16 @@ public class ClassWriter extends BasicWriter {
         if (options.verbose) {
             println();
             indent(+1);
-            attrWriter.write(cf, cf.attributes, constant_pool);
+            if (options.compat)
+                attrWriter.write(cf, cf.attributes, constant_pool);
             println("minor version: " + cf.minor_version);
             println("major version: " + cf.major_version);
             if (!options.compat)
               writeList("flags: ", flags.getClassFlags(), "\n");
             indent(-1);
             constantWriter.writeConstantPool();
+            if (!options.compat)
+                attrWriter.write(cf, cf.attributes, constant_pool);
         } else {
             print(" ");
         }

@@ -25,7 +25,7 @@
 
 package com.sun.tools.javac.parser;
 
-import com.sun.tools.javac.parser.Tokens.*;
+import com.sun.tools.javac.parser.Tokens.Token;
 import com.sun.tools.javac.util.Position.LineMap;
 
 /**
@@ -84,4 +84,9 @@ public interface Lexer {
      * @return a LineMap
      */
     LineMap getLineMap();
+
+    boolean allowVersionLiteral();
+    void allowVersionLiteral(boolean allow);
+
+    UnicodeReader getReader();
 }

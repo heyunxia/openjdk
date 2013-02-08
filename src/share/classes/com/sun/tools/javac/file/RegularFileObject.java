@@ -39,6 +39,7 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharsetDecoder;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 
 /**
@@ -58,12 +59,12 @@ class RegularFileObject extends BaseFileObject {
     final File file;
     private Reference<File> absFileRef;
 
-    public RegularFileObject(JavacFileManager fileManager, File f) {
-        this(fileManager, f.getName(), f);
+    public RegularFileObject(JavacFileManager fileManager, Location location, File f) {
+        this(fileManager, location, f.getName(), f);
     }
 
-    public RegularFileObject(JavacFileManager fileManager, String name, File f) {
-        super(fileManager);
+    public RegularFileObject(JavacFileManager fileManager, Location location, String name, File f) {
+        super(fileManager, location);
         if (f.isDirectory()) {
             throw new IllegalArgumentException("directories not supported");
         }
@@ -167,6 +168,25 @@ class RegularFileObject extends BaseFileObject {
             }
         }
         return null;
+    }
+
+    protected String inferModuleTag(String pkgName) {
+        File fn = file.getAbsoluteFile();
+        //System.err.println("RegularFileObject.inferModuleTag.args " + fn + " '" + pkgName + "'");
+        fn = fn.getParentFile();
+        if (pkgName.length() > 0) {
+            String[] pn = pkgName.replace('/', '.').split("\\.");
+            //System.err.println("RegularFileObject.inferModuleTag.pn " + Arrays.asList(pn) + " " + pn.length);
+            for (int i = pn.length - 1; i >= 0; i--) {
+                String n = fn.getName();
+                if (n.equalsIgnoreCase(pn[i])) // FIXME: should be File.equals
+                    fn = fn.getParentFile();
+                else
+                    return null;
+            }
+        }
+        //System.err.println("RegularFileObject.inferModuleTag.result " + (fn == null ? null : fn.getName()));
+        return (fn == null ? null : fn.getName());
     }
 
     @Override

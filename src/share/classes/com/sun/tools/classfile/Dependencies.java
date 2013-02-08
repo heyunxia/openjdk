@@ -709,6 +709,14 @@ public class Dependencies {
                 return visitRef(info, p);
             }
 
+            public Void visitModuleId(CONSTANT_ModuleId_info info, Void p) {
+                return null;
+            }
+
+            public Void visitModuleQuery(CONSTANT_ModuleQuery_info info, Void p) {
+                return null;
+            }
+
             public Void visitNameAndType(CONSTANT_NameAndType_info info, Void p) {
                 try {
                     new Signature(info.type_index).getType(constant_pool).accept(this, null);

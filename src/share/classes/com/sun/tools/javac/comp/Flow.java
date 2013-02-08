@@ -2181,6 +2181,10 @@ public class Flow {
             tree.underlyingType.accept(this);
         }
 
+    public void visitModuleDef(JCModuleDecl tree) {
+        // Do nothing for modules
+    }
+
         public void visitTopLevel(JCCompilationUnit tree) {
             // Do nothing for TopLevel since each class is visited individually
         }
@@ -2310,6 +2314,9 @@ public class Flow {
      *************************************************************************/
 
         /* ------------ Visitor methods for various sorts of trees -------------*/
+
+        public void visitModuleDef(JCModuleDecl tree) {
+        }
 
         public void visitClassDef(JCClassDecl tree) {
             JCTree prevTree = currentTree;

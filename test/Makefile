@@ -225,6 +225,17 @@ JTREG_OUTPUT_DIR = $(ABS_TEST_OUTPUT_DIR)/jtreg
 JCK_COMPILER_OUTPUT_DIR = $(ABS_TEST_OUTPUT_DIR)/jck-compiler
 JCK_RUNTIME_OUTPUT_DIR = $(ABS_TEST_OUTPUT_DIR)/jck-runtime-Xcompile
 
+PROBLEM_LISTS=ModulesProblemList.txt
+EXCLUDELIST=$(ABS_TEST_OUTPUT_DIR)/excludelist.txt
+
+ifdef NO_EXCLUDES
+$(EXCLUDELIST): $(PROBLEM_LISTS)
+	@echo "NOTHING_EXCLUDED" > $@
+else
+$(EXCLUDELIST): $(PROBLEM_LISTS)
+	@cat $(PROBLEM_LISTS) > $@
+endif
+
 # Default make rule -- warning, may take a while
 all: $(JPRT_CLEAN) jtreg-tests jck-compiler-tests jck-runtime-tests $(JPRT_ARCHIVE_BUNDLE) all-summary
 	@echo "Testing completed successfully"
@@ -266,7 +277,7 @@ jdeps:		JTREG_TESTDIRS = tools/jdeps
 #	(Optional) reference results (e.g. work, report or summary.txt)
 #
 jtreg_tests: jtreg-tests
-jtreg-tests: check-jtreg FRC
+jtreg-tests: check-jtreg $(EXCLUDELIST) FRC
 	@rm -f -r $(JTREG_OUTPUT_DIR)/JTwork $(JTREG_OUTPUT_DIR)/JTreport \
 	    $(JTREG_OUTPUT_DIR)/diff.html $(JTREG_OUTPUT_DIR)/status.txt
 	@mkdir -p $(JTREG_OUTPUT_DIR)
@@ -277,6 +288,7 @@ jtreg-tests: check-jtreg FRC
           -r:$(JTREG_OUTPUT_DIR)/JTreport \
           -w:$(JTREG_OUTPUT_DIR)/JTwork \
           -jdk:$(TESTJAVA) \
+	  -exclude:$(EXCLUDELIST) \
           $(JAVA_ARGS:%=-vmoption:%) \
 	  $(JTREG_OPTIONS) \
           $(JTREG_TESTDIRS) \

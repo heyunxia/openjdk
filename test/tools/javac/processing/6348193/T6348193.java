@@ -80,6 +80,7 @@ public class T6348193 extends AbstractProcessor
         args.add(System.getProperty("java.class.path"));
         args.add("-d");
         args.add(".");
+        args.add("-XDnomodules");
 
         JavacTool t = JavacTool.create(); // avoid using class loader
 
@@ -169,7 +170,7 @@ public class T6348193 extends AbstractProcessor
     static class NoLoaderSecurityManager extends SecurityManager
     {
         public void checkCreateClassLoader() {
-            throw new SecurityException("Not today, thanks you!");
+            throw new SecurityException("Not today, thank you!");
         }
 
         public void checkPropertyAccess(String key) { /*OK*/ }

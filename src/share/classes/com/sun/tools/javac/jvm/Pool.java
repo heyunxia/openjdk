@@ -39,6 +39,7 @@ import com.sun.tools.javac.util.Name;
 
 import java.util.*;
 
+import com.sun.tools.javac.util.Assert;
 /** An internal structure that corresponds to the constant pool of a classfile.
  *
  *  <p><b>This is NOT part of any supported API.
@@ -101,6 +102,7 @@ public class Pool {
      *  package.  Return the object's index in the pool.
      */
     public int put(Object value) {
+        Assert.checkNonNull(value);
         value = makePoolValue(value);
 //      assert !(value instanceof Type.TypeVar);
         Integer index = indices.get(value);

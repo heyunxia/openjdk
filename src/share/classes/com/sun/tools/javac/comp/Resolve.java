@@ -25,6 +25,15 @@
 
 package com.sun.tools.javac.comp;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import javax.lang.model.element.ElementVisitor;
+
 import com.sun.tools.javac.api.Formattable.LocalizedString;
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.code.Symbol.*;
@@ -46,18 +55,6 @@ import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticFlag;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticType;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-
-import javax.lang.model.element.ElementVisitor;
-
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Flags.BLOCK;
 import static com.sun.tools.javac.code.Kinds.*;
@@ -284,7 +281,7 @@ public class Resolve {
 
     public boolean isAccessible(Env<AttrContext> env, TypeSymbol c, boolean checkInner) {
         boolean isAccessible = false;
-        switch ((short)(c.flags() & AccessFlags)) {
+        switch ((int)(c.flags() & AccessFlags)) {
             case PRIVATE:
                 isAccessible =
                     env.enclClass.sym.outermostClass() ==
@@ -354,7 +351,7 @@ public class Resolve {
     }
     public boolean isAccessible(Env<AttrContext> env, Type site, Symbol sym, boolean checkInner) {
         if (sym.name == names.init && sym.owner != site.tsym) return false;
-        switch ((short)(sym.flags() & AccessFlags)) {
+        switch ((int)(sym.flags() & AccessFlags)) {
         case PRIVATE:
             return
                 (env.enclClass.sym == sym.owner // fast special case
