@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = base
 PACKAGE = sun.launcher
 PRODUCT = sun
 JAVAC_MAX_WARNINGS = true

@@ -385,19 +385,6 @@ public class BatchEnvironment extends sun.tools.javac.BatchEnvironment {
                     return;
             }
 
-            if (ele.isFile()) {
-                /* File is an ordinay file  */
-                String arcname = file.toLowerCase();
-                if (! (arcname.endsWith(".zip") ||
-                       arcname.endsWith(".jar"))) {
-                    /* File name don't have right extension */
-//                      if (warn)
-//                          log.warning(Position.NOPOS,
-//                              "invalid.archive.file", file);
-                    return;
-                }
-            }
-
             /* Now what we have left is either a directory or a file name
                confirming to archive naming convention */
 

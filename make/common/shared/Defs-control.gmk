@@ -50,6 +50,9 @@ endif
 ifndef JAXWS_TOPDIR
   JAXWS_TOPDIR=$(TOPDIR)/jaxws
 endif
+ifndef BDB_TOPDIR
+  BDB_TOPDIR=$(TOPDIR)/bdb
+endif
 ifndef JDK_TOPDIR
   JDK_TOPDIR=$(TOPDIR)/jdk
 endif
@@ -92,8 +95,8 @@ SOURCE_LANGUAGE_VERSION=8
 # The class version we want for this jdk build
 TARGET_CLASS_VERSION=8
 
-# The MESSAGE, WARNING and ERROR files are used to store sanity check and 
-# source check messages, warnings and errors. 
+# The MESSAGE, WARNING and ERROR files are used to store sanity check and
+# source check messages, warnings and errors.
 export ERROR_FILE   := $(ABS_OUTPUTDIR)/sanityCheckErrors.txt
 export WARNING_FILE := $(ABS_OUTPUTDIR)/sanityCheckWarnings.txt
 export MESSAGE_FILE := $(ABS_OUTPUTDIR)/sanityCheckMessages.txt
@@ -111,10 +114,10 @@ endif
 # Hotspot (nmake) cannot handle calculations.  So we use the
 # following formula:
 # COOKED_JDK_UPDATE_VERSION = JDK_UPDATE_VERSION * 10 + EXCEPTION_VERSION
-# 
+#
 # Here are some examples:
 #     1.5.0    b01  ->  5,0,0,1
-#     1.5.0_10 b01  ->  5,0,100,1 
+#     1.5.0_10 b01  ->  5,0,100,1
 #     1.4.2 b01     ->  4,2,0,1
 #     1.4.2_02 b01  ->  4,2,20,1
 #     1.4.2_02a b01 ->  4,2,21,1

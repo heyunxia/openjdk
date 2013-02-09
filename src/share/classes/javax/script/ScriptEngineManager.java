@@ -423,6 +423,7 @@ public class ScriptEngineManager  {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader callerLoader = getCallerClassLoader();
+            // ## Revisit with permission check for ClassLoader.getClassLoader() for modules
             if (!sun.misc.VM.isSystemDomainLoader(callerLoader)) {
                 if (loader != callerLoader || !isAncestor(loader, callerLoader)) {
                     try {

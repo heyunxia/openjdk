@@ -33,6 +33,8 @@ import java.net.URLClassLoader;
 import java.net.MalformedURLException;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
+import java.nio.file.Files;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.StringTokenizer;
 import java.util.Set;
@@ -46,8 +48,11 @@ import java.security.Permissions;
 import java.security.Permission;
 import java.security.ProtectionDomain;
 import java.security.CodeSource;
+import java.util.*;
+import org.openjdk.jigsaw.ClassPathContext;
 import sun.security.util.SecurityConstants;
 import sun.net.www.ParseUtil;
+import static org.openjdk.jigsaw.ClassPathContext.LoaderType.*;
 
 /**
  * This class is used by the system to launch the main application.
@@ -55,16 +60,15 @@ Launcher */
 public class Launcher {
     private static URLStreamHandlerFactory factory = new Factory();
     private static Launcher launcher = new Launcher();
-    private static String bootClassPath =
-        System.getProperty("sun.boot.class.path");
 
     public static Launcher getLauncher() {
         return launcher;
     }
 
     private ClassLoader loader;
-
     public Launcher() {
+        ClassPathContext.loadClassPathConfiguration();
+
         // Create the extension class loader
         ClassLoader extcl;
         try {
@@ -129,10 +133,8 @@ public class Launcher {
          * create an ExtClassLoader. The ExtClassLoader is created
          * within a context that limits which files it can read
          */
-        public static ExtClassLoader getExtClassLoader() throws IOException
-        {
+        public static ExtClassLoader getExtClassLoader() throws IOException {
             final File[] dirs = getExtDirs();
-
             try {
                 // Prior implementations of this doPrivileged() block supplied
                 // aa synthesized ACC via a call to the private method
@@ -157,11 +159,13 @@ public class Launcher {
             super.addURL(url);
         }
 
+        private final ClassPathContext context;
         /*
          * Creates a new ExtClassLoader for the specified directories.
          */
         public ExtClassLoader(File[] dirs) throws IOException {
             super(getExtURLs(dirs), null, factory);
+            this.context = ClassPathContext.get(EXTENSION);
         }
 
         private static File[] getExtDirs() {
@@ -181,21 +185,37 @@ public class Launcher {
             return dirs;
         }
 
-        private static URL[] getExtURLs(File[] dirs) throws IOException {
-            Vector<URL> urls = new Vector<URL>();
+        // keep prepaths and postpaths for native library search
+        private static URL[] prepaths;
+        private static URL[] postpaths;
+        static private URL[] getExtURLs(File[] dirs) throws IOException {
+            File defaultExtDir = EXTENSION.defaultPath();
+            List<URL> urls = new ArrayList<>();
+            int split = 0; // non-zero if there is a default ext directory set
             for (int i = 0; i < dirs.length; i++) {
-                String[] files = dirs[i].list();
+                File dir = dirs[i];
+                String[] files = dir.list();
                 if (files != null) {
                     for (int j = 0; j < files.length; j++) {
                         if (!files[j].equals("meta-index")) {
-                            File f = new File(dirs[i], files[j]);
+                            File f = new File(dir, files[j]);
                             urls.add(getFileURL(f));
                         }
                     }
                 }
+                if (split == 0 && dir.exists() && defaultExtDir != null &&
+                        Files.isSameFile(defaultExtDir.toPath(), dir.toPath())) {
+                    urls.add(getFileURL(dir));
+                    split = urls.size(); // postpath begins
+                }
             }
-            URL[] ua = new URL[urls.size()];
-            urls.copyInto(ua);
+
+            int len = urls.size();
+            URL[] ua = urls.toArray(new URL[len]);
+            // determine prepaths and postpaths for searching native library
+            int plen = split > 0 ? split - 1 : 0;
+            prepaths = urls.subList(0, plen).toArray(new URL[plen]);
+            postpaths = urls.subList(split, len).toArray(new URL[len-split]);
             return ua;
         }
 
@@ -207,8 +227,36 @@ public class Launcher {
          * look in the extension directory itself.
          */
         public String findLibrary(String name) {
-            name = System.mapLibraryName(name);
-            URL[] urls = super.getURLs();
+            String libname = System.mapLibraryName(name);
+
+            // search pre-search paths
+            String libpath = findLibraryFromURLs(libname, prepaths);
+            if (libpath != null)
+                return libpath;
+
+            // search default
+            libpath = findFromModules(libname);
+            if (libpath != null)
+                return libpath;
+
+            return findLibraryFromURLs(libname, postpaths);
+        }
+
+        private String findFromModules(String fn) {
+            IOException iox = null;
+            try {
+                File nlf = context.findLocalNativeLibrary(fn);
+                if (nlf != null) {
+                    return nlf.getAbsolutePath();
+                }
+            } catch (IOException e) {
+                iox = e;
+            }
+            // Default implementation of ClassLoader.findLibrary returns null
+            return null;
+        }
+
+        private String findLibraryFromURLs(String libname, URL[] urls) {
             File prevDir = null;
             for (int i = 0; i < urls.length; i++) {
                 // Get the ext directory from the URL
@@ -218,13 +266,13 @@ public class Launcher {
                     // Read from the saved system properties to avoid deadlock
                     String arch = VM.getSavedProperty("os.arch");
                     if (arch != null) {
-                        File file = new File(new File(dir, arch), name);
+                        File file = new File(new File(dir, arch), libname);
                         if (file.exists()) {
                             return file.getAbsolutePath();
                         }
                     }
                     // Then check the extension directory
-                    File file = new File(dir, name);
+                    File file = new File(dir, libname);
                     if (file.exists()) {
                         return file.getAbsolutePath();
                     }
@@ -232,6 +280,20 @@ public class Launcher {
                 prevDir = dir;
             }
             return null;
+        }
+
+        protected PermissionCollection getPermissions(CodeSource cs) {
+            URL u;
+            if (cs != null && ((u = cs.getLocation()) != null)) {
+                String path = u.getPath();
+                // For now we grant all permissions to jdk.* modules
+                if (path.startsWith("/jdk.")) {
+                    Permissions perms = new Permissions();
+                    perms.add(SecurityConstants.ALL_PERMISSION);
+                    return perms;
+                }
+            }
+            return super.getPermissions(cs);
         }
 
         private static AccessControlContext getContext(File[] dirs)
@@ -278,9 +340,8 @@ public class Launcher {
             return AccessController.doPrivileged(
                 new PrivilegedAction<AppClassLoader>() {
                     public AppClassLoader run() {
-                    URL[] urls =
-                        (s == null) ? new URL[0] : pathToURLs(path);
-                    return new AppClassLoader(urls, extcl);
+                        URL[] urls = pathToURLs(path);
+                        return new AppClassLoader(urls, extcl);
                 }
             });
         }
@@ -354,48 +415,111 @@ public class Launcher {
 
             return acc;
         }
+
     }
 
-    private static class BootClassPathHolder {
-        static final URLClassPath bcp;
+    // BootClassPathLoader finds resources on the bootclasspath
+    // Use VM.getSavedProperty instead of System.getProperty to avoid
+    // deadlock (see 6977738)
+    static class BootClassPath {
+        static URLClassPath bcp;
         static {
-            URL[] urls;
-            if (bootClassPath != null) {
-                urls = AccessController.doPrivileged(
-                    new PrivilegedAction<URL[]>() {
-                        public URL[] run() {
-                            File[] classPath = getClassPath(bootClassPath);
-                            int len = classPath.length;
-                            Set<File> seenDirs = new HashSet<File>();
-                            for (int i = 0; i < len; i++) {
-                                File curEntry = classPath[i];
-                                // Negative test used to properly handle
-                                // nonexistent jars on boot class path
-                                if (!curEntry.isDirectory()) {
-                                    curEntry = curEntry.getParentFile();
-                                }
-                                if (curEntry != null && seenDirs.add(curEntry)) {
-                                    MetaIndex.registerDirectory(curEntry);
-                                }
+            bcp = AccessController.doPrivileged(
+                new PrivilegedAction<URLClassPath>() {
+                    public URLClassPath run() {
+                        File[] prePaths = getBootClassPath("sun.boot.class.prepend.path");
+                        File[] postPaths = getBootClassPath("sun.boot.class.append.path");
+                        int len = prePaths.length + postPaths.length;
+                        URL defaultBcp = null;
+                        if (BOOTSTRAP.defaultPath() == null) {
+                            // JDK build
+                            String javaHome = VM.getSavedProperty("java.home");
+                            File f = new File(javaHome, "classes");
+                            if (f.exists()) {
+                                len++;
+                                defaultBcp = getFileURL(f);
                             }
-                            return pathToURLs(classPath);
+                        } else {
+                            len++;
+                            defaultBcp = getFileURL(BOOTSTRAP.defaultPath());
                         }
-                    }
-                );
-            } else {
-                urls = new URL[0];
+                        URL[] urls = new URL[len];
+                        Set<File> seenDirs = new HashSet<File>();
+                        int i = 0;
+                        for (int j=0; j < prePaths.length; j++) {
+                            urls[i++] = bcpToURL(prePaths[j], seenDirs);
+                        }
+                        if (defaultBcp != null)
+                            urls[i++] = defaultBcp;
+                        for (int j=0; j < postPaths.length; j++) {
+                            urls[i++] = bcpToURL(postPaths[j], seenDirs);
+                        }
+
+                    return new URLClassPath(urls);
+                }
+            });
+        }
+
+        private static File[] getBootClassPath(String prop) {
+            String s = VM.getSavedProperty(prop);
+            if (s != null && !s.isEmpty())
+                return getClassPath(s);
+            else
+                return new File[0];
+        }
+
+        private static URL bcpToURL(File curEntry, Set<File> metaIndexDirs) {
+            // Negative test used to properly handle
+            // nonexistent jars on boot class path
+            if (!curEntry.isDirectory()) {
+                curEntry = curEntry.getParentFile();
             }
-            bcp = new URLClassPath(urls, factory);
+            if (curEntry != null && metaIndexDirs.add(curEntry)) {
+                MetaIndex.registerDirectory(curEntry);
+            }
+            return getFileURL(curEntry);
+        }
+
+        static Enumeration<URL> findResources(String rn)
+            throws IOException
+        {
+            final Enumeration<Resource> e = bcp.getResources(rn);
+            return new Enumeration<URL>() {
+                public URL nextElement() {
+                    return e.nextElement().getURL();
+                }
+
+                public boolean hasMoreElements() {
+                    return e.hasMoreElements();
+                }
+            };
+        }
+
+        static URL findResource(String rn) {
+            Resource res = bcp.getResource(rn);
+            return res != null ? res.getURL() : null;
         }
     }
 
-    public static URLClassPath getBootstrapClassPath() {
-        return BootClassPathHolder.bcp;
+    /**
+     * Find resources from the VM's built-in classloader.
+     */
+    public static URL getBootstrapResource(String name) {
+        return BootClassPath.findResource(name);
+    }
+
+    /**
+     * Find resources from the VM's built-in classloader.
+     */
+    public static Enumeration<URL> getBootstrapResources(final String name)
+        throws IOException
+    {
+       return BootClassPath.findResources(name);
     }
 
     private static URL[] pathToURLs(File[] path) {
         URL[] urls = new URL[path.length];
-        for (int i = 0; i < path.length; i++) {
+        for (int i=0; i < urls.length; i++) {
             urls[i] = getFileURL(path[i]);
         }
         // DEBUG

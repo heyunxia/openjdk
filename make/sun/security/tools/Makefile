@@ -43,10 +43,3 @@ RESOURCE_BUNDLES_JAVA = sun/security/tools/jarsigner/Resources.java
 # Rules
 #
 include $(BUILDDIR)/common/Classes.gmk
-
-build:
-	$(call make-launcher, keytool, sun.security.tools.keytool.Main, , )
-ifndef BUILD_HEADLESS_ONLY
-	$(call make-launcher, policytool, sun.security.tools.policytool.PolicyTool, , )
-endif
-

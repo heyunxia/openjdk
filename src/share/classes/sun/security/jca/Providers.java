@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,13 @@
 
 package sun.security.jca;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.security.Provider;
+import java.security.ProviderException;
+import java.util.*;
+import org.openjdk.jigsaw.Platform;
+import sun.security.util.Debug;
 
 /**
  * Collection of methods to get and set provider list. Also includes
@@ -244,4 +250,169 @@ public class Providers {
         threadListsUsed--;
     }
 
+    // ProviderLoader used to find Providers in classpath or module mode
+    private static class ProviderLoaderHolder {
+        private static final ProviderLoader pl
+            = Platform.isModuleMode() ? new ModuleProviderLoader()
+                                      : new ClassPathProviderLoader();
+    }
+
+    // Returns the current ProviderLoader
+    static ProviderLoader getProviderLoader() {
+        return ProviderLoaderHolder.pl;
+    }
+
+    /**
+     * A provider loading interface.
+     */
+    static interface ProviderLoader {
+        /**
+         * Loads the provider with the specified classname.
+         *
+         * @param  className the classname of the provider
+         * @return the Provider, or null if it cannot be found or loaded
+         * @throws ProviderException if the Provider's constructor
+         *         throws a ProviderException
+         * @throws UnsupportedOperationException if the Provider's constructor
+         *         throws an UnsupportedOperationException
+         */
+        Provider load(String className);
+
+        /**
+         * Loads the provider with the specified classname and argument.
+         *
+         * @param  className the classname of the provider
+         * @param  argument a String arg passed to the provider's constructor
+         * @return the Provider, or null if it cannot be found or loaded
+         * @throws ProviderException if the Provider's constructor
+         *         throws a ProviderException
+         * @throws UnsupportedOperationException if the Provider's constructor
+         *         throws an UnsupportedOperationException
+         */
+        Provider load(String className, String argument);
+    }
+
+    private static class ClassPathProviderLoader implements ProviderLoader {
+        private final static Debug debug =
+            Debug.getInstance("jca", "ClassPathProviderLoader");
+
+        // parameters for the Provider(String) constructor
+        private final static Class[] CL_STRING = { String.class };
+
+        public Provider load(String className) {
+            return doLoad(className, null);
+        }
+
+        public Provider load(String className, String argument) {
+            return doLoad(className, argument);
+        }
+
+        private Provider doLoad(String className, String argument) {
+            try {
+                Class<?> provClass = getClass(className);
+                if (argument != null) {
+                    Constructor<?> cons = provClass.getConstructor(CL_STRING);
+                    return asProvider(cons.newInstance(argument));
+                } else {
+                    return asProvider(provClass.newInstance());
+                }
+            } catch (Exception e) {
+                Throwable t;
+                if (e instanceof InvocationTargetException) {
+                    t = ((InvocationTargetException)e).getCause();
+                } else {
+                    t = e;
+                }
+                if (debug != null) {
+                    String info = (argument != null)
+                                  ? className + "('" + argument + "')"
+                                  : className;
+                    debug.println("Error loading provider " + info);
+                    t.printStackTrace(System.err);
+                }
+                // provider indicates fatal error, pass through exception
+                if (t instanceof ProviderException ||
+                    t instanceof UnsupportedOperationException) {
+                    throw (RuntimeException)t;
+                }
+                return null;
+            }
+        }
+
+        private Class<?> getClass(String name) throws ClassNotFoundException {
+            ClassLoader cl = ClassLoader.getSystemClassLoader();
+            return (cl != null) ? cl.loadClass(name) : Class.forName(name);
+        }
+
+        private Provider asProvider(Object obj) {
+            return (obj instanceof Provider) ? (Provider)obj : null;
+        }
+    }
+
+    private static class ModuleProviderLoader implements ProviderLoader {
+        private final static Debug debug =
+            Debug.getInstance("jca", "ModuleProviderLoader");
+        private final Map<String, Provider> providers;
+        private final Map<String, RuntimeException> causes;
+
+        ModuleProviderLoader() {
+            providers = new HashMap<>();
+            causes = new HashMap<>();
+            ServiceLoader<Provider> sl = ServiceLoader.load(Provider.class);
+            Iterator<Provider> services = sl.iterator();
+            while (services.hasNext()) {
+                try {
+                    Provider p = services.next();
+                    providers.put(p.getClass().getName(), p);
+                } catch (ServiceConfigurationError sce) {
+                    // log error
+                    if (debug != null) {
+                        debug.println("Error loading provider");
+                        sce.printStackTrace(System.err);
+                    }
+                    Throwable cause = sce.getCause();
+                    if (cause != null) {
+                        Throwable t;
+                        if (cause instanceof InvocationTargetException) {
+                            t = ((InvocationTargetException)cause).getCause();
+                        } else {
+                            t = cause;
+                        }
+                        // if cause is ProviderException or UOE, save it
+                        // for later comparison in Provider.load
+                        if (t instanceof ProviderException ||
+                            t instanceof UnsupportedOperationException)
+                        {
+                            causes.put(sce.getMessage(), (RuntimeException)t);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ## Optional constructor arguments are not supported by ServiceLoader.
+        // ## For now, we just ignore the argument.
+        public Provider load(String className, String argument) {
+            return load(className);
+        }
+
+        public Provider load(String className) {
+            Provider p = providers.get(className);
+            if (p != null) {
+                return p;
+            } else {
+                // ## This checks if the provider's className is embedded inside
+                // ## the ServiceConfigurationError message. This is a hack,
+                // ## and is not guaranteed to work in the future or on all
+                // ## implementations. Ideally, we should add a method to get
+                // ## the service's class name from ServiceConfigurationError.
+                for (String msg : causes.keySet()) {
+                    if (msg.indexOf(className) != -1) {
+                        throw causes.get(msg);
+                    }
+                }
+            }
+            return null;
+        }
+    }
 }

@@ -31,8 +31,6 @@ import java.text.MessageFormat;
 import java.util.*;
 import java.util.jar.*;
 
-import javax.swing.*;
-
 class JavaAppLauncher implements Runnable {
     static {
         java.security.AccessController.doPrivileged(
@@ -228,7 +226,20 @@ class JavaAppLauncher implements Runnable {
         // This kills the app and does not return!
         static void showFailureAlertAndKill(final String msg, String arg) {
                 if (arg == null) arg = "<<null>>";
-                JOptionPane.showMessageDialog(null, getMessage(msg, arg), "", JOptionPane.ERROR_MESSAGE);
+                try {
+                    final int ERROR_MESSAGE = 0; // JOptionPane.ERROR_MESSAGE
+                    Class<?> c = Class.forName("javax.swing.JOptionPane");
+                    Class<?> componentClass = Class.forName("java.awt.Component");
+                    Method m = c.getMethod("showMessageDialog", componentClass,
+                                           Object.class, String.class, int.class);
+                    m.invoke(null, null, getMessage(msg, arg), "", ERROR_MESSAGE);
+                } catch (ClassNotFoundException |
+                         NoSuchMethodException |
+                         IllegalAccessException |
+                         InvocationTargetException e) {
+                    // ignore
+                    logError(e.getMessage());
+                }
                 System.exit(-1);
         }
 

@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+                       "http://www.w3.org/TR/xhtml1/xhtml1-strict.dtd">
+<!--
+    Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
+    DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+    
+    This code is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License version 2 only, as
+    published by the Free Software Foundation.  Oracle designates this
+    particular file as subject to the "Classpath" exception as provided
+    by Oracle in the LICENSE file that accompanied this code.
+    
+    This code is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    version 2 for more details (a copy is included in the LICENSE file that
+    accompanied this code).
+    
+    You should have received a copy of the GNU General Public License version
+    2 along with this work; if not, write to the Free Software Foundation,
+    Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+    
+    Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+    or visit www.oracle.com if you need additional information or have any
+    questions.
+-->
+
+<html>
+<head>
+  <title>ClassAnalyzer and ShowDeps</title>
+</head>
+<body>
+
+<h1>ShowDeps</h1>
+ShowDeps is a simple tool to print out the static dependenices
+for a given set of JAR, class files, or combinations of. This
+tool supports a <b>-id</b> option to specify the given module identifier
+and it will generate the module declaration (<code>module-info</code>).
+It also supports an <b>-ignore</b> option to ignore references to classes 
+listed in the file (including .classlists created by the ClassAnalyzer tool).
+
+<pre>
+java ShowDeps [-L <module-lib>] [-id <moduleId>] file...
+   where &lt;file&gt; is a class or JAR file, or a directory
+If -id option is specified, it will generate the module declaration.
+
+Example usages:
+  java ShowDeps Foo.jar
+  java ShowDeps -id "foo@1.0" Foo.jar
+  java ShowDeps -L modulelibrary Foo.jar
+  java ShowDeps -ignore base.classlist Foo.jar
+  java ShowDeps -ignore base.classlist -ignore jaxp-parsers.classlist &lt;dir&gt;
+</pre>
+
+For example, to generate module declaration for SwingSet3:
+<pre>
+$ java ShowDeps -id "swingset3 @ 1.0" swingx.jar swing-worker.jar AnimatedTransitions.jar TimingFramework.jar AppFramework.jar          
+module swingset3 @ 1.0 {
+    requires jdk.base;
+    requires jdk.desktop;
+    requires jdk.jdbc;
+    requires jdk.jndi;
+    requires jdk.logging;
+    requires jdk.prefs;
+}
+</pre>
+
+<h1>ClassAnalyzer</h1>
+The ClassAnalyzer tool analyzes the class dependencies among
+the input class files.  It parses the class files, finds
+all class references, assigns classes to modules per the
+specified configuration files and then generates a set
+of reports for each module, including the list of classes,
+the list of resource files, and its dependencies on 
+classes from another module.  This tool supports a <b>-config</b>
+option to group classes in more than one modules and also 
+a <b>-moduleinfo</b> option to generate module-info.java source files.
+
+<p>
+<em>Input:</em>
+<ol>
+  <li>Class files to be analyzed</li>
+  <li>Input configuration file to include/exclude classes in modules</li>
+</ol>
+
+<em>Output:</em>
+<ol>
+   <li>ClassAnalyzer generated reports:
+       <code>*.classlist, *.resources, *.dependencies</code></li>
+   <li>module-info.java for modules</li>
+</ol>
+
+The ClassAnalyzer can only find <i>static</i> dependencies 
+from the bytecode but not <i>implicit</i> dependencies which include
+classes loaded by <code>Class.forName</code>, service providers,
+constants inlined by the compiler, and <code>JNI_FindClass</code>. 
+In addition, it does not parse the annotations.
+
+<h3>ClassAnalyzer's Configuration File</h3>
+
+Example:
+<pre>
+module swingset3 {
+    // include classes in this module
+    include com.sun.swingset3.**;
+
+    // include resource files in this module
+    include META-INF/demolist;
+
+    // main entry point
+    class com.sun.swingset3.SwingSet3;
+}
+</pre>
+
+
+The syntax is similar to <code>module-info.java</code>.
+Directives are:
+<ul>
+  <li><code>include</code>: classes or resources to be included in this module.
+      It can also include a module.</li>
+  <li><code>exclude</code>: classes or resources to be excluded in this module.</li>
+  <li><code>roots</code>: classes and all of its referenced classes (transitive closure)
+      to be included in this module.</li>
+  <li><code>class</code>: main entry point for this module</li>
+  <li><code>require [optional]</code>: explicitly require a module</li>
+</ul>
+
+<h3>JDK Modularization</h3>
+
+The ClassAnalyzer tool is used in the jigsaw modules build to
+analyze the class dependencies amongst the JDK classes and 
+generate the <code>module-info.java</code> files for JDK modules
+as a post-processing step.  This is an interim solution 
+enabling us prototype a modular JDK and make change to 
+the module definitions during the course of our development,
+for example, synchronizing the on-going JDK development 
+with the jdk8 repository.
+Utimately, we will restructure the source tree so that 
+JDK modules will be compiled in the modulepath
+that can be used for development and the image build.
+Source tree restructuring has a big impact on all JDK engineers
+and thus we should do this when the module definitions and 
+graph are close to final to minimize the disruption to the teams.
+
+<p>
+The configuration file for JDK is at:
+<a href="../../make/modules/modules.config"> <code>modules.config</code></a> and
+<a href="../../make/modules/modules.group"> <code>modules.group</code></a>.
+
+<h3>Help</h3>
+<pre>
+Usage: ClassAnalyzer &lt;options&gt;
+Options: 
+        -classpath     classpath where classes and jars will be parsed
+        -config        config file
+                       This option can be repeated to specify multiple config files.
+        -jigsawLibrary module-library-path
+                       Default is the system module library if present.
+        -moduleinfo    output dir for module-info.java.
+                       If not specified, no module-info.java will be generated.
+        -output        output dir for the generated reports
+        -properties    module's properties
+        -version       version of the modules
+</pre>
+</body>
+</html>

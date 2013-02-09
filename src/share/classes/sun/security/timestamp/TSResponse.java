@@ -254,7 +254,9 @@ public class TSResponse {
     }
 
     private boolean isSet(int position) {
-        return failureInfo[position];
+        return position >= 0
+               && position < failureInfo.length
+               && failureInfo[position];
     }
 
     public String getFailureCodeAsText() {
@@ -263,28 +265,25 @@ public class TSResponse {
             return "";
         }
 
-        try {
-            if (isSet(BAD_ALG))
-                return "Unrecognized or unsupported algorithm identifier.";
-            if (isSet(BAD_REQUEST))
-                return "The requested transaction is not permitted or " +
-                       "supported.";
-            if (isSet(BAD_DATA_FORMAT))
-                return "The data submitted has the wrong format.";
-            if (isSet(TIME_NOT_AVAILABLE))
-                return "The TSA's time source is not available.";
-            if (isSet(UNACCEPTED_POLICY))
-                return "The requested TSA policy is not supported by the TSA.";
-            if (isSet(UNACCEPTED_EXTENSION))
-                return "The requested extension is not supported by the TSA.";
-            if (isSet(ADD_INFO_NOT_AVAILABLE))
-                return "The additional information requested could not be " +
-                       "understood or is not available.";
-            if (isSet(SYSTEM_FAILURE))
-                return "The request cannot be handled due to system failure.";
-        } catch (ArrayIndexOutOfBoundsException ex) {}
+        if (isSet(BAD_ALG))
+            return "Unrecognized or unsupported algorithm identifier.";
+        if (isSet(BAD_REQUEST))
+            return "The requested transaction is not permitted or supported.";
+        if (isSet(BAD_DATA_FORMAT))
+            return "The data submitted has the wrong format.";
+        if (isSet(TIME_NOT_AVAILABLE))
+            return "The TSA's time source is not available.";
+        if (isSet(UNACCEPTED_POLICY))
+            return "The requested TSA policy is not supported by the TSA.";
+        if (isSet(UNACCEPTED_EXTENSION))
+            return "The requested extension is not supported by the TSA.";
+        if (isSet(ADD_INFO_NOT_AVAILABLE))
+            return "The additional information requested could not be " +
+                   "understood or is not available.";
+        if (isSet(SYSTEM_FAILURE))
+            return "The request cannot be handled due to system failure.";
 
-        return ("unknown failure code");
+        return "unknown failure code";
     }
 
     /**
