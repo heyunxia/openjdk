@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../..
+MODULE = jaxp-api
 PACKAGE = sun.util
 PRODUCT = sun
 JAVAC_MAX_WARNINGS = true
