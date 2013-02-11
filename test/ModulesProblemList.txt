@@ -301,6 +301,10 @@ sun/tools/jcmd/jcmd-help-help.sh 		generic-all
 
 # jdk_util
 
+# Requires LogManager.addPropertyChangeListener
+java/util/logging/Listeners.java			generic-all
+java/util/logging/ListenersWithSM.java			generic-all
+
 # Fail to find sun.localedata
 java/util/Locale/InternationalBAT.java			generic-all
 java/util/PluggableLocale/CurrencyNameProviderTest.sh   generic-all
