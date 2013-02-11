@@ -585,8 +585,10 @@ public abstract class Pack200 {
          *             can poll the value of the {@link #PROGRESS PROGRESS}
          *             property instead.
          */
+/*
         @Deprecated
         void addPropertyChangeListener(PropertyChangeListener listener) ;
+*/
 
         /**
          * Remove a listener for PropertyChange events, added by
@@ -599,9 +601,10 @@ public abstract class Pack200 {
          *             Java platform. This method will be removed in a future
          *             release.
          */
+/*
         @Deprecated
         void removePropertyChangeListener(PropertyChangeListener listener);
-
+*/
     }
 
     /**
@@ -729,8 +732,10 @@ public abstract class Pack200 {
          *             unpacker can poll the value of the {@link #PROGRESS
          *             PROGRESS} property instead.
          */
+/*
         @Deprecated
         void addPropertyChangeListener(PropertyChangeListener listener) ;
+*/
 
         /**
          * Remove a listener for PropertyChange events, added by
@@ -743,8 +748,10 @@ public abstract class Pack200 {
          *             Java platform. This method will be removed in a future
          *             release.
          */
+/*
         @Deprecated
         void removePropertyChangeListener(PropertyChangeListener listener);
+*/
     }
 
     // Private stuff....

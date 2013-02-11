@@ -144,9 +144,6 @@ module jdk.desktop {
     // applet can't be separated from client due to circular dependency
     include applet;
 
-    // com.sun.security.auth callback dialog
-    include sun.callback.dialog;
-
     // Swing Look & Feels (no need to export com.sun.java.swing.plaf.nimbus)
     exports com.sun.java.swing.plaf.gtk;
     exports com.sun.java.swing.plaf.motif;
@@ -236,13 +233,11 @@ module jdk.compat {
     include private-legacy;
     include net-compat;
     include deprecated;
-    include jdbc-odbc;
 
     // ## avoid com.sun.security.auth be splitted among many modules
     // ## most of the com.sun.security.auth should be deprecated.
     // ## need to sort out which one is still needed
     //
-    // include sun.callback.dialog;
     // include sun.auth.ldap;
     // include sun.auth.kerberos;
     // include sun.auth.jndi;
@@ -387,7 +382,6 @@ module jdk.auth {
     provides service java.security.Provider with com.sun.security.sasl.Provider;
     requires local jdk.base;   // ensure loaded by bootstrap class loader
     include security-auth;
-    include sun.callback.text;
 
     // combine SASL with JAAS
     include security-sasl;

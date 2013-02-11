@@ -313,6 +313,7 @@ public class LogManager {
      *             logging configuration by overridding the {@link
      *             #readConfiguration readConfiguration} method.
      */
+/*
     @Deprecated
     public void addPropertyChangeListener(PropertyChangeListener l) throws SecurityException {
         PropertyChangeListener listener = Objects.requireNonNull(l);
@@ -324,6 +325,7 @@ public class LogManager {
             listenerMap.put(listener, value);
         }
     }
+*/
 
     /**
      * Removes an event listener for property change events.
@@ -345,6 +347,7 @@ public class LogManager {
      *             logging configuration by overridding the {@link
      *             #readConfiguration readConfiguration} method.
      */
+/*
     @Deprecated
     public void removePropertyChangeListener(PropertyChangeListener l) throws SecurityException {
         checkPermission();
@@ -366,6 +369,7 @@ public class LogManager {
             }
         }
     }
+*/
 
     // Package-level method.
     // Find or create a specified logger instance. If a logger has
