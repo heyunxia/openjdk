@@ -236,7 +236,6 @@ module jdk.compat {
     include private-legacy;
     include net-compat;
     include deprecated;
-    include jdbc-odbc;
 
     // ## avoid com.sun.security.auth be splitted among many modules
     // ## most of the com.sun.security.auth should be deprecated.
