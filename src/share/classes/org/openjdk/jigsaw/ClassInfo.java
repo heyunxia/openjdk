@@ -187,6 +187,17 @@ public class ClassInfo {
                 bb.getShort();
                 bb.getShort();
                 break;
+            case CONSTANT_InvokeDynamic:
+                bb.getShort();
+                bb.getShort();
+                break;
+            case CONSTANT_MethodHandle:
+                bb.get();
+                bb.getShort();
+                break;
+            case CONSTANT_MethodType:
+                bb.getShort();
+                break;
             case CONSTANT_ModuleId:
             case CONSTANT_ModuleQuery:
                 int ni = bb.getShort() & 0xffff;

@@ -120,7 +120,6 @@ endif
 $(JDK_MODULE_IMAGE_DIR)/%: $(SHARE_JDK_DOC_SRC)/%
 	$(process-doc-file)
 
-
 # JRE files
 $(JRE_MODULE_IMAGE_DIR)/%: $(SHARE_JRE_DOC_SRC)/%
 	$(process-doc-file)
@@ -262,6 +261,8 @@ gen-pkgs: $(PKG_TYPES)
 %-setup:
 	$(RM) -r $(MODULE_IMAGES_DIR)/$*
 	$(MKDIR) $(MODULE_IMAGES_DIR)/$*
+	$(MKDIR) $(MODULE_IMAGES_DIR)/$*/lib
+	$(CP) $(ABS_OUTPUTDIR)/lib/tzdb.jar $(MODULE_IMAGES_DIR)/$*/lib
 
 jdk-base-image: jre-base-image \
                 jdk-base-image-setup \
@@ -309,7 +310,7 @@ jdk-module-image: jre-module-image \
 	@for jm in `$(NAWK) '{print $$1}' $(JDK_MODULES)` ; do \
 	    $(call install-jigsaw-module,$@,$$jm); \
 	done
-	$(MKDIR) $(ABS_MODULES_TEMPDIR)/tmp
+	$(MKDIR) -p $(ABS_MODULES_TEMPDIR)/tmp
 	$(BOOT_JAR_CMD) cf $(JDK_MODULE_IMAGE_DIR)/lib/tools.jar \
 	    -C $(ABS_MODULES_TEMPDIR)/tmp .
 
@@ -334,7 +335,7 @@ jdk-module-image-sol64: jre-module-image-sol64 \
 	@for jm in `$(NAWK) '{print $$1}' $(JDK_MODULES)` ; do \
 	    $(call install-jigsaw-module,jdk-module-image,$$jm); \
 	done
-	$(MKDIR) $(ABS_MODULES_TEMPDIR)/tmp
+	$(MKDIR) -p $(ABS_MODULES_TEMPDIR)/tmp
 	$(BOOT_JAR_CMD) cf $(JDK_MODULE_IMAGE_DIR)/lib/tools.jar \
 	    -C $(ABS_MODULES_TEMPDIR)/tmp .
 

@@ -45,7 +45,12 @@ module jdk.base {
 
     include base;
     include unpack200-tool;
+    include xmlparser;
     include tools.jmod;
+
+    // ## Include JSR 310 in the base module (680K + 40K tzdb.jar) due to
+    // ## java.util.Formatter -> java.time API
+    include time;
 
     // Workaround: include the policy files for now.
     // They have to be bundled in signed jars.
@@ -97,6 +102,14 @@ module jdk.base {
 
     class org.openjdk.jigsaw.Hi;    // testing
 }
+
+// ##
+/*
+module jdk.time {
+    provides java.time;
+    include time ;
+}
+*/
 
 module jdk.instrument {
     provides java.instrument;
@@ -459,6 +472,7 @@ module jdk.devtools {
     include tools.javah;
     include tools.javap;
     include tools.javadoc;
+    include tools.jdeps;
 
     // ## temporary: exports this package so that jdk.tools.base
     // ##     requires public jdk.devtools;
@@ -477,6 +491,9 @@ module jdk.devtools {
     }
     view jdk.javadoc {
         class com.sun.tools.javadoc.Main;
+    }
+    view jdk.jdeps {
+        class com.sun.tools.jdeps.Main;
     }
 }
 

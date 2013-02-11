@@ -495,12 +495,24 @@ import java.lang.module.Dependence.Modifier;
                     case CONSTANT_Fieldref:
                     case CONSTANT_InterfaceMethodref:
                     case CONSTANT_Methodref:
+                    case CONSTANT_InvokeDynamic:
                     case CONSTANT_ModuleId:
                     case CONSTANT_ModuleQuery:
                     case CONSTANT_NameAndType:
                         int index1 = in.readUnsignedShort();
                         int index2 = in.readUnsignedShort();
                         pool[i] = new Index2Entry(tag, index1, index2);
+                        break;
+
+                    case CONSTANT_MethodHandle:
+                        int refKind = in.readUnsignedByte();
+                        index = in.readUnsignedShort();
+                        pool[i] = new Index2Entry(tag, refKind, index);
+                        break;
+
+                    case CONSTANT_MethodType:
+                        index = in.readUnsignedShort();
+                        pool[i] = new IndexEntry(tag, index);
                         break;
 
                     case CONSTANT_Float:

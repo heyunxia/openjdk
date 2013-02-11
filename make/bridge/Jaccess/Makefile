@@ -27,6 +27,7 @@
 # Makefile for building jaccess
 #
 BUILDDIR = ../..
+MODULE = accessbridge
 PRODUCT = java
 PACKAGE = com.sun.java.accessibility.jaccess
 
