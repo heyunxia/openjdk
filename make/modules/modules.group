@@ -57,13 +57,6 @@ module jdk.base {
     include US_export_policy;
     include local_policy;
 
-    // This is to support Properties.loadFromXML and storeToXML methods.
-    // ## sun.util.xml.XMLUtils is our implementation class that should
-    // ## not really be in jdk.jaxp module since it is a standalone 
-    // ## technology that can be overridden.
-    // ## currently exported in the jdk.jaxp.internal view
-    requires optional jdk.jaxp.internal;
- 
     // This optional dependency is needed for SecurityManager.checkTopLevelWindows
     // and a few other methods that check for java.awt.AWTPermission which is
     // in the desktop module
