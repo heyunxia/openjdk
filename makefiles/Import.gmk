@@ -197,6 +197,28 @@ $(INSTALL_LIBRARIES_HERE)/client/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
 
 #######
 
+# Import DBD
+
+ifeq ($(USE_EXTERNAL_LIBDB),false)
+  $(INSTALL_LIBRARIES_HERE)/$(BDB_LIBRARY_NAME): $(BDB_DIST)/$(BDB_LIBRARY_NAME)
+	$(install-file)
+
+  IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/$(BDB_LIBRARY_NAME)
+endif
+
+#######
+
+# Import DBD
+
+ifeq ($(USE_EXTERNAL_LIBDB),false)
+  $(INSTALL_LIBRARIES_HERE)/$(BDB_LIBRARY_NAME): $(BDB_DIST)/$(BDB_LIBRARY_NAME)
+	$(install-file)
+
+  IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/$(BDB_LIBRARY_NAME)
+endif
+
+#######
+
 ifeq ($(OPENJDK_TARGET_OS),solaris)
 define install-file
 	$(MKDIR) -p '$(@D)'

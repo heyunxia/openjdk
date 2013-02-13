@@ -172,7 +172,9 @@ LIBJAVA_SRC_DIRS:=$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/java/lan
 		$(JDK_TOPDIR)/src/share/native/java/util \
 		$(JDK_TOPDIR)/src/share/native/java/util/concurrent/atomic \
 		$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/common \
-		$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/java/util
+		$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/java/util \
+		$(JDK_TOPDIR)/src/share/native/org/openjdk/jigsaw \
+		$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/org/openjdk/jigsaw
 
 ifneq ($(OPENJDK_TARGET_OS),macosx)
     LIBJAVA_SRC_DIRS+=$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/sun/util/locale/provider
@@ -187,7 +189,8 @@ endif
 
 LIBJAVA_CFLAGS:=$(foreach dir,$(LIBJAVA_SRC_DIRS),-I$(dir)) \
 		  -I$(JDK_TOPDIR)/src/share/native/java/lang/fdlibm/include \
-                  -DARCHPROPNAME='"$(OPENJDK_TARGET_CPU_OSARCH)"'
+                  -DARCHPROPNAME='"$(OPENJDK_TARGET_CPU_OSARCH)"' \
+                  $(BDB_CFLAGS)
 
 LIBJAVA_CFLAGS += -DJDK_MAJOR_VERSION='"$(JDK_MAJOR_VERSION)"' \
                   -DJDK_MINOR_VERSION='"$(JDK_MINOR_VERSION)"' \
@@ -247,7 +250,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA,\
                                          -framework CoreFoundation \
                                          -framework Security -framework SystemConfiguration, \
 		LDFLAGS_SUFFIX_windows:=-export:winFileHandleOpen -export:handleLseek \
-					jvm.lib $(BUILD_LIBFDLIBM) $(WIN_VERIFY_LIB) \
+					ws2_32.lib jvm.lib $(BUILD_LIBFDLIBM) $(WIN_VERIFY_LIB) \
 					shell32.lib delayimp.lib -DELAYLOAD:shell32.dll \
 					advapi32.lib,\
 		VERSIONINFO_RESOURCE:=$(JDK_TOPDIR)/src/windows/resource/version.rc,\
