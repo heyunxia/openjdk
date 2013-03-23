@@ -28,6 +28,7 @@ defalt: all
 include $(SPEC)
 include MakeBase.gmk
 include NativeCompilation.gmk
+include ModulesCommon.gmk
 
 # Setup the java compilers for the JDK build.
 include Setup.gmk
@@ -154,6 +155,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBVERIFY,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libverify,\
 		DEBUG_SYMBOLS:=true))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBVERIFY),base,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBVERIFY)
 
 ##########################################################################################
@@ -187,7 +190,7 @@ ifeq ($(OPENJDK_TARGET_OS),windows)
 		$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/sun/io
 endif
 
-LIBJAVA_CFLAGS:=$(foreach dir,$(LIBJAVA_SRC_DIRS),-I$(dir)) \
+LIBJAVA_CFLAGS := $(foreach dir,$(LIBJAVA_SRC_DIRS),-I$(dir)) \
 		  -I$(JDK_TOPDIR)/src/share/native/java/lang/fdlibm/include \
                   -DARCHPROPNAME='"$(OPENJDK_TARGET_CPU_OSARCH)"' \
                   $(BDB_CFLAGS)
@@ -250,6 +253,11 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA,\
                                          -framework CoreFoundation \
                                          -framework Security -framework SystemConfiguration, \
 		LDFLAGS_SUFFIX_windows:=-export:winFileHandleOpen -export:handleLseek \
+					-export:JDK_GetSystemModuleLibraryPath \
+					-export:JDK_LoadContexts \
+					-export:JDK_FindLocalClass \
+					-export:JDK_ReadLocalClass \
+					-export:JDK_GetModuleInfo \
 					ws2_32.lib jvm.lib $(BUILD_LIBFDLIBM) $(WIN_VERIFY_LIB) \
 					shell32.lib delayimp.lib -DELAYLOAD:shell32.dll \
 					advapi32.lib,\
@@ -261,6 +269,13 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA,\
 		REORDER:=$(LIBJAVA_REORDER), \
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjava,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJAVA),base,lib))
+# Not sure about this, but mimics old build.
+ifeq ($(OPENJDK_TARGET_OS),windows)
+    $(JDK_OUTPUTDIR)/objs/libjava/java.lib: $(BUILD_LIBJAVA)
+    $(eval $(call copy-to-submodules,$(JDK_OUTPUTDIR)/objs/libjava/java.lib,base,etc))
+endif
 
 BUILD_LIBRARIES += $(BUILD_LIBJAVA)
 
@@ -312,6 +327,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBMLIB_IMAGE,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libmlib_image,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBMLIB_IMAGE),media,lib))
 
 $(BUILD_LIBMLIB_IMAGE) : $(BUILD_LIBJAVA)
 
@@ -435,6 +452,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBMLIB_IMAGE_V,\
 			 $(call SET_SHARED_LIBRARY_ORIGIN),\
 		LDFLAGS_SUFFIX_solaris:=-lc,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libmlib_image_v))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBMLIB_IMAGE_V),media,lib))
 
 $(BUILD_LIBMLIB_IMAGE_V): $(BUILD_LIBJAVA)
 
@@ -743,6 +762,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBAWT,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libawt,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBAWT),awt,lib))
+
 $(BUILD_LIBAWT) : $(BUILD_LIBJAVA)
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)
@@ -898,6 +919,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBAWT_XAWT,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libawt_xawt))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBAWT_XAWT),awt,lib))
+
 $(BUILD_LIBAWT_XAWT) : $(BUILD_LIBJAVA)
 
 $(BUILD_LIBAWT_XAWT) : $(BUILD_LIBAWT)
@@ -959,6 +982,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBZIP,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libzip,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBZIP),base,lib))
+
 $(BUILD_LIBZIP) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBZIP)
@@ -988,6 +1013,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBUNPACK,\
 			  -D "JDK_INTERNAL_NAME=unpack" \
 			  -D "JDK_FTYPE=0x2L",\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBUNPACK),unpack200-tool,lib))
 
 $(BUILD_LIBUNPACK) : $(BUILD_LIBJAVA)
 
@@ -1038,6 +1065,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBATTACH,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libattach,\
 		DEBUG_SYMBOLS:=true))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBATTACH),attach,lib))
+
 $(BUILD_LIBATTACH) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBATTACH)
@@ -1071,6 +1100,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBDT_SOCKET,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libdt_socket,\
 		DEBUG_SYMBOLS:=true))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBDT_SOCKET),jdwp,lib))
+
 $(BUILD_LIBDT_SOCKET) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBDT_SOCKET)
@@ -1102,6 +1133,8 @@ ifeq ($(OPENJDK_TARGET_OS),windows)
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libdt_shmem,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+  $(eval $(call copy-to-submodules,$(BUILD_LIBDT_SHMEM),jdwp,lib))
 
   BUILD_LIBRARIES += $(BUILD_LIBDT_SHMEM)
 
@@ -1136,6 +1169,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJDWP,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjdwp,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJDWP),jdwp,lib))
 
 $(BUILD_LIBJDWP) : $(BUILD_LIBJAVA)
 
@@ -1178,6 +1213,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAAS,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjaas,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBJAAS),security-auth,lib))
+
 $(BUILD_LIBJAAS) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBJAAS)
@@ -1207,6 +1244,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSDT,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjsdt, \
                 DEBUG_SYMBOLS:=true))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJSDT),tracing,lib))
 
 $(BUILD_LIBJSDT) : $(BUILD_LIBJAVA)
 
@@ -1243,6 +1282,8 @@ ifdef OPENJDK
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/liblcms,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBLCMS),java2d,lib))
 
     BUILD_LIBRARIES += $(BUILD_LIBLCMS)
 
@@ -1304,6 +1345,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJPEG,\
 		REORDER:=$(BUILD_LIBJPEG_REORDER),\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjpeg,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJPEG),java2d,lib))
 
 $(BUILD_LIBJPEG) : $(BUILD_LIBJAVA)
 
@@ -1382,6 +1425,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBFONTMANAGER,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libfontmanager,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBFONTMANAGER),font,lib))
+
 $(BUILD_LIBFONTMANAGER) : $(BUILD_LIBAWT)
 
 ifneq (,$(findstring $(OPENJDK_TARGET_OS),solaris macosx))
@@ -1439,6 +1484,8 @@ ifndef OPENJDK
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libt2k,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+    $(eval $(call copy-to-submodules,$(BUILD_LIBT2K),font,lib))
+
     # t2k is linked against fontmanager
     $(BUILD_LIBT2K) : $(BUILD_LIBFONTMANAGER)
 
@@ -1483,6 +1530,10 @@ $(JDK_OUTPUTDIR)/lib/$(LIBRARY_PREFIX)jawt$(STATIC_LIBRARY_SUFFIX): $(BUILD_LIBJ
 	$(CP) $(JDK_OUTPUTDIR)/objs/libjawt/$(LIBRARY_PREFIX)jawt$(STATIC_LIBRARY_SUFFIX) $@
 
 BUILD_LIBRARIES += $(JDK_OUTPUTDIR)/lib/$(LIBRARY_PREFIX)jawt$(STATIC_LIBRARY_SUFFIX)
+
+# Not sure about this, but mimics old build.
+$(JDK_OUTPUTDIR)/objs/libjawt/jawt.lib: $(BUILD_LIBJAVA)
+$(eval $(call copy-to-submodules,$(JDK_OUTPUTDIR)/objs/libjawt/jawt.lib,awt,etc))
 
 else # OPENJDK_TARGET_OS not windows
 
@@ -1536,6 +1587,8 @@ $(BUILD_LIBJAWT) : $(INSTALL_LIBRARIES_HERE)/$(LIBRARY_PREFIX)awt_lwawt$(SHARED_
 endif
 
 endif # OPENJDK_TARGET_OS
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJAWT),awt,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBJAWT)
 
@@ -1610,6 +1663,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBINSTRUMENT,\
 		OBJECT_DIR:=$(LIBINSTRUMENT_DIR),\
 		DEBUG_SYMBOLS:=true))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBINSTRUMENT),instrument,lib))
+
 ifneq (,$(findstring $(OPENJDK_TARGET_OS), macosx windows))
 $(BUILD_LIBINSTRUMENT) : $(JDK_OUTPUTDIR)/objs/$(LIBRARY_PREFIX)jli_static$(STATIC_LIBRARY_SUFFIX)
 else
@@ -1676,6 +1731,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBMANAGEMENT,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libmanagement,\
 		DEBUG_SYMBOLS:=true))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBMANAGEMENT),management,lib))
+
 $(BUILD_LIBMANAGEMENT) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBMANAGEMENT)
@@ -1721,6 +1778,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBHPROF,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libhprof_jvmti,\
 		DEBUG_SYMBOLS:=true))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBHPROF),hprof,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBHPROF)
 
 ##########################################################################################
@@ -1744,6 +1803,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA_CRW_DEMO,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjava_crw_demo,\
 		DEBUG_SYMBOLS:=true))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJAVA_CRW_DEMO),hprof,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBJAVA_CRW_DEMO)
 
@@ -1771,6 +1832,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNPT,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libnpt,\
 		DEBUG_SYMBOLS:=true))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBNPT),base,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBNPT)
 
@@ -1832,6 +1895,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNET,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libnet,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBNET),base,lib))
+
 $(BUILD_LIBNET) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBNET)
@@ -1843,6 +1908,8 @@ $(JDK_OUTPUTDIR)/lib/net.properties: $(JDK_TOPDIR)/src/share/lib/net.properties
 
 COPY_FILES += $(JDK_OUTPUTDIR)/lib/net.properties
 
+$(eval $(call copy-to-submodules,$(JDK_OUTPUTDIR)/lib/net.properties,base,etc))
+
 ifeq ($(OPENJDK_TARGET_OS), solaris)
 $(JDK_OUTPUTDIR)/lib/sdp/sdp.conf.template : $(JDK_TOPDIR)/src/${OPENJDK_TARGET_OS_API_DIR}/lib/sdp/sdp.conf.template
 	$(ECHO) $(LOG_INFO) Copying $(@F)
@@ -1850,6 +1917,8 @@ $(JDK_OUTPUTDIR)/lib/sdp/sdp.conf.template : $(JDK_TOPDIR)/src/${OPENJDK_TARGET_
 	$(CP) $< $@
 
 COPY_FILES += $(JDK_OUTPUTDIR)/lib/sdp/sdp.conf.template
+
+$(eval $(call copy-to-submodules,$(JDK_OUTPUTDIR)/lib/sdp/sdp.conf.template,base,etc/sdp))
 endif
 
 ##########################################################################################
@@ -1973,6 +2042,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNIO,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libnio,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBNIO),base,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBNIO)
 
 $(BUILD_LIBNIO) : $(BUILD_LIBNET)
@@ -2009,6 +2080,8 @@ ifeq ($(OPENJDK_TARGET_OS_API),posix)
 		LDFLAGS_SUFFIX_solaris:=-lsocket -ljava -ljvm -lc,\
 		LDFLAGS_SUFFIX_macosx:=-ljava -ljvm,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libsctp))
+
+    $(eval $(call copy-to-submodules,$(BUILD_LIBSCTP),sctp,lib))
 
     BUILD_LIBRARIES += $(BUILD_LIBSCTP)
 
@@ -2088,15 +2161,13 @@ ifneq ($(USE_EXTERNAL_LIBZ),true)
 		zutil.c
 endif
 
-ifeq ($(OPENJDK_TARGET_OS), windows)
-    LIBJLI_OUTPUT_DIR:=$(INSTALL_LIBRARIES_HERE)
-else
-    LIBJLI_OUTPUT_DIR:=$(INSTALL_LIBRARIES_HERE)/jli
+ifneq ($(OPENJDK_TARGET_OS), windows)
+    LIBJLI_SUBDIR:=/jli
 endif
 
 $(eval $(call SetupNativeCompilation,BUILD_LIBJLI,\
 		LIBRARY:=jli,\
-                OUTPUT_DIR:=$(LIBJLI_OUTPUT_DIR),\
+                OUTPUT_DIR:=$(INSTALL_LIBRARIES_HERE)$(LIBJLI_SUBDIR),\
 		SRC:=$(BUILD_LIBJLI_SRC_DIRS),\
 		INCLUDE_FILES:=$(BUILD_LIBJLI_FILES),\
 		LANG:=C,\
@@ -2133,6 +2204,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJLI,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjli,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJLI),base,lib/$(LIBJLI_SUBDIR)))
 
 BUILD_LIBRARIES += $(BUILD_LIBJLI)
 
@@ -2199,6 +2272,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJFR,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjfr,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBJFR),management,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBJFR)
 
 endif
@@ -2250,6 +2325,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBKCMS,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libkcms,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBKCMS),java2d,lib))
+
 $(BUILD_LIBKCMS) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBKCMS)
@@ -2284,6 +2361,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBSUNWJDGA, \
 			 $(call SET_SHARED_LIBRARY_ORIGIN), \
 		LDFLAGS_SUFFIX:=-L$(OPENWIN_LIB)$(OPENJDK_TARGET_CPU_ISADIR) -R$(OPENWIN_LIB)$(OPENJDK_TARGET_CPU_ISADIR) -ldga -lX11 $(LIBDL) -lc, \
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libsunwjdga))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBSUNWJDGA),java2d,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBSUNWJDGA)
 
@@ -2375,6 +2454,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBAWT_HEADLESS,\
 		LDFLAGS_SUFFIX_macosx:=-ljvm $(LIBCXX) -lawt $(LIBDL) -ljava,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libawt_headless))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBAWT_HEADLESS),awt,lib))
+
 $(BUILD_LIBAWT_HEADLESS) : $(BUILD_LIBAWT)
 
 BUILD_LIBRARIES += $(BUILD_LIBAWT_HEADLESS)
@@ -2463,6 +2544,8 @@ $(eval $(call SetupNativeCompilation,LIBSPLASHSCREEN,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libsplashscreen,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(LIBSPLASHSCREEN),awt,lib))
+
 BUILD_LIBRARIES += $(LIBSPLASHSCREEN)
 
 ifeq ($(OPENJDK_TARGET_OS),macosx)
@@ -2505,6 +2588,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBDCPR,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libdcpr,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBDCPR),java2d,lib))
+
 $(BUILD_LIBDCPR) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBDCPR)
@@ -2539,6 +2624,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJ2PCSC,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libj2pcsc,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBJ2PCSC),security-smartcardio,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBJ2PCSC)
 
 ##########################################################################################
@@ -2561,6 +2648,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJ2GSS,\
 		LDFLAGS_SUFFIX:=$(LIBDL),\
 		LDFLAGS_SUFFIX_solaris:=-lc,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libj2gss))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJ2GSS),security-kerberos,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBJ2GSS)
 endif
@@ -2602,6 +2691,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBKRB5,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libkrb5,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBKRB5),security-kerberos,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBKRB5)
 endif
 
@@ -2627,6 +2718,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBSUNMSCAPI,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libsunmscapi,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBSUNMSCAPI),security-sunmscapi,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBSUNMSCAPI)
 endif
@@ -2659,6 +2752,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJ2PKCS11,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libj2pkcs11,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJ2PKCS11),security-sunpkcs11,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBJ2PKCS11)
 
@@ -2708,6 +2803,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBSUNEC,\
 			  -D "JDK_FTYPE=0x2L",\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libsunec,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBSUNEC),security-sunec,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBSUNEC)
 endif
@@ -2853,6 +2950,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSOUND,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjsound,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBJSOUND),sound,lib))
+
 $(BUILD_LIBJSOUND) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBJSOUND)
@@ -2888,6 +2987,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSOUNDALSA,\
 		LDFLAGS_SUFFIX:=-lasound -ljava -ljvm,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjsoundalsa))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBJSOUNDALSA),sound,lib))
+
 $(BUILD_LIBJSOUNDALSA) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBJSOUNDALSA)
@@ -2920,6 +3021,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSOUNDDS,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjsoundds,\
 		DEBUG_SYMBOLS:=$(WINDOWS_ONLY)))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBJSOUNDDS),sound,lib))
+
 $(BUILD_LIBJSOUNDDS) : $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBJSOUNDDS)
@@ -2943,6 +3046,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJ2UCRYPTO,\
 		LDFLAGS:=$(LDFLAGS_JDKLIB),\
 		LDFLAGS_SUFFIX:=$(LIBDL),\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libj2ucrypto))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBJ2UCRYPTO),security-ucrypto,lib))
 
 $(BUILD_LIBJ2UCRYPTO) : $(BUILD_LIBJAVA)
 
@@ -2973,6 +3078,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBAPPLESCRIPTENGINE,\
                                 -framework JavaNativeFoundation \
                                 $(LDFLAGS_JDKLIB_SUFFIX),\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libAppleScriptEngine))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBAPPLESCRIPTENGINE),scripting,lib))
 
 $(BUILD_LIBAPPLESCRIPTENGINE) : $(BUILD_LIBJAVA)
 
@@ -3013,6 +3120,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBOSXAPP,\
 	-framework QuartzCore, \
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libosxapp))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBOSXAPP),base,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBOSXAPP)
 
 endif
@@ -3052,6 +3161,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBOSX,\
     -framework SystemConfiguration \
     $(LDFLAGS_JDKLIB_SUFFIX), \
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libosx))
+
+$(eval $(call copy-to-submodules,$(BUILD_LIBOSX),base,lib))
 
 BUILD_LIBRARIES += $(BUILD_LIBOSX)
 
@@ -3186,6 +3297,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBAWT_LWAWT,\
 				       -framework QuartzCore -ljava,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libawt_lwawt))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBAWT_LWAWT),awt,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBAWT_LWAWT)
 
 $(BUILD_LIBAWT_LWAWT) : $(BUILD_LIBAWT) 
@@ -3226,6 +3339,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBOSXUI,\
 				       -ljava -ljvm,\
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libosxui))
 
+$(eval $(call copy-to-submodules,$(BUILD_LIBOSXUI),awt,lib))
+
 BUILD_LIBRARIES += $(BUILD_LIBOSXUI)
 
 $(BUILD_LIBOSXUI) : $(BUILD_LIBAWT) 
@@ -3240,6 +3355,13 @@ endif
 
 ##########################################################################################
 
+# FROM OLD BUILD:
+# Skip building jobjc for now until we fix the
+# SKIP_BOOT_CYCLE=false build.
+#
+# com.apple.jobjc.** are not yet included in any module
+# and jobjc is an optional part of JDK.
+ifeq (FALSE,)
 ifeq ($(OPENJDK_TARGET_OS), macosx)
 
 # Ugly hack to mimic behaviour in old build where this is built as an xcode project.
@@ -3296,6 +3418,7 @@ $(INSTALL_LIBRARIES_HERE)/$(LIBRARY_PREFIX)JObjC$(SHARED_LIBRARY_SUFFIX): $(BUIL
 BUILD_LIBRARIES += $(INSTALL_LIBRARIES_HERE)/$(LIBRARY_PREFIX)JObjC$(SHARED_LIBRARY_SUFFIX)
 
 endif
+endif # FALSE
 
 ##########################################################################################
 
@@ -3328,6 +3451,8 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjawtaccessbridge$1,\
 		DEBUG_SYMBOLS:=true)
 
+    $(call copy-to-submodules,$$(BUILD_JAWTACCESSBRIDGE$1),accessbridge,lib)
+
     $$(BUILD_JAWTACCESSBRIDGE$1): $(JDK_OUTPUTDIR)/lib/$(LIBRARY_PREFIX)jawt$(STATIC_LIBRARY_SUFFIX)
 
     $(call SetupNativeCompilation,BUILD_JAVAACCESSBRIDGE$1,\
@@ -3351,6 +3476,8 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libjavaaccessbridge$1,\
 		DEBUG_SYMBOLS:=true)
 
+    $(call copy-to-submodules,$$(BUILD_JAVAACCESSBRIDGE$1),accessbridge,lib)
+
     $(call SetupNativeCompilation,BUILD_WINDOWSACCESSBRIDGE$1,\
 		LIBRARY=WindowsAccessBridge$1,\
 		OUTPUT_DIR:=$(INSTALL_LIBRARIES_HERE),\
@@ -3373,6 +3500,8 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
 		OBJECT_DIR:=$(JDK_OUTPUTDIR)/objs/libwindowsaccessbridge$1,\
 		DEBUG_SYMBOLS:=true)
 
+    $(call copy-to-submodules,$$(BUILD_WINDOWSACCESSBRIDGE$1),accessbridge,lib)
+
     BUILD_LIBRARIES += $$(BUILD_JAWTACCESSBRIDGE$1) $$(BUILD_JAVAACCESSBRIDGE$1) \
 		       $$(BUILD_WINDOWSACCESSBRIDGE$1)
 
@@ -3392,4 +3521,7 @@ endif
 
 all: $(COPY_FILES) $(BUILD_LIBRARIES)
 
-.PHONY: all
+# The submodules target is called in post-modules to copy libraries to the correct submodule.
+submodules: $(SUBMODULES_COPY)
+
+.PHONY: all submodules

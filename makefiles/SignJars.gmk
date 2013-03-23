@@ -61,14 +61,6 @@ README-MAKEFILE_WARNING := \
     "\nPlease read makefiles/SignJars.gmk for further build instructions.\n"
 
 #
-# Location for JCE codesigning key.
-#
-SIGNING_KEY_DIR    := /security/ws/JCE-signing/src
-SIGNING_KEYSTORE   := $(SIGNING_KEY_DIR)/KeyStore.jks
-SIGNING_PASSPHRASE := $(SIGNING_KEY_DIR)/passphrase.txt
-SIGNING_ALIAS      := oracle_jce_rsa
-
-#
 # Defines for signing the various jar files.
 #
 check-keystore:

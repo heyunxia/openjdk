@@ -38,6 +38,9 @@ $(eval $(call FillCacheFind,$(JDK_TOPDIR)/src/share/bin))
 # Build tools
 include Tools.gmk
 
+# Modules configuration
+include ModulesCommon.gmk
+
 BUILD_LAUNCHERS=
 
 # When building a legacy overlay image (on solaris 64 bit), the launchers 
@@ -185,7 +188,15 @@ define SetupLauncher
     ifeq ($(OPENJDK_TARGET_OS),windows)
         $$(BUILD_LAUNCHER_$1) : $(JDK_OUTPUTDIR)/objs/libjava/java.lib \
 				$$($1_WINDOWS_JLI_LIB)
-    endif    	 
+    endif
+
+    # The base java and javaw launchers do not have submodules.
+    ifneq ($$(filter $1,java javaw),)
+        $1_SUBMODULE := base
+    else
+        $1_SUBMODULE := tools.$$(strip $1)
+    endif
+    $(call copy-to-submodules,$$($1_OUTPUT_DIR_ARG)$(OUTPUT_SUBDIR)/$1$(EXE_SUFFIX),$$($1_SUBMODULE),bin)
 endef
 
 ##########################################################################################
@@ -391,6 +402,18 @@ $(eval $(call SetupLauncher,rmiregistry,\
 $(eval $(call SetupLauncher,jcmd,\
     -DJAVA_ARGS='{	"-J-ms8m"$(COMMA) "sun.tools.jcmd.JCmd"$(COMMA) }'))
 
+$(eval $(call SetupLauncher,jmod,\
+    -DJAVA_ARGS='{      "-J-ms8m"$(COMMA) "org.openjdk.jigsaw.cli.Librarian"$(COMMA) }'))
+
+$(eval $(call SetupLauncher,jpkg,\
+    -DJAVA_ARGS='{      "-J-ms8m"$(COMMA) "org.openjdk.jigsaw.cli.Packager"$(COMMA) }'))
+
+$(eval $(call SetupLauncher,jrepo,\
+    -DJAVA_ARGS='{      "-J-ms8m"$(COMMA) "org.openjdk.jigsaw.cli.Repositor"$(COMMA) }'))
+
+$(eval $(call SetupLauncher,jsign,\
+    -DJAVA_ARGS='{      "-J-ms8m"$(COMMA) "org.openjdk.jigsaw.cli.Signer"$(COMMA) }'))
+
 ifeq ($(OPENJDK_TARGET_OS),windows)
     $(eval $(call SetupLauncher,kinit,\
         -DJAVA_ARGS='{	"-J-ms8m"$(COMMA) "sun.security.krb5.internal.tools.Kinit"$(COMMA) }'))
@@ -491,6 +514,9 @@ $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(EXE_SUFFIX): $(BUILD_UNPACKEXE)
 
 BUILD_LAUNCHERS += $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(EXE_SUFFIX)
 
+$(eval $(call copy-to-submodules,$(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(EXE_SUFFIX),\
+	unpack200-tool,bin))
+
 ##########################################################################################
 
 
@@ -588,6 +614,8 @@ else
 	$(MKDIR) -p $(@D)
 	$(CP) $< $@
 	$(CHMOD) a+x $@
+
+    $(eval $(call copy-to-submodules,$(JAVA_RMI_CGI),rmi,bin))
 endif
 
 ##########################################################################################
@@ -615,6 +643,7 @@ ifeq ($(OPENJDK_TARGET_OS),windows)
 
     BUILD_LAUNCHERS += $(BUILD_JABSWITCH)
 
+    $(eval $(call copy-to-submodules,$(BUILD_JABSWITCH),accessbridge,bin))
 endif
 endif
 
@@ -624,4 +653,6 @@ $(BUILD_LAUNCHERS) : $(JDK_TOPDIR)/makefiles/CompileLaunchers.gmk
 
 all: $(BUILD_LAUNCHERS)
 
-.PHONY: all
+submodules: $(SUBMODULES_COPY)
+
+.PHONY: all submodules

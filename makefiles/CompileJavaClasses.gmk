@@ -39,10 +39,7 @@ EXCLUDES :=
 ##########################################################################################
 
 EXCLUDES +=	com/sun/pept \
-		com/sun/tools/example/trace\
-		com/sun/tools/example/debug/bdi\
-		com/sun/tools/example/debug/event\
-		com/sun/tools/example/debug/gui
+		com/sun/tools/example/trace
 
 ifdef OPENJDK
     EXCLUDES+=	sun/dc \
@@ -95,11 +92,7 @@ ifneq ($(OPENJDK_TARGET_OS),solaris)
    EXCLUDES += com/oracle/security
 endif
 
-# In the old build, this isn't excluded on macosx, even though it probably
-# should be.
-ifneq ($(OPENJDK_TARGET_OS),macosx)
-	EXFILES+=WrapperGenerator.java
-endif
+EXFILES+=WrapperGenerator.java
 
 ifneq ($(OPENJDK_TARGET_OS),windows)
     # Exclude Window security related files in src/share/classes
@@ -327,6 +320,13 @@ $(JDK_OUTPUTDIR)/classes/META-INF/services/com.sun.tools.xjc.Plugin:
 
 ##########################################################################################
 
+# FROM OLD BUILD:
+# Skip building jobjc for now until we fix the
+# SKIP_BOOT_CYCLE=false build.
+#
+# com.apple.jobjc.** are not yet included in any module
+# and jobjc is an optional part of JDK.
+ifeq (FALSE,)
 ifeq ($(OPENJDK_TARGET_OS),macosx)
 #
 # JObjC.jar is compiled with BOOT_JAVAC which (may) not support the "-h" flag.
@@ -365,6 +365,7 @@ $(eval $(call SetupJavaCompilation,BUILD_JOBJC_HEADERS,\
 $(BUILD_JOBJC_HEADERS) : $(BUILD_JDK)
 
 endif
+endif # FALSE
 
 ##########################################################################################
 

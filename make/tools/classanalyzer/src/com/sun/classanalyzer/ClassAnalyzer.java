@@ -239,26 +239,32 @@ public class ClassAnalyzer {
         ClassPath.Filter filter = null;
 
         long timestamp = update ? moduleList.lastModified() : -1L;
-        if (timestamp > 0) {
-            // for incremental build, only update the modules with
-            // recompiled classes or resources files.
-            final long ts = timestamp;
-            filter = new ClassPath.Filter() {
+        // for incremental build, only update the modules with
+        // recompiled classes or resources files.
+        // Filter out files starting with _the. which are touch files from the
+        // build system.
+        final long ts = timestamp;
+        filter = new ClassPath.Filter() {
 
-                @Override
-                public boolean accept(File f) {
-                    return (f.isDirectory()
-                            ? true
-                            : f.lastModified() > ts);
+            @Override
+            public boolean accept(File f) {
+                if (f.getName().startsWith("_the.")) {
+                    return false;
                 }
+                return (f.isDirectory()
+                        ? true
+                        : f.lastModified() > ts);
+            }
 
-                @Override
-                public boolean accept(JarFile jf, JarEntry e) throws IOException {
-                    long lastModified = e.getTime();
-                    return lastModified <= 0 || lastModified > ts;
+            @Override
+            public boolean accept(JarFile jf, JarEntry e) throws IOException {
+                if (e.getName().startsWith("_the.")) {
+                    return false;
                 }
-            };
-        }
+                long lastModified = e.getTime();
+                return lastModified <= 0 || lastModified > ts;
+            }
+        };
 
         // parse class and resource files
         cpath.parse(filter, parseDeps, apiOnly);

@@ -27,6 +27,7 @@ include $(SPEC)
 include MakeBase.gmk
 include JavaCompilation.gmk
 include Setup.gmk
+include ModulesCommon.gmk
 
 default: all
 
@@ -606,6 +607,8 @@ endif
 
 JARS += $(US_EXPORT_POLICY_JAR_DST) $(US_EXPORT_POLICY_JAR_UNSIGNED)
 
+$(eval $(call copy-to-submodules,$(US_EXPORT_POLICY_JAR_DST),base,etc/security))
+
 ##########################################################################################
 
 LOCAL_POLICY_JAR_DST := $(IMAGES_OUTPUTDIR)/lib/security/local_policy.jar
@@ -648,6 +651,8 @@ else
 endif
 
 JARS += $(LOCAL_POLICY_JAR_DST) $(LOCAL_POLICY_JAR_UNSIGNED)
+
+$(eval $(call copy-to-submodules,$(LOCAL_POLICY_JAR_DST),base,etc/security))
 
 ##########################################################################################
 
@@ -1001,6 +1006,13 @@ JARS += $(IMAGES_OUTPUTDIR)/lib/ext/zipfs.jar
 
 ##########################################################################################
 
+# FROM OLD BUILD:
+# Skip building jobjc for now until we fix the
+# SKIP_BOOT_CYCLE=false build.
+#
+# com.apple.jobjc.** are not yet included in any module
+# and jobjc is an optional part of JDK.
+ifeq (FALSE,)
 ifeq ($(OPENJDK_TARGET_OS),macosx)
     $(eval $(call SetupArchive,BUILD_JOBJC_JAR,,\
 		SRCS:=$(JDK_OUTPUTDIR)/jobjc_classes,\
@@ -1009,6 +1021,7 @@ ifeq ($(OPENJDK_TARGET_OS),macosx)
 
     JARS += $(IMAGES_OUTPUTDIR)/lib/JObjC.jar
 endif
+endif # FALSE
 
 ##########################################################################################
 
@@ -1094,4 +1107,6 @@ endif
 
 all: $(JARS)
 
-.PHONY: default all
+submodules: $(SUBMODULES_COPY)
+
+.PHONY: default all submodules

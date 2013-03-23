@@ -59,3 +59,9 @@ $(eval $(call SetupJavaCompiler,GENERATE_USINGJDKBYTECODE,\
      FLAGS:=-bootclasspath $(JDK_OUTPUTDIR)/classes $(DISABLE_WARNINGS),\
      SERVER_DIR:=$(SJAVAC_SERVER_DIR),\
      SERVER_JVM:=$(SJAVAC_SERVER_JAVA)))
+
+$(eval $(call SetupJavaCompiler,GENERATE_JDK_MODULES,\
+        JAVAC:=$(BUILD_JAVAC),\
+        FLAGS:=-Xprefer:source -XDignore.symbol.file=true $(DISABLE_WARNINGS),\
+        MODE:=$(JAVAC_USE_MODE),\
+        USE_DEPS:=$(JAVAC_USE_DEPS)))
