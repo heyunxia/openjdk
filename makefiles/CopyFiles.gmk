@@ -122,6 +122,8 @@ $(LIBDIR)/logging.properties: $(LOGGING_LIB_SRC)/logging.properties
 
 COPY_FILES += $(LIBDIR)/logging.properties
 
+$(eval $(call copy-to-submodules,$(LIBDIR)/logging.properties,logging,etc))
+
 ##########################################################################################
 #
 # Copy property files from sun/print to LIBDIR
