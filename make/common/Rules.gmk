@@ -251,6 +251,7 @@ classes : $(CLASSES_INIT) .delete.classlist .compile.classlist
 	@$(CAT) $< | $(NAWK) 'length>0' | $(SORT) -u > $<.filtered
 	@numfiles=`$(WC) -l < $<.filtered` ; \
 	  if [ $$numfiles -ge 1 ] ; then \
+            $(TouchModule); \
 	    $(ECHO) "# Java sources to be compiled: (listed in file $<)"; \
 	    $(CAT) $<.filtered; \
 	    $(ECHO) "# Running javac: $$numfiles files; in $(CURDIR)"; \
@@ -349,7 +350,7 @@ build: classheaders
 default: all
 
 .PHONY: all build clean clobber \
-        .delete.classlist classes .compile.classlist classes.clean \
+        .delete.classlist classes .compile.classlist classes.clean packages.clean \
 	 classheaders classheaders.clean \
 	 batch_compile
 

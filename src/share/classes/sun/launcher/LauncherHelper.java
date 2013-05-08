@@ -458,6 +458,7 @@ public enum LauncherHelper {
     private static final int LM_UNKNOWN = 0;
     private static final int LM_CLASS   = 1;
     private static final int LM_JAR     = 2;
+    private static final int LM_MODULE  = 3;
 
     static void abort(Throwable t, String msgKey, Object... args) {
         if (msgKey != null) {
@@ -507,6 +508,9 @@ public enum LauncherHelper {
                 break;
             case LM_JAR:
                 cn = getMainClassFromJar(what);
+                break;
+            case LM_MODULE:
+                cn = org.openjdk.jigsaw.Launcher.mainClass(scloader);
                 break;
             default:
                 // should never happen

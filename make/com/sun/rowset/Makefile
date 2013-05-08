@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE  = jdbc
 PACKAGE = com.sun.rowset
 PRODUCT = sun
 include $(BUILDDIR)/common/Defs.gmk

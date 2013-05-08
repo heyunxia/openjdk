@@ -27,15 +27,12 @@ package sun.misc;
 
 import java.util.*;
 import java.util.jar.JarFile;
-import sun.misc.JarIndex;
-import sun.misc.InvalidJarIndexException;
-import sun.net.www.ParseUtil;
-import java.util.zip.ZipEntry;
 import java.util.jar.JarEntry;
 import java.util.jar.Manifest;
 import java.util.jar.Attributes;
 import java.util.jar.Attributes.Name;
 import java.util.jar.UnsupportedProfileException;
+import java.util.zip.ZipEntry;
 import java.net.JarURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -48,11 +45,12 @@ import java.security.AccessController;
 import java.security.AccessControlException;
 import java.security.CodeSigner;
 import java.security.Permission;
-import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
 import java.security.cert.Certificate;
-import sun.misc.FileURLMapper;
+import org.openjdk.jigsaw.ClassPathContext;
+import org.openjdk.jigsaw.ClassPathContext.LoaderType;
 import sun.net.util.URLUtil;
+import sun.net.www.ParseUtil;
 
 /**
  * This class is used to maintain a search path of URLs for loading classes
@@ -96,6 +94,9 @@ public class URLClassPath {
     /* Whether this URLClassLoader has been closed yet */
     private boolean closed = false;
 
+    /* ClassLoader that uses this URLClassPath. null if unknown. */
+    private final ClassLoader cl;
+
     /**
      * Creates a new URLClassPath for the given URLs. The URLs will be
      * searched in the order specified for classes and resources. A URL
@@ -107,6 +108,14 @@ public class URLClassPath {
      * @param factory the URLStreamHandlerFactory to use when creating new URLs
      */
     public URLClassPath(URL[] urls, URLStreamHandlerFactory factory) {
+        this(null, urls, factory);
+    }
+
+    public URLClassPath(URL[] urls) {
+        this(null, urls, null);
+    }
+
+    public URLClassPath(ClassLoader cl, URL[] urls, URLStreamHandlerFactory factory) {
         for (int i = 0; i < urls.length; i++) {
             path.add(urls[i]);
         }
@@ -114,10 +123,11 @@ public class URLClassPath {
         if (factory != null) {
             jarHandler = factory.createURLStreamHandler("jar");
         }
+        this.cl = cl;
     }
 
-    public URLClassPath(URL[] urls) {
-        this(urls, null);
+    public URLClassPath(ClassLoader cl, URL[] urls) {
+        this(cl, urls, null);
     }
 
     public synchronized List<IOException> closeLoaders() {
@@ -359,7 +369,11 @@ public class URLClassPath {
                 new java.security.PrivilegedExceptionAction<Loader>() {
                 public Loader run() throws IOException {
                     String file = url.getFile();
-                    if (file != null && file.endsWith("/")) {
+                    LoaderType type = LoaderType.loaderTypeForPath(url);
+                    if (file != null && type != null) {
+                        // given url is the legacy default path, load from modules
+                        return new ModuleLibraryLoader(type, url);
+                    } else if (file != null && file.endsWith("/")) {
                         if ("file".equals(url.getProtocol())) {
                             return new FileLoader(url);
                         } else {
@@ -1111,6 +1125,59 @@ public class URLClassPath {
                 return null;
             }
             return null;
+        }
+    }
+
+    /*
+     * Inner class used to represent a loader of classes and resources
+     * from a context
+     */
+    static class ModuleLibraryLoader extends Loader {
+        private final ClassPathContext cx;
+
+        ModuleLibraryLoader(LoaderType type, URL url) throws IOException {
+            super(url);
+            this.cx = ClassPathContext.get(type);
+        }
+
+        /*
+         * Returns the URL for a resource with the specified name
+         */
+        URL findResource(final String name, boolean check) {
+            Resource rsc = getResource(name, check);
+            if (rsc != null) {
+                return rsc.getURL();
+            }
+            return null;
+        }
+
+        Resource getResource(final String name, boolean check) {
+            try {
+                final URL u = cx.findLocalResource(name);
+                if (u == null) return null;
+
+                if (check) {
+                    URLClassPath.check(u);
+                }
+
+                final URL csu = cx.findModuleURL(name);
+                if (URLClassPath.DEBUG) {
+                    System.err.println("find resource " + name + " at " + u);
+                    Thread.dumpStack();
+                }
+                return new Resource() {
+                    public String getName()       { return name; };
+                    public URL getURL()           { return u; };
+                    public URL getCodeSourceURL() { return csu; };
+                    public InputStream getInputStream() throws IOException
+                        { return u.openStream(); }
+                    public int getContentLength() throws IOException {
+                        return -1;  // ## length unknown?
+                    }
+                };
+            } catch (Exception e) {
+                return null;
+            }
         }
     }
 }

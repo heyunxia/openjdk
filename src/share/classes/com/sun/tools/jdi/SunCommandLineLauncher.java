@@ -196,19 +196,22 @@ public class SunCommandLineLauncher extends AbstractLauncher implements Launchin
 
         try {
             if (home.length() > 0) {
-                /*
-                 * A wrinkle in the environment:
-                 * 64-bit executables are stored under $JAVA_HOME/bin/os_arch
-                 * 32-bit executables are stored under $JAVA_HOME/bin
-                 */
-                String os_arch = System.getProperty("os.arch");
-                if ("SunOS".equals(System.getProperty("os.name")) &&
-                   ("sparcv9".equals(os_arch) || "amd64".equals(os_arch))) {
-                    exePath = home + File.separator + "bin" + File.separator +
-                        os_arch + File.separator + exe;
-                } else {
-                    exePath = home + File.separator + "bin" + File.separator + exe;
-                }
+                // Temporarily remove $JAVA_HOME/bin/os_arch, as modules 64bit
+                // launcher is in bin.
+                exePath = home + File.separator + "bin" + File.separator + exe;
+//                /*
+//                 * A wrinkle in the environment:
+//                 * 64-bit executables are stored under $JAVA_HOME/bin/os_arch
+//                 * 32-bit executables are stored under $JAVA_HOME/bin
+//                 */
+//                String os_arch = System.getProperty("os.arch");
+//                if ("SunOS".equals(System.getProperty("os.name")) &&
+//                   ("sparcv9".equals(os_arch) || "amd64".equals(os_arch))) {
+//                    exePath = home + File.separator + "bin" + File.separator +
+//                        os_arch + File.separator + exe;
+//                } else {
+//                    exePath = home + File.separator + "bin" + File.separator + exe;
+//                }
             } else {
                 exePath = exe;
             }

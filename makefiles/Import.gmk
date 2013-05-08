@@ -27,6 +27,7 @@ default: all
 
 include $(SPEC)
 include MakeBase.gmk
+include ModulesCommon.gmk
 
 #######
 
@@ -88,6 +89,17 @@ $(JDK_OUTPUTDIR)/_the.$1.binaries.imported : $$($1_DIST)/lib/bin.zip $$($1_BINAR
 	$(RM) $$@ $$@.tmp
 	($(CD) $$(@D) && $(JAR) xvf $$< > $$@.tmp)
 	$(MV) $$@.tmp $$@
+
+SUBMODULES_TARGET_FILES += $(POSTMODULES_OUTPUTDIR)/_the.$1.binaries.imported
+IDLJ_MODULE_ETC_DIR := $(SUBMODULES_DIR)/$(IDLJ_MODULE)/etc
+$(POSTMODULES_OUTPUTDIR)/_the.$1.binaries.imported : $$($1_DIST)/lib/bin.zip $$($1_BINARIES_DEP)
+	$(ECHO) Importing $1 bin.zip
+	$(MKDIR) -p $$(IDLJ_MODULE_ETC_DIR)
+	$(RM) $$@ $$@.tmp
+	($(CD) $$(IDLJ_MODULE_ETC_DIR) && $(JAR) xvf $$< > $$@.tmp)
+	$(MV) $$(IDLJ_MODULE_ETC_DIR)/lib/* $$(IDLJ_MODULE_ETC_DIR)
+	$(RM) -r $$(IDLJ_MODULE_ETC_DIR)/lib
+	$(MV) $$@.tmp $$@
 endef
 
 #######
@@ -100,24 +112,48 @@ IMPORT_TARGET_FILES += $(IMPORT_TARGET_CLASSES) $(IMPORT_TARGET_SOURCES) $(IMPOR
 
 #######
 
-define CopyDir
-        $1_SRC_FILES := $(shell $(FIND) $2 -type f -a \( -name DUMMY $(addprefix -o$(SPACE)-name$(SPACE),$4) \))
-        $1_DST_FILES := $$(patsubst $2/%,$3/%,$$($1_SRC_FILES))
-        IMPORT_TARGET_FILES += $$($1_DST_FILES)
-$3/% : $2/%
-	$(ECHO) $(LOG_INFO) Copying $$(@F)
-	$$(install-file)
-endef
-
-#######
-
 #
 # Import hotspot
 #
-HOTSPOT_IMPORT_FILES:=$(addprefix $(LIBRARY_PREFIX), jvm.* saproc.* jsig.* sawindbg.* jvm_db.* jvm_dtrace.*) \
-                      Xusage.txt sa-jdi.jar
-$(eval $(call CopyDir,HOTSPOT0, $(HOTSPOT_LIB_DIR), $(INSTALL_LIBRARIES_HERE), $(HOTSPOT_IMPORT_FILES)))
-$(eval $(call CopyDir,HOTSPOT1, $(HOTSPOT_DIST)/lib, $(JDK_OUTPUTDIR)/lib, $(HOTSPOT_IMPORT_FILES)))
+
+# Bases for find patterns for all files we want from hotspot
+HOTSPOT_IMPORT_FILENAMES_BASE := $(addprefix $(LIBRARY_PREFIX), jvm.* jsig.* jvm_db.* jvm_dtrace.*) Xusage.txt
+HOTSPOT_IMPORT_FILENAMES_SAJDI:= $(addprefix $(LIBRARY_PREFIX), saproc.* sawindbg.*) sa-jdi.jar
+# Find the files to import from hotspot
+HOTSPOT_IMPORT_FILES_BASE := $(shell $(FIND) $(HOTSPOT_DIST) -type f \
+	-a \( -name DUMMY $(addprefix -o$(SPACE)-name$(SPACE),$(HOTSPOT_IMPORT_FILENAMES_BASE)) \) )
+HOTSPOT_IMPORT_FILES_SAJDI := $(shell $(FIND) $(HOTSPOT_DIST) -type f \
+	-a \( -name DUMMY $(addprefix -o$(SPACE)-name$(SPACE),$(HOTSPOT_IMPORT_FILENAMES_SAJDI)) \) )
+# Calculate target legacy locations
+IMPORT_TARGET_FILES += $(patsubst $(HOTSPOT_LIB_DIR)/%,$(INSTALL_LIBRARIES_HERE)/%,\
+		       $(patsubst $(HOTSPOT_DIST)/lib/%,$(JDK_OUTPUTDIR)/lib/%,\
+		       $(HOTSPOT_IMPORT_FILES_BASE) $(HOTSPOT_IMPORT_FILES_SAJDI)))
+
+# Rules for copying to legacy locations
+$(INSTALL_LIBRARIES_HERE)/%: $(HOTSPOT_LIB_DIR)/%
+	$(install-file)
+
+$(JDK_OUTPUTDIR)/lib/%: $(HOTSPOT_DIST)/lib/%
+	$(install-file)
+
+# Calculate target submodules locations
+SUBMODULES_TARGET_FILES += \
+	$(filter-out %.diz,$(filter-out %.debuginfo,\
+		$(patsubst $(HOTSPOT_LIB_DIR)/%,$(SUBMODULES_DIR)/base/lib/%,\
+			$(patsubst $(HOTSPOT_DIST)/lib/%,$(SUBMODULES_DIR)/base/etc/%,\
+				$(HOTSPOT_IMPORT_FILES_BASE))) \
+		$(patsubst $(HOTSPOT_LIB_DIR)/%,$(SUBMODULES_DIR)/sajdi/lib/%,\
+			  $(filter-out %.jar,$(HOTSPOT_IMPORT_FILES_SAJDI)))))
+
+# Rules for copying to submodules locations
+$(SUBMODULES_DIR)/base/lib/%: $(HOTSPOT_LIB_DIR)/%
+	$(install-file)
+
+$(SUBMODULES_DIR)/base/etc/%: $(HOTSPOT_DIST)/lib/%
+	$(install-file)
+
+$(SUBMODULES_DIR)/sajdi/lib/%: $(HOTSPOT_LIB_DIR)/%
+	$(install-file)
 
 JSIG_DEBUGINFO := $(strip $(wildcard $(HOTSPOT_DIST)/jre/lib$(OPENJDK_TARGET_CPU_LIBDIR)/libjsig.debuginfo) \
                   $(wildcard $(HOTSPOT_DIST)/jre/lib$(OPENJDK_TARGET_CPU_LIBDIR)/libjsig.diz) )
@@ -125,12 +161,14 @@ JSIG_DEBUGINFO := $(strip $(wildcard $(HOTSPOT_DIST)/jre/lib$(OPENJDK_TARGET_CPU
 ifneq ($(OPENJDK_TARGET_OS), windows)
     ifeq ($(JVM_VARIANT_SERVER), true)
         IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/server/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
+        SUBMODULES_TARGET_FILES += $(SUBMODULES_DIR)/base/lib/server/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
         ifneq (,$(JSIG_DEBUGINFO))
             IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/server/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
         endif
     endif
     ifeq ($(JVM_VARIANT_CLIENT), true)
         IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/client/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
+        SUBMODULES_TARGET_FILES += $(SUBMODULES_DIR)/base/lib/client/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
         ifneq (,$(JSIG_DEBUGINFO))
             IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/client/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
         endif
@@ -143,15 +181,20 @@ ifneq ($(OPENJDK_TARGET_OS), windows)
     endif
 endif
 
-$(INSTALL_LIBRARIES_HERE)/server/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
+define link-file-in-parent-dir
 	$(MKDIR) -p $(@D)
 	$(RM) $@
 	$(LN) -s ../$(@F) $@
+endef
+
+$(INSTALL_LIBRARIES_HERE)/server/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
+	$(link-file-in-parent-dir)
+
+$(SUBMODULES_DIR)/base/lib/server/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
+	$(link-file-in-parent-dir)
 
 $(INSTALL_LIBRARIES_HERE)/server/%.debuginfo : $(INSTALL_LIBRARIES_HERE)/%.debuginfo
-	$(MKDIR) -p $(@D)
-	$(RM) $@
-	$(LN) -s ../$(@F) $@
+	$(link-file-in-parent-dir)
 
 $(INSTALL_LIBRARIES_HERE)/server/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
 	$(MKDIR) -p $(@D)
@@ -163,14 +206,13 @@ $(INSTALL_LIBRARIES_HERE)/server/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
 	$(MV) $@.tmp $@
 
 $(INSTALL_LIBRARIES_HERE)/client/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
-	$(MKDIR) -p $(@D)
-	$(RM) $@
-	$(LN) -s ../$(@F) $@
+	$(link-file-in-parent-dir)
+
+$(SUBMODULES_DIR)/base/lib/client/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
+	$(link-file-in-parent-dir)
 
 $(INSTALL_LIBRARIES_HERE)/client/%.debuginfo : $(INSTALL_LIBRARIES_HERE)/%.debuginfo
-	$(MKDIR) -p $(@D)
-	$(RM) $@
-	$(LN) -s ../$(@F) $@
+	$(link-file-in-parent-dir)
 
 $(INSTALL_LIBRARIES_HERE)/client/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
 	$(MKDIR) -p $(@D)
@@ -202,4 +244,25 @@ $(INSTALL_LIBRARIES_HERE)/minimal/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
 
 #######
 
+# Import DBD
+
+ifeq ($(USE_EXTERNAL_LIBDB),false)
+  $(INSTALL_LIBRARIES_HERE)/$(BDB_LIBRARY_NAME): $(BDB_DIST)/$(BDB_LIBRARY_NAME)
+	$(install-file)
+
+  $(SUBMODULES_DIR)/base/lib/$(BDB_LIBRARY_NAME): $(BDB_DIST)/$(BDB_LIBRARY_NAME)
+	$(install-file)
+
+  IMPORT_TARGET_FILES     += $(INSTALL_LIBRARIES_HERE)/$(BDB_LIBRARY_NAME)
+  SUBMODULES_TARGET_FILES += $(SUBMODULES_DIR)/base/lib/$(BDB_LIBRARY_NAME)
+endif
+
+#######
+
 all: $(IMPORT_TARGET_FILES)
+
+# The submodules target is called in post-modules to copy imported files to the
+# correct submodule
+submodules: $(SUBMODULES_TARGET_FILES)
+
+.PHONY: all submodules

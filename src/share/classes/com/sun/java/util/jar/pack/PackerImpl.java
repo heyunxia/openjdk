@@ -140,19 +140,21 @@ public class PackerImpl  extends TLGlobals implements Pack200.Packer {
      * Register a listener for changes to options.
      * @param listener  An object to be invoked when a property is changed.
      */
+/*
     public void addPropertyChangeListener(PropertyChangeListener listener) {
         props.addListener(listener);
     }
+*/
 
     /**
      * Remove a listener for the PropertyChange event.
      * @param listener  The PropertyChange listener to be removed.
      */
+/*
     public void removePropertyChangeListener(PropertyChangeListener listener) {
         props.removeListener(listener);
     }
-
-
+*/
 
     // All the worker bees.....
     // The packer worker.

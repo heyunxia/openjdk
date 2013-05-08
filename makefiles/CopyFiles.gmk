@@ -23,14 +23,14 @@
 # questions.
 #
 
-INCLUDEDIR = $(JDK_OUTPUTDIR)/include
+INCLUDEDIR := $(JDK_OUTPUTDIR)/include
 
-OPENJDK_TARGET_OS_INCLUDE = $(INCLUDEDIR)/$(OPENJDK_TARGET_OS)
+OS_INCLUDE_SUBDIR := $(OPENJDK_TARGET_OS)
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
-     OPENJDK_TARGET_OS_INCLUDE = $(INCLUDEDIR)/win32
+     OS_INCLUDE_SUBDIR := win32
 else ifeq ($(OPENJDK_TARGET_OS), macosx)
-     OPENJDK_TARGET_OS_INCLUDE = $(INCLUDEDIR)/darwin
+     OS_INCLUDE_SUBDIR := darwin
 endif
 
 #
@@ -42,16 +42,26 @@ H_TARGET_FILES =$(INCLUDEDIR)/jdwpTransport.h		\
 		$(INCLUDEDIR)/jvmticmlr.h		\
 		$(INCLUDEDIR)/classfile_constants.h	\
 		$(INCLUDEDIR)/jawt.h			\
-		$(OPENJDK_TARGET_OS_INCLUDE)/jni_md.h	\
-		$(OPENJDK_TARGET_OS_INCLUDE)/jawt_md.h
+		$(INCLUDEDIR)/$(OS_INCLUDE_SUBDIR)/jni_md.h	\
+		$(INCLUDEDIR)/$(OS_INCLUDE_SUBDIR)/jawt_md.h
+
+SUBMODULES_H_TARGET_FILES := $(patsubst $(JDK_OUTPUTDIR)/%,$(SUBMODULES_DIR)/base/%,$(H_TARGET_FILES))
 
 $(INCLUDEDIR)/%.h: $(JDK_TOPDIR)/src/share/javavm/export/%.h
 	$(call install-file)
 
-$(OPENJDK_TARGET_OS_INCLUDE)/%.h: $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/javavm/export/%.h
+$(INCLUDEDIR)/$(OS_INCLUDE_SUBDIR)/%.h: $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/javavm/export/%.h
+	$(call install-file)
+
+$(SUBMODULES_DIR)/base/include/%.h: $(JDK_TOPDIR)/src/share/javavm/export/%.h
+	$(call install-file)
+
+$(SUBMODULES_DIR)/base/include/$(OS_INCLUDE_SUBDIR)/%.h: \
+		$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/javavm/export/%.h
 	$(call install-file)
 
 COPY_FILES = $(H_TARGET_FILES)
+SUBMODULES_COPY += $(SUBMODULES_H_TARGET_FILES)
 
 ##########################################################################################
 
@@ -65,11 +75,11 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
 
     $(OPENJDK_TARGET_OS_INCLUDE)/bridge/%: \
 		$(JDK_TOPDIR)/src/closed/windows/native/sun/bridge/%
-	$(install-file)
+	$(call install-file)
 
     $(JDK_OUTPUTDIR)/lib/accessibility.properties: \
 		$(JDK_TOPDIR)/src/closed/windows/native/sun/bridge/accessibility.properties
-	$(install-file)
+	$(call install-file)
 
 endif
 endif
@@ -97,6 +107,11 @@ $(MGMT_LIBDIR)/%: $(MGMT_LIB_SRC)/%
 	$(CHMOD) 444 $@
 
 COPY_FILES += $(MGMT_TARGET_FILES)
+
+$(SUBMODULES_DIR)/management/etc/management/%: $(MGMT_LIBDIR)/%
+	$(call install-file)
+
+SUBMODULES_COPY += $(subst $(MGMT_LIBDIR),$(SUBMODULES_DIR)/management/etc/management,$(MGMT_TARGET_FILES))
 
 ##########################################################################################
 
@@ -156,6 +171,13 @@ $(CURSORS_DEST_DIR)/%: $(CURSORS_LIB_SRC)/%
 
 COPY_FILES += $(CURSORS_TARGET_FILES)
 
+$(SUBMODULES_DIR)/awt/etc/images/cursors/%: $(CURSORS_DEST_DIR)/%
+	$(call install-file)
+
+SUBMODULES_COPY += $(subst $(CURSORS_DEST_DIR),$(SUBMODULES_DIR)/awt/etc/images/cursors,\
+			$(CURSORS_TARGET_FILES)) \
+		   $(SUBMODULES_DIR)/awt/etc/images/cursors/cursors.properties
+
 ##########################################################################################
 
 CONTENT_TYPES_SRC=$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/lib
@@ -164,6 +186,8 @@ $(LIBDIR)/content-types.properties: $(CONTENT_TYPES_SRC)/content-types.propertie
 	$(call install-file)
 
 COPY_FILES += $(LIBDIR)/content-types.properties
+
+$(eval $(call copy-to-submodules,$(LIBDIR)/content-types.properties,base,etc))
 
 ##########################################################################################
 
@@ -174,12 +198,14 @@ $(LIBDIR)/calendars.properties: $(CALENDARS_SRC)/calendars.properties
 
 COPY_FILES += $(LIBDIR)/calendars.properties
 
+$(eval $(call copy-to-submodules,$(LIBDIR)/calendars.properties,base,etc))
+
 $(LIBDIR)/hijrah-config-umalqura.properties: $(CALENDARS_SRC)/hijrah-config-umalqura.properties
-	$(MKDIR) -p $(@D)
-	$(RM) $@
-	$(CP) $< $@
+	$(call install-file)
 
 COPY_FILES += $(LIBDIR)/hijrah-config-umalqura.properties
+
+$(eval $(call copy-to-submodules,$(LIBDIR)/hijrah-config-umalqura.properties,base,etc))
 
 ##########################################################################################
 
@@ -191,6 +217,8 @@ $(LIBDIR)/tzmappings: $(TZMAPPINGS_SRC)/tzmappings
 	$(call install-file)
 
 COPY_FILES += $(LIBDIR)/tzmappings
+
+$(eval $(call copy-to-submodules,$(LIBDIR)/tzmappings,base,etc))
 
 endif
 
@@ -212,6 +240,12 @@ $(ICCPROFILE_DEST_DIR)%.pf: $(ICCPROFILE_SRC_DIR)%.pf
 	$(CHMOD) 444 $@
 
 COPY_FILES += $(ICCPROFILE_TARGET_FILES)
+
+$(SUBMODULES_DIR)/java2d/etc/cmm%.pf: $(ICCPROFILE_DEST_DIR)/%.pf
+	$(call install-file)
+
+SUBMODULES_COPY += $(subst $(ICCPROFILE_DEST_DIR),$(SUBMODULES_DIR)/java2d/etc/cmm,\
+			$(ICCPROFILE_TARGET_FILES))
 
 ##########################################################################################
 
@@ -248,6 +282,10 @@ ifdef OPENJDK
     endif
 
     COPY_FILES += $(FREETYPE_LIB)
+
+    ifneq ($(FREETYPE_LIB),)
+        $(eval $(call copy-to-submodules,$(FREETYPE_LIB),font,lib))
+    endif
 endif
 
 ##########################################################################################
@@ -262,6 +300,8 @@ ifeq ($(OPENJDK_TARGET_OS),windows)
 	$(CHMOD) a+rx $@
 
     COPY_FILES += $(MSVCR_TARGET)
+
+    $(eval $(call copy-to-submodules,$(MSVCR_TARGET),base,lib))
 endif
 
 ##########################################################################################
@@ -272,6 +312,8 @@ $(LIBDIR)/jvm.hprof.txt : $(HPROF_SRC)
 	$(call install-file)
 
 COPY_FILES += $(LIBDIR)/jvm.hprof.txt
+
+$(eval $(call copy-to-submodules,$(LIBDIR)/jvm.hprof.txt,hprof,etc))
 
 ##########################################################################################
 
@@ -337,6 +379,12 @@ endif
 
 COPY_FILES += $(JVMCFG)
 
+ifeq ($(OPENJDK_TARGET_OS),windows)
+    $(eval $(call copy-to-submodules,$(JVMCFG),base,etc$(OPENJDK_TARGET_CPU_LIBDIR)))
+else
+    $(eval $(call copy-to-submodules,$(JVMCFG),base,lib))
+endif
+
 ##########################################################################################
 
 PROPS_SRC := $(JDK_TOPDIR)/src/share/lib/security/java.security-$(OPENJDK_TARGET_OS)
@@ -346,6 +394,8 @@ $(PROPS_DST): $(PROPS_SRC)
 	$(call install-file)
 
 COPY_FILES += $(PROPS_DST)
+
+$(eval $(call copy-to-submodules,$(PROPS_DST),base,etc/security))
 
 ##########################################################################################
 
@@ -357,6 +407,8 @@ $(POLICY_DST): $(POLICY_SRC)
 
 COPY_FILES += $(POLICY_DST)
 
+$(eval $(call copy-to-submodules,$(POLICY_SRC),base,etc/security))
+
 ##########################################################################################
 
 CACERTS_SRC := $(CACERTS_FILE)
@@ -366,6 +418,8 @@ $(CACERTS_DST): $(CACERTS_SRC)
 	$(call install-file)
 
 COPY_FILES += $(CACERTS_DST)
+
+$(eval $(call copy-to-submodules,$(CACERTS_DST),base,etc/security))
 
 ##########################################################################################
 
@@ -386,6 +440,9 @@ $(TRUSTEDLIBS_DST): $(TRUSTEDLIBS_SRC)
 	$(call install-file)
 
 COPY_FILES += $(TRUSTEDLIBS_DST)
+
+$(eval $(call copy-to-submodules,$(BLACKLIST_SRC),base,etc/security))
+$(eval $(call copy-to-submodules,$(TRUSTEDLIBS_SRC),base,etc/security))
 
 endif
 
@@ -416,8 +473,14 @@ $(SHARED_FONTS_DST_DIR)/fonts.dir : $(JDK_TOPDIR)/src/solaris/classes/sun/awt/mo
 
 COPY_FILES += $(SHARED_FONTS_DST)
 
+$(SUBMODULES_DIR)/font/etc/fonts/%: $(SHARED_FONTS_DST_DIR)/%
+	$(call install-file)
+
+SUBMODULES_COPY += $(subst $(SHARED_FONTS_DST_DIR),$(SUBMODULES_DIR)/font/etc/fonts,$(SHARED_FONTS_DST))
+
 ifneq ($(OPENJDK_TARGET_OS), windows)
     COPY_FILES += $(SHARED_FONTS_DST_DIR)/fonts.dir
+    SUBMODULES_COPY += $(SUBMODULES_DIR)/font/etc/fonts/fonts.dir
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), linux)
@@ -439,6 +502,12 @@ $(OBL_FONTS_DST_DIR)/fonts.dir : $(JDK_TOPDIR)/src/solaris/classes/sun/awt/motif
 	$(call install-file)
 
 COPY_FILES += $(OBL_FONTS_DST) $(OBL_FONTS_DST_DIR)/fonts.dir
+
+$(SUBMODULES_DIR)/font/etc/oblique-fonts/%: $(OBL_FONTS_DST_DIR)/%
+	$(call install-file)
+
+SUBMODULES_COPY += $(subst $(OBL_FONTS_DST_DIR),$(SUBMODULES_DIR)/font/etc/oblique-fonts,$(OBL_FONTS_DST)) \
+		   $(SUBMODULES_DIR)/font/etc/oblique-fonts/fonts.dir
 
 endif # linux
 endif # OPENJDK
@@ -518,6 +587,8 @@ $(SUNPKCS11_CFG_DST) : $(SUNPKCS11_CFG_SRC)
 
 COPY_FILES += $(SUNPKCS11_CFG_DST)
 
+$(eval $(call copy-to-submodules,$(SUNPKCS11_CFG_DST),security-sunpkcs11,etc/security))
+
 endif
 
 ##########################################################################################
@@ -533,6 +604,8 @@ $(UCRYPTO_CFG_DST) : $(UCRYPTO_CFG_SRC)
 
 COPY_FILES += $(UCRYPTO_CFG_DST)
 
+$(eval $(call copy-to-submodules,$(UCRYPTO_CFG_DST),security-ucrypto,etc/security))
+
 endif
 endif
 
@@ -542,5 +615,7 @@ $(JDK_OUTPUTDIR)/lib/sound.properties : $(JDK_TOPDIR)/src/share/lib/sound.proper
 	$(call install-file)
 
 COPY_FILES += $(JDK_OUTPUTDIR)/lib/sound.properties
+
+$(eval $(call copy-to-submodules,$(JDK_OUTPUTDIR)/lib/sound.properties,sound,etc))
 
 ##########################################################################################

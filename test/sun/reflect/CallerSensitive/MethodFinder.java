@@ -141,6 +141,14 @@ public abstract class MethodFinder {
             return false;
         }
 
+        public Boolean visitModuleQuery(CONSTANT_ModuleQuery_info info,Void p) {
+            return false;
+        }
+
+        public Boolean visitModuleId(CONSTANT_ModuleId_info info,Void p) {
+            return false;
+        }
+
         public Boolean visitString(CONSTANT_String_info info, Void p) {
             return false;
         }

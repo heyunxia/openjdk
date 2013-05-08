@@ -30,6 +30,7 @@
 LIBRARY_SUPPORTS_FULL_DEBUG_SYMBOLS=1
 
 BUILDDIR = ../..
+MODULE  = base
 PRODUCT = java
 LIBRARY = verify
 include $(BUILDDIR)/common/Defs.gmk

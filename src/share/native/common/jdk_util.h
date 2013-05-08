@@ -59,6 +59,9 @@ int JDK_InitJvmHandle();
 /* Find the named JVM entry; returns NULL if not found. */
 void* JDK_FindJvmEntry(const char* name);
 
+void* JDK_GetLibraryHandle(const char* name);
+void* JDK_LookupSymbol(void* handle, const char* name);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */

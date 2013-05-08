@@ -29,6 +29,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = base
 PACKAGE = java.lang
 LIBRARY = java
 PRODUCT = java
@@ -45,13 +46,18 @@ ifeq ($(PLATFORM),windows)
   # build directly into BINDIR...
   LIB_LOCATION = $(BINDIR)
   # Exported functions
-  OTHER_LCF = -export:winFileHandleOpen -export:handleLseek
+  OTHER_LCF = -export:winFileHandleOpen -export:handleLseek \
+              -export:JDK_GetSystemModuleLibraryPath \
+              -export:JDK_LoadContexts \
+              -export:JDK_FindLocalClass \
+              -export:JDK_ReadLocalClass \
+              -export:JDK_GetModuleInfo
 endif
 
 OTHER_CFLAGS += -DJDK_MAJOR_VERSION='"$(JDK_MAJOR_VERSION)"' \
                 -DJDK_MINOR_VERSION='"$(JDK_MINOR_VERSION)"' \
                 -DJDK_MICRO_VERSION='"$(JDK_MICRO_VERSION)"' \
-                -DJDK_BUILD_NUMBER='"$(JDK_BUILD_NUMBER)"' 
+                -DJDK_BUILD_NUMBER='"$(JDK_BUILD_NUMBER)"'
 
 ifdef JDK_UPDATE_VERSION
 OTHER_CFLAGS += -DJDK_UPDATE_VERSION='"$(JDK_UPDATE_VERSION)"'
@@ -152,6 +158,7 @@ vpath %.c $(SHARE_SRC)/native/sun/reflect
 vpath %.c $(SHARE_SRC)/native/java/sql
 vpath %.c $(SHARE_SRC)/native/java/util
 vpath %.c $(SHARE_SRC)/native/java/util/concurrent/atomic
+vpath %.c $(SHARE_SRC)/native/org/openjdk/jigsaw
 vpath %.c $(PLATFORM_SRC)/native/common
 vpath %.c $(PLATFORM_SRC)/native/java/util
 vpath %.c $(PLATFORM_SRC)/native/sun/security/provider
@@ -161,6 +168,7 @@ vpath %.c $(PLATFORM_SRC_MACOS)/native/sun/util/locale/provider
 else # PLATFORM
 vpath %.c $(PLATFORM_SRC)/native/sun/util/locale/provider
 endif # PLATFORM
+vpath %.c $(PLATFORM_SRC)/native/org/openjdk/jigsaw
 
 #
 # Includes the fdlibm header file.
@@ -177,6 +185,24 @@ OTHER_INCLUDES += -I$(PLATFORM_SRC)/native/java/io
 # Also include the TimeZone_md.h header file.
 #
 OTHER_INCLUDES += -I$(PLATFORM_SRC)/native/java/util
+
+#
+# Also include the PersistentTreeMap, and possibly the BDB header, files.
+#
+OTHER_INCLUDES += -I$(SHARE_SRC)/native/org/openjdk/jigsaw
+ifeq ($(PLATFORM), windows)
+    OTHER_INCLUDES += -I$(GENNATIVESRCDIR)/bdb
+else
+  BDB_LIB_NAME=
+  ifdef USE_SYSTEM_BDB
+    BDB_LIB_NAME=libdb.$(LIBRARY_SUFFIX)
+    OTHER_INCLUDES += -I$(BDB_HEADERS_PATH)
+  else
+    BDB_LIB_NAME=libdb-rds.$(LIBRARY_SUFFIX)
+    OTHER_INCLUDES += -I$(GENNATIVESRCDIR)/bdb
+  endif
+  OTHER_CFLAGS += -DBDB_LIB_NAME='"$(BDB_LIB_NAME)"'
+endif
 
 #
 # Is the altzone extern documented in ctime(3C) available?
@@ -220,8 +246,8 @@ INSTALL_DOT_LIB = true
 # On Windows, shell32 is not normally required and so it is delay loaded.
 #
 ifeq ($(PLATFORM),windows)
-OTHER_LDLIBS += $(JVMLIB) -libpath:$(OBJDIR)/../../../fdlibm/$(OBJDIRNAME) fdlibm.lib \
-		       -libpath:$(OBJDIR)/../../../verify/$(OBJDIRNAME) verify.lib \
+OTHER_LDLIBS += ws2_32.lib $(JVMLIB) -libpath:$(OBJDIR)/../../../fdlibm/$(OBJDIRNAME) \
+                fdlibm.lib -libpath:$(OBJDIR)/../../../verify/$(OBJDIRNAME) verify.lib \
 		       shell32.lib delayimp.lib /DELAYLOAD:shell32.dll
 else
 OTHER_LDLIBS += $(JVMLIB) -lverify $(LIBSOCKET) $(LIBNSL) $(LIBSCF) $(LIBDL) \
@@ -277,9 +303,9 @@ PLATFORM_UNIX_PROCESS = \
 endif
 
 $(GENSRCDIR)/java/lang/UNIXProcess.java: $(PLATFORM_UNIX_PROCESS)
-	$(install-file)
+	$(install-non-module-file)
 
-clean:: 
+clean::
 	$(RM) $(GENSRCDIR)/java/lang/UNIXProcess.java
 
 endif
@@ -293,10 +319,10 @@ JAVALIB =
 #
 # Special rules.
 #
-clean:: 
+clean::
 	$(RM) -r $(CLASSHDRDIR)
 
-clobber:: 
+clobber::
 	$(RM) -r $(CLASSBINDIR)/java/io $(CLASSBINDIR)/java/lang \
 		$(CLASSBINDIR)/java/security $(CLASSBINDIR)/java/util \
 		$(CLASSBINDIR)/sun/misc
@@ -341,7 +367,7 @@ $(LIBDIR)/$(CAL_PROPS): $(SHARE_SRC)/lib/$(CAL_PROPS)
 $(LIBDIR)/$(HIJRAH_UMALQURA_PROPS): $(SHARE_SRC)/lib/$(HIJRAH_UMALQURA_PROPS)
 	$(install-file)
 
-clean:: 
+clean::
 	$(RM) -r $(LIBDIR)/$(PROPS) $(TZMAP)
 
 #
@@ -360,14 +386,15 @@ $(CURDATA): \
 	$(BOOT_JAVA_CMD) -jar $(GENERATECURRENCYDATA_JARFILE) -o $@.temp \
 		< $(SHARE_SRC)/classes/java/util/CurrencyData.properties
 	$(MV) $@.temp $@
+	$(install-module-file)
 	$(call chmod-file, 444)
 
-clean:: 
+clean::
 	$(RM) $(CURDATA)
 
 
 #
-# Rules to create $(GENSRCDIR)/sun/lang/CharacterData*.java 
+# Rules to create $(GENSRCDIR)/sun/lang/CharacterData*.java
 #
 CHARACTERDATA = $(BUILDDIR)/tools/GenerateCharacter
 UNICODEDATA   = $(BUILDDIR)/tools/UnicodeData
@@ -419,15 +446,15 @@ $(GENSRCDIR)/java/lang/CharacterDataLatin1.java \
 		-usecharforbyte 11 4 1
 
 $(GENSRCDIR)/java/lang/%.java : $(CHARACTERDATA)/%.java.template
-	$(install-file)
+	$(install-non-module-file)
 
 clean::
-	$(RM) $(GENSRCDIR)/java/lang/CharacterDataLatin1.java 
+	$(RM) $(GENSRCDIR)/java/lang/CharacterDataLatin1.java
 	$(RM) $(GENSRCDIR)/java/lang/CharacterData00.java
-	$(RM) $(GENSRCDIR)/java/lang/CharacterData01.java 
+	$(RM) $(GENSRCDIR)/java/lang/CharacterData01.java
 	$(RM) $(GENSRCDIR)/java/lang/CharacterData02.java
 	$(RM) $(GENSRCDIR)/java/lang/CharacterData0E.java
-	$(RM) $(GENSRCDIR)/java/lang/CharacterDataUndefined.java 
+	$(RM) $(GENSRCDIR)/java/lang/CharacterDataUndefined.java
 	$(RM) $(GENSRCDIR)/java/lang/CharacterDataPrivateUse.java
 
 #
@@ -448,7 +475,7 @@ $(UNINAME): $(UNICODEDATA)/UnicodeData.txt \
 	build.tools.generatecharacter.CharacterName \
 		$(UNICODEDATA)/UnicodeData.txt $(UNINAME)
 
-clean:: 
+clean::
 	$(RM) $(UNINAME)
 
 #
@@ -456,15 +483,15 @@ clean::
 #
 
 #
-# Rule to precompile CoreResourceBundleControl.java 
+# Rule to precompile CoreResourceBundleControl.java
 #
 LOCALES_GEN_SH = localelist.sh
 
 $(GENSRCDIR)/sun/util/CoreResourceBundleControl.java: \
 	$(SHARE_SRC)/classes/sun/util/CoreResourceBundleControl-XLocales.java.template $(LOCALES_GEN_SH)
-	@$(prep-target) 
+	@$(prep-target)
 	NAWK="$(NAWK)" SED="$(SED)" $(SH) $(LOCALES_GEN_SH) "$(JRE_NONEXIST_LOCALES)" \
-		$< $@ 
+		$< $@
 clean::
 	$(RM) $(GENSRCDIR)/sun/util/CoreResourceBundleControl.java
 

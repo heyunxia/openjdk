@@ -28,6 +28,7 @@ default: all
 include $(SPEC)
 include MakeBase.gmk
 include JavaCompilation.gmk
+include ModulesCommon.gmk
 
 # Setup the java compilers for the JDK build.
 include Setup.gmk
@@ -43,6 +44,7 @@ GENDATA += $(BREAK_ITERATOR)
 
 include GendataFontConfig.gmk
 GENDATA += $(GENDATA_FONT_CONFIG)
+SUBMODULES_COPY += $(GENDATA_SUBMODULES_CONFIGS)
 
 include GendataTZDB.gmk
 GENDATA += $(GENDATA_TZDB)
@@ -71,7 +73,11 @@ $(GENDATA_CURDATA): $(JDK_TOPDIR)/src/share/classes/java/util/CurrencyData.prope
 	$(MV) $@.tmp $@
 	$(CHMOD) 444 $@
 
+$(SUBMODULES_DIR)/base/etc/currency.data: $(GENDATA_CURDATA)
+	$(call install-file)
+
 GENDATA += $(GENDATA_CURDATA)
+SUBMODULES_COPY += $(SUBMODULES_DIR)/base/etc/currency.data
 
 ##########################################################################################
 
@@ -82,4 +88,6 @@ $(JDK_OUTPUTDIR)/classes/_the.gendata : $(GENDATA)
 
 all: $(JDK_OUTPUTDIR)/classes/_the.gendata
 
-.PHONY: all
+submodules: $(SUBMODULES_COPY)
+
+.PHONY: all submodules

@@ -51,6 +51,7 @@ import java.util.Vector;
 import java.util.Hashtable;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import org.openjdk.jigsaw.Platform;
 import sun.misc.CompoundEnumeration;
 import sun.misc.Resource;
 import sun.misc.URLClassPath;
@@ -645,7 +646,8 @@ public abstract class ClassLoader {
         if (!checkName(name))
             throw new NoClassDefFoundError("IllegalName: " + name);
 
-        if ((name != null) && name.startsWith("java.")) {
+        if ((name != null) && name.startsWith("java.") &&
+              !sun.misc.VM.isSystemDomainLoader(this)) {
             throw new SecurityException
                 ("Prohibited package name: " +
                  name.substring(0, name.lastIndexOf('.')));
@@ -995,13 +997,38 @@ public abstract class ClassLoader {
     }
 
     /**
+     * Finds a class with the specified <a href="#name">binary name</a>,
+     * loading it if necessary, using the bootstrap class loader.
+     *
+     * @param   name
+     *          The <a href="#name">binary name</a> of the class
+     *
+     * @return  The <tt>Class</tt> object for the specified <tt>name</tt>
+     *
+     * @throws  ClassNotFoundException
+     *          If the class could not be found
+     */
+    // ## This should be named findBootstrapClass, and findBootstrapClass
+    // ## should be renamed findBootstrapClass0, but that won't link, for
+    // ## reasons unknown
+    protected Class<?> findBootClass(String name)
+        throws ClassNotFoundException
+    {
+        if (!checkName(name))
+            throw new ClassNotFoundException(name);
+        Class<?> c = findBootstrapClass(name);
+        if (c == null)
+            throw new ClassNotFoundException(name);
+        return c;
+    }
+
+    /**
      * Returns a class loaded by the bootstrap class loader;
      * or return null if not found.
      */
     private Class<?> findBootstrapClassOrNull(String name)
     {
         if (!checkName(name)) return null;
-
         return findBootstrapClass(name);
     }
 
@@ -1076,7 +1103,7 @@ public abstract class ClassLoader {
         if (parent != null) {
             url = parent.getResource(name);
         } else {
-            url = getBootstrapResource(name);
+            url = sun.misc.Launcher.getBootstrapResource(name);
         }
         if (url == null) {
             url = findResource(name);
@@ -1116,7 +1143,7 @@ public abstract class ClassLoader {
         if (parent != null) {
             tmp[0] = parent.getResources(name);
         } else {
-            tmp[0] = getBootstrapResources(name);
+            tmp[0] = sun.misc.Launcher.getBootstrapResources(name);
         }
         tmp[1] = findResources(name);
 
@@ -1198,7 +1225,7 @@ public abstract class ClassLoader {
     public static URL getSystemResource(String name) {
         ClassLoader system = getSystemClassLoader();
         if (system == null) {
-            return getBootstrapResource(name);
+            return sun.misc.Launcher.getBootstrapResource(name);
         }
         return system.getResource(name);
     }
@@ -1228,43 +1255,10 @@ public abstract class ClassLoader {
     {
         ClassLoader system = getSystemClassLoader();
         if (system == null) {
-            return getBootstrapResources(name);
+            return sun.misc.Launcher.getBootstrapResources(name);
         }
         return system.getResources(name);
     }
-
-    /**
-     * Find resources from the VM's built-in classloader.
-     */
-    private static URL getBootstrapResource(String name) {
-        URLClassPath ucp = getBootstrapClassPath();
-        Resource res = ucp.getResource(name);
-        return res != null ? res.getURL() : null;
-    }
-
-    /**
-     * Find resources from the VM's built-in classloader.
-     */
-    private static Enumeration<URL> getBootstrapResources(String name)
-        throws IOException
-    {
-        final Enumeration<Resource> e =
-            getBootstrapClassPath().getResources(name);
-        return new Enumeration<URL> () {
-            public URL nextElement() {
-                return e.nextElement().getURL();
-            }
-            public boolean hasMoreElements() {
-                return e.hasMoreElements();
-            }
-        };
-    }
-
-    // Returns the URLClassPath that is used for finding system resources.
-    static URLClassPath getBootstrapClassPath() {
-        return sun.misc.Launcher.getBootstrapClassPath();
-    }
-
 
     /**
      * Returns an input stream for reading the specified resource.
@@ -1418,34 +1412,56 @@ public abstract class ClassLoader {
         return scl;
     }
 
+    private static int initDepth = 0;
+
     private static synchronized void initSystemClassLoader() {
-        if (!sclSet) {
-            if (scl != null)
-                throw new IllegalStateException("recursive invocation");
-            sun.misc.Launcher l = sun.misc.Launcher.getLauncher();
-            if (l != null) {
-                Throwable oops = null;
-                scl = l.getClassLoader();
-                try {
-                    scl = AccessController.doPrivileged(
-                        new SystemClassLoaderAction(scl));
-                } catch (PrivilegedActionException pae) {
-                    oops = pae.getCause();
-                    if (oops instanceof InvocationTargetException) {
-                        oops = oops.getCause();
-                    }
-                }
-                if (oops != null) {
-                    if (oops instanceof Error) {
-                        throw (Error) oops;
-                    } else {
-                        // wrap the exception
-                        throw new Error(oops);
-                    }
+        if (sclSet)
+            return;
+        if (initDepth > 0 || scl != null) {
+            // Java object locks are re-entrant!
+            throw new InternalError("Recursive initialization"
+                                    + " of system class loader");
+        }
+        initDepth++;
+        try {
+            String midq = System.getProperty("sun.java.launcher.module");
+            if (midq != null)
+                initModularSystemClassLoader(midq);
+            else
+                initLegacySystemClassLoader();
+            sclSet = true;
+        } finally {
+            initDepth--;
+        }
+    }
+
+    private static void initLegacySystemClassLoader() {
+        sun.misc.Launcher l = sun.misc.Launcher.getLauncher();
+        if (l != null) {
+            Throwable oops = null;
+            scl = l.getClassLoader();
+            try {
+                scl = AccessController.doPrivileged(
+                          new SystemClassLoaderAction(scl));
+            } catch (PrivilegedActionException pae) {
+                oops = pae.getCause();
+                if (oops instanceof InvocationTargetException) {
+                    oops = oops.getCause();
                 }
             }
-            sclSet = true;
+            if (oops != null) {
+                if (oops instanceof Error) {
+                    throw (Error) oops;
+                } else {
+                    // wrap the exception
+                    throw new Error(oops);
+                }
+            }
         }
+    }
+
+    private static void initModularSystemClassLoader(String midq) {
+        scl = org.openjdk.jigsaw.Launcher.launch(midq);
     }
 
     // Returns true if the specified class loader can be found in this class
@@ -1472,7 +1488,7 @@ public abstract class ClassLoader {
         if (from == to)
             return false;
 
-        if (from == null)
+        if (Platform.isPlatformLoader(from))
             return false;
 
         return !to.isAncestor(from);

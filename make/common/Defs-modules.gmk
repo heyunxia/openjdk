@@ -1,0 +1,160 @@
+#
+# Copyright 2010 Sun Microsystems, Inc.  All Rights Reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Sun designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Sun in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
+# CA 95054 USA or visit www.sun.com if you need additional information or
+# have any questions.
+#
+
+#
+# Variables for modules build
+#
+
+# jdk modules generated from make/modules/Makefile
+# - this combines one or more submodules
+MODULEPATH_DIR         = $(OUTPUTDIR)/modules
+ABS_MODULEPATH_DIR     = $(ABS_OUTPUTDIR)/modules
+
+# Submodules
+# Files are copied to its own MODULE during the jdk builds
+SUBMODULES_DIR      = $(OUTPUTDIR)/submodules
+ABS_SUBMODULES_DIR  = $(ABS_OUTPUTDIR)/submodules
+
+
+# genmoduleslist - files generated from make/modules/Makefile
+MODULEINFO_DIR = $(OUTPUTDIR)/moduleinfo
+ABS_MODULEINFO_DIR = $(ABS_OUTPUTDIR)/moduleinfo
+MODULEINFO_SRC = $(MODULEINFO_DIR)/src
+
+MODULE_CLASSLIST_DIR = $(ABS_MODULEINFO_DIR)/classlist
+MODULES_LIST = $(MODULE_CLASSLIST_DIR)/modules.list
+
+# Temporary files
+MODULES_TEMPDIR     = $(OUTPUTDIR)/tmp/modules
+ABS_MODULES_TEMPDIR = $(ABS_OUTPUTDIR)/tmp/modules
+
+# incremental build marker file
+MODULES_UPDATE_MARKER = $(SUBMODULES_DIR)/.modules.update
+
+# Information for building platform modules
+BASE_MODULE = jdk.base
+JIGSAW_MODULE_LIB = $(ABS_OUTPUTDIR)/lib/modules
+
+# RELEASE is JDK_VERSION and -MILESTONE if MILESTONE is set
+ifneq ($(MILESTONE),fcs)
+  MODULE_VERSION = ${JDK_MINOR_VERSION}-ea
+else
+  MODULE_VERSION = ${JDK_MINOR_VERSION}
+endif
+
+# Modules for imports
+CORBA_MODULE             = jdk.corba
+JTA_MODULE               = jdk.jta
+XML_MODULE               = jdk.jaxp
+XERCES_MODULE            = jdk.jaxp
+XALAN_MODULE             = jdk.jaxp
+JAXWS_MODULE             = jdk.jaxws
+JX_ANNOTATION_MODULE     = jdk.jx.annotations
+RMIC_MODULE              = jdk.tools
+COMPILER_MODULE          = jdk.compiler
+JAVAC_MODULE             = jdk.devtools
+JAVAP_MODULE             = jdk.devtools
+JAVAH_MODULE             = jdk.devtools
+JAVADOC_MODULE           = jdk.devtools
+APT_MODULE               = jdk.apt
+MIRROR_MODULE            = jdk.mirror
+
+# idlj is grouped with the corba runtime
+IDLJ_MODULE              = jdk.corba
+
+JDK_BASE_MODULE          = jdk.base
+BASE_TOOLS_MODULE        = jdk.tools.base
+JRE_TOOLS_MODULE         = jdk.tools.jre
+TOOLS_MODULE             = jdk.tools
+JAXWS_TOOLS_MODULE       = jdk.tools.jaxws
+CORBA_TOOLS_MODULE       = jdk.corba
+RMI_TOOLS_MODULE         = jdk.rmi
+KERBEROS_TOOLS_MODULE    = jdk.kerberos
+
+
+# Modules for JDK only
+JDK_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.modules.list
+JRE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.jre.modules.list
+JDK_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/$(BASE_TOOLS_MODULE).modules.list
+JRE_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/$(JDK_BASE_MODULE).modules.list
+
+#
+# Build units may or may not define MODULE.  Default to "other".
+#
+# MODULE variable defines the lowest-level module name that
+# might or might not be the name of the modules created in
+# the modules build (see make/modules/modules.config and
+# modules.group).
+#
+
+ifndef MODULE
+  MODULE = other
+endif
+override MODULE_DEST_DIR = $(SUBMODULES_DIR)/$(strip $(MODULE))
+
+ifeq ($(PLATFORM), windows)
+    MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
+                          -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
+                          -e 's%.*\/lib\/%etc\/%' \
+                          -e 's%.*\/bin\/%lib\/%' \
+                          -e 's%.*\/include\/%include\/%' \
+                          -e 's%.*\/demo\/%demo\/%' \
+                          -e 's%.*\/sample\/%sample\/%'
+
+else
+    MODULE_PATH_PATTERN = -e 's%.*\/classes\/%classes\/%' \
+                          -e 's%.*\/$(UNIQUE_PATH_PATTERN)\/%classes\/%' \
+                          -e 's%.*\/lib\/$(LIBARCH)\/%lib\/%' \
+                          -e 's%.*\/lib\/%etc\/%' \
+                          -e 's%.*\/bin\/%bin\/%' \
+                          -e 's%.*\/include\/%include\/%' \
+                          -e 's%.*\/demo\/%demo\/%' \
+                          -e 's%.*\/sample\/%sample\/%'
+endif
+
+# Gets the module destination corresponding to the specified directory
+define GetModuleDest
+$(shell $(ECHO) $1 | $(SED) $(MODULE_PATH_PATTERN) | \
+    $(NAWK) '{print "$(MODULE_DEST_DIR)/"$$0}')
+endef
+
+define GetBaseModuleDest
+$(shell $(ECHO) $1 | $(SED) $(MODULE_PATH_PATTERN) | \
+    $(NAWK) '{print "$(SUBMODULES_DIR)/base/"$$0}')
+endef
+
+define TouchModule
+$(ECHO) $(MODULE) >> $(MODULES_UPDATE_MARKER)
+endef
+
+# 
+# Minimize module library footprint. For now this applies to
+# both the JRE and JDK images that the build generates.
+#
+ifeq ($(MINIMIZE_MLIB_FOOTPRINT),true)
+    JMOD_CREATE_ARGS += -z
+    JMOD_INSTALL_ARGS += -G
+endif
+

@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = base
 PACKAGE = java.nio
 LIBRARY = nio
 PRODUCT = java
@@ -917,7 +918,7 @@ SOR_COPYRIGHT_YEARS = $(shell $(CAT) $(GENSOR_SRC) | \
 	$(NAWK) '/^.*Copyright.*Oracle/ { printf "%s %s",$$4,$$5 }') 
 
 $(TEMPDIR)/$(GENSOR_SRC) : $(GENSOR_SRC)
-	$(install-file)
+	$(install-non-module-file)
 
 ifeq ($(PLATFORM), macosx)
   NIO_CC=$(HOST_CC)

@@ -239,6 +239,17 @@ SUNWprivate_1.1 {
 		Java_java_util_prefs_FileSystemPreferences_lockFile0;
 		Java_java_util_prefs_FileSystemPreferences_unlockFile0;
 		Java_java_util_logging_FileHandler_isSetUID;
+                Java_org_openjdk_jigsaw_ClassPathContext_initBootstrapContexts;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_close0;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_create0;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_get0;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_get1;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_get2;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_initialize;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_open0;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_put0;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_put1;
+                Java_org_openjdk_jigsaw_PersistentTreeMap_put2;
 		Java_sun_misc_MessageUtils_toStderr;
 		Java_sun_misc_MessageUtils_toStdout;
 		Java_sun_misc_NativeSignalHandler_handle0;
@@ -294,6 +305,11 @@ SUNWprivate_1.1 {
 		GetStringPlatformChars;
 		Canonicalize;
 		JDK_GetVersionInfo0;
+                JDK_LoadContexts;
+                JDK_FindLocalClass;
+                JDK_ReadLocalClass;
+                JDK_GetModuleInfo;
+                JDK_GetSystemModuleLibraryPath;
 
 	local:
 		*;

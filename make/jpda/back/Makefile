@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = jdwp
 LIBRARY = jdwp
 PRODUCT = jpda
 

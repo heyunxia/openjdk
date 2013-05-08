@@ -26,6 +26,16 @@
 include $(BUILDDIR)/common/Release.gmk
 
 #
+# This variable is used in the various JCE Makefiles (ex:
+# sun/security/pkcs11/Makefile) to allow the unsigned JCE provider JARs to be
+# installed instead of the signed JCE providers when doing a closed build.
+# This avoids having to create new signed providers each time there are changes
+# to them. This is a temporary solution that will be removed once we integrate
+# support for signing JCE providers as modules.
+#
+JIGSAW_UNSIGNED_DIR=$(UNSIGNED_DIR)
+
+#
 # Include these extra attributes for now, should probably take out.
 #
 JCE_MANIFEST_FILE    = $(TEMPDIR)/manifest.mf

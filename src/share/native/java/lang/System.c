@@ -73,12 +73,26 @@ Java_java_lang_System_identityHashCode(JNIEnv *env, jobject this, jobject x)
 #define PUTPROP_ForPlatformNString(props, key, val) \
     if (1) { \
         jstring jkey = (*env)->NewStringUTF(env, key);  \
-        jstring jval = GetStringPlatform(env, val); \
-        jobject r = (*env)->CallObjectMethod(env, props, putID, jkey, jval); \
-        if ((*env)->ExceptionOccurred(env)) return NULL; \
-        (*env)->DeleteLocalRef(env, jkey); \
-        (*env)->DeleteLocalRef(env, jval); \
-        (*env)->DeleteLocalRef(env, r); \
+        if (jkey == NULL) { \
+            char msg[1024]; \
+            jio_snprintf(msg, sizeof(msg), "Cannot decode property key: %s value: %s", key, val); \
+            JNU_ThrowInternalError(env, msg); \
+            return; \
+        } else { \
+            jstring jval = GetStringPlatform(env, val); \
+            if (jval == NULL) { \
+                char msg[1024]; \
+                jio_snprintf(msg, sizeof(msg), "Cannot decode property value: %s key: %s", val, key); \
+                JNU_ThrowInternalError(env, msg); \
+                return; \
+            } else { \
+                jobject r = (*env)->CallObjectMethod(env, props, putID, jkey, jval); \
+                if ((*env)->ExceptionOccurred(env)) return NULL; \
+                (*env)->DeleteLocalRef(env, jkey); \
+                (*env)->DeleteLocalRef(env, jval); \
+                (*env)->DeleteLocalRef(env, r); \
+            } \
+        } \
     } else ((void) 0)
 #define REMOVEPROP(props, key) \
     if (1) { \

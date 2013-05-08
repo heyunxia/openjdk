@@ -36,11 +36,17 @@
 #define JNI_ERROR       "Error: A JNI error has occurred, please check your installation and try again"
 #define JNI_ERROR1      "Error: can't find JNI interfaces in: %s"
 
-#define ARG_WARN        "Warning: %s option is no longer supported."
+#define ARG_WARN1       "Warning: %s option is no longer supported."
+#define ARG_WARN2       "Warning: CLASSPATH environment variable ignored when -m specified"
 
 #define ARG_ERROR1      "Error: %s requires class path specification"
 #define ARG_ERROR2      "Error: %s requires jar file specification"
 #define ARG_ERROR3      "Error: The -J option should not be followed by a space."
+#define ARG_ERROR4      "Error: %s requires a module specification"
+#define ARG_ERROR5      "Error: At most one of -jar or -m can be used"
+#define ARG_ERROR6      "Error: -L requires a module-library path"
+#define ARG_ERROR7      "Error: -classpath and -cp cannot be used with -m"
+#define ARG_ERROR8      "Error: %s invalid option"
 
 #define JVM_ERROR1      "Error: Could not create the Java Virtual Machine.\n" GEN_ERROR
 #define JVM_ERROR2      "Error: Could not detach main thread.\n" JNI_ERROR

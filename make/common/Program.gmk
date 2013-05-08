@@ -99,13 +99,14 @@ ifneq (,$(findstring $(PLATFORM), linux solaris)) # UNIX systems
   LDFLAGS += -L $(LIBDIR)/$(LIBARCH)/jli
   OTHER_LDLIBS += -ljli
   ifeq ($(PLATFORM), solaris)
-    ifeq ($(ARCH_DATA_MODEL), 32)
+    ## Temporarily remove for Modules Solaris 64bit only build
+    #ifeq ($(ARCH_DATA_MODEL), 32)
       LDFLAGS += -R \$$ORIGIN/../lib/$(LIBARCH)/jli
       LDFLAGS += -R \$$ORIGIN/../jre/lib/$(LIBARCH)/jli
-    else
-      LDFLAGS += -R \$$ORIGIN/../../lib/$(LIBARCH)/jli
-      LDFLAGS += -R \$$ORIGIN/../../jre/lib/$(LIBARCH)/jli
-    endif
+    #else
+    #  LDFLAGS += -R \$$ORIGIN/../../lib/$(LIBARCH)/jli
+    #  LDFLAGS += -R \$$ORIGIN/../../lib/$(LIBARCH)/jli
+    #endif
   endif
   ifeq ($(PLATFORM), linux)
     LDFLAGS += $(LDFLAG_Z_ORIGIN)
@@ -150,7 +151,7 @@ endif # PLATFORM LINUX
 #
 FILES_o = $(OBJDIR)/main.$(OBJECT_SUFFIX)
 
-$(ACTUAL_PROGRAM):: classes $(INIT) 
+$(ACTUAL_PROGRAM):: classes $(INIT)
 
 #
 # Windows only
@@ -169,14 +170,14 @@ ifeq ($(PLATFORM), windows)
 
   $(OBJDIR)/$(PROGRAM).lcf: $(OBJDIR)/$(PROGRAM).res $(FILES_o)
 	@$(prep-target)
-	@$(ECHO) $(FILES_o) > $@ 
+	@$(ECHO) $(FILES_o) > $@
   ifndef LOCAL_RESOURCE_FILE
 	@$(ECHO) $(OBJDIR)/$(PROGRAM).res >> $@
   endif
-	@$(ECHO) Created $@ 
+	@$(ECHO) Created $@
 
-  $(ACTUAL_PROGRAM):: $(OBJDIR)/$(PROGRAM)$(EXE_SUFFIX)
-	@$(install-file)
+$(ACTUAL_PROGRAM):: $(OBJDIR)/$(PROGRAM)$(EXE_SUFFIX)
+	@$(install-cmd-file)
 
   ifeq ($(ARCH_DATA_MODEL), 32)
     STACK_SIZE=327680
@@ -242,7 +243,7 @@ else
       INFO_PLIST_FILE = Info-cmdline.plist
     endif
     LDFLAGS += -sectcreate __TEXT __info_plist $(LAUNCHER_PLATFORM_SRC)/lib/$(INFO_PLIST_FILE)
-  else 
+  else
     INFO_PLIST_FILE=
   endif
 
@@ -321,9 +322,11 @@ else
       endif # PROGRAM_SUPPORTS_FULL_DEBUG_SYMBOLS
     endif # ENABLE_FULL_DEBUG_SYMBOLS
   endif # PLATFORM-!macosx
+	$(install-module-file)
+
 endif # PLATFORM
 
-clean:: 
+clean::
 ifeq ($(PLATFORM), windows)
 	$(RM) $(OBJDIR)/$(PROGRAM).rc
 	$(RM) $(OBJDIR)/$(PROGRAM).ico
@@ -341,7 +344,7 @@ endif
 	$(RM) $(OBJDIR)/$(PROGRAM).diz
 
 
-clobber:: 
+clobber::
 	$(RM) $(ACTUAL_PROGRAM)
 
 #
@@ -359,6 +362,11 @@ endif
 ifdef JAVA_ARGS
   OTHER_CPPFLAGS += -DJAVA_ARGS='$(JAVA_ARGS)'
   OTHER_CPPFLAGS += -DLAUNCHER_NAME='"$(LAUNCHER_NAME)"'
+endif
+
+ifdef PROGRAM_MODULE
+OTHER_CPPFLAGS += -DMODULE_NAME='"$(PROGRAM_MODULE)"'
+OTHER_CPPFLAGS += -DMODULE_VERSION='"$(MODULE_VERSION)"'
 endif
 
 ifeq ($(PLATFORM), windows)

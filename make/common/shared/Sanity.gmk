@@ -199,6 +199,7 @@ include $(JDK_MAKE_SHARED_DIR)/Sanity-Settings.gmk
 	sane-alt_bootdir \
 	sane-bootdir \
 	sane-local-bootdir \
+	sane-alt_host_path \
 	sane-cups \
 	sane-devtools_path \
 	sane-compiler_path \
@@ -221,7 +222,8 @@ include $(JDK_MAKE_SHARED_DIR)/Sanity-Settings.gmk
 	sane-zip_version \
 	sane-unzip_version \
 	sane-msvcrt_path \
-        sane-freetype
+        sane-freetype \
+        sane-build_modules
 
 ######################################################
 # check for COPYRIGHT_YEAR variable
@@ -263,7 +265,7 @@ sane-make:
 ######################################################
 # Check the BUILD_NUMBER to make sure it contains bNN
 ######################################################
-sane-build_number: 
+sane-build_number:
 	@if [ "`$(ECHO) $(BUILD_NUMBER) | $(SED) 's@.*b[0-9][0-9]*.*@bNN@'`" != "bNN" ] ; then \
 	    $(ECHO) "WARNING: The BUILD_NUMBER needs to contain b[0-9][0-9]*. Currently BUILD_NUMBER=$(BUILD_NUMBER). \n" \
 	      "        This has been known to cause build failures. \n" \
@@ -770,6 +772,31 @@ ifeq ($(PLATFORM), windows)
 endif
 
 ######################################################
+# if specified, ALT_JDK_HOST_PATH must point to non-relative path if set
+######################################################
+sane-alt_host_path:
+ifdef ALT_JDK_HOST_PATH
+	@if [ `$(ECHO) $(subst \,/,$(ALT_JDK_HOST_PATH)) | $(EGREP) -c '^([A-Za-z]:)?/'` -ne 1 ]; then \
+	  $(ECHO) "ERROR: ALT_JDK_HOST_PATH must be an Absolute Path Name, \n" \
+	    "      not a Relative Path Name. \n" \
+	    "      The current value of ALT_JDK_HOST_PATH is \n" \
+	    "          $(ALT_JDK_HOST_PATH) \n" \
+	    "      Please fix this and continue your build. \n" \
+	    "" >> $(ERROR_FILE) ; \
+	fi
+	@if [ "$(ALT_JDK_HOST_PATH_CHECK)" != "same" -a "$(ALT_JDK_HOST_PATH_CHECK)" != "newer" ]; then \
+	  $(ECHO) "ERROR: Your ALT_JDK_HOST_PATH environment variable does not point \n" \
+	    "      to a valid JDK for this build. \n" \
+	    "      A JDK $(JDK_VERSION) $(MARKET_NAME) build must be using the host JDK" \
+	         " $(JDK_MAJOR_VERSION).$(JDK_MINOR_VERSION) or later. \n" \
+	    "      Apparently, your ALT_JDK_HOST_PATH is version $(ALT_JDK_HOST_PATH_VERSION). \n" \
+	    "      Please update your ALT_JDK_HOST_PATH setting and start your build again. \n" \
+	    "" >> $(ERROR_FILE) ; \
+	fi
+endif
+
+
+######################################################
 # CACERTS_FILE must be absoulte path and readable
 ######################################################
 sane-cacerts:
@@ -826,11 +853,26 @@ ifdef OPENJDK
 	fi
   else
     #do nothing  (cross-compiling)
-    sane-freetype: 
+    sane-freetype:
   endif
 else
   #do nothing  (not OpenJDK)
-  sane-freetype: 
+  sane-freetype:
+endif
+
+######################################################
+# if specified, BUILD_MODULES must contain valid values.
+######################################################
+MODULES_REGEX="all|base|desktop|management|enterprise|misc|tools"
+sane-build_modules:
+ifdef BUILD_MODULES
+	@for m in $(BUILD_MODULES) ; do \
+	    valid=`$(ECHO) $$m | $(EGREP) $(MODULES_REGEX)`; \
+	    if [ "x$$valid" = "x" ] ; then \
+		$(ECHO) "ERROR: $$m set in the BUILD_MODULES variable is invalid.\n" \
+		"" >> $(ERROR_FILE); \
+	    fi \
+	done
 endif
 
 ######################################################
@@ -847,6 +889,43 @@ ifneq ($(PLATFORM), windows)
             "      or may be downloaded from http://www.cups.org \n" \
 	    "" >> $(ERROR_FILE) ; \
 	fi
+endif
+
+######################################################
+#  BDB_HEADERS_PATH must be valid
+######################################################
+BDB_IMPORT_CHECK=true
+sane-libdb:
+ifdef USE_SYSTEM_BDB
+  ifneq ($(PLATFORM), windows)
+	@if [ ! -r $(BDB_HEADERS_PATH)/db.h ]; then \
+	 $(ECHO) "ERROR: You do not have access to valid Berkeley DB header files. \n" \
+	  "      Please check your access to \n" \
+	  "          $(BDB_HEADERS_PATH)/db.h \n" \
+	  "      and/or check your value of ALT_BDB_HEADERS_PATH, \n" \
+	  "      libdb<major>.<minor>-dev is frequently pre-installed on many systems, \n" \
+	  "      or may be downloaded from your distributions repository or \n" \
+	  "      http://www.oracle.com/technetwork/database/berkeleydb/overview/index.html \n" \
+	  "" >> $(ERROR_FILE) ; \
+	fi
+  endif
+else # We must have a valid libdb-rds and db.h
+    ifeq ($(BDB_IMPORT_CHECK),true)
+	@if [ ! -r $(BDB_IMPORT_PATH)/lib/$(LIBARCH)/$(LIB_PREFIX)db-rds.$(LIBRARY_SUFFIX) ]; then \
+	  $(ECHO) "ERROR: BDB_IMPORT_PATH does not point to a valid libdb-rds. \n" \
+	    "      Please check your access to \n" \
+	    "          $(BDB_IMPORT_PATH)/lib/$(LIBARCH)/$(LIB_PREFIX)db-rds.$(LIBRARY_SUFFIX) \n" \
+	    "      and/or check your value of ALT_BDB_IMPORT_PATH. \n" \
+	    "" >> $(ERROR_FILE) ; \
+	fi
+	@if [ ! -r $(BDB_IMPORT_PATH)/header/db.h ]; then \
+	  $(ECHO) "ERROR: BDB_IMPORT_PATH does not point to a valid db.h. \n" \
+	    "      Please check your access to \n" \
+	    "          $(BDB_IMPORT_PATH)/header/db.h \n" \
+	    "      and/or check your value of ALT_BDB_IMPORT_PATH. \n" \
+	    "" >> $(ERROR_FILE) ; \
+	fi
+    endif
 endif
 
 ######################################################
@@ -1109,8 +1188,8 @@ ifeq ($(PLATFORM), windows)
 	    "" >> $(WARNING_FILE) ; \
 	fi
     endif
-  endif	
-endif	
+  endif
+endif
 
 
 ######################################################
@@ -1136,13 +1215,13 @@ TMP_SDK_INCLUDE_GET_FULL_VERSION= $(TMP_SDK_INCLUDE_FIND_VERSION) | \
 		$(SED) -e 's@.*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*@\1@'
 
 # Compare an interface file (Rule creates 2 temp files: %.h and %.h.IMPORT)
-#    Files jvm.h, jvm_md.h and jmm.h are special in that they are not publicly 
+#    Files jvm.h, jvm_md.h and jmm.h are special in that they are not publicly
 #    exported but do represent VM interfaces used by the rest of the jdk.
 #    So these 3 will not be found in a promoted build and can only
 #    be checked when this represents a full control build (i.e. the
 #    HOTSPOT_IMPORT_PATH includes these files in it's 'include' directory).
 $(TEMPDIR)/%.h: $(SHARE_SRC)/javavm/export/%.h
-	@$(install-file)
+	@$(install-non-module-file)
 	@$(RM) $@.IMPORT
 	@if [ -r $(HOTSPOT_IMPORT_PATH)/include/$(@F) ]; then \
 	  $(CP) $(HOTSPOT_IMPORT_PATH)/include/$(@F) $@.IMPORT ; \
@@ -1156,7 +1235,7 @@ $(TEMPDIR)/%.h: $(SHARE_SRC)/javavm/export/%.h
 	fi
 
 $(TEMPDIR)/%.h: $(PLATFORM_SRC)/javavm/export/%.h
-	@$(install-file)
+	@$(install-non-module-file)
 	@$(RM) $@.IMPORT
 	@if [ -r $(HOTSPOT_IMPORT_PATH)/include/$(PLATFORM_INCLUDE_NAME)/$(@F) ]; then \
 	  $(CP) $(HOTSPOT_IMPORT_PATH)/include/$(PLATFORM_INCLUDE_NAME)/$(@F) $@.IMPORT ; \
@@ -1248,8 +1327,8 @@ sane-hotspot_import_include: $(TMP_SDK_INCLUDE_FILE_LIST) $(TMP_SDK_INCLUDE_FILE
 # See the Defs-<arch>.gmk files.
 
 ifeq ($(INCLUDE_SA), true)
-# Verify that hotspot Serviceability Agent files are present.  To keep 
-# it simple, we will just check for one of them.  The others have arch 
+# Verify that hotspot Serviceability Agent files are present.  To keep
+# it simple, we will just check for one of them.  The others have arch
 # dependent paths.
 
 sane-hotspot_import::
@@ -1391,7 +1470,7 @@ ifdef REQUIRED_CC_VER
 endif
 
 ######################################################
-# Check that ALSA headers and libs are installed and 
+# Check that ALSA headers and libs are installed and
 # that the header has the right version. We only
 # need /usr/include/alsa/version.h and /usr/lib/libasound.so
 ######################################################
@@ -1515,7 +1594,7 @@ ifndef OPENJDK
 	    	    "" >> $(ERROR_FILE) ; \
 	fi
         endif # ALT_GCC29_PLUGIN_LIB_PATH
-      endif # ALT_GCC29_COMPILER_PATH 
+      endif # ALT_GCC29_COMPILER_PATH
     endif # ARCH_DATA_MODEL, 32
   endif # LINUX
 endif  # OPEN_JDK

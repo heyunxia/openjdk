@@ -26,6 +26,7 @@
 BUILDDIR = ../..
 LIBRARY = osxapp
 PRODUCT = sun
+MODULE = base
 include $(BUILDDIR)/common/Defs.gmk
 
 GEN_DIR=$(GENSRCDIR)/sun/osxapp

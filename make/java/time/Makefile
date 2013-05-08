@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../../
+MODULE  = time 
 PACKAGE = java.time
 include $(BUILDDIR)/common/Defs.gmk
 

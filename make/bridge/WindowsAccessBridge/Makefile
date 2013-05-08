@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../..
+MODULE = accessbridge
 LIBRARY = WindowsAccessBridge$(ABSUFFIX)
 include $(BUILDDIR)/common/Defs.gmk
 

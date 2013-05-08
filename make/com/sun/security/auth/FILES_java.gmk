@@ -46,5 +46,4 @@ FILES_java = \
 	com/sun/security/auth/SubjectCodeSource.java \
 	com/sun/security/auth/PolicyParser.java \
 	com/sun/security/auth/PrincipalComparator.java \
-	com/sun/security/auth/callback/TextCallbackHandler.java \
-	com/sun/security/auth/callback/DialogCallbackHandler.java
+	com/sun/security/auth/callback/TextCallbackHandler.java

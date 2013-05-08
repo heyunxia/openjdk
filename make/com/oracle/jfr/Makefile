@@ -27,6 +27,7 @@ BUILDDIR = ../../..
 PACKAGE = oracle.jrockit.jfr
 LIBRARY = jfr
 PRODUCT = oracle
+MODULE = management
 include $(BUILDDIR)/common/Defs.gmk
 
 #

@@ -27,6 +27,7 @@ BUILDDIR = ../..
 PACKAGE = apple.applescript
 LIBRARY = AppleScriptEngine
 PRODUCT = sun
+MODULE = scripting
 include $(BUILDDIR)/common/Defs.gmk
 
 
@@ -40,7 +41,6 @@ FILES_objc = \
         $(TARGDIR)AppleScriptExecutionContext.m \
         $(TARGDIR)AS_NS_ConversionUtils.m \
         $(TARGDIR)NS_Java_ConversionUtils.m
-
 
 FILES_export = \
 	apple/applescript/AppleScriptEngine.java \

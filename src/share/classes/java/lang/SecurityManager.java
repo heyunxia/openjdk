@@ -29,7 +29,6 @@ import java.security.*;
 import java.io.FileDescriptor;
 import java.io.File;
 import java.io.FilePermission;
-import java.awt.AWTPermission;
 import java.util.PropertyPermission;
 import java.lang.RuntimePermission;
 import java.net.SocketPermission;
@@ -38,6 +37,8 @@ import java.util.Hashtable;
 import java.net.InetAddress;
 import java.lang.reflect.*;
 import java.net.URL;
+import java.lang.module.RequireOptionalModule;
+import java.lang.module.ModuleNotPresentException;
 
 import sun.reflect.CallerSensitive;
 import sun.security.util.SecurityConstants;
@@ -1334,12 +1335,15 @@ class SecurityManager {
      * @param      window   the new window that is being created.
      * @return     <code>true</code> if the calling thread is trusted to put up
      *             top-level windows; <code>false</code> otherwise.
-     * @exception  NullPointerException if the <code>window</code> argument is
-     *             <code>null</code>.
+     * @throws     NullPointerException if the {@code window} argument is
+     *             {@code null}.
+     * @throws     ModuleNotPresentException if the desktop module is not present.
      * @see        java.awt.Window
      * @see        #checkPermission(java.security.Permission) checkPermission
      */
+    @RequireOptionalModule("jdk.desktop")
     public boolean checkTopLevelWindow(Object window) {
+        SecurityManager.class.requireModulePresent("jdk.desktop");
         if (window == null) {
             throw new NullPointerException("window can't be null");
         }
@@ -1396,11 +1400,14 @@ class SecurityManager {
      * exception.
      *
      * @since   JDK1.1
-     * @exception  SecurityException  if the calling thread does not have
+     * @throws     SecurityException  if the calling thread does not have
      *             permission to access the system clipboard.
+     * @throws     ModuleNotPresentException if the desktop module is not present.
      * @see        #checkPermission(java.security.Permission) checkPermission
      */
+    @RequireOptionalModule("jdk.desktop")
     public void checkSystemClipboardAccess() {
+        SecurityManager.class.requireModulePresent("jdk.desktop");
         Permission perm = SecurityConstants.AWT.ACCESS_CLIPBOARD_PERMISSION;
         if (perm == null) {
             perm = SecurityConstants.ALL_PERMISSION;
@@ -1425,11 +1432,14 @@ class SecurityManager {
      * exception.
      *
      * @since   JDK1.1
-     * @exception  SecurityException  if the calling thread does not have
+     * @throws     SecurityException  if the calling thread does not have
      *             permission to access the AWT event queue.
+     * @throws     ModuleNotPresentException if the desktop module is not present.
      * @see        #checkPermission(java.security.Permission) checkPermission
      */
+    @RequireOptionalModule("jdk.desktop")
     public void checkAwtEventQueueAccess() {
+        SecurityManager.class.requireModulePresent("jdk.desktop");
         Permission perm = SecurityConstants.AWT.CHECK_AWT_EVENTQUEUE_PERMISSION;
         if (perm == null) {
             perm = SecurityConstants.ALL_PERMISSION;

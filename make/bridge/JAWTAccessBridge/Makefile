@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../..
+MODULE = accessbridge
 LIBRARY = JAWTAccessBridge$(ABSUFFIX)
 include $(BUILDDIR)/common/Defs.gmk
 

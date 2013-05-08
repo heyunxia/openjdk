@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = base
 PACKAGE = java.net
 LIBRARY = net
 PRODUCT = sun

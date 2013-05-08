@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../../..
+MODULE  = base
 PACKAGE = java.text
 PRODUCT = sun
 JAVAC_MAX_WARNINGS = true

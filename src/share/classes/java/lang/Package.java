@@ -567,40 +567,47 @@ public class Package implements java.lang.reflect.AnnotatedElement {
     private static Package defineSystemPackage(final String iname,
                                                final String fn)
     {
-        return AccessController.doPrivileged(new PrivilegedAction<Package>() {
-            public Package run() {
-                String name = iname;
-                // Get the cached code source url for the file name
-                URL url = urls.get(fn);
-                if (url == null) {
-                    // URL not found, so create one
-                    File file = new File(fn);
-                    try {
-                        url = ParseUtil.fileToEncodedURL(file);
-                    } catch (MalformedURLException e) {
-                    }
-                    if (url != null) {
-                        urls.put(fn, url);
-                        // If loading a JAR file, then also cache the manifest
-                        if (file.isFile()) {
-                            mans.put(fn, loadManifest(fn));
+        Package pkg;
+        // Convert to "."-separated package name
+        final String name = iname.substring(0, iname.length() - 1).replace('/', '.');
+        if (SystemPackage.isPackageFromModule(fn)) {
+            pkg = AccessController.doPrivileged(new PrivilegedAction<Package>() {
+                public Package run() {
+                    return SystemPackage.newInstance(name, fn, null);
+                }
+            });
+        } else {
+            pkg = AccessController.doPrivileged(new PrivilegedAction<Package>() {
+                public Package run() {
+                    // Get the cached code source url for the file name
+                    URL url = urls.get(fn);
+                    if (url == null) {
+                        // URL not found, so create one
+                        File file = new File(fn);
+                        try {
+                            url = ParseUtil.fileToEncodedURL(file);
+                        } catch (MalformedURLException e) {
+                        }
+                        if (url != null) {
+                            urls.put(fn, url);
+                            // If loading a JAR file, then also cache the manifest
+                            if (file.isFile()) {
+                                mans.put(fn, loadManifest(fn));
+                            }
                         }
                     }
+                    Manifest man = mans.get(fn);
+                    if (man != null) {
+                        return new Package(name, man, url, null);
+                    } else {
+                        return new Package(name, null, null, null,
+                                           null, null, null, null, null);
+                    }
                 }
-                // Convert to "."-separated package name
-                name = name.substring(0, name.length() - 1).replace('/', '.');
-                Package pkg;
-                Manifest man = mans.get(fn);
-                if (man != null) {
-                    pkg = new Package(name, man, url, null);
-                } else {
-                    pkg = new Package(name, null, null, null,
-                                      null, null, null, null, null);
-                }
-                pkgs.put(name, pkg);
-                return pkg;
-            }
-        });
+            });
+        }
+        pkgs.put(name, pkg);
+        return pkg;
     }
 
     /*
@@ -625,8 +632,34 @@ public class Package implements java.lang.reflect.AnnotatedElement {
     // Maps each code source url for a jar file to its manifest
     private static Map<String, Manifest> mans = new HashMap<>(10);
 
+    // Returns the source where the given package name is loaded from.
+    // If loaded from a system module, in classpath mode, it will return
+    // an unique value and a Package instance will be constructed via
+    // SystemPackage class.
     private static native String getSystemPackage0(String name);
     private static native String[] getSystemPackages0();
+
+    static class SystemPackage {
+        static final String specTitle = System.getProperty("java.specification.name");
+        static final String specVersion = System.getProperty("java.specification.version");
+        static final String specVendor = System.getProperty("java.specification.vendor");
+        static final String implTitle = System.getProperty("java.runtime.name");
+        static final String implVersion = System.getProperty("java.version");
+        static final String implVendor = System.getProperty("java.vendor");
+        static final String moduleClassPath =
+            sun.misc.VM.getSavedProperty("sun.boot.module.classpath");
+
+        static Package newInstance(String name, String fn, ClassLoader loader) {
+            URL sealBase = null;    // ## always null?
+            return new Package(name, specTitle, specVersion, specVendor,
+                               implTitle, implVersion, implVendor,
+                               sealBase, loader);
+        }
+
+        private static boolean isPackageFromModule(String fn) {
+            return fn.equals(moduleClassPath);
+        }
+    }
 
     /*
      * Private storage for the package name and attributes.

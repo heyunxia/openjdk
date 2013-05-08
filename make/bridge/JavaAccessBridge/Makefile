@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../..
+MODULE = accessbridge
 LIBRARY = JavaAccessBridge$(ABSUFFIX)
 include $(BUILDDIR)/common/Defs.gmk
 

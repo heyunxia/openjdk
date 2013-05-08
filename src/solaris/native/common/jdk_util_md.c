@@ -34,3 +34,13 @@ int JDK_InitJvmHandle() {
 void* JDK_FindJvmEntry(const char* name) {
     return dlsym(RTLD_DEFAULT, name);
 }
+
+void* JDK_GetLibraryHandle(const char* name) {
+    char libname[1024];
+    snprintf(libname, sizeof(libname), "%s%s%s", JNI_LIB_PREFIX, name, JNI_LIB_SUFFIX);
+    return dlopen(libname, RTLD_LAZY);
+}
+
+void* JDK_LookupSymbol(void* handle, const char* name) {
+    return dlsym(handle, name);
+}

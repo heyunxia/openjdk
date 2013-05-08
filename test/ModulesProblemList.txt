@@ -1,0 +1,407 @@
+###########################################################################
+#
+# Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Oracle designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Oracle in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+#
+
+############################################################################
+# This file is intended to temporarily exclude test failures due
+# to jdk modularization.  We will remove this file when the major
+# known issues of the jdk modularization are fixed.
+#
+############################################################################
+
+# jdk_awt
+
+
+############################################################################
+
+# jdk_beans
+
+############################################################################
+
+# jdk_io
+
+
+############################################################################
+
+# jdk_lang
+
+############################################################################
+
+# jdk_management
+
+# Agent JAR not found or no Agent-Class attribute
+sun/management/jmxremote/bootstrap/JvmstatCountersTest.java generic-all
+
+# Could not determine codeBase for java.home
+javax/management/MBeanInfo/NotificationInfoTest.java        generic-all
+
+# management-agent.jar is missing
+sun/management/jmxremote/bootstrap/CustomLauncherTest.sh 	generic-all
+sun/management/jmxremote/bootstrap/LocalManagementTest.sh 	generic-all
+
+# NoSuchAlgorithmException
+sun/management/jmxremote/bootstrap/RmiRegistrySslTest.sh	generic-all
+sun/management/jmxremote/bootstrap/RmiSslBootstrapTest.sh	generic-all
+
+############################################################################
+
+# jdk_math
+
+
+############################################################################
+
+# jdk_misc
+
+# Need investigation
+demo/jvmti/compiledMethodLoad/CompiledMethodLoadTest.java 	generic-all
+demo/jvmti/gctest/Gctest.java 					generic-all
+demo/jvmti/heapTracker/HeapTrackerTest.java 			generic-all
+demo/jvmti/heapViewer/HeapViewerTest.java 			generic-all
+demo/jvmti/minst/MinstTest.java 				generic-all
+demo/jvmti/mtrace/TraceJFrame.java 				generic-all
+demo/jvmti/versionCheck/FailsWhenJvmtiVersionDiffers.java 	generic-all
+demo/jvmti/waiters/WaitersTest.java 				generic-all
+
+# Tests rely on bin/sparcv9|amd64/java launcher
+demo/jvmti/hprof/CpuOldTest.java                   solaris-x64
+demo/jvmti/hprof/CpuSamplesTest.java               solaris-x64
+demo/jvmti/hprof/CpuTimesDefineClassTest.java      solaris-x64
+demo/jvmti/hprof/CpuTimesTest.java                 solaris-x64
+demo/jvmti/hprof/HeapAllTest.java                  solaris-x64
+demo/jvmti/hprof/HeapBinaryFormatTest.java         solaris-x64
+demo/jvmti/hprof/HeapDumpTest.java                 solaris-x64
+demo/jvmti/hprof/HeapSitesTest.java                solaris-x64
+demo/jvmti/hprof/MonitorTest.java                  solaris-x64
+demo/jvmti/hprof/OptionsTest.java                  solaris-x64
+demo/jvmti/hprof/StackMapTableTest.java            solaris-x64
+demo/jvmti/hprof/CpuOldTest.java                   solaris-sparcv9
+demo/jvmti/hprof/CpuSamplesTest.java               solaris-sparcv9
+demo/jvmti/hprof/CpuTimesDefineClassTest.java      solaris-sparcv9
+demo/jvmti/hprof/CpuTimesTest.java                 solaris-sparcv9
+demo/jvmti/hprof/HeapAllTest.java                  solaris-sparcv9
+demo/jvmti/hprof/HeapBinaryFormatTest.java         solaris-sparcv9
+demo/jvmti/hprof/HeapDumpTest.java                 solaris-sparcv9
+demo/jvmti/hprof/HeapSitesTest.java                solaris-sparcv9
+demo/jvmti/hprof/MonitorTest.java                  solaris-sparcv9
+demo/jvmti/hprof/OptionsTest.java                  solaris-sparcv9
+demo/jvmti/hprof/StackMapTableTest.java            solaris-sparcv9
+
+############################################################################
+# jdk_net
+
+# Caused by: java.security.NoSuchAlgorithmException: SunTlsRsaPremasterSecret KeyGenerator not available
+com/sun/net/httpserver/SelCacheTest.java                generic-all
+com/sun/net/httpserver/Test1.java                       generic-all
+com/sun/net/httpserver/Test6a.java                      generic-all
+com/sun/net/httpserver/Test7a.java                      generic-all
+com/sun/net/httpserver/Test8a.java                      generic-all
+com/sun/net/httpserver/Test9.java                       generic-all
+com/sun/net/httpserver/Test9a.java                      generic-all
+
+############################################################################
+
+# jdk_nio*
+
+# existing JDK 7 failure?
+java/nio/channels/FileChannel/ClosedByInterrupt.java    generic-all
+java/nio/channels/SocketChannel/AdaptSocket.java        linux-x64
+java/nio/channels/SocketChannel/Connect.java            linux-x64
+java/nio/MappedByteBuffer/Force.java                    windows-i586
+
+# Tests depend on java -d64 launcher
+java/nio/channels/spi/SelectorProvider/inheritedChannel/run_tests.sh    solaris-sparcv9
+java/nio/channels/spi/SelectorProvider/inheritedChannel/run_tests.sh    solaris-x64
+
+
+# This test sets to Turkish language without resetting it when exit
+# that causes other tests to fail.  Exclude for now.
+sun/nio/cs/Test4206507.java                             generic-all
+
+############################################################################
+
+# jdk_rmi
+
+# Need further investigation
+# TestFailedException: TEST FAILED: could not create registry
+sun/rmi/runtime/Log/checkLogging/CheckLogStreams.java   solaris-all
+sun/rmi/runtime/Log/checkLogging/CheckLogging.java      solaris-all
+
+java/rmi/transport/dgcDeadLock/DGCDeadLock.java         solaris-all
+
+# Caused by: java.security.NoSuchAlgorithmException: SunTlsRsaPremasterSecret KeyGenerator not available
+javax/rmi/ssl/SSLSocketParametersTest.sh                generic-all
+
+############################################################################
+
+# jdk_security
+
+# java.security.KeyStoreException: JKS not found
+sun/security/tools/jarsigner/ec.sh               	generic-all
+sun/security/tools/jarsigner/emptymanifest.sh    	generic-all
+sun/security/tools/jarsigner/nameclash.sh        	generic-all
+sun/security/tools/jarsigner/newsize7.sh    		generic-all
+sun/security/tools/jarsigner/passtype.sh    		generic-all
+sun/security/tools/jarsigner/samename.sh    		generic-all
+sun/security/tools/jarsigner/ts.sh    			generic-all
+sun/security/tools/keytool/AltProviderPath.sh    	generic-all
+sun/security/tools/keytool/CloneKeyAskPassword.sh    	generic-all
+sun/security/tools/keytool/NoExtNPE.sh    		generic-all
+sun/security/tools/keytool/SecretKeyKS.sh    		generic-all
+sun/security/tools/keytool/printssl.sh    		generic-all
+sun/security/tools/jarsigner/oldsig.sh                  generic-all
+
+# java.security.NoSuchAlgorithmException: PBE SecretKeyFactory not available
+java/security/KeyStore/PBETest.java                     generic-all
+
+# Can't find bundle for base name sun.text.resources.FormatData, locale en
+sun/security/tools/keytool/file-in-help.sh    		generic-all
+sun/security/tools/keytool/newhelp.sh    		generic-all
+sun/security/tools/keytool/resource.sh    		generic-all
+
+# jre/lib/ext: No such file or directory
+java/security/Security/ClassLoaderDeadlock/Deadlock2.sh generic-all
+
+# Need investigation
+sun/security/krb5/auto/W83.java                         windows-all
+sun/security/krb5/tools/ktarg.sh                        windows-all
+sun/security/krb5/tools/ktcheck.sh                      windows-all
+
+# JarVerifer throws JarException: Class is on the bootclasspath
+# SecurityException: JCE cannot authenticate the provider SunPKCS11-Solaris
+java/security/Signature/NONEwithRSA.java                generic-all
+java/security/KeyRep/Serial.java                        generic-all
+
+
+############################################################################
+
+# jdk_swing
+
+############################################################################
+
+# jdk_text
+
+
+############################################################################
+
+# jdk_tools
+
+# jdk_tools1 32 failures on windows
+# Provider com.sun.tools.jdi.SharedMemoryAttachingConnector could not be instantiated:
+# java.lang.UnsatisfiedLinkError: No library dt_shmem.dll in module context +jdk.tools
+com/sun/jdi/ArrayLengthDumpTest.sh                   windows-all
+com/sun/jdi/BreakpointWithFullGC.sh                  windows-all
+com/sun/jdi/CatchAllTest.sh                          windows-all
+com/sun/jdi/CatchCaughtTest.sh                       windows-all
+com/sun/jdi/CatchPatternTest.sh                      windows-all
+com/sun/jdi/CommandCommentDelimiter.sh               windows-all
+com/sun/jdi/DeoptimizeWalk.sh                        windows-all
+com/sun/jdi/EvalArgs.sh                              windows-all
+com/sun/jdi/GetLocalVariables3Test.sh                windows-all
+com/sun/jdi/GetLocalVariables4Test.sh                windows-all
+com/sun/jdi/JdbLockTest.sh                           windows-all
+com/sun/jdi/JdbMethodExitTest.sh                     windows-all
+com/sun/jdi/JdbMissStep.sh                           windows-all
+com/sun/jdi/JdbVarargsTest.sh                        windows-all
+com/sun/jdi/MixedSuspendTest.sh                      windows-all
+com/sun/jdi/NotAField.sh                             windows-all
+com/sun/jdi/NullLocalVariable.sh                     windows-all
+com/sun/jdi/Redefine-g.sh                            windows-all
+com/sun/jdi/RedefineAnnotation.sh                    windows-all
+com/sun/jdi/RedefineChangeClassOrder.sh              windows-all
+com/sun/jdi/RedefineClasses.sh                       windows-all
+com/sun/jdi/RedefineClearBreakpoint.sh               windows-all
+com/sun/jdi/RedefineCrossEvent.java                  windows-all
+com/sun/jdi/RedefineException.sh                     windows-all
+com/sun/jdi/RedefineFinal.sh                         windows-all
+com/sun/jdi/RedefineImplementor.sh                   windows-all
+com/sun/jdi/RedefineIntConstantToLong.sh             windows-all
+com/sun/jdi/RedefineMulti.sh                         windows-all
+com/sun/jdi/RedefinePop.sh                           windows-all
+com/sun/jdi/RedefineStep.sh                          windows-all
+com/sun/jdi/RedefineTTYLineNumber.sh                 windows-all
+com/sun/jdi/StringConvertTest.sh                     windows-all
+com/sun/jdi/WatchFramePop.sh                         windows-all
+
+# legacy mode adds -Xbootclasspath that causes this test to fail
+# this test should pass when we support legacy mode
+sun/tools/jps/jps-Vvml_2.sh             generic-all
+
+# Need investigation
+sun/tools/jstatd/jstatdExternalRegistry.sh      generic-all
+com/sun/tools/extcheck/TestExtcheckArgs.java   	generic-all
+tools/launcher/ExecutionEnvironment.java   	generic-all
+
+# Test bugs - should file a CR
+tools/launcher/VersionCheck.java   	        generic-all
+# /var/tmp  not writeable
+tools/jar/ChangeDir.java                        generic-all
+
+# Tests rely on bin/sparcv9|amd64/java launcher
+com/sun/jdi/BadHandshakeTest.java               solaris-x64
+com/sun/jdi/ExclusiveBind.java                  solaris-x64
+com/sun/jdi/RunToExit.java                      solaris-x64
+com/sun/jdi/DoubleAgentTest.java                solaris-x64
+com/sun/jdi/PrivateTransportTest.sh             solaris-x64
+com/sun/jdi/Solaris32AndSolaris64Test.sh        solaris-x64
+sun/tools/jhat/HatHeapDump1Test.java            solaris-x64
+tools/launcher/Test7029048.java                 solaris-x64
+com/sun/jdi/BadHandshakeTest.java               solaris-sparcv9
+com/sun/jdi/ExclusiveBind.java                  solaris-sparcv9
+com/sun/jdi/RunToExit.java                      solaris-sparcv9
+com/sun/jdi/DoubleAgentTest.java                solaris-sparcv9
+com/sun/jdi/PrivateTransportTest.sh             solaris-sparcv9
+com/sun/jdi/Solaris32AndSolaris64Test.sh        solaris-sparcv9
+sun/tools/jhat/HatHeapDump1Test.java            solaris-sparcv9
+tools/launcher/Test7029048.java                 solaris-sparcv9
+com/sun/jdi/connect/spi/DebugUsingCustomConnector.java solaris-x64
+com/sun/jdi/connect/spi/DebugUsingCustomConnector.java solaris-sparcv9
+
+# crash on 32-bit
+sun/tools/jhat/HatHeapDump1Test.java            generic-all
+tools/launcher/MultipleJRE.sh                   generic-all
+
+# Test expects tools.jar and rt.jar.  Needs to be update.
+tools/pack200/Pack200Simple.sh   		generic-all
+tools/pack200/AttributeTests.java               generic-all
+tools/pack200/CommandLineTests.java             generic-all
+tools/pack200/Pack200Props.java                 generic-all
+tools/pack200/Pack200Test.java                  generic-all
+tools/pack200/PackageVersionTest.java           generic-all
+tools/pack200/TestExceptions.java               generic-all
+tools/pack200/TimeStamp.java                    generic-all
+tools/pack200/UnpackerMemoryTest.java           generic-all
+tools/pack200/T7007157.java                     generic-all
+tools/pack200/RepackTest.java                   generic-all
+
+# jcmd in module mode prints jdk.jcmd@8-ea instead of sun.tools.jcmd.JCmd
+sun/tools/jcmd/jcmd-Defaults.sh 		generic-all
+sun/tools/jcmd/jcmd-f.sh 			generic-all
+sun/tools/jcmd/jcmd-help-help.sh 		generic-all
+
+############################################################################
+
+# jdk_util
+
+# Requires LogManager.addPropertyChangeListener
+java/util/logging/Listeners.java			generic-all
+java/util/logging/ListenersWithSM.java			generic-all
+
+# Fail to find sun.localedata
+java/util/Locale/InternationalBAT.java			generic-all
+java/util/PluggableLocale/CurrencyNameProviderTest.sh   generic-all
+
+# jmap fails - No library libattach.so in module context +jdk.tools
+java/util/logging/AnonLoggerWeakRefLeak.sh              generic-all
+java/util/logging/LoggerWeakRefLeak.sh                  generic-all
+
+# Can't find rt.jar or classes directory
+java/util/zip/InterruptibleZip.java                     generic-all
+
+# Assumes JAR files in JDK's lib directory
+java/util/zip/ZipFile/FinalizeZipFile.java		generic-all
+
+# java.util.ConcurrentModificationException - need investigation
+java/util/Locale/Bug6989440.java                        generic-all
+
+# requires attach provider to be present
+java/util/concurrent/locks/Lock/TimedAcquireLeak.java	generic-all
+
+############################################################################
+
+# jdk_other
+
+# Testing ct.sym and rt.jar that are not present in module image
+jdk/asm/AsmSanity.java					generic-all
+
+############################################################################
+
+# langtools_jtreg known failures - included it here for reference
+# these tests are not excluded in the langtools jtreg run
+
+# jigsaw legacy image
+
+tools/javac/6302184/T6302184.sh
+
+# AsssertionError - package-info.class not found
+tools/javac/TestPkgInfo.java
+
+# new module-compilation-related message keys are not in the resource bundle
+tools/javac/diags/CheckExamples.java
+tools/javac/diags/CheckResourceKeys.java
+tools/javac/diags/MessageInfo.java
+
+# wrong size found: 8340; expected: 6655
+tools/javac/nio/compileTest/CompileTest.java
+
+# AssertionError - unexpected empty block found
+tools/javac/parser/ExtraSemiTest.java
+
+# Failures in jdk-module-image
+
+# rt.jar not found
+tools/javadoc/6942366/T6942366.java
+
+# error - Locale not available: ja
+com/sun/javadoc/testHtmlTag/TestHtmlTag.java
+
+# bootclasspath and module content (classes)
+tools/javac/api/T6430241.java
+tools/javac/Paths/Diagnostics.sh
+
+# sun.misc.Lock is in compat module
+tools/javac/warnings/6594914/T6594914b.java
+
+############################################################################
+# New classpath mode support failures
+#
+
+# recursive initialization of system class loader
+java/nio/file/spi/SetDefaultProvider.java 		generic-all
+
+# URI.toURL() causes System.getProperty to be called
+# See 6977738 
+java/lang/ClassLoader/deadlock/GetResource.java		generic-all
+
+# javah throws NPE
+org/openjdk/jigsaw/hello-native.sh 			generic-all
+
+# stack trace change
+com/sun/jdi/MethodEntryExitEvents.java 			generic-all
+com/sun/jdi/StepTest.java 				generic-all
+
+# custom loader fails to find com.sun.jdi.Bootstrap
+# need further investigation
+com/sun/jdi/connect/spi/JdiLoadedByCustomLoader.sh      generic-all
+
+# bytecode instrumentation??
+demo/jvmti/hprof/CpuOldTest.java 			generic-all
+demo/jvmti/hprof/CpuTimesDefineClassTest.java 		generic-all
+demo/jvmti/hprof/CpuTimesTest.java 			generic-all
+demo/jvmti/hprof/HeapAllTest.java 			generic-all
+demo/jvmti/hprof/HeapBinaryFormatTest.java 		generic-all
+demo/jvmti/hprof/HeapDumpTest.java 			generic-all
+demo/jvmti/hprof/HeapSitesTest.java 			generic-all
+demo/jvmti/hprof/OptionsTest.java		 	generic-all
+demo/jvmti/hprof/StackMapTableTest.java 		generic-all

@@ -93,7 +93,7 @@ demos:
 # Create the final jdk and jre images, to be wrapped up
 # into packages, or installed. Ensure PROFILE is not set
 # in these cases.
-images:
+legacy-images:
 	+$(MAKE) PROFILE="" -f CreateJars.gmk
 	+$(MAKE) PROFILE="" -f Images.gmk
 ifeq ($(OPENJDK_TARGET_OS), macosx)
@@ -111,8 +111,21 @@ $(ALL_PROFILES):
 
 profiles: $(ALL_PROFILES)
 
+post-modules:
+	$(MAKE) -f Import.gmk submodules
+	$(MAKE) -f GenerateData.gmk submodules
+	$(MAKE) -f CompileNativeLibraries.gmk submodules
+	$(MAKE) -f CompileLaunchers.gmk submodules
+	$(MAKE) -f CreateJars.gmk submodules IMAGES_OUTPUTDIR=$(POSTMODULES_OUTPUTDIR)
+	$(MAKE) -f GensrcModuleInfo.gmk
+	$(MAKE) -f GenerateModules.gmk
+
+images:
+	$(MAKE) -f ModuleImages.gmk
+
 sign-jars:
 	+$(MAKE) -f SignJars.gmk
+
 
 BINARIES:=$(notdir $(wildcard $(JDK_IMAGE_DIR)/bin/*))
 INSTALLDIR:=openjdk-$(RELEASE)

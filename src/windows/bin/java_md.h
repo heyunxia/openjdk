@@ -39,6 +39,10 @@
 #define MAXPATHLEN      MAX_PATH
 #define MAXNAMELEN      MAX_PATH
 
+/*
+ * snprintf doesn't exist in stdio.h
+ */
+#define snprintf _snprintf
 
 /*
  * Support for doing cheap, accurate interval timing.

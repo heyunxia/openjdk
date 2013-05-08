@@ -27,6 +27,7 @@ package sun.misc;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Executable;
+import java.lang.reflect.Module;
 import sun.reflect.ConstantPool;
 import sun.reflect.annotation.AnnotationType;
 import sun.nio.ch.Interruptible;
@@ -69,6 +70,9 @@ public interface JavaLangAccess {
     /** Set thread's blocker field. */
     void blockedOn(Thread t, Interruptible b);
 
+    /** Set class's module */
+    void setModule(Class c, Module m);
+
     /**
      * Registers a shutdown hook.
      *
@@ -86,7 +90,9 @@ public interface JavaLangAccess {
      * @throw IllegalStateException if shutdown is in progress and
      *          the slot is not valid to register.
      */
-    void registerShutdownHook(int slot, boolean registerShutdownInProgress, Runnable hook);
+    void registerShutdownHook(int slot,
+                              boolean registerShutdownInProgress,
+                              Runnable hook);
 
     /**
      * Returns the number of stack frames represented by the given throwable.

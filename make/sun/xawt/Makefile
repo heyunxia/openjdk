@@ -24,6 +24,7 @@
 #
 
 BUILDDIR = ../..
+MODULE  = awt
 PACKAGE = sun.awt.X11
 LIBRARY = awt_xawt
 PRODUCT = sun

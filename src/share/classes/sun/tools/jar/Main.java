@@ -25,9 +25,11 @@
 
 package sun.tools.jar;
 
+import java.lang.module.ModuleId;
 import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.zip.*;
 import java.util.jar.*;
@@ -36,6 +38,7 @@ import java.text.MessageFormat;
 import sun.misc.JarIndex;
 import static sun.misc.JarIndex.INDEX_NAME;
 import static java.util.jar.JarFile.MANIFEST_NAME;
+import static java.util.jar.JarFile.MODULEINFO_NAME;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
@@ -49,6 +52,7 @@ class Main {
     PrintStream out, err;
     String fname, mname, ename, pname;
     String zname = "";
+    String moduleid;
     String[] files;
     String rootjar = null;
 
@@ -110,18 +114,8 @@ class Main {
         }
     }
 
-    private String formatMsg(String key, String arg) {
+    private String formatMsg(String key, String... args) {
         String msg = getMsg(key);
-        String[] args = new String[1];
-        args[0] = arg;
-        return MessageFormat.format(msg, (Object[]) args);
-    }
-
-    private String formatMsg2(String key, String arg, String arg1) {
-        String msg = getMsg(key);
-        String[] args = new String[2];
-        args[0] = arg;
-        args[1] = arg1;
         return MessageFormat.format(msg, (Object[]) args);
     }
 
@@ -209,6 +203,20 @@ class Main {
                     }
                 }
                 expand(null, files, false);
+
+                if (moduleid != null) {
+                    // check if module-info.class exists
+                    for (File f : entries) {
+                        if (f.getName().equals(MODULEINFO_NAME)) {
+                            error(getMsg("error.bad.moduleid"));
+                            if (in != null) {
+                                in.close();
+                            }
+                            out.close();
+                            return false;
+                        }
+                    }
+                }
                 create(new BufferedOutputStream(out, 4096), manifest);
                 if (in != null) {
                     in.close();
@@ -241,12 +249,14 @@ class Main {
                 if (manifest != null) {
                     manifest.close();
                 }
-                if (ok && fname != null) {
-                    // on Win32, we need this delete
-                    inputFile.delete();
-                    if (!tmpFile.renameTo(inputFile)) {
-                        tmpFile.delete();
-                        throw new IOException(getMsg("error.write.file"));
+                if (fname != null) {
+                    if (ok) {
+                        // on Win32, we need this delete
+                        inputFile.delete();
+                        if (!tmpFile.renameTo(inputFile)) {
+                            tmpFile.delete();
+                            throw new IOException(getMsg("error.write.file"));
+                        }
                     }
                     tmpFile.delete();
                 }
@@ -370,11 +380,14 @@ class Main {
                     iflag = true;
                     break;
                 case 'e':
-                     ename = args[count++];
-                     break;
+                    ename = args[count++];
+                    break;
                 case 'p':
                      pname = args[count++];
                      break;
+                case 'I':
+                    moduleid = args[count++];
+                    break;
                 default:
                     error(formatMsg("error.illegal.option",
                                 String.valueOf(flags.charAt(i))));
@@ -424,7 +437,7 @@ class Main {
             usageError();
             return false;
         } else if (uflag) {
-            if ((mname != null) || (ename != null) || (pname != null)) {
+            if ((mname != null) || (ename != null) || (pname != null) || (moduleid != null)) {
                 /* just want to update the manifest */
                 return true;
             } else {
@@ -484,27 +497,74 @@ class Main {
             zos.setMethod(ZipOutputStream.STORED);
         }
         if (manifest != null) {
-            if (vflag) {
-                output(getMsg("out.added.manifest"));
-            }
             ZipEntry e = new ZipEntry(MANIFEST_DIR);
             e.setTime(System.currentTimeMillis());
             e.setSize(0);
             e.setCrc(0);
             zos.putNextEntry(e);
-            e = new ZipEntry(MANIFEST_NAME);
-            e.setTime(System.currentTimeMillis());
-            if (flag0) {
-                crc32Manifest(e, manifest);
-            }
-            zos.putNextEntry(e);
-            manifest.write(zos);
             zos.closeEntry();
         }
+        if (manifest != null) {
+            if (vflag) {
+                output(getMsg("out.added.manifest"));
+            }
+            writeManifest(manifest, zos, System.currentTimeMillis());
+        }
+
+        ModuleInfo minfo = moduleid != null
+                               ? new ModuleInfo(moduleid) : null;
         for (File file: entries) {
-            addFile(zos, file);
+            addFile(zos, file, minfo);
+        }
+
+        if (minfo != null) {
+            minfo.setMainClass(getMainClass(manifest));
+            addModuleRequires(minfo, getClassPath(manifest));
+
+            if (vflag) {
+                output(getMsg("out.added.moduleinfo"));
+            }
+            writeModuleInfo(minfo, zos, System.currentTimeMillis());
         }
         zos.close();
+    }
+
+    /*
+     * Infers ModuleRequires from the specified Class-Path attribute.
+     * If it is a modular jar file and presents on the system, adds
+     * it to the required module list of the given ModuleInfo.
+     *
+     * @return true if it successfully infers all ModuleRequires
+     *         from the given Class-Path attribute; otherwise false.
+     */
+    private boolean addModuleRequires(ModuleInfo minfo, String cpath)
+        throws IOException
+    {
+        boolean succeed = true;
+        if (cpath != null) {
+            String path = "";
+            if (fname != null) {
+                path = fname.substring(0, Math.max(0, fname.lastIndexOf('/') + 1));
+            }
+            String[] jars = cpath.split("\\s++");
+            List<ModuleId> mids = new ArrayList<>();
+            for (String fn : jars) {
+                File f = new File(path.concat(fn));
+                if (!fn.endsWith("/") && f.exists()) {  // it is a jar file
+                    JarFile jf = new JarFile(f);
+                    java.lang.module.ModuleInfo mi = jf.getModuleInfo();
+                    if (mi != null) {
+                        minfo.addRequires(mi.id());
+                        continue;
+                    }
+                }
+
+                // not a modular jar
+                output(formatMsg("warning.ignore.classpath", fn));
+                succeed = false;
+            }
+        }
+        return succeed;
     }
 
     private char toUpperCaseASCII(char c) {
@@ -531,6 +591,22 @@ class Main {
         return true;
     }
 
+    void copyZipEntry(ZipEntry e, ZipOutputStream zos)
+            throws IOException
+    {
+        // do our own compression
+        ZipEntry e2 = new ZipEntry(e.getName());
+        e2.setMethod(e.getMethod());
+        e2.setTime(e.getTime());
+        e2.setComment(e.getComment());
+        e2.setExtra(e.getExtra());
+        if (e.getMethod() == ZipEntry.STORED) {
+            e2.setSize(e.getSize());
+            e2.setCrc(e.getCrc());
+        }
+        zos.putNextEntry(e2);
+    }
+
     /**
      * Updates an existing jar file.
      */
@@ -538,95 +614,135 @@ class Main {
                    InputStream newManifest,
                    JarIndex jarIndex) throws IOException
     {
-        ZipInputStream zis = new ZipInputStream(in);
-        ZipOutputStream zos = new JarOutputStream(out);
-        ZipEntry e = null;
-        boolean foundManifest = false;
-        boolean updateOk = true;
+        ModuleInfo minfo = moduleid != null
+                               ? new ModuleInfo(moduleid) : null;
+        try (ZipInputStream zis = new ZipInputStream(in);
+             ZipOutputStream zos = new JarOutputStream(out)) {
+            ZipEntry e = null;
+            Manifest mf = null;
+            Map<String,Set<String>> providers = new HashMap<>();
 
-        if (jarIndex != null) {
-            addIndex(jarIndex, zos);
-        }
+            if (entryMap.containsKey(MODULEINFO_NAME) && moduleid != null) {
+                error(getMsg("error.bad.moduleid"));
+                return false;
+            }
 
-        // put the old entries first, replace if necessary
-        while ((e = zis.getNextEntry()) != null) {
-            String name = e.getName();
+            if (jarIndex != null) {
+                addIndex(jarIndex, zos);
+            }
 
-            boolean isManifestEntry = equalsIgnoreCase(name, MANIFEST_NAME);
+            // put the old entries first, replace if necessary
+            while ((e = zis.getNextEntry()) != null) {
+                String name = e.getName();
 
-            if ((jarIndex != null && equalsIgnoreCase(name, INDEX_NAME))
-                || (Mflag && isManifestEntry)) {
-                continue;
-            } else if (isManifestEntry && ((newManifest != null) ||
-                        (ename != null) || (pname != null))) {
-                foundManifest = true;
-                if (newManifest != null) {
-                    // Don't read from the newManifest InputStream, as we
-                    // might need it below, and we can't re-read the same data
-                    // twice.
-                    FileInputStream fis = new FileInputStream(mname);
-                    boolean ambiguous = isAmbiguousMainClass(new Manifest(fis));
-                    fis.close();
-                    if (ambiguous) {
-                        return false;
+                boolean isManifestEntry = equalsIgnoreCase(name, MANIFEST_NAME);
+
+                String service = null;
+                if (moduleid != null && !e.isDirectory()
+                        && name.startsWith("META-INF/services/")) {
+                    int last = name.lastIndexOf("/");
+                    service = name.substring(last + 1);
+                }
+
+                if (jarIndex != null && equalsIgnoreCase(name, INDEX_NAME)) {
+                    continue;
+                }
+
+                if (isManifestEntry) {
+                    mf = new Manifest(zis);
+                    if (Mflag) {
+                        continue;
                     }
+
+                    if (newManifest != null) {
+                        // Don't read from the newManifest InputStream, as we
+                        // might need it below, and we can't re-read the same data
+                        // twice.
+                        try (FileInputStream fis = new FileInputStream(mname)) {
+                            if (isAmbiguousMainClass(new Manifest(fis))) {
+                                return false;
+                            }
+                        }
+                        mf.read(newManifest);
+                    }
+
+                    if (ename != null) {
+                        addMainClass(mf, ename);
+                    }
+
+                    // retain the manifest in the same location as
+                    // the existing manifest entry.  JarInputStream
+                    // only creates a Manifest if it's the first entry;
+                    // otherwise, it treats it as an ordinary ZipEntry.
+                    if (newManifest != null || ename != null || pname != null) {
+                        updateManifest(mf, zos);
+                    } else {
+                        writeManifest(mf, zos, e.getTime());
+                    }
+                    continue;
                 }
 
-                // Update the manifest.
-                Manifest old = new Manifest(zis);
-                if (newManifest != null) {
-                    old.read(newManifest);
-                }
-                if (!updateManifest(old, zos)) {
-                    return false;
-                }
-            } else {
                 if (!entryMap.containsKey(name)) { // copy the old stuff
-                    // do our own compression
-                    ZipEntry e2 = new ZipEntry(name);
-                    e2.setMethod(e.getMethod());
-                    e2.setTime(e.getTime());
-                    e2.setComment(e.getComment());
-                    e2.setExtra(e.getExtra());
-                    if (e.getMethod() == ZipEntry.STORED) {
-                        e2.setSize(e.getSize());
-                        e2.setCrc(e.getCrc());
+                    if (!name.equals(MODULEINFO_NAME) || moduleid == null) {
+                        copyZipEntry(e, zos);
+
+                        // when generating a module-info file and this entry is
+                        // a service configuration file then parse it to get the
+                        // names of the service implementations.
+                        if (service != null) {
+                            byte[] bytes = readAllBytes(zis);
+                            providers.put(service, parseServicesEntry(bytes));
+                            zos.write(bytes);   // copy the content
+                        } else {
+                            copy(e, zis, zos, minfo);   // copy the content
+                        }
+                        zos.closeEntry();
                     }
-                    zos.putNextEntry(e2);
-                    copy(zis, zos);
                 } else { // replace with the new files
                     File f = entryMap.get(name);
-                    addFile(zos, f);
+                    addFile(zos, f, minfo);
                     entryMap.remove(name);
                     entries.remove(f);
                 }
             }
-        }
 
-        // add the remaining new files
-        for (File f: entries) {
-            addFile(zos, f);
-        }
-        if (!foundManifest) {
-            if (newManifest != null) {
-                Manifest m = new Manifest(newManifest);
-                updateOk = !isAmbiguousMainClass(m);
-                if (updateOk) {
-                    if (!updateManifest(m, zos)) {
-                        updateOk = false;
-                    }
-                }
-            } else if (ename != null || pname != null) {
-                if (!updateManifest(new Manifest(), zos)) {
-                    updateOk = false;
+            // add the remaining new files
+            for (File f : entries) {
+                addFile(zos, f, minfo);
+            }
+
+            if (mf == null) {
+                // META-INF/MANIFEST.MF not exist
+                if (newManifest != null) {
+                    mf = new Manifest(newManifest);
+                    if (isAmbiguousMainClass(mf))
+                        return false;
+                } else if (ename != null) {
+                    mf = new Manifest();
                 }
             }
-        }
-        zis.close();
-        zos.close();
-        return updateOk;
-    }
 
+            if (minfo != null) {
+                // -I is specified
+                minfo.setMainClass(getMainClass(mf));
+                addModuleRequires(minfo, getClassPath(mf));
+
+                // service providers
+                for (Map.Entry<String,Set<String>> entry: providers.entrySet()) {
+                    String service = entry.getKey();
+                    for (String impl: entry.getValue()) {
+                        minfo.addProvidesService(service, impl);
+                    }
+                }
+
+                writeModuleInfo(minfo, zos, System.currentTimeMillis());
+                if (vflag) {
+                    output(getMsg("out.update.moduleinfo"));
+                }
+            }
+            return true;
+        }
+    }
 
     private void addIndex(JarIndex index, ZipOutputStream zos)
         throws IOException
@@ -643,6 +759,21 @@ class Main {
         zos.closeEntry();
     }
 
+    private void writeManifest(Manifest m, ZipOutputStream zos, long ts)
+        throws IOException
+    {
+        ZipEntry e = new ZipEntry(MANIFEST_NAME);
+        e.setTime(ts);
+        if (flag0) {
+            CRC32OutputStream cos = new CRC32OutputStream();
+            m.write(cos);
+            cos.updateEntry(e);
+        }
+        zos.putNextEntry(e);
+        m.write(zos);
+        zos.closeEntry();
+    }
+
     private boolean updateManifest(Manifest m, ZipOutputStream zos)
         throws IOException
     {
@@ -656,19 +787,46 @@ class Main {
                 return false;
             }
         }
-        ZipEntry e = new ZipEntry(MANIFEST_NAME);
-        e.setTime(System.currentTimeMillis());
-        if (flag0) {
-            crc32Manifest(e, m);
-        }
-        zos.putNextEntry(e);
-        m.write(zos);
+        writeManifest(m, zos, System.currentTimeMillis());
         if (vflag) {
             output(getMsg("out.update.manifest"));
         }
         return true;
     }
 
+    /**
+     * Parse the given byte array as the raw bytes of a services configuration
+     * file, returning the names of the entries.
+     */
+    private Set<String> parseServicesEntry(byte[] bytes) throws IOException {
+        ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+        BufferedReader reader =
+            new BufferedReader(new InputStreamReader(bis, Charset.forName("UTF-8")));
+        // preserve order, no dups
+        Set<String> result = new LinkedHashSet<>();
+        String s;
+        while ((s = reader.readLine()) != null) {
+            s = s.trim();
+            if (s.length() > 0 && !s.startsWith("#"))
+                result.add(s);
+        }
+        return result;
+    }
+
+    private void writeModuleInfo(ModuleInfo minfo, ZipOutputStream zos, long ts)
+        throws IOException
+    {
+        ZipEntry e = new ZipEntry(MODULEINFO_NAME);
+        e.setTime(ts);
+        if (flag0) {
+            CRC32OutputStream cos = new CRC32OutputStream();
+            minfo.write(cos);
+            cos.updateEntry(e);
+        }
+        zos.putNextEntry(e);
+        minfo.write(zos);
+        zos.closeEntry();
+    }
 
     private String entryName(String name) {
         name = name.replace(File.separatorChar, '/');
@@ -735,16 +893,34 @@ class Main {
         return true;
     }
 
+    // Returns the entry point if set; otherwise the Main-Class
+    // attribute in the given manifest
+    private String getMainClass(Manifest m) {
+        String mainClass = ename;
+        if (ename == null && m != null) {
+            Attributes global = m.getMainAttributes();
+            mainClass = global.getValue(Attributes.Name.MAIN_CLASS);
+        }
+        return mainClass;
+    }
+
     private boolean isAmbiguousMainClass(Manifest m) {
         if (ename != null) {
             Attributes global = m.getMainAttributes();
-            if ((global.get(Attributes.Name.MAIN_CLASS) != null)) {
+            if (global.getValue(Attributes.Name.MAIN_CLASS) != null) {
                 error(getMsg("error.bad.eflag"));
                 usageError();
                 return true;
             }
         }
         return false;
+    }
+
+    void addFile(ZipOutputStream zos, File file, ModuleInfo minfo) throws IOException {
+        addFile(zos, file);
+        // add exports in the generated module-info.java
+        if (minfo != null && file.getName().endsWith(".class"))
+            minfo.addExports(file);
     }
 
     /**
@@ -792,7 +968,7 @@ class Main {
         if (vflag) {
             size = e.getSize();
             long csize = e.getCompressedSize();
-            out.print(formatMsg2("out.size", String.valueOf(size),
+            out.print(formatMsg("out.size", String.valueOf(size),
                         String.valueOf(csize)));
             if (e.getMethod() == ZipEntry.DEFLATED) {
                 long ratio = 0;
@@ -821,12 +997,83 @@ class Main {
      * @param to the output stream to write to
      * @throws IOException if an I/O error occurs
      */
-    private void copy(InputStream from, OutputStream to) throws IOException {
+    void copy(InputStream from, OutputStream to) throws IOException {
         int n;
-        while ((n = from.read(copyBuf)) != -1)
+        while ((n = from.read(copyBuf)) != -1) {
             to.write(copyBuf, 0, n);
+        }
     }
 
+    /**
+     * Copies all bytes from the input stream to the output stream.
+     * Does not close or flush either stream.  Also, add exports
+     * to the given ModuleInfo.
+     */
+    void copy(ZipEntry e, InputStream from, OutputStream to,
+              ModuleInfo minfo) throws IOException {
+        String path = e.getName();
+        if (minfo == null || !path.endsWith(".class")) {
+            copy(from, to);
+        } else {
+            // avoid reading the input stream twice
+            // the ByteStreamHelper saves the bytes in a buffer
+            // for writing to the output stream and also loaded
+            // to determine if it's a public class and get its classname.
+            helper.copyFrom(from);
+            helper.copyTo(to);
+            helper.addExports(minfo, e);
+        }
+    }
+
+    /**
+     * Read all bytes from the input stream, returning them in a byte array.
+     */
+    private byte[] readAllBytes(InputStream from) throws IOException {
+        int capacity = 8192;
+        byte[] buf = new byte[capacity];
+        int nread = 0;
+        int rem = buf.length;
+        int n;
+        // read to EOF which may read more or less than initialSize (eg: file
+        // is truncated while we are reading)
+        while ((n = from.read(buf, nread, rem)) > 0) {
+            nread += n;
+            rem -= n;
+            assert rem >= 0;
+            if (rem == 0) {
+                // need larger buffer
+                int newCapacity = capacity << 1;
+                if (newCapacity < 0) {
+                    if (capacity == Integer.MAX_VALUE)
+                        throw new OutOfMemoryError("Required array size too large");
+                    newCapacity = Integer.MAX_VALUE;
+                }
+                rem = newCapacity - capacity;
+                buf = Arrays.copyOf(buf, newCapacity);
+                capacity = newCapacity;
+            }
+        }
+        return (capacity == nread) ? buf : Arrays.copyOf(buf, nread);
+    }
+
+    private ByteStreamHelper helper = new ByteStreamHelper();
+    class ByteStreamHelper extends ByteArrayOutputStream {
+        void copyFrom(InputStream from) throws IOException {
+            reset();
+
+            int n;
+            while ((n = from.read(copyBuf)) != -1) {
+                this.write(copyBuf, 0, n);
+            }
+        }
+        void copyTo(OutputStream to) throws IOException {
+            to.write(buf);
+        }
+
+        void addExports(ModuleInfo minfo, ZipEntry e) throws IOException {
+            minfo.addExports(new ByteArrayInputStream(buf), e.getSize(), e.getName());
+        }
+    }
     /**
      * Copies all bytes from the input file to the output stream.
      * Does not close or flush the output stream.
@@ -836,11 +1083,8 @@ class Main {
      * @throws IOException if an I/O error occurs
      */
     private void copy(File from, OutputStream to) throws IOException {
-        InputStream in = new FileInputStream(from);
-        try {
+        try (InputStream in = new FileInputStream(from)) {
             copy(in, to);
-        } finally {
-            in.close();
         }
     }
 
@@ -853,22 +1097,9 @@ class Main {
      * @throws IOException if an I/O error occurs
      */
     private void copy(InputStream from, File to) throws IOException {
-        OutputStream out = new FileOutputStream(to);
-        try {
+        try (OutputStream out = new FileOutputStream(to)) {
             copy(from, out);
-        } finally {
-            out.close();
         }
-    }
-
-    /**
-     * Computes the crc32 of a Manifest.  This is necessary when the
-     * ZipOutputStream is in STORED mode.
-     */
-    private void crc32Manifest(ZipEntry e, Manifest m) throws IOException {
-        CRC32OutputStream os = new CRC32OutputStream();
-        m.write(os);
-        os.updateEntry(e);
     }
 
     /**
@@ -1082,6 +1313,17 @@ class Main {
 
     private HashSet<String> jarPaths = new HashSet<String>();
 
+    String getClassPath(Manifest m) {
+        if (m == null) return null;
+
+        Attributes attr = m.getMainAttributes();
+        if (attr != null) {
+            return attr.getValue(Attributes.Name.CLASS_PATH);
+        } else {
+            return null;
+        }
+    }
+
     /**
      * Generates the transitive closure of the Class-Path attribute for
      * the specified jar file.
@@ -1097,31 +1339,23 @@ class Main {
         // class path attribute will give us jar file name with
         // '/' as separators, so we need to change them to the
         // appropriate one before we open the jar file.
-        JarFile rf = new JarFile(jar.replace('/', File.separatorChar));
-
-        if (rf != null) {
+        try (JarFile rf = new JarFile(jar.replace('/', File.separatorChar))) {
             Manifest man = rf.getManifest();
-            if (man != null) {
-                Attributes attr = man.getMainAttributes();
-                if (attr != null) {
-                    String value = attr.getValue(Attributes.Name.CLASS_PATH);
-                    if (value != null) {
-                        StringTokenizer st = new StringTokenizer(value);
-                        while (st.hasMoreTokens()) {
-                            String ajar = st.nextToken();
-                            if (!ajar.endsWith("/")) {  // it is a jar file
-                                ajar = path.concat(ajar);
-                                /* check on cyclic dependency */
-                                if (! jarPaths.contains(ajar)) {
-                                    files.addAll(getJarPath(ajar));
-                                }
-                            }
+            String value = man != null ? getClassPath(man) : null;
+            if (value != null) {
+                StringTokenizer st = new StringTokenizer(value);
+                while (st.hasMoreTokens()) {
+                    String ajar = st.nextToken();
+                    if (!ajar.endsWith("/")) {  // it is a jar file
+                        ajar = path.concat(ajar);
+                        /* check on cyclic dependency */
+                        if (!jarPaths.contains(ajar)) {
+                            files.addAll(getJarPath(ajar));
                         }
                     }
                 }
             }
-        }
-        rf.close();
+        };
         return files;
     }
 

@@ -52,9 +52,11 @@ SWINGSET2 = $(OUTPUTDIR)/demo/jfc/SwingSet2/SwingSet2.jar
 # Run java from the JRE image because using rt.jar requires a
 # larger list of classes, and these should appear in the list.
 #   FIXUP: adding rt.jar into bootclasspath?
-JRE_LIB = $(JRE_IMAGE_DIR)/lib
+#
+# This only applies to legacy images
+JRE_LIB = $(JRE_LEGACY_IMAGE_DIR)/lib
 BOOTPATH = -Xbootclasspath:$(JRE_LIB)/rt.jar:$(JRE_LIB)/charsets.jar
-JRE_JAVA = $(JRE_IMAGE_DIR)/bin/java
+JRE_JAVA = $(JRE_LEGACY_IMAGE_DIR)/bin/java
 
 JAVA_BIN = $(BINDIR)/java
 

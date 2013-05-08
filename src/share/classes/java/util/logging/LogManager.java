@@ -321,6 +321,7 @@ public class LogManager {
      *             logging configuration by overridding the {@link
      *             #readConfiguration readConfiguration} method.
      */
+/*
     @Deprecated
     public void addPropertyChangeListener(PropertyChangeListener l) throws SecurityException {
         PropertyChangeListener listener = Objects.requireNonNull(l);
@@ -332,6 +333,7 @@ public class LogManager {
             listenerMap.put(listener, value);
         }
     }
+*/
 
     /**
      * Removes an event listener for property change events.
@@ -357,6 +359,7 @@ public class LogManager {
      *             logging configuration by overridding the {@link
      *             #readConfiguration readConfiguration} method.
      */
+/*
     @Deprecated
     public void removePropertyChangeListener(PropertyChangeListener l) throws SecurityException {
         checkPermission();
@@ -378,6 +381,7 @@ public class LogManager {
             }
         }
     }
+*/
 
     // Returns the LoggerContext for the user code (i.e. application or AppContext).
     // Loggers are isolated from each AppContext.

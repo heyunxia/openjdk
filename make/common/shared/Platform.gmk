@@ -56,7 +56,7 @@ PLATFORM_SHARED=done
 #     ARCH                        sparc, sparcv9, i586, amd64, or ia64
 #     ARCH_FAMILY                 sparc or i586
 #     ARCHPROP                    sparc or x86
-#     ARCH_VM_SUBDIR              jre/bin, jre/lib/sparc, etc.
+#     ARCH_VM_SUBDIR              bin, lib/sparc, etc.
 #     LIBARCH                     sparc, sparcv9, i386, amd64, or ia64
 #     DEV_NULL                    destination of /dev/null, NUL or /dev/NULL
 #     CLASSPATH_SEPARATOR         separator in classpath, ; or :
@@ -436,8 +436,7 @@ ifeq ($(PLATFORM), windows)
   else
     _USER:=$(USER)
   endif
-  # Location of client/server directories
-  ARCH_VM_SUBDIR=jre/bin
+  ARCH_VM_SUBDIR=bin
   # Suffix for file bundles used in previous release
   BUNDLE_FILE_SUFFIX=.tar
   # ISHIELD_TEMP_MIN is the difference of an empty C:\TEMP vs. one after a
@@ -494,7 +493,7 @@ ifneq ($(PLATFORM), windows)
     _USER:=$(USER)
   endif
   # Location of client/server directories
-  ARCH_VM_SUBDIR=jre/lib/$(LIBARCH)
+  ARCH_VM_SUBDIR=lib/$(LIBARCH)
 endif
 
 # Darwin-specific Overrides
@@ -513,7 +512,7 @@ ifeq ($(SYSTEM_UNAME),Darwin)
   endif
 endif
 
-# Machines with 512Mb or less of real memory are considered low memory
+# Machines with 768Mb or less of real memory are considered low memory
 #    build machines and adjustments will be made to prevent excessing
 #    system swapping during the build.
 ifeq ($(JDK_HAS_MEM_INFO),)
@@ -521,12 +520,12 @@ ifeq ($(JDK_HAS_MEM_INFO),)
   export JDK_HAS_MEM_INFO
   ifneq ($(MB_OF_MEMORY),)
     LOW_MEMORY_MACHINE := $(shell \
-      if [ $(MB_OF_MEMORY) -le 512 ] ; then \
+      if [ $(MB_OF_MEMORY) -le 768 ] ; then \
         echo "true"; \
       else \
         echo "false"; \
       fi)
-    MAX_VM_MEMORY := 512
+    MAX_VM_MEMORY := 768
     MIN_VM_MEMORY := $(MAX_VM_MEMORY)
   else
     MB_OF_MEMORY       := unknown

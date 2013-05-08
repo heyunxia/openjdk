@@ -28,6 +28,7 @@
 #
 
 BUILDDIR = ../../../../..
+MODULE  = security-xmldsig
 PACKAGE = com.sun.org.apache.xml
 PRODUCT = xml
 JAVAC_MAX_WARNINGS = true

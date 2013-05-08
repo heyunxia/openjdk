@@ -27,6 +27,7 @@ package sun.security.pkcs;
 
 import java.io.*;
 
+import sun.misc.HexDumpEncoder;
 import sun.security.util.*;
 
 /**
@@ -212,7 +213,16 @@ public class ContentInfo {
         String out = "";
 
         out += "Content Info Sequence\n\tContent type: " + contentType + "\n";
-        out += "\tContent: " + content;
+        out += "\tContent: " + content + "\n";
+
+        try {
+            out +=
+                new HexDumpEncoder().encodeBuffer(content.toByteArray()) + "\n";
+
+        } catch (IOException e) {
+            // ignore
+        }
+
         return out;
     }
 }

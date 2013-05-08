@@ -57,9 +57,15 @@ ifeq ($(PLATFORM), linux)
   SUBDIRS += jexec
 endif # PLATFORM
 
-ifeq ($(PLATFORM), macosx)
-  SUBDIRS += jobjc
-endif # PLATFORM
+# Skip building jobjc for now until we fix the 
+# SKIP_BOOT_CYCLE=false build.
+# 
+# com.apple.jobjc.** are not yet included in any module
+# and jobjc is an optional part of JDK.
+#
+# ifeq ($(PLATFORM), macosx)
+#  SUBDIRS += jobjc
+# endif # PLATFORM
 
 include $(BUILDDIR)/common/Subdirs.gmk
 

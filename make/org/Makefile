@@ -31,7 +31,7 @@ BUILDDIR = ..
 PRODUCT = org
 include $(BUILDDIR)/common/Defs.gmk
 
-SUBDIRS = ietf jcp
+SUBDIRS = ietf jcp openjdk
 include $(BUILDDIR)/common/Subdirs.gmk
 
 all build clean clobber::

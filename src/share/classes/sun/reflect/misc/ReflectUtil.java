@@ -28,6 +28,7 @@ package sun.reflect.misc;
 
 import java.lang.reflect.Modifier;
 import sun.reflect.Reflection;
+import org.openjdk.jigsaw.Platform;
 
 public final class ReflectUtil {
 
@@ -170,10 +171,10 @@ public final class ReflectUtil {
      * access check and this method will return true.
      */
     public static boolean needsPackageAccessCheck(ClassLoader from, ClassLoader to) {
-        if (from == null || from == to)
+        if (Platform.isPlatformLoader(from) || from == to)
             return false;
 
-        if (to == null)
+        if (Platform.isPlatformLoader(to))
             return true;
 
         return !isAncestor(from, to);

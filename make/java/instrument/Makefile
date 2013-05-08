@@ -29,6 +29,7 @@
 LIBRARY_SUPPORTS_FULL_DEBUG_SYMBOLS=1
 
 BUILDDIR = ../..
+MODULE  = instrument
 PACKAGE = sun.instrument
 LIBRARY = instrument
 PRODUCT = sun
