@@ -46,7 +46,8 @@ public class TreeScanner extends Visitor {
     /** Visitor method: Scan a single node.
      */
     public void scan(JCTree tree) {
-        if(tree!=null) tree.accept(this);
+        if (tree != null)
+            tree.accept(this);
     }
 
     /** Visitor method: scan a list of nodes.
@@ -62,10 +63,71 @@ public class TreeScanner extends Visitor {
  * Visitor methods
  ****************************************************************************/
 
+    @Override
     public void visitTopLevel(JCCompilationUnit tree) {
-        scan(tree.packageAnnotations);
-        scan(tree.pid);
         scan(tree.defs);
+    }
+
+    @Override
+    public void visitModuleDef(JCModuleDecl tree) {
+        scan(tree.id);
+        scan(tree.directives);
+    }
+
+    @Override
+    public void visitModuleId(JCModuleId tree) {
+        scan(tree.qualId);
+    }
+
+    @Override
+    public void visitModuleQuery(JCModuleQuery tree) {
+        scan(tree.qualId);
+    }
+
+    @Override
+    public void visitEntrypoint(JCEntrypointDirective tree) {
+        scan(tree.qualId);
+    }
+
+    @Override
+    public void visitExports(JCExportDirective tree) {
+        scan(tree.qualid);
+    }
+
+    @Override
+    public void visitPermits(JCPermitsDirective tree) {
+        scan(tree.moduleName);
+    }
+
+    @Override
+    public void visitProvidesModule(JCProvidesModuleDirective tree) {
+        scan(tree.moduleId);
+    }
+
+    @Override
+    public void visitProvidesService(JCProvidesServiceDirective tree) {
+        scan(tree.serviceName);
+        scan(tree.implName);
+    }
+
+    @Override
+    public void visitRequiresModule(JCRequiresModuleDirective tree) {
+        scan(tree.moduleQuery);
+    }
+
+    @Override
+    public void visitRequiresService(JCRequiresServiceDirective tree) {
+        scan(tree.serviceName);
+    }
+
+    @Override
+    public void visitView(JCViewDecl tree) {
+        scan(tree.directives);
+    }
+
+    public void visitPackageDef(JCPackageDecl tree) {
+        scan(tree.annots);
+        scan(tree.packageId);
     }
 
     public void visitImport(JCImport tree) {

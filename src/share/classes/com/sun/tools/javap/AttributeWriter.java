@@ -47,6 +47,10 @@ import com.sun.tools.classfile.LineNumberTable_attribute;
 import com.sun.tools.classfile.LocalVariableTable_attribute;
 import com.sun.tools.classfile.LocalVariableTypeTable_attribute;
 import com.sun.tools.classfile.MethodParameters_attribute;
+import com.sun.tools.classfile.ModuleData_attribute;
+import com.sun.tools.classfile.ModuleProvides_attribute;
+import com.sun.tools.classfile.ModuleRequires_attribute;
+import com.sun.tools.classfile.Module_attribute;
 import com.sun.tools.classfile.RuntimeInvisibleAnnotations_attribute;
 import com.sun.tools.classfile.RuntimeInvisibleParameterAnnotations_attribute;
 import com.sun.tools.classfile.RuntimeInvisibleTypeAnnotations_attribute;
@@ -387,6 +391,109 @@ public class AttributeWriter extends BasicWriter
         }
         indent(-1);
         return null;
+    }
+
+    public Void visitModule(Module_attribute attr, Void ignore) {
+        println("Module: " + constantWriter.stringValue(attr.module_id_index));
+        return null;
+    }
+
+    String getModuleName(Module_attribute attr) {
+        try {
+            return attr.getModuleName(constant_pool);
+        } catch (ConstantPoolException e) {
+            return report(e);
+        }
+    }
+
+    public Void visitModuleData(ModuleData_attribute attr, Void ignore) {
+        println("ModuleData: ");
+        indent(+1);
+        println("#" + attr.data_index
+                + "\t// " + constantWriter.stringValue(attr.data_index));
+        indent(-1);
+        return null;
+    }
+
+    public Void visitModuleProvides(ModuleProvides_attribute attr, Void ignore) {
+        println("ModuleProvides: ");
+        indent(+1);
+        for (int i = 0; i < attr.view_table.length; i++) {
+            println("View " + i);
+            indent(+1);
+            ModuleProvides_attribute.View v = attr.view_table[i];
+            String view_name = (v.view_name_index == 0)
+                    ? "(default)" : constantWriter.stringValue(v.view_name_index);
+            println("#" + v.view_name_index + "\t// view " + view_name);
+            String entrypoint_name = (v.entrypoint_index == 0)
+                    ? "(none)" : constantWriter.stringValue(v.entrypoint_index);
+            println("#" + v.entrypoint_index + "\t// class " + entrypoint_name);
+            println(v.alias_length + "\t// aliases ");
+            indent(+1);
+            for (int ai = 0; ai < v.alias_length; ai++) {
+                int a = v.alias_table[ai];
+                println(a + "\t// provides " + constantWriter.stringValue(a));
+            }
+            indent(-1);
+            println(v.service_length + "\t// services ");
+            indent(+1);
+            for (int si = 0; si < v.service_length; si++) {
+                ModuleProvides_attribute.Service s = v.service_table[si];
+                println("#" + s.service_index + ", " + "#" + s.impl_index
+                        +"\t// provides service " + constantWriter.stringValue(s.service_index)
+                        + " with " + constantWriter.stringValue(s.impl_index));
+            }
+            indent(-1);
+            println(v.export_length + "\t// exports ");
+            indent(+1);
+            for (int ei = 0; ei < v.export_length; ei++) {
+                int e = v.export_table[ei];
+                println("#" + e + "\t// exports " + constantWriter.stringValue(e));
+            }
+            indent(-1);
+            println(v.permit_length + "\t// permits ");
+            indent(+1);
+            for (int pi = 0; pi < v.permit_length; pi++) {
+                int p = v.permit_table[pi];
+                println("#" + p +"\t// permits " + constantWriter.stringValue(p));
+            }
+            indent(-1); // end of permits
+            indent(-1); // end of ModuleProvides
+        }
+        indent(-1);
+        return null;
+    }
+
+    public Void visitModuleRequires(ModuleRequires_attribute attr, Void ignore) {
+        println("ModuleRequires: ");
+        indent(+1);
+        writeRequiresTable(attr.module_table, false);
+        writeRequiresTable(attr.service_table, true);
+        indent(-1);
+        return null;
+    }
+
+    protected void writeRequiresTable(ModuleRequires_attribute.Entry[] entries,
+            boolean service) {
+        println(entries.length + "\t// " + (service ? "services" : "modules"));
+        indent(+1);
+        for (ModuleRequires_attribute.Entry e: entries) {
+            print("#" + e.index + "," + String.format("%x", e.flags)+ "\t// requires");
+            if ((e.flags & ModuleRequires_attribute.ACC_OPTIONAL) != 0)
+                print(" optional");
+            if ((e.flags & ModuleRequires_attribute.ACC_LOCAL) != 0)
+                print(" local");
+            if ((e.flags & ModuleRequires_attribute.ACC_REEXPORT) != 0)
+                print(" public");
+            if ((e.flags & ModuleRequires_attribute.ACC_SYNTHETIC) != 0)
+                print(" synthetic");
+            if ((e.flags & ModuleRequires_attribute.ACC_SYNTHESIZED) != 0)
+                print(" synthesized");
+            if (service)
+                print(" service");
+            println(" " + constantWriter.stringValue(e.index));
+        }
+        indent(-1);
     }
 
     private static final String format = "%-31s%s";

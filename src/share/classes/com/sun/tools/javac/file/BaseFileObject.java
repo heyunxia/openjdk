@@ -32,12 +32,12 @@ import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.CharsetDecoder;
+
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
 import javax.tools.FileObject;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
-
-import static javax.tools.JavaFileObject.Kind.*;
 
 import com.sun.tools.javac.util.BaseFileManager;
 
@@ -47,9 +47,10 @@ import com.sun.tools.javac.util.BaseFileManager;
  * This code and its internal interfaces are subject to change or
  * deletion without notice.</b>
 */
-public abstract class BaseFileObject implements JavaFileObject {
-    protected BaseFileObject(JavacFileManager fileManager) {
+public abstract class BaseFileObject implements JavaFileObject, FileObject.Locatable {
+    protected BaseFileObject(JavacFileManager fileManager, Location location) {
         this.fileManager = fileManager;
+        this.location = location;
     }
 
     /** Return a short name for the object, such as for use in raw diagnostics
@@ -61,8 +62,10 @@ public abstract class BaseFileObject implements JavaFileObject {
         return getClass().getSimpleName() + "[" + getName() + "]";
     }
 
+    @Override
     public NestingKind getNestingKind() { return null; }
 
+    @Override
     public Modifier getAccessLevel()  { return null; }
 
     public Reader openReader(boolean ignoreEncodingErrors) throws IOException {
@@ -74,6 +77,8 @@ public abstract class BaseFileObject implements JavaFileObject {
     }
 
     protected abstract String inferBinaryName(Iterable<? extends File> path);
+
+    protected abstract String inferModuleTag(String binaryName);
 
     protected static JavaFileObject.Kind getKind(String filename) {
         return BaseFileManager.getKind(filename);
@@ -115,6 +120,11 @@ public abstract class BaseFileObject implements JavaFileObject {
 
     }
 
+    @Override
+    public Location getLocation() {
+        return location;
+    }
+
     // force subtypes to define equals
     @Override
     public abstract boolean equals(Object other);
@@ -125,4 +135,7 @@ public abstract class BaseFileObject implements JavaFileObject {
 
     /** The file manager that created this JavaFileObject. */
     protected final JavacFileManager fileManager;
+
+    /** The location from which this file object was created, or null if none. */
+    protected final Location location;
 }

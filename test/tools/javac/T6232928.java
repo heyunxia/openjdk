@@ -27,7 +27,7 @@
  * @summary Interface package-info should be marked abstract and synthetic
  * @author Wei Tao
  * @compile T6232928.java
- * @compile T6232928/package-info.java
+ * @compile -doe T6232928/package-info.java
  * @run main T6232928
  */
 

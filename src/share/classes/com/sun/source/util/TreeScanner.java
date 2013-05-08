@@ -403,6 +403,62 @@ public class TreeScanner<R,P> implements TreeVisitor<R,P> {
        return r;
    }
 
+    public R visitModule(ModuleTree node, P p) {
+        R r = scan(node.getId(), p);
+        r = scanAndReduce(node.getDirectives(), p, r);
+        return r;
+    }
+
+    public R visitView(ViewDeclarationTree node, P p) {
+        R r = scan(node.getName(), p);
+        r = scanAndReduce(node.getDirectives(), p, r);
+        return r;
+    }
+
+    public R visitEntrypoint(EntrypointDirectiveTree node, P p) {
+        return scan(node.getClassName(), p);
+    }
+
+    public R visitExport(ExportDirectiveTree node, P p) {
+        return scan(node.getExportName(), p);
+    }
+
+    public R visitModuleId(ModuleIdTree node, P p) {
+        return scan(node.getName(), p);
+    }
+
+    public R visitModuleQuery(ModuleQueryTree node, P p) {
+        return scan(node.getName(), p);
+    }
+
+    public R visitPermits(PermitsDirectiveTree node, P p) {
+        return scan(node.getModuleName(), p);
+    }
+
+    public R visitProvidesModule(ProvidesModuleDirectiveTree node, P p) {
+        return scan(node.getModuleId(), p);
+    }
+
+    public R visitProvidesService(ProvidesServiceDirectiveTree node, P p) {
+        R r = scan(node.getServiceName(), p);
+        r = scanAndReduce(node.getImplementationName(), p, r);
+        return r;
+    }
+
+    public R visitRequiresModule(RequiresModuleDirectiveTree node, P p) {
+        return scan(node.getModuleQuery(), p);
+    }
+
+    public R visitRequiresService(RequiresServiceDirectiveTree node, P p) {
+        return scan(node.getServiceName(), p);
+    }
+
+    public R visitPackage(PackageTree node, P p) {
+        R r = scan(node.getAnnotations(), p);
+        r = scanAndReduce(node.getPackageId(), p, r);
+        return r;
+    }
+
     public R visitOther(Tree node, P p) {
         return null;
     }

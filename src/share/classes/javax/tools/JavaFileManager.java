@@ -177,7 +177,7 @@ public interface JavaFileManager extends Closeable, Flushable, OptionChecker {
      *
      * @param location a location
      * @param file a file object
-     * @return a binary name or {@code null} the file object is not
+     * @return a binary name or {@code null} if the file object is not
      * found in the given location
      * @throws IllegalStateException if {@link #close} has been called
      * and this file manager cannot be reopened

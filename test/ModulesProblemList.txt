@@ -1,0 +1,135 @@
+###########################################################################
+#
+# Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Oracle designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Oracle in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+#
+
+############################################################################
+# jigsaw legacy image
+tools/javac/6302184/T6302184.sh				generic-all
+
+# AsssertionError - package-info.class not found
+tools/javac/TestPkgInfo.java				generic-all
+
+# new module-compilation-related message keys are not in the resource bundle
+tools/javac/diags/CheckExamples.java			generic-all
+tools/javac/diags/CheckResourceKeys.java		generic-all
+tools/javac/diags/MessageInfo.java			generic-all
+
+# wrong size found: 8340; expected: 6655
+tools/javac/nio/compileTest/CompileTest.java		generic-all
+
+# AssertionError - unexpected empty block found
+tools/javac/parser/ExtraSemiTest.java			generic-all
+
+# Failures in jdk-module-image
+
+# rt.jar not found
+tools/javadoc/6942366/T6942366.java			generic-all
+
+# error - Locale not available: ja
+com/sun/javadoc/testHtmlTag/TestHtmlTag.java		generic-all
+
+# bootclasspath and module content (classes)
+tools/javac/api/T6430241.java				generic-all
+tools/javac/Paths/Diagnostics.sh			generic-all
+
+# sun.misc.Lock is in compat module
+tools/javac/warnings/6594914/T6594914b.java		generic-all
+
+############################################################################
+# Following test failures need further investigation
+
+# Tests timeout
+
+tools/javac/T7093325.java                                           generic-all
+tools/javac/TryWithResources/InterruptedExceptionTest.java          generic-all
+tools/javac/api/TestContainTypes.java                               generic-all
+tools/javac/failover/CheckAttributedTree.java                       generic-all
+tools/javac/generics/diamond/7030150/GenericConstructorAndDiamondTest.java   generic-all
+tools/javac/generics/diamond/7046778/DiamondAndInnerClassTest.java           generic-all
+tools/javac/generics/inference/7086601/T7086601b.java                        generic-all
+tools/javac/generics/rawOverride/7062745/GenericOverrideTest.java            generic-all
+tools/javac/multicatch/7030606/DisjunctiveTypeWellFormednessTest.java        generic-all
+tools/javac/processing/TestWarnErrorCount.java               generic-all
+tools/javac/varargs/6199075/T6199075.java                    generic-all
+tools/javac/varargs/7042566/T7042566.java                    generic-all
+tools/javac/varargs/warning/Warn4.java                       generic-all
+tools/javac/varargs/warning/Warn5.java                       generic-all
+tools/javac/versions/check.sh                                generic-all
+
+############################################################################
+
+# Need to investigate what javac needs to do for classpath mode
+
+com/sun/javadoc/testHtmlDefinitionListTag/TestHtmlDefinitionListTag.java generic-all
+com/sun/javadoc/testPackageDeprecation/TestPackageDeprecation.java generic-all
+tools/javac/4846262/Test.sh                                  generic-all
+tools/javac/6589361/T6589361.java                            generic-all
+tools/javac/EarlyAssert.java                                 generic-all
+tools/javac/Paths/MineField.sh                               generic-all
+tools/javac/T6351767.java                                    generic-all
+tools/javac/T6705935.java                                    generic-all
+tools/javac/T6725036.java                                    generic-all
+tools/javac/T6993301.java                                    generic-all
+tools/javac/annotations/TestAnnotationPackageInfo.java       generic-all
+tools/javac/api/6411310/T6411310.java                        generic-all
+tools/javac/api/6411333/T6411333.java                        generic-all
+tools/javac/api/6431257/T6431257.java                        generic-all
+tools/javac/api/6437349/T6437349.java                        generic-all
+tools/javac/api/6598108/T6598108.java                        generic-all
+tools/javac/api/6608214/T6608214.java                        generic-all
+tools/javac/api/TestClientCodeWrapper.java                   generic-all
+tools/javac/api/TestEvalExpression.java                      generic-all
+tools/javac/api/guide/Test.java                              generic-all
+tools/javac/modules/RequiresModuleTest02.java                generic-all
+tools/javac/parser/JavacParserTest.java                      generic-all
+tools/javac/processing/6348193/T6348193.java                 generic-all
+tools/javac/processing/6378728/T6378728.java                 generic-all
+tools/javac/processing/T6920317.java                         generic-all
+tools/javac/processing/errors/TestReturnCode.java            generic-all
+tools/javac/processing/messager/MessagerDiags.java           generic-all
+tools/javac/processing/model/TestSymtabItems.java            generic-all
+tools/javac/processing/model/testgetallmembers/Main.java     generic-all
+tools/javac/tree/DocCommentToplevelTest.java                 generic-all
+tools/javac/tree/MakeLiteralTest.java                        generic-all
+tools/javac/tree/TreeKindTest.java                           generic-all
+tools/javac/tree/TreePosTest.java                            generic-all
+tools/javac/types/BoxingConversionTest.java                  generic-all
+tools/javac/types/CastTest.java                              generic-all
+tools/javac/types/GenericTypeWellFormednessTest.java         generic-all
+tools/javac/types/PrimitiveConversionTest.java               generic-all
+tools/javadoc/6227454/Test.java                              generic-all
+tools/javadoc/6964914/Test.java                              generic-all
+tools/javadoc/6964914/TestStdDoclet.java                     generic-all
+tools/javadoc/6964914/TestUserDoclet.java                    generic-all
+tools/javadoc/annotations/annotatePackage/Main.java          generic-all
+tools/javah/T6893943.java                                    generic-all
+tools/javap/6937244/T6937244.java                            generic-all
+tools/javap/T4880672.java                                    generic-all
+tools/javap/T4884240.java                                    generic-all
+tools/javap/T4975569.java                                    generic-all
+tools/javap/T6729471.java                                    generic-all
+tools/javap/T6863746.java                                    generic-all
+tools/javap/T6866657.java                                    generic-all
+tools/javap/T6980017.java                                    generic-all

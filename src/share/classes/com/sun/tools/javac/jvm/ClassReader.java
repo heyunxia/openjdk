@@ -29,37 +29,53 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.CharBuffer;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+
 import javax.lang.model.SourceVersion;
-import javax.tools.JavaFileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileManager.Location;
+import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 
 import static javax.tools.StandardLocation.*;
 
-import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.code.*;
+import com.sun.tools.javac.code.Directive.EntrypointDirective;
+import com.sun.tools.javac.code.Directive.ExportsDirective;
+import com.sun.tools.javac.code.Directive.PermitsDirective;
+import com.sun.tools.javac.code.Directive.ProvidesModuleDirective;
+import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
+import com.sun.tools.javac.code.Directive.RequiresFlag;
+import com.sun.tools.javac.code.Directive.RequiresModuleDirective;
+import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Lint.LintCategory;
-import com.sun.tools.javac.code.Type.*;
-import com.sun.tools.javac.code.Symbol.*;
-import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.code.Symbol.Completer;
+import com.sun.tools.javac.code.Symbol.CompletionFailure;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Symbol.ModuleSymbol;
+import com.sun.tools.javac.code.Symbol.PackageSymbol;
+import com.sun.tools.javac.code.Symbol.TypeSymbol;
+import com.sun.tools.javac.code.Symbol.VarSymbol;
+import com.sun.tools.javac.code.Type.ArrayType;
+import com.sun.tools.javac.code.Type.ClassType;
+import com.sun.tools.javac.code.Type.ForAll;
+import com.sun.tools.javac.code.Type.MethodType;
+import com.sun.tools.javac.code.Type.TypeVar;
+import com.sun.tools.javac.code.Type.WildcardType;
+import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.file.BaseFileObject;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.sun.tools.javac.util.List;
 
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.TypeTag.CLASS;
 import static com.sun.tools.javac.jvm.ClassFile.*;
 import static com.sun.tools.javac.jvm.ClassFile.Version.*;
-
-import static com.sun.tools.javac.main.Option.*;
+import static com.sun.tools.javac.main.Option.VERBOSE;
 
 /** This class provides operations to read a classfile into an internal
  *  representation. The internal representation is anchored in a
@@ -119,6 +135,10 @@ public class ClassReader implements Completer {
      */
     boolean allowDefaultMethods;
 
+    /** Switch: allow modules
+     */
+    boolean allowModules;
+
     /** Switch: preserve parameter names from the variable table.
      */
     public boolean saveParameterNames;
@@ -177,6 +197,11 @@ public class ClassReader implements Completer {
     /** A hashtable containing the encountered packages.
      */
     private Map<Name, PackageSymbol> packages;
+
+    /** A hashtable giving the module for each module location.
+     *
+     */
+    private Map<Location, ModuleSymbol> allModules;
 
     /** The current scope where type variables are entered.
      */
@@ -258,9 +283,11 @@ public class ClassReader implements Completer {
             packages = syms.packages;
             Assert.check(classes == null || classes == syms.classes);
             classes = syms.classes;
+            allModules = syms.allModules;
         } else {
             packages = new HashMap<Name, PackageSymbol>();
             classes = new HashMap<Name, ClassSymbol>();
+            allModules = new HashMap<Location, ModuleSymbol>();
         }
 
         packages.put(names.empty, syms.rootPackage);
@@ -295,6 +322,7 @@ public class ClassReader implements Completer {
         allowVarargs     = source.allowVarargs();
         allowAnnotations = source.allowAnnotations();
         allowSimplifiedVarargs = source.allowSimplifiedVarargs();
+        allowModules     = source.allowModules();
         allowDefaultMethods = source.allowDefaultMethods();
 
         saveParameterNames = options.isSet("save-parameter-names");
@@ -324,6 +352,7 @@ public class ClassReader implements Completer {
             c.members_field.enter(sym);
     }
 
+    // <editor-fold defaultstate="collapsed" desc="Error diagnoses">
 /************************************************************************
  * Error Diagnoses
  ***********************************************************************/
@@ -349,7 +378,9 @@ public class ClassReader implements Completer {
             currentClassFile,
             diagFactory.fragment(key, args));
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="Buffer access">
 /************************************************************************
  * Buffer Access
  ***********************************************************************/
@@ -429,6 +460,9 @@ public class ClassReader implements Completer {
             throw new AssertionError(e);
         }
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Constant Pool Access">
 
 /************************************************************************
  * Constant Pool Access
@@ -465,6 +499,8 @@ public class ClassReader implements Completer {
             case CONSTANT_Integer:
             case CONSTANT_Float:
             case CONSTANT_InvokeDynamic:
+            case CONSTANT_ModuleId:
+            case CONSTANT_ModuleQuery:
                 bp = bp + 4;
                 break;
             case CONSTANT_Long:
@@ -542,6 +578,16 @@ public class ClassReader implements Completer {
         case CONSTANT_InvokeDynamic:
             skipBytes(5);
             break;
+        case CONSTANT_ModuleId:
+            poolObj[i] = new ModuleId(
+                readInternalName(getChar(index + 1)),
+                readName(getChar(index + 3)));
+            break;
+        case CONSTANT_ModuleQuery:
+            poolObj[i] = new ModuleQuery(
+                readInternalName(getChar(index + 1)),
+                readName(getChar(index + 3)));
+            break;
         default:
             throw badClassFile("bad.const.pool.tag", Byte.toString(tag));
         }
@@ -589,6 +635,49 @@ public class ClassReader implements Completer {
     Name readName(int i) {
         return (Name) (readPool(i));
     }
+
+    /** Read module id.
+     */
+    ModuleId readModuleId(int i) {
+        return (ModuleId) (readPool(i));
+    }
+
+    /** Read module id query.
+     */
+    ModuleQuery readModuleQuery(int i) {
+        return (ModuleQuery) (readPool(i));
+    }
+
+    /** Read requires_flags.
+     */
+    Set<RequiresFlag> readRequiresFlags(int flags) {
+        Set<RequiresFlag> set = EnumSet.noneOf(RequiresFlag.class);
+        for (RequiresFlag f: RequiresFlag.values()) {
+            if ((flags & f.value) != 0)
+                set.add(f);
+        }
+        return set;
+    }
+
+    Name readInternalName(int i) {
+        int index = poolIdx[i];
+        return names.fromUtf(internalize(buf, index + 3, getChar(index + 1)));
+    }
+
+    /** Read module name.
+     * The module name is in a CONSTANT_Class_info, but we don't want to
+     * enter a class for it, so can't use readClassSymbol.
+     */
+    Name readModuleInfoName(int i) {
+        int index = poolIdx[i];
+        assert index != 0;
+        byte tag = buf[index];
+        assert tag == CONSTANT_Class;
+        return readInternalName(getChar(index+1));
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Reading Types">
 
 /************************************************************************
  * Reading Types
@@ -905,6 +994,9 @@ public class ClassReader implements Completer {
             throw badClassFile("undecl.type.var", name);
         }
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Reading Attributes">
 
 /************************************************************************
  * Reading Attributes
@@ -1183,6 +1275,8 @@ public class ClassReader implements Completer {
                 }
             },
 
+            //  v52 module attributes
+
             new AttributeReader(names.RuntimeVisibleTypeAnnotations, V52, CLASS_OR_MEMBER_ATTRIBUTE) {
                 protected void read(Symbol sym, int attrLen) {
                     attachTypeAnnotations(sym);
@@ -1195,6 +1289,105 @@ public class ClassReader implements Completer {
                 }
             },
 
+            new AttributeReader(names.Module, V52, CLASS_ATTRIBUTE) {
+                @Override
+                protected boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                protected void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        ModuleId mid = readModuleId(nextChar());
+                        msym.name = msym.fullname = mid.name;
+                        msym.version = mid.version;
+                    }
+                }
+            },
+
+            new AttributeReader(names.ModuleProvides, V52, CLASS_ATTRIBUTE) {
+                @Override
+                protected boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                protected void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int numViews = nextChar();
+                        for (int v = 0; v < numViews; v++) {
+                            Name viewName = readName(nextChar());
+                            List<Directive> directives =
+                                (viewName == null) ? msym.directives : List.<Directive>nil();
+
+                            ClassSymbol entrypoint = readClassSymbol(nextChar());
+                            if (entrypoint != null) {
+                                EntrypointDirective d = new EntrypointDirective(entrypoint);
+                                directives = directives.prepend(d);
+                            }
+
+                            int numAliases = nextChar();
+                            for (int i = 0; i < numAliases; i++) {
+                                ModuleId id = readModuleId(nextChar());
+                                ProvidesModuleDirective d = new ProvidesModuleDirective(id);
+                                directives = directives.prepend(d);
+                            }
+
+                            int numServices = nextChar();
+                            for (int i = 0; i < numServices; i++) {
+                                ClassSymbol svcSym = readClassSymbol(nextChar());
+                                ClassSymbol implSym = readClassSymbol(nextChar());
+                                ProvidesServiceDirective d = new ProvidesServiceDirective(svcSym, implSym);
+                                directives = directives.prepend(d);
+                            }
+
+                            int numExports = nextChar();
+                            for (int i = 0; i < numExports; i++) {
+                                Name export = readName(nextChar());
+                                PackageSymbol psym = enterPackage(export);
+                                ExportsDirective d = new ExportsDirective(psym);
+                                directives = directives.prepend(d);
+                            }
+
+                            int numPermits = nextChar();
+                            for (int i = 0; i < numPermits; i++) {
+                                ModuleId id = readModuleId(nextChar());
+                                PermitsDirective d = new PermitsDirective(id);
+                                directives = directives.prepend(d);
+                            }
+
+                            if (viewName != null) {
+                                ViewDeclaration d = new ViewDeclaration(viewName, directives.reverse());
+                                msym.directives = msym.directives.prepend(d);
+                            }
+                        }
+                    }
+                }
+            },
+
+            new AttributeReader(names.ModuleRequires, V52, CLASS_ATTRIBUTE) {
+                @Override
+                protected boolean accepts(AttributeKind kind) {
+                    return super.accepts(kind) && allowModules;
+                }
+                protected void read(Symbol sym, int attrLen) {
+                    if (sym.kind == TYP && sym.owner.kind == MDL) {
+                        ModuleSymbol msym = (ModuleSymbol) sym.owner;
+                        int numModules = nextChar();
+                        for (int r = 0; r < numModules; r++) {
+                            ModuleQuery q = readModuleQuery(nextChar());
+                            Set<RequiresFlag> flags = readRequiresFlags(nextInt());
+                            RequiresModuleDirective d = new RequiresModuleDirective(q, flags);
+                            msym.directives = msym.directives.prepend(d);
+                        }
+                        int numServices = nextChar();
+                        for (int r = 0; r < numServices; r++) {
+                            ClassSymbol csym = readClassSymbol(nextChar());
+                            Set<RequiresFlag> flags = readRequiresFlags(nextInt());
+                            RequiresServiceDirective d = new RequiresServiceDirective(csym, flags);
+                            msym.directives = msym.directives.prepend(d);
+                        }
+                    }
+                }
+            },
 
             // The following attributes for a Code attribute are not currently handled
             // StackMapTable
@@ -1213,8 +1406,6 @@ public class ClassReader implements Completer {
         if (checkClassFile)
             printCCF("ccf.unrecognized.attribute", attrName);
     }
-
-
 
     protected void readEnclosingMethodAttr(Symbol sym) {
         // sym is a nested class with an "Enclosing Method" attribute
@@ -1365,6 +1556,9 @@ public class ClassReader implements Completer {
         readMemberAttrs(owner);
         return null;
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Reading Java-language annotations">
 
 /************************************************************************
  * Reading Java-language annotations
@@ -1908,6 +2102,7 @@ public class ClassReader implements Completer {
             }
         }
     }
+    // </editor-fold>
 
     class TypeAnnotationCompleter extends AnnotationCompleter {
 
@@ -1942,6 +2137,7 @@ public class ClassReader implements Completer {
         }
     }
 
+    // <editor-fold defaultstate="collapsed" desc="Reading Symbols">
 
 /************************************************************************
  * Reading Symbols
@@ -2157,11 +2353,20 @@ public class ClassReader implements Completer {
         long flags = adjustClassFlags(nextChar());
         if (c.owner.kind == PCK) c.flags_field = flags;
 
-        // read own class name and check that it matches
-        ClassSymbol self = readClassSymbol(nextChar());
-        if (c != self)
-            throw badClassFile("class.file.wrong.class",
-                               self.flatname);
+        if (c.owner.kind == MDL) {
+            //System.err.println("ClassReader.readClass getModuleInfoName");
+            c.fullname = c.flatname = readModuleInfoName(nextChar());
+            c.name = Convert.shortName(c.fullname);
+            assert c.name == names.module_info;
+        } else {
+            // read own class name and check that it matches
+            ClassSymbol self = readClassSymbol(nextChar());
+            if (c != self) {
+                //System.err.println("ClassReader.readClass c=" + c + " self=" + self);
+                throw badClassFile("class.file.wrong.class",
+                                   self.flatname);
+            }
+        }
 
         // class attributes must be read before class
         // skip ahead to read class attributes
@@ -2273,6 +2478,9 @@ public class ClassReader implements Completer {
         }
         readClass(c);
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Adjusting flags">
 
 /************************************************************************
  * Adjusting flags
@@ -2297,6 +2505,9 @@ public class ClassReader implements Completer {
     long adjustClassFlags(long flags) {
         return flags & ~ACC_SUPER; // SUPER and SYNCHRONIZED bits overloaded
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Loading Classes">
 
 /************************************************************************
  * Loading Classes
@@ -2398,6 +2609,15 @@ public class ClassReader implements Completer {
             } catch (IOException ex) {
                 throw new CompletionFailure(sym, ex.getLocalizedMessage()).initCause(ex);
             }
+        } else if (sym.kind == MDL) {
+            //System.err.println("ClassReader.complete module " + sym + " " + sym.name);
+            ModuleSymbol msym = (ModuleSymbol) sym;
+            msym.module_info.members_field = new Scope(sym); // or Scope.empty?
+            msym.directives = List.nil();
+            fillIn(msym.module_info);
+            msym.directives = msym.directives.reverse();
+            assert msym.name != null;
+            //System.err.println("ClassReader.completed module " + sym + " " + sym.name);
         }
         if (!filling && !suppressFlush)
             annotate.flush(); // finish attaching annotations
@@ -2481,6 +2701,15 @@ public class ClassReader implements Completer {
                         foundTypeVariables = List.nil();
                         filling = false;
                     }
+
+                    if (allowModules) {
+                        if (!(classfile instanceof JavaFileObject.Locatable))
+                            throw new CompletionFailure(c, "cannot determine module");
+                        Location l = ((JavaFileObject.Locatable) classfile).getLocation();
+                        c.modle = enterModule(l);
+                    } else {
+                        c.modle = syms.noModule;
+                    }
                 } else {
                     if (sourceCompleter != null) {
                         sourceCompleter.complete(c);
@@ -2489,6 +2718,7 @@ public class ClassReader implements Completer {
                                                         + classfile.toUri());
                     }
                 }
+                Assert.checkNonNull(c.modle);
                 return;
             } catch (IOException ex) {
                 throw badClassFile("unable.to.access.file", ex.getMessage());
@@ -2579,6 +2809,9 @@ public class ClassReader implements Completer {
         }
         return c;
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Loading Packages">
 
 /************************************************************************
  * Loading Packages
@@ -2616,7 +2849,9 @@ public class ClassReader implements Completer {
      *         (2) we have one of the other kind, and the given class file
      *             is older.
      */
-    protected void includeClassFile(PackageSymbol p, JavaFileObject file) {
+    protected void includeClassFile(PackageSymbol p, JavaFileObject file, Name simpleName) {
+        boolean isPackageInfo = simpleName == names.package_info;
+
         if ((p.flags_field & EXISTS) == 0)
             for (Symbol q = p; q != null && q.kind == PCK; q = q.owner)
                 q.flags_field |= EXISTS;
@@ -2626,18 +2861,14 @@ public class ClassReader implements Completer {
             seen = CLASS_SEEN;
         else
             seen = SOURCE_SEEN;
-        String binaryName = fileManager.inferBinaryName(currentLoc, file);
-        int lastDot = binaryName.lastIndexOf(".");
-        Name classname = names.fromString(binaryName.substring(lastDot + 1));
-        boolean isPkgInfo = classname == names.package_info;
-        ClassSymbol c = isPkgInfo
-            ? p.package_info
-            : (ClassSymbol) p.members_field.lookup(classname).sym;
+        ClassSymbol c =
+            isPackageInfo ? p.package_info
+            : (ClassSymbol) p.members_field.lookup(simpleName).sym;
         if (c == null) {
-            c = enterClass(classname, p);
+            c = enterClass(simpleName, p);
             if (c.classfile == null) // only update the file if's it's newly created
                 c.classfile = file;
-            if (isPkgInfo) {
+            if (isPackageInfo) {
                 p.package_info = c;
             } else {
                 if (c.owner == p)  // it might be an inner class
@@ -2658,7 +2889,7 @@ public class ClassReader implements Completer {
      *  file or a class file when both are present.  May be overridden
      *  by subclasses.
      */
-    protected JavaFileObject preferredFileObject(JavaFileObject a,
+    public JavaFileObject preferredFileObject(JavaFileObject a,
                                            JavaFileObject b) {
 
         if (preferSource)
@@ -2685,9 +2916,13 @@ public class ClassReader implements Completer {
     protected void extraFileActions(PackageSymbol pack, JavaFileObject fe) {
     }
 
-    protected Location currentLoc; // FIXME
+    public void setPathLocation(Location pathLocation) {
+        this.pathLocation = pathLocation;
+    }
 
+    private Location pathLocation;
     private boolean verbosePath = true;
+
 
     /** Load directory of package into members scope.
      */
@@ -2695,13 +2930,23 @@ public class ClassReader implements Completer {
         if (p.members_field == null) p.members_field = new Scope(p);
         String packageName = p.fullname.toString();
 
-        Set<JavaFileObject.Kind> kinds = getPackageFileKinds();
+        //System.err.println("ClassReader.fillIn using pathLocation " + (pathLocation != null));
+        if (pathLocation != null) {
+            fillIn(p, pathLocation,
+                    fileManager.list(pathLocation,
+                                    packageName,
+                                    EnumSet.allOf(JavaFileObject.Kind.class),
+                                    false));
+            return;
+        }
 
         fillIn(p, PLATFORM_CLASS_PATH,
                fileManager.list(PLATFORM_CLASS_PATH,
                                 packageName,
                                 EnumSet.of(JavaFileObject.Kind.CLASS),
                                 false));
+
+        Set<JavaFileObject.Kind> kinds = getPackageFileKinds();
 
         Set<JavaFileObject.Kind> classKinds = EnumSet.copyOf(kinds);
         classKinds.remove(JavaFileObject.Kind.SOURCE);
@@ -2769,17 +3014,16 @@ public class ClassReader implements Completer {
                             Location location,
                             Iterable<JavaFileObject> files)
         {
-            currentLoc = location;
             for (JavaFileObject fo : files) {
                 switch (fo.getKind()) {
                 case CLASS:
                 case SOURCE: {
-                    // TODO pass binaryName to includeClassFile
-                    String binaryName = fileManager.inferBinaryName(currentLoc, fo);
+                    String binaryName = fileManager.inferBinaryName(location, fo);
                     String simpleName = binaryName.substring(binaryName.lastIndexOf(".") + 1);
                     if (SourceVersion.isIdentifier(simpleName) ||
-                        simpleName.equals("package-info"))
-                        includeClassFile(p, fo);
+                        simpleName.contentEquals(names.package_info)) {
+                        includeClassFile(p, fo, names.fromString(simpleName));
+                    }
                     break;
                 }
                 default:
@@ -2787,6 +3031,64 @@ public class ClassReader implements Completer {
                 }
             }
         }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="Loading Modules">
+
+/************************************************************************
+ * Loading Modules
+ ***********************************************************************/
+
+    public ModuleSymbol enterModule(Location locn) {
+        ModuleSymbol sym = allModules.get(locn);
+        if (sym == null) {
+            sym = new ModuleSymbol(null, syms.rootModule);
+            sym.location = locn;
+            sym.module_info = new ClassSymbol(0, names.module_info, sym);
+            sym.module_info.modle = sym;
+            sym.completer = new Symbol.Completer() {
+                public void complete(Symbol sym) throws CompletionFailure {
+                    readModule((ModuleSymbol) sym);
+                }
+
+                void readModule(ModuleSymbol sym) {
+                    Location locn = sym.location;
+                    JavaFileObject srcFile = getModuleInfo(locn, JavaFileObject.Kind.SOURCE);
+                    JavaFileObject classFile = getModuleInfo(locn, JavaFileObject.Kind.CLASS);
+                    JavaFileObject file;
+                    if (srcFile == null) {
+                        if (classFile == null) {
+                            sym.name = sym.fullname = names.empty; // unnamed module
+                            RequiresModuleDirective d = new RequiresModuleDirective(syms.jdkLegacyQuery,
+                                    EnumSet.of(Directive.RequiresFlag.SYNTHESIZED));
+                            sym.directives = List.<Directive>of(d);
+                            return;
+                        }
+                        file = classFile;
+                    } else if (classFile == null)
+                        file = srcFile;
+                    else
+                        file = preferredFileObject(srcFile, classFile);
+
+                    sym.module_info.classfile = file;
+                    ClassReader.this.complete(sym);
+                    assert sym.name != null;
+                }
+
+                JavaFileObject getModuleInfo(Location locn, JavaFileObject.Kind kind) {
+                    try {
+                        return fileManager.getJavaFileForInput(locn, "module-info", kind);
+                    } catch (IOException e) {
+                        return null;
+                    }
+                }
+            };
+            allModules.put(locn, sym);
+        }
+        return sym;
+    }
+
+    // </editor-fold>
 
     /** Output for "-checkclassfile" option.
      *  @param key The key to look up the correct internationalized string.
@@ -2802,6 +3104,8 @@ public class ClassReader implements Completer {
             throws CompletionFailure;
     }
 
+    // <editor-fold defaultstate="collapsed" desc="SourceFileObject">
+
     /**
      * A subclass of JavaFileObject for the sourcefile attribute found in a classfile.
      * The attribute is only the last component of the original filename, so is unlikely
@@ -2816,7 +3120,7 @@ public class ClassReader implements Completer {
         private Name flatname;
 
         public SourceFileObject(Name name, Name flatname) {
-            super(null); // no file manager; never referenced for this file object
+            super(null, null); // no file manager or location; never referenced for this file object
             this.name = name;
             this.flatname = flatname;
         }
@@ -2886,6 +3190,11 @@ public class ClassReader implements Completer {
         }
 
         @Override
+        protected String inferModuleTag(String binaryName) {
+            return null;
+        }
+
+        @Override
         public boolean isNameCompatible(String simpleName, JavaFileObject.Kind kind) {
             return true; // fail-safe mode
         }
@@ -2913,4 +3222,5 @@ public class ClassReader implements Completer {
             return name.hashCode();
         }
     }
+    // </editor-fold>
 }

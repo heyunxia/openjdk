@@ -44,9 +44,9 @@ import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileManager;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
-
 import static javax.tools.StandardLocation.CLASS_OUTPUT;
 
 import com.sun.source.util.TaskEvent;
@@ -64,7 +64,6 @@ import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.comp.CompileStates.CompileState;
 import com.sun.tools.javac.util.Log.WriterKind;
-
 import static com.sun.tools.javac.code.TypeTag.CLASS;
 import static com.sun.tools.javac.main.Option.*;
 import static com.sun.tools.javac.util.JCDiagnostic.DiagnosticFlag.*;
@@ -81,7 +80,7 @@ import static com.sun.tools.javac.util.ListBuffer.lb;
  *  This code and its internal interfaces are subject to change or
  *  deletion without notice.</b>
  */
-public class JavaCompiler implements ClassReader.SourceCompleter {
+public class JavaCompiler {
     /** The context key for the compiler. */
     protected static final Context.Key<JavaCompiler> compilerKey =
         new Context.Key<JavaCompiler>();
@@ -374,7 +373,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
         types = Types.instance(context);
         taskListener = MultiTaskListener.instance(context);
 
-        reader.sourceCompleter = this;
+        reader.sourceCompleter = new Completer();
 
         options = Options.instance(context);
 
@@ -589,8 +588,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
      */
     protected JCCompilationUnit parse(JavaFileObject filename, CharSequence content) {
         long msec = now();
-        JCCompilationUnit tree = make.TopLevel(List.<JCTree.JCAnnotation>nil(),
-                                      null, List.<JCTree>nil());
+        JCCompilationUnit tree = make.TopLevel(List.<JCTree>nil());
         if (content != null) {
             if (verbose) {
                 log.printVerbose("parsing.started", filename);
@@ -676,8 +674,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
                 tree = (tree == null) ? make.Ident(names.fromString(s))
                                       : make.Select(tree, names.fromString(s));
             }
-            JCCompilationUnit toplevel =
-                make.TopLevel(List.<JCTree.JCAnnotation>nil(), null, List.<JCTree>nil());
+            JCCompilationUnit toplevel = make.TopLevel(List.<JCTree>nil());
             toplevel.packge = syms.unnamedPackage;
             return attr.attribIdent(tree, toplevel);
         } finally {
@@ -736,56 +733,83 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
      *  by the class file reader.
      *  @param c          The class the source file of which needs to be compiled.
      */
-    public void complete(ClassSymbol c) throws CompletionFailure {
-//      System.err.println("completing " + c);//DEBUG
-        if (completionFailureName == c.fullname) {
-            throw new CompletionFailure(c, "user-selected completion failure by class name");
-        }
-        JCCompilationUnit tree;
-        JavaFileObject filename = c.classfile;
-        JavaFileObject prev = log.useSource(filename);
+    protected class Completer implements ClassReader.SourceCompleter {
+        final boolean allowModules;
 
-        try {
-            tree = parse(filename, filename.getCharContent(false));
-        } catch (IOException e) {
-            log.error("error.reading.file", filename, JavacFileManager.getMessage(e));
-            tree = make.TopLevel(List.<JCTree.JCAnnotation>nil(), null, List.<JCTree>nil());
-        } finally {
-            log.useSource(prev);
+        public Completer() {
+            allowModules = source.allowModules();
         }
 
-        if (!taskListener.isEmpty()) {
-            TaskEvent e = new TaskEvent(TaskEvent.Kind.ENTER, tree);
-            taskListener.started(e);
-        }
+        public void complete(ClassSymbol c) throws CompletionFailure {
+            if (completionFailureName == c.fullname) {
+                throw new CompletionFailure(c, "user-selected completion failure by class name");
+            }
+            JCCompilationUnit tree;
+            JavaFileObject filename = c.classfile;
+            JavaFileObject prev = log.useSource(filename);
 
-        enter.complete(List.of(tree), c);
+            try {
+                tree = parse(filename, filename.getCharContent(false));
+            } catch (IOException e) {
+                log.error("error.reading.file", filename, JavacFileManager.getMessage(e));
+                tree = make.TopLevel(List.<JCTree>nil());
+            } finally {
+                log.useSource(prev);
+            }
 
-        if (!taskListener.isEmpty()) {
-            TaskEvent e = new TaskEvent(TaskEvent.Kind.ENTER, tree);
-            taskListener.finished(e);
-        }
+            if (allowModules) {
+                if (!(filename instanceof JavaFileObject.Locatable))
+                    throw new CompletionFailure(c, "cannot determine module");
+                Location l = ((JavaFileObject.Locatable) filename).getLocation();
+                tree.modle = reader.enterModule(l);
+            } else {
+                tree.modle = syms.noModule;
+            }
 
-        if (enter.getEnv(c) == null) {
-            boolean isPkgInfo =
-                tree.sourcefile.isNameCompatible("package-info",
-                                                 JavaFileObject.Kind.SOURCE);
-            if (isPkgInfo) {
-                if (enter.getEnv(tree.packge) == null) {
+            if (!taskListener.isEmpty()) {
+                TaskEvent e = new TaskEvent(TaskEvent.Kind.ENTER, tree);
+                taskListener.started(e);
+            }
+
+            enter.complete(List.of(tree), c);
+
+            if (!taskListener.isEmpty()) {
+                TaskEvent e = new TaskEvent(TaskEvent.Kind.ENTER, tree);
+                taskListener.finished(e);
+            }
+
+            if (enter.getEnv(c) == null) {
+                boolean isPackageInfo =
+                    tree.sourcefile.isNameCompatible("package-info",
+                                                     JavaFileObject.Kind.SOURCE);
+                boolean isModuleInfo =
+                    tree.sourcefile.isNameCompatible("module-info",
+                                                     JavaFileObject.Kind.SOURCE);
+                if (isPackageInfo) {
+                    if (enter.getEnv(tree.packge) == null) {
+                        JCDiagnostic diag =
+                            diagFactory.fragment("file.does.not.contain.package",
+                                                     c.location());
+                        throw reader.new BadClassFile(c, filename, diag);
+                    }
+                } else if (isModuleInfo) {
+                    if (enter.getEnv(tree.modle) == null) {
+                        JCDiagnostic diag =
+                            diagFactory.fragment("file.does.not.contain.module",
+                                                     c.location());
+                        throw reader.new BadClassFile(c, filename, diag);
+                    }
+                }
+                else {
                     JCDiagnostic diag =
-                        diagFactory.fragment("file.does.not.contain.package",
-                                                 c.location());
+                            diagFactory.fragment("file.doesnt.contain.class",
+                                                c.getQualifiedName());
                     throw reader.new BadClassFile(c, filename, diag);
                 }
-            } else {
-                JCDiagnostic diag =
-                        diagFactory.fragment("file.doesnt.contain.class",
-                                            c.getQualifiedName());
-                throw reader.new BadClassFile(c, filename, diag);
             }
-        }
 
-        implicitSourceFilesRead = true;
+            implicitSourceFilesRead = true;
+        }
     }
 
     /** Track when the JavaCompiler has been used to compile something. */
@@ -812,6 +836,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
     {
         if (processors != null && processors.iterator().hasNext())
             explicitAnnotationProcessingRequested = true;
+
         // as a JavaCompiler can only be used once, throw an exception if
         // it has been used before.
         if (hasBeenUsed)
@@ -1404,7 +1429,7 @@ public class JavaCompiler implements ClassReader.SourceCompleter {
             make.at(Position.FIRSTPOS);
             TreeMaker localMake = make.forToplevel(env.toplevel);
 
-            if (env.tree instanceof JCCompilationUnit) {
+            if (env.tree.hasTag(JCTree.Tag.TOPLEVEL) || env.tree.hasTag(JCTree.Tag.MODULE)) {
                 if (!(stubOutput || sourceOutput || printFlat)) {
                     if (shouldStop(CompileState.LOWER))
                         return;

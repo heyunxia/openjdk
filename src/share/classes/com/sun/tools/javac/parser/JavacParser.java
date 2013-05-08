@@ -28,6 +28,7 @@ package com.sun.tools.javac.parser;
 import java.util.*;
 
 import com.sun.source.tree.MemberReferenceTree.ReferenceMode;
+import com.sun.source.tree.RequiresFlag;
 
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.parser.Tokens.*;
@@ -47,6 +48,7 @@ import static com.sun.tools.javac.parser.Tokens.TokenKind.EQ;
 import static com.sun.tools.javac.parser.Tokens.TokenKind.GT;
 import static com.sun.tools.javac.parser.Tokens.TokenKind.IMPORT;
 import static com.sun.tools.javac.parser.Tokens.TokenKind.LT;
+import static com.sun.tools.javac.parser.Tokens.TokenKind.PACKAGE;
 import static com.sun.tools.javac.tree.JCTree.Tag.*;
 import static com.sun.tools.javac.util.ListBuffer.lb;
 
@@ -162,6 +164,7 @@ public class JavacParser implements Parser {
         this.allowStaticInterfaceMethods = source.allowStaticInterfaceMethods();
         this.allowIntersectionTypesInCast = source.allowIntersectionTypesInCast();
         this.allowTypeAnnotations = source.allowTypeAnnotations();
+        this.allowModules = source.allowModules();
         this.keepDocComments = keepDocComments;
         docComments = newDocCommentTable(keepDocComments, fac);
         this.keepLineMap = keepLineMap;
@@ -230,6 +233,10 @@ public class JavacParser implements Parser {
     /** Switch: should we allow method/constructor references?
      */
     boolean allowMethodReferences;
+
+    /** Switch: should we recognize modules?
+     */
+    boolean allowModules;
 
     /** Switch: should we allow default methods in interfaces?
      */
@@ -653,6 +660,20 @@ public class JavacParser implements Parser {
 
     JCExpression literal(Name prefix) {
         return literal(prefix, token.pos);
+    }
+
+    /**
+     * Qualident = Ident { DOT Ident }
+     * (used when we've had to lookahead at the first identifier)
+     */
+    public JCExpression qualident(JCExpression head) {
+        JCExpression t = head;
+        while (token.kind == DOT) {
+            int pos = token.pos;
+            nextToken();
+            t = toP(F.at(pos).Select(t, ident()));
+        }
+        return t;
     }
 
     /**
@@ -3035,51 +3056,63 @@ public class JavacParser implements Parser {
         boolean consumedToplevelDoc = false;
         boolean seenImport = false;
         boolean seenPackage = false;
-        List<JCAnnotation> packageAnnotations = List.nil();
-        if (token.kind == MONKEYS_AT)
+        ListBuffer<JCTree> defs = new ListBuffer<JCTree>();
+
+        if (token.kind == IDENTIFIER && token.name() == names.module) {
+            defs.append(moduleDecl(mods, token.comment(CommentStyle.JAVADOC)));
+            consumedToplevelDoc = true;
+        } else {
+            List<JCAnnotation> packageAnnotations = List.nil();
+            if (token.kind == MONKEYS_AT)
             mods = modifiersOpt();
 
-        if (token.kind == PACKAGE) {
-            seenPackage = true;
-            if (mods != null) {
-                checkNoMods(mods.flags);
-                packageAnnotations = mods.annotations;
-                mods = null;
-            }
-            nextToken();
-            pid = qualident(false);
-            accept(SEMI);
-        }
-        ListBuffer<JCTree> defs = new ListBuffer<JCTree>();
-        boolean checkForImports = true;
-        boolean firstTypeDecl = true;
-        while (token.kind != EOF) {
-            if (token.pos > 0 && token.pos <= endPosTable.errorEndPos) {
-                // error recovery
-                skip(checkForImports, false, false, false);
-                if (token.kind == EOF)
-                    break;
-            }
-            if (checkForImports && mods == null && token.kind == IMPORT) {
-                seenImport = true;
-                defs.append(importDeclaration());
-            } else {
-                Comment docComment = token.comment(CommentStyle.JAVADOC);
-                if (firstTypeDecl && !seenImport && !seenPackage) {
-                    docComment = firstToken.comment(CommentStyle.JAVADOC);
-                    consumedToplevelDoc = true;
+            if (token.kind == PACKAGE) {
+                seenPackage = true;
+                if (mods != null) {
+                    checkNoMods(mods.flags);
+                    packageAnnotations = mods.annotations;
+                    mods = null;
                 }
-                JCTree def = typeDeclaration(mods, docComment);
-                if (def instanceof JCExpressionStatement)
-                    def = ((JCExpressionStatement)def).expr;
-                defs.append(def);
-                if (def instanceof JCClassDecl)
-                    checkForImports = false;
-                mods = null;
-                firstTypeDecl = false;
+                nextToken();
+                pid = qualident(false);
+                accept(SEMI);
+                JCPackageDecl pd = F.at(firstToken.pos).Package(packageAnnotations, pid);
+                Comment docComment = firstToken.comment(CommentStyle.JAVADOC);
+                consumedToplevelDoc = true;
+                attach(pd, docComment);
+                defs.append(pd);
+            }
+
+            boolean checkForImports = true;
+            boolean firstTypeDecl = true;
+            while (token.kind != EOF) {
+                if (token.pos <= endPosTable.errorEndPos) {
+                    // error recovery
+                    skip(checkForImports, false, false, false);
+                    if (token.kind == EOF)
+                        break;
+                }
+                if (checkForImports && mods == null && token.kind == IMPORT) {
+                    seenImport = true;
+                    defs.append(importDeclaration());
+                } else {
+                    Comment docComment = token.comment(CommentStyle.JAVADOC);
+                    if (firstTypeDecl && !seenImport && !seenPackage) {
+                        docComment = firstToken.comment(CommentStyle.JAVADOC);
+                        consumedToplevelDoc = true;
+                    }
+                    JCTree def = typeDeclaration(mods, docComment);
+                    if (def instanceof JCExpressionStatement)
+                        def = ((JCExpressionStatement)def).expr;
+                    defs.append(def);
+                    if (def instanceof JCClassDecl)
+                        checkForImports = false;
+                    mods = null;
+                    firstTypeDecl = false;
+                }
             }
         }
-        JCTree.JCCompilationUnit toplevel = F.at(firstToken.pos).TopLevel(packageAnnotations, pid, defs.toList());
+        JCTree.JCCompilationUnit toplevel = F.at(firstToken.pos).TopLevel(defs.toList());
         if (!consumedToplevelDoc)
             attach(toplevel, firstToken.comment(CommentStyle.JAVADOC));
         if (defs.isEmpty())
@@ -3091,6 +3124,220 @@ public class JavacParser implements Parser {
         this.endPosTable.setParser(null); // remove reference to parser
         toplevel.endPositions = this.endPosTable;
         return toplevel;
+    }
+
+    /**
+     * ModuleDecl = { "@" Annotation } MODULE ModuleId [ ModuleProvides ] '{' { ModuleMetadata } '}'
+     * ModuleProvides = PROVIDES ModuleIdList
+     *
+     * called after MODULE has been seen
+     */
+    JCModuleDecl moduleDecl(JCModifiers mods, Comment dc) {
+        int pos = token.pos;
+        if (!allowModules) {
+            log.error(pos, "modules.not.supported.in.source", source.name);
+            allowModules = true;
+        }
+        S.allowVersionLiteral(true);
+        // FIXME: unimpl annots
+        List<JCAnnotation> annots = List.nil();
+        if (mods != null) {
+            checkNoMods(mods.flags);
+            annots = mods.annotations;
+            mods = null;
+        }
+        nextToken();
+        JCModuleId mid = moduleId();
+        List<JCModuleDirective> directives = null;
+
+        accept(LBRACE);
+        directives = moduleDirectiveList();
+        if (token.kind != RBRACE) {
+            setErrorEndPos(token.pos);
+            reportSyntaxError(S.prevToken().endPos, "expected", RBRACE);
+        }
+
+        // The extended metadata is all of the textual content that follows the
+        // module declaration.
+        UnicodeReader reader = S.getReader();
+        while (reader.bp < reader.buflen && Character.isWhitespace(reader.ch))
+            reader.scanChar();
+        while (reader.bp < reader.buflen)
+            reader.putChar(true);
+        Name moduleData = (reader.sp == 0) ? null : reader.name();
+
+        JCModuleDecl result = toP(F.at(pos).Module(mid, directives, moduleData));
+        attach(result, dc);
+        return result;
+    }
+
+    /**
+     * ModuleMetadataList = ModuleMetadata*
+     * ModuleMetadata = ModuleRequires | ModulePermits | ModuleProvides
+     * ModuleRequires = REQUIRES Identifier* ModuleId {',' ModuleId}
+     * ModulePermits  = PERMITS  QualifiedIdentifier {',' QualifiedIdentifier}
+     */
+    List<JCModuleDirective> moduleDirectiveList() {
+        ListBuffer<JCModuleDirective> defs = new ListBuffer<JCModuleDirective>();
+
+        while (token.kind == IDENTIFIER || token.kind == CLASS) {
+            int pos = token.pos;
+            if (token.kind == CLASS) {
+                nextToken();
+                JCExpression qualId = qualident(false);
+                accept(SEMI);
+                defs.append(toP(F.at(pos).Entrypoint(qualId)));
+            } else if (token.name() == names.exports) {
+                // FIXME, unimpl .**?
+                nextToken();
+                JCExpression exportId = toP(F.at(token.pos).Ident(ident()));
+                while (token.kind == DOT) {
+                    int pos1 = token.pos;
+                    accept(DOT);
+                    if (token.kind == STAR || token.kind == STARSTAR) {
+                        Name tname = (token.kind == STAR ? names.asterisk : names.double_asterisk);
+                        exportId = to(F.at(pos1).Select(exportId, tname));
+                        nextToken();
+                        break;
+                    } else {
+                        exportId = toP(F.at(pos1).Select(exportId, ident()));
+                    }
+                }
+                accept(SEMI);
+                defs.append(toP(F.at(pos).Exports(exportId)));
+            } else if (token.name() == names.requires) {
+                ListBuffer<RequiresFlag> flags = new ListBuffer<RequiresFlag>();
+                nextToken();
+                if (token.kind == IDENTIFIER && token.name() == names.optional) {
+                    flags.add(RequiresFlag.OPTIONAL);
+                    nextToken();
+                }
+                if (token.kind == IDENTIFIER && token.name() == names.service) {
+                    nextToken();
+                    JCExpression qualId = qualident(false);
+                    accept(SEMI);
+                    defs.append(toP(F.at(pos).RequiresService(flags.toList(), qualId)));
+                } else {
+                    while ((token.kind == PUBLIC)
+                            || (token.kind == IDENTIFIER && token.name() == names.local)) {
+                        RequiresFlag flag = (token.kind == PUBLIC)
+                                ? RequiresFlag.REEXPORT : RequiresFlag.LOCAL;
+                        // FIXME: check duplicates
+                        flags.append(flag);
+                        nextToken();
+                    }
+                    JCModuleQuery moduleQuery = moduleQuery();
+                    accept(SEMI);
+                    defs.append(toP(F.at(pos).RequiresModule(flags.toList(), moduleQuery)));
+                }
+            } else if (token.name() == names.permits) {
+                nextToken();
+                JCExpression qualId = qualident(false);
+                accept(SEMI);
+                defs.append(toP(F.at(pos).Permits(qualId)));
+            } else if (token.name() == names.provides) {
+                nextToken();
+                if (token.kind == IDENTIFIER && token.name() == names.service) {
+                    nextToken();
+                    JCExpression serviceName = qualident(false);
+                    if (token.kind == IDENTIFIER && token.name() == names.with) {
+                        nextToken();
+                        JCExpression implName = qualident(false);
+                        accept(SEMI);
+                        defs.append(toP(F.at(pos).ProvidesService(serviceName, implName)));
+                    } else {
+                        log.error("with.expected");
+                    }
+                } else {
+                    JCModuleId moduleId = moduleId();
+                    accept(SEMI);
+                    defs.append(toP(F.at(pos).ProvidesModule(moduleId)));
+                }
+            } else if (token.name() == names.view) {
+                nextToken();
+                JCExpression qualId = qualident(false);
+                accept(LBRACE);
+                List<JCModuleDirective> directives = moduleDirectiveList();
+                accept(RBRACE);
+                defs.append(toP(F.at(pos).View(qualId, directives)));
+            } else
+                break;
+        }
+
+        return defs.toList();
+    }
+
+    /** ModuleIdList = ModuleId {"," ModuleId}
+     */
+    List<JCModuleId> moduleIdList() {
+        ListBuffer<JCModuleId> ts = new ListBuffer<JCModuleId>();
+        ts.append(moduleId());
+        while (token.kind == COMMA) {
+            nextToken();
+            ts.append(moduleId());
+        }
+        return ts.toList();
+    }
+
+    /** ModuleIdList = ModuleId {"," ModuleId}
+     *  used when we've peeked ahead at the first identifier
+     */
+    List<JCModuleId> moduleIdList(JCExpression head) {
+        ListBuffer<JCModuleId> ts = new ListBuffer<JCModuleId>();
+        ts.append(moduleId(head));
+        while (token.kind == COMMA) {
+            nextToken();
+            ts.append(moduleId());
+        }
+        return ts.toList();
+    }
+
+    JCModuleId moduleId() {
+        return moduleId(toP(F.at(token.pos).Ident(ident())));
+    }
+
+    JCModuleId moduleId(JCExpression head) {
+        int pos = token.pos;
+        JCTree qualId = qualident(head);
+        Name version = null;
+        if (token.kind == MONKEYS_AT) {
+            nextToken();
+            if (token.kind == VERSIONLITERAL) {
+                version = token.name();
+            } else
+               log.error(pos, "module.version.literal.expected");
+            nextToken();
+        }
+        return toP(F.at(pos).ModuleId(qualId, version));
+    }
+
+    JCModuleQuery moduleQuery() {
+        return moduleQuery(toP(F.at(token.pos).Ident(ident())));
+    }
+
+    JCModuleQuery moduleQuery(JCExpression head) {
+        int pos = token.pos;
+        JCTree qualId = qualident(head);
+        Name query = null;
+        if (token.kind == MONKEYS_AT) {
+            nextToken();
+            if (token.kind == VERSIONLITERAL) {
+                query = token.name();
+                nextToken();
+            } else if (optag(token.kind) != Tag.NO_TAG) { // FIXME: close, but not close enough
+                Token op = token;
+                nextToken();
+                if (token.kind == VERSIONLITERAL) {
+                    query = names.fromString(op.kind.name + token.name());
+                    nextToken();
+                } else {
+                    log.error(token.pos, "module.version.literal.expected");
+                }
+            } else {
+               log.error(pos, "module.version.query.expected");
+            }
+        }
+        return toP(F.at(pos).ModuleQuery(qualId, query));
     }
 
     /** ImportDeclaration = IMPORT [ STATIC ] Ident { "." Ident } [ "." "*" ] ";"

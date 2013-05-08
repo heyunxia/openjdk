@@ -72,7 +72,12 @@ public enum StandardLocation implements Location {
      * Location of new native header files.
      * @since 1.8
      */
-    NATIVE_HEADER_OUTPUT;
+    NATIVE_HEADER_OUTPUT,
+
+    /**
+     * Location to search for existing module class files.
+     */
+    MODULE_PATH;
 
     /**
      * Gets a location object with the given name.  The following

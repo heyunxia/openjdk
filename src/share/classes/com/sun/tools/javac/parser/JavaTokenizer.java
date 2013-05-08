@@ -101,6 +101,8 @@ public class JavaTokenizer {
         }
     }
 
+    protected boolean allowVersionLiteral;
+
     /**
      * Create a scanner from the input array.  This method might
      * modify the array.  To avoid copying the input array, ensure
@@ -128,6 +130,14 @@ public class JavaTokenizer {
         this.allowBinaryLiterals = source.allowBinaryLiterals();
         this.allowHexFloats = source.allowHexFloats();
         this.allowUnderscoresInLiterals = source.allowUnderscoresInLiterals();
+    }
+
+    protected boolean allowVersionLiteral() {
+        return allowVersionLiteral;
+    }
+
+    protected void allowVersionLiteral(boolean allow) {
+        allowVersionLiteral = allow;
     }
 
     /** Report an error at the given position using the provided arguments.
@@ -445,6 +455,70 @@ public class JavaTokenizer {
         }
     }
 
+    /* same as scanIdent, except
+     * 1. '.' and '-' included
+     * 2. set tk to VERSION_LITERAL
+     */
+    private void scanVersionLiteral() {
+        boolean isJavaIdentifierPart;
+        char high;
+        do {
+            reader.putChar(true);
+            switch (reader.ch) {
+            case '-': case '.': // specific to version literals
+            case 'A': case 'B': case 'C': case 'D': case 'E':
+            case 'F': case 'G': case 'H': case 'I': case 'J':
+            case 'K': case 'L': case 'M': case 'N': case 'O':
+            case 'P': case 'Q': case 'R': case 'S': case 'T':
+            case 'U': case 'V': case 'W': case 'X': case 'Y':
+            case 'Z':
+            case 'a': case 'b': case 'c': case 'd': case 'e':
+            case 'f': case 'g': case 'h': case 'i': case 'j':
+            case 'k': case 'l': case 'm': case 'n': case 'o':
+            case 'p': case 'q': case 'r': case 's': case 't':
+            case 'u': case 'v': case 'w': case 'x': case 'y':
+            case 'z':
+            case '$': case '_':
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+            case '\u0000': case '\u0001': case '\u0002': case '\u0003':
+            case '\u0004': case '\u0005': case '\u0006': case '\u0007':
+            case '\u0008': case '\u000E': case '\u000F': case '\u0010':
+            case '\u0011': case '\u0012': case '\u0013': case '\u0014':
+            case '\u0015': case '\u0016': case '\u0017':
+            case '\u0018': case '\u0019': case '\u001B':
+            case '\u007F':
+                break;
+            case '\u001A': // EOI is also a legal identifier part
+                if (reader.bp >= reader.buflen) {
+                    name = reader.name();
+                    tk = TokenKind.VERSIONLITERAL;
+                    return;
+                }
+                break;
+            default:
+                if (reader.ch < '\u0080') {
+                    // all ASCII range chars already handled, above
+                    isJavaIdentifierPart = false;
+                } else {
+                    high = reader.scanSurrogates();
+                    if (high != 0) {
+                        reader.putChar(high);
+                        isJavaIdentifierPart = Character.isJavaIdentifierPart(
+                            Character.toCodePoint(high, reader.ch));
+                    } else {
+                        isJavaIdentifierPart = Character.isJavaIdentifierPart(reader.ch);
+                    }
+                }
+                if (!isJavaIdentifierPart) {
+                    name = reader.name();
+                    tk = TokenKind.VERSIONLITERAL;
+                    return;
+                }
+            }
+        } while (true);
+    }
+
     /** Read token.
      */
     public Token readToken() {
@@ -496,6 +570,10 @@ public class JavaTokenizer {
                     scanIdent();
                     break loop;
                 case '0':
+                    if (allowVersionLiteral) {
+                        scanVersionLiteral();
+                        break loop;
+                    }
                     reader.scanChar();
                     if (reader.ch == 'x' || reader.ch == 'X') {
                         reader.scanChar();
@@ -535,6 +613,10 @@ public class JavaTokenizer {
                     break loop;
                 case '1': case '2': case '3': case '4':
                 case '5': case '6': case '7': case '8': case '9':
+                    if (allowVersionLiteral) {
+                        scanVersionLiteral();
+                        break loop;
+                    }
                     scanNumber(pos, 10);
                     break loop;
                 case '.':

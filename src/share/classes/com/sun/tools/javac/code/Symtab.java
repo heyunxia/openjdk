@@ -29,6 +29,7 @@ import java.util.*;
 
 import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.type.TypeVisitor;
+import javax.tools.JavaFileManager.Location;
 
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Type.*;
@@ -36,8 +37,8 @@ import com.sun.tools.javac.jvm.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.List;
 import static com.sun.tools.javac.code.Flags.*;
-import static com.sun.tools.javac.jvm.ByteCodes.*;
 import static com.sun.tools.javac.code.TypeTag.*;
+import static com.sun.tools.javac.jvm.ByteCodes.*;
 
 /** A class that defines all predefined constants and operators
  *  as well as special classes such as java.lang.Object, which need
@@ -79,6 +80,18 @@ public class Symtab {
     private final Names names;
     private final ClassReader reader;
     private final Target target;
+
+    /** A symbol for the root module.
+     */
+    public final ModuleSymbol rootModule;
+
+    /** A symbol for the unnamed module.
+     */
+    public final ModuleSymbol unnamedModule;
+
+    /** A symbol for no module, for use with -source 7 or less
+     */
+    public final ModuleSymbol noModule;
 
     /** A symbol for the root package.
      */
@@ -186,13 +199,29 @@ public class Symtab {
      */
     public final Type[] typeOfTag = new Type[TypeTag.getTypeTagCount()];
 
-    /** The name of the class that belongs to a basix type tag.
+    /** The name of the class that belongs to a basic type tag.
      */
     public final Name[] boxedName = new Name[TypeTag.getTypeTagCount()];
 
     /** A set containing all operator names.
      */
     public final Set<Name> operatorNames = new HashSet<Name>();
+
+    /** The name of the base module.
+     */
+    public final ModuleId baseModule;
+
+    /** A query for the base module.
+     */
+    public final ModuleQuery baseModuleQuery;
+
+    /** The name of the "legacy JDK" module.
+     */
+    public final ModuleId jdkLegacyModule;
+
+    /** A query for the "legacy JDK" module.
+     */
+    public final ModuleQuery jdkLegacyQuery;
 
     /** A hashtable containing the encountered top-level and member classes,
      *  indexed by flat names. The table does not contain local classes.
@@ -206,6 +235,12 @@ public class Symtab {
      *  by compiled source files.
      */
     public final Map<Name, PackageSymbol> packages = new HashMap<Name, PackageSymbol>();
+
+    /** A hashtable containing the encountered modules.
+     *  the table should be updated from outside to reflect modules
+     * found in the host environment.
+     */
+    public Map<Location,ModuleSymbol> allModules = new LinkedHashMap<Location,ModuleSymbol>();
 
     public void initType(Type type, ClassSymbol c) {
         type.tsym = c;
@@ -397,14 +432,24 @@ public class Symtab {
         };
 
         // create the basic builtin symbols
-        rootPackage = new PackageSymbol(names.empty, null);
         final JavacMessages messages = JavacMessages.instance(context);
+        rootModule = new ModuleSymbol(names.empty, null);
+        unnamedModule = new ModuleSymbol(names.empty, rootModule) {
+                @Override
+                public String toString() {
+                    return messages.getLocalizedString("compiler.misc.unnamed.module");
+                }
+            };
+        noModule = new ModuleSymbol(names.empty, rootModule) { };
+        rootPackage = new PackageSymbol(names.empty, null);
         unnamedPackage = new PackageSymbol(names.empty, rootPackage) {
+                @Override
                 public String toString() {
                     return messages.getLocalizedString("compiler.misc.unnamed.package");
                 }
             };
         noSymbol = new TypeSymbol(Kinds.NIL, 0, names.empty, Type.noType, rootPackage) {
+            @Override
             public <R, P> R accept(ElementVisitor<R, P> v, P p) {
                 return v.visitUnknown(this, p);
             }
@@ -724,5 +769,13 @@ public class Symtab {
 
         enterBinop("&&", booleanType, booleanType, booleanType, bool_and);
         enterBinop("||", booleanType, booleanType, booleanType, bool_or);
+
+        // Create standard module ids and queries
+        Name v = names.fromString(target.name.replaceAll("^1.", ""));
+        baseModule = new ModuleId(names.java_base, v);
+        jdkLegacyModule = new ModuleId(names.jdk_legacy, v);
+        Name q = names.fromString(">=" + v);
+        baseModuleQuery = new ModuleQuery(names.java_base, q);
+        jdkLegacyQuery = new ModuleQuery(names.jdk_legacy, q);
     }
 }

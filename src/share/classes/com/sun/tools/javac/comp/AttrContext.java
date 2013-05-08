@@ -58,7 +58,7 @@ public class AttrContext {
      */
     Resolve.MethodResolutionPhase pendingResolutionPhase = null;
 
-    /** A record of the lint/SuppressWarnings currently in effect
+    /** A record of the lint/SuppressWarnings currently in effect.
      */
     Lint lint;
 
@@ -66,6 +66,9 @@ public class AttrContext {
      * useful for detecting self-references in variable initializers
      */
     Symbol enclVar = null;
+
+    /** The module context for the current module. */
+    ModuleContext modcon;
 
     /** ResultInfo to be used for attributing 'return' statement expressions
      * (set by Attr.visitMethod and Attr.visitLambda)
@@ -87,6 +90,7 @@ public class AttrContext {
         info.pendingResolutionPhase = pendingResolutionPhase;
         info.lint = lint;
         info.enclVar = enclVar;
+        info.modcon = modcon == null ? null : modcon.dup();
         info.returnResult = returnResult;
         info.defaultSuperCallSite = defaultSuperCallSite;
         return info;

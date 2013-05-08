@@ -29,6 +29,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
@@ -46,8 +48,8 @@ public class SymbolArchive extends ZipArchive {
     final File origFile;
     final RelativeDirectory prefix;
 
-    public SymbolArchive(JavacFileManager fileManager, File orig, ZipFile zdir, RelativeDirectory prefix) throws IOException {
-        super(fileManager, zdir, false);
+    public SymbolArchive(JavacFileManager fileManager, Location location, File orig, ZipFile zdir, RelativeDirectory prefix) throws IOException {
+        super(fileManager, location, zdir, false);
         this.origFile = orig;
         this.prefix = prefix;
         initMap();

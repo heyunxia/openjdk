@@ -35,6 +35,7 @@ import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree.JCPolyExpression.*;
 import com.sun.tools.javac.util.*;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import javax.tools.JavaFileObject;
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.TypeTag.BOT;
 import static com.sun.tools.javac.tree.JCTree.Tag.*;
@@ -470,6 +471,16 @@ public class TreeInfo {
                     return getStartPos(node.vartype);
                 }
             }
+        case PACKAGE: {
+            JCPackageDecl node = (JCPackageDecl)tree;
+            if (node.annots.nonEmpty())
+                return getStartPos(node.annots.head);
+            break;
+        }
+        case MODULE_ID: {
+            JCModuleId node = (JCModuleId)tree;
+            return getStartPos(node.qualId);
+        }
             case ERRONEOUS: {
                 JCErroneous node = (JCErroneous)tree;
                 if (node.errs != null && node.errs.nonEmpty())
@@ -620,26 +631,32 @@ public class TreeInfo {
     public static JCTree declarationFor(final Symbol sym, final JCTree tree) {
         class DeclScanner extends TreeScanner {
             JCTree result = null;
+            @Override
             public void scan(JCTree tree) {
                 if (tree!=null && result==null)
                     tree.accept(this);
             }
+            @Override
             public void visitTopLevel(JCCompilationUnit that) {
                 if (that.packge == sym) result = that;
                 else super.visitTopLevel(that);
             }
+            @Override
             public void visitClassDef(JCClassDecl that) {
                 if (that.sym == sym) result = that;
                 else super.visitClassDef(that);
             }
+            @Override
             public void visitMethodDef(JCMethodDecl that) {
                 if (that.sym == sym) result = that;
                 else super.visitMethodDef(that);
             }
+            @Override
             public void visitVarDef(JCVariableDecl that) {
                 if (that.sym == sym) result = that;
                 else super.visitVarDef(that);
             }
+            @Override
             public void visitTypeParameter(JCTypeParameter that) {
                 if (that.type != null && that.type.tsym == sym) result = that;
                 else super.visitTypeParameter(that);
@@ -669,6 +686,7 @@ public class TreeInfo {
         }
         class PathFinder extends TreeScanner {
             List<JCTree> path = List.nil();
+            @Override
             public void scan(JCTree tree) {
                 if (tree != null) {
                     path = path.prepend(tree);
@@ -1114,5 +1132,41 @@ public class TreeInfo {
         TypeAnnotationFinder finder = new TypeAnnotationFinder();
         finder.scan(e);
         return finder.foundTypeAnno;
+    }
+
+    public static boolean isModuleInfo(JCCompilationUnit tree) {
+        return tree.sourcefile.isNameCompatible("module-info", JavaFileObject.Kind.SOURCE);
+    }
+
+    public static JCModuleDecl getModule(JCCompilationUnit t) {
+        for (JCTree def: t.defs) {
+            switch (def.getTag()) {
+                case IMPORT:
+                    continue;
+                case MODULE:
+                    return (JCModuleDecl) def;
+                default:
+                    break;
+            }
+        }
+        return null;
+    }
+
+    public static boolean isPackageInfo(JCCompilationUnit tree) {
+        return tree.sourcefile.isNameCompatible("package-info", JavaFileObject.Kind.SOURCE);
+    }
+
+    public static JCPackageDecl getPackage(JCCompilationUnit t) {
+        for (JCTree def: t.defs) {
+            switch (def.getTag()) {
+                case IMPORT:
+                    continue;
+                case PACKAGE:
+                    return (JCPackageDecl) def;
+                default:
+                    break;
+            }
+        }
+        return null;
     }
 }

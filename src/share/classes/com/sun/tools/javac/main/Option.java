@@ -153,6 +153,10 @@ public enum Option {
         }
     },
 
+    MODULEPATH("-modulepath", "opt.arg.path", "opt.modulepath", STANDARD, FILEMANAGER),
+    
+    L("-L", "opt.arg.library", "opt.L", STANDARD, FILEMANAGER),
+
     EXTDIRS("-extdirs", "opt.arg.dirs", "opt.extdirs", STANDARD, FILEMANAGER),
 
     DJAVA_EXT_DIRS("-Djava.ext.dirs=", "opt.arg.dirs", "opt.extdirs", EXTENDED, FILEMANAGER) {

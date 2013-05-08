@@ -55,6 +55,7 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
+import javax.tools.ModuleFileManager;
 
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
@@ -111,13 +112,16 @@ public class ClientCodeWrapper {
     }
 
     public JavaFileManager wrap(JavaFileManager fm) {
-        if (isTrusted(fm))
+        if (fm == null || isTrusted(fm))
             return fm;
-        return new WrappedJavaFileManager(fm);
+        if (fm instanceof ModuleFileManager)
+            return new WrappedModuleFileManager(fm);
+        else
+            return new WrappedJavaFileManager(fm);
     }
 
     public FileObject wrap(FileObject fo) {
-        if (isTrusted(fo))
+        if (fo == null || isTrusted(fo))
             return fo;
         return new WrappedFileObject(fo);
     }
@@ -130,7 +134,7 @@ public class ClientCodeWrapper {
     }
 
     public JavaFileObject wrap(JavaFileObject fo) {
-        if (isTrusted(fo))
+        if (fo == null || isTrusted(fo))
             return fo;
         return new WrappedJavaFileObject(fo);
     }
@@ -150,13 +154,13 @@ public class ClientCodeWrapper {
     }
 
     public <T /*super JavaFileOject*/> DiagnosticListener<T> wrap(DiagnosticListener<T> dl) {
-        if (isTrusted(dl))
+        if (dl == null || isTrusted(dl))
             return dl;
         return new WrappedDiagnosticListener<T>(dl);
     }
 
     TaskListener wrap(TaskListener tl) {
-        if (isTrusted(tl))
+        if (tl == null || isTrusted(tl))
             return tl;
         return new WrappedTaskListener(tl);
     }
@@ -387,7 +391,63 @@ public class ClientCodeWrapper {
         }
     }
 
-    protected class WrappedFileObject implements FileObject {
+    protected class WrappedModuleFileManager extends WrappedJavaFileManager implements ModuleFileManager {
+        protected ModuleFileManager clientModuleFileManager;
+        WrappedModuleFileManager(JavaFileManager clientJavaFileManager) {
+            super(clientJavaFileManager);
+            this.clientModuleFileManager = (ModuleFileManager) clientJavaFileManager;
+        }
+
+        public ModuleMode getModuleMode() {
+            try {
+                return ((clientModuleFileManager).getModuleMode());
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Location getModuleLocation(Location location, JavaFileObject fo, String packageName) throws IllegalArgumentException {
+            try {
+                return ((clientModuleFileManager).getModuleLocation(location, unwrap(fo), packageName));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Iterable<? extends Location> getModuleLocations(Location location) {
+            try {
+                return ((clientModuleFileManager).getModuleLocations(location));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        public Location join(Iterable<? extends Location> locations) {
+            try {
+                return ((clientModuleFileManager).join(locations));
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+    }
+
+    protected class WrappedFileObject implements FileObject, FileObject.Locatable {
         protected FileObject clientFileObject;
         WrappedFileObject(FileObject clientFileObject) {
             clientFileObject.getClass(); // null check
@@ -502,6 +562,22 @@ public class ClientCodeWrapper {
         public boolean delete() {
             try {
                 return clientFileObject.delete();
+            } catch (ClientCodeException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ClientCodeException(e);
+            } catch (Error e) {
+                throw new ClientCodeException(e);
+            }
+        }
+
+        @Override
+        public Location getLocation() {
+            try {
+                if (clientFileObject instanceof Locatable)
+                    return ((Locatable) clientFileObject).getLocation();
+                else
+                    return null;
             } catch (ClientCodeException e) {
                 throw e;
             } catch (RuntimeException e) {

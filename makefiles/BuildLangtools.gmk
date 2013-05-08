@@ -105,7 +105,8 @@ ifeq ($(PROPS_ARE_CREATED),yes)
 		SETUP:=BOOT_JAVAC,\
 		DISABLE_SJAVAC:=true,\
 		SRC:=$(LANGTOOLS_TOPDIR)/src/share/classes $(LANGTOOLS_OUTPUTDIR)/gensrc,\
-		EXCLUDES:=com/sun/tools/javac/nio,\
+		EXCLUDES:=com/sun/tools/javac/nio \
+			  com/sun/tools/javac/jigsaw,\
 		COPY:=$(RESOURCE_SUFFIXES),\
 		BIN:=$(LANGTOOLS_OUTPUTDIR)/btclasses/bootstrap))
 
@@ -123,10 +124,11 @@ ifeq ($(PROPS_ARE_CREATED),yes)
              genstubs.GenStubs
         # We fetch source from the JDK...
         JDKS=$(JDK_TOPDIR)/src/share/classes
-        # Build the list of classes to generate stubs from. java/util/Objects.java isn't
-        # currently needed, but is used as a demo for now.
+        # Build the list of classes to generate stubs from. 
 	 STUBSOURCES:=$(shell $(FIND) $(JDKS) -name "*.java" | $(GREP) \
-		    -e "$(JDKS)/java/util/Objects.java")
+                    -e "$(JDKS)/java/lang/module/" \
+                    -e "$(JDKS)/java/lang/reflect/Module.java" \
+                    -e "$(JDKS)/org/openjdk/jigsaw/")
         # Rewrite the file names into class names because the GenStubs tool require this.
         STUBCLASSES:=$(subst /,.,$(patsubst $(JDKS)/%.java,%,$(STUBSOURCES)))
 
@@ -170,7 +172,7 @@ ifeq ($(PROPS_ARE_CREATED),yes)
 			SETUP:=GENERATE_NEWBYTECODE,\
 			SRC:=$(LANGTOOLS_TOPDIR)/src/share/classes $(LANGTOOLS_OUTPUTDIR)/gensrc \
 			     $(LANGTOOLS_OUTPUTDIR)/genstubs,\
-			EXCLUDES:=java/util java/io java/nio,\
+			EXCLUDES:=java/util java/io java/nio java/lang org/openjdk,\
 			COPY:=$(RESOURCE_SUFFIXES),\
 			BIN:=$(LANGTOOLS_OUTPUTDIR)/classes))
 

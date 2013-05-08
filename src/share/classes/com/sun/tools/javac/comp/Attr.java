@@ -34,9 +34,15 @@ import javax.tools.JavaFileObject;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberReferenceTree.ReferenceMode;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.RequiresFlag;
 import com.sun.source.tree.TreeVisitor;
 import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.tools.javac.code.*;
+import com.sun.tools.javac.code.Directive.EntrypointDirective;
+import com.sun.tools.javac.code.Directive.ExportsDirective;
+import com.sun.tools.javac.code.Directive.ProvidesServiceDirective;
+import com.sun.tools.javac.code.Directive.RequiresServiceDirective;
+import com.sun.tools.javac.code.Directive.ViewDeclaration;
 import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Type.*;
@@ -57,6 +63,7 @@ import static com.sun.tools.javac.code.Flags.BLOCK;
 import static com.sun.tools.javac.code.Kinds.*;
 import static com.sun.tools.javac.code.Kinds.ERRONEOUS;
 import static com.sun.tools.javac.code.TypeTag.*;
+import static com.sun.tools.javac.code.TypeTag.PACKAGE;
 import static com.sun.tools.javac.code.TypeTag.WILDCARD;
 import static com.sun.tools.javac.tree.JCTree.Tag.*;
 
@@ -94,6 +101,7 @@ public class Attr extends JCTree.Visitor {
     final JCDiagnostic.Factory diags;
     final Annotate annotate;
     final DeferredLintHandler deferredLintHandler;
+    final Modules modules;
 
     public static Attr instance(Context context) {
         Attr instance = context.get(attrKey);
@@ -122,6 +130,7 @@ public class Attr extends JCTree.Visitor {
         diags = JCDiagnostic.Factory.instance(context);
         annotate = Annotate.instance(context);
         deferredLintHandler = DeferredLintHandler.instance(context);
+        modules = Modules.instance(context);
 
         Options options = Options.instance(context);
 
@@ -3966,6 +3975,175 @@ public class Attr extends JCTree.Visitor {
         return buf.toList();
     }
 
+    @Override
+    public void visitModuleDef(JCModuleDecl tree) {
+        env.info.modcon = modules.getModuleContext(tree);
+        env.info.modcon.directives.clear();
+        attribStats(tree.getDirectives(), env);
+        env.toplevel.modle.directives = merge(env.info.modcon.directives,
+                env.toplevel.modle.directives);
+    }
+
+    @Override
+    public void visitExports(JCExportDirective tree) {
+        TypeSymbol tsym = attribTree(tree.qualid, env, new ResultInfo(PCK, Type.noType)).tsym;
+        if (tsym.kind == PCK) {
+            ExportsDirective d = new ExportsDirective((PackageSymbol) tsym);
+            if (env.info.modcon.getDirectives(Directive.Kind.EXPORTS, d.sym.fullname).isEmpty()) {
+                env.info.modcon.addDirective(d, tree, d.sym.fullname);
+            } else {
+                log.error(tree.qualid, "dupl.exports", d.sym);
+            }
+        }
+    }
+
+    @Override
+    public void visitProvidesModule(JCProvidesModuleDirective tree) {
+        Directive d = env.info.modcon.directiveForTree.get(tree);
+        if (d != null)
+            env.info.modcon.directives.add(d);
+    }
+
+    @Override
+    public void visitProvidesService(JCProvidesServiceDirective tree) {
+        TypeSymbol srvc = attribTree(tree.serviceName, env, unknownTypeInfo).tsym;
+        TypeSymbol impl = attribTree(tree.implName, env, unknownTypeInfo).tsym;
+        if (srvc.kind != ERR && impl.kind != ERR) {
+            if ((impl.flags() & ABSTRACT) != 0) {
+                log.error(tree.implName, "service.impl.is.abstract", impl);
+                return;
+            }
+
+            if ((impl.flags() & PUBLIC) == 0) {
+                log.error(tree.implName, "service.impl.not.public", impl);
+                return;
+            }
+
+            boolean hasPublicNoArgsConstructor = false;
+            for (Scope.Entry e = impl.members().lookup(names.init); e.scope != null; e = e.next()) {
+                if (e.sym.kind == MTH && ((e.sym.flags() & PUBLIC) != 0)
+                        && ((MethodSymbol) e.sym).params().isEmpty()) {
+                    hasPublicNoArgsConstructor = true;
+                    break;
+                }
+            }
+            if (!hasPublicNoArgsConstructor) {
+                log.error(tree.implName, "service.impl.no.default.constr", impl);
+                return;
+            }
+
+            if (impl.owner.kind != PCK) {
+                log.error(tree.implName, "service.impl.is.inner", impl);
+                return;
+            }
+
+            ProvidesServiceDirective psd =
+                    new ProvidesServiceDirective((ClassSymbol) srvc, (ClassSymbol) impl);
+            for (Directive d: env.info.modcon.getDirectives(Directive.Kind.PROVIDES_SERVICE, psd.service.fullname)) {
+                if (d.getKind().equals(Directive.Kind.PROVIDES_SERVICE)) {
+                    if (psd.impl.fullname == ((ProvidesServiceDirective) d).impl.fullname) {
+                        log.error(tree.implName, "dupl.provides.service", psd.service, psd.impl);
+                        return;
+                    }
+                }
+            }
+
+            env.info.modcon.addDirective(psd, tree, psd.service.fullname);
+        }
+    }
+
+    @Override
+    public void visitRequiresModule(JCRequiresModuleDirective tree) {
+        Directive d = env.info.modcon.directiveForTree.get(tree);
+        if (d != null)
+            env.info.modcon.directives.add(d);
+    }
+
+    @Override
+    public void visitRequiresService(JCRequiresServiceDirective tree) {
+        Type t = attribType(tree.serviceName, env);
+        if (t.hasTag(TypeTag.CLASS) && env.tree.hasTag(JCTree.Tag.MODULE)) {
+            // FIXME: should check for duplicates
+            Set<Directive.RequiresFlag> flags = EnumSet.noneOf(Directive.RequiresFlag.class);
+            for (RequiresFlag f: tree.flags) {
+                switch (f) {
+                    case OPTIONAL:
+                        flags.add(Directive.RequiresFlag.OPTIONAL);
+                        break;
+                }
+            }
+            RequiresServiceDirective d = new RequiresServiceDirective((ClassSymbol) t.tsym, flags);
+            if (env.info.modcon.getDirectives(Directive.Kind.REQUIRES_SERVICE, d.sym.fullname).isEmpty()) {
+                env.info.modcon.addDirective(d, tree, d.sym.fullname);
+            } else {
+                log.error(tree.serviceName, "dupl.requires.service", d.sym);
+            }
+        }
+    }
+
+    @Override
+    public void visitPermits(JCPermitsDirective tree) {
+        Directive d = env.info.modcon.directiveForTree.get(tree);
+        if (d != null)
+            env.info.modcon.directives.add(d);
+    }
+
+    @Override
+    public void visitEntrypoint(JCEntrypointDirective tree) {
+        Type t = attribType(tree.qualId, env);
+        if (t.hasTag(TypeTag.CLASS)) {
+            Symbol sym = t.tsym;
+
+            boolean hasPublicStaticVoidMain = false;
+            for (Scope.Entry e = sym.members().lookup(names.main); e.scope != null; e = e.next()) {
+                int PUBLIC_STATIC = PUBLIC | STATIC;
+                if (e.sym.kind == MTH && ((e.sym.flags() & PUBLIC_STATIC) == PUBLIC_STATIC)) {
+                    MethodSymbol m = (MethodSymbol) e.sym;
+                    if (!m.getReturnType().hasTag(TypeTag.VOID))
+                        continue;
+                    List<VarSymbol> params = m.params();
+                    if (params.size() != 1)
+                        continue;
+                    VarSymbol p = params.head;
+                    if (types.dimensions(p.type) == 1
+                            && types.elemtype(p.type).tsym == syms.stringType.tsym) {
+                        hasPublicStaticVoidMain = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasPublicStaticVoidMain) {
+                log.error(tree.qualId, "no.psv.main", sym);
+                return;
+            }
+
+            // Duplicate entrypoints should already have been detected and
+            // reported in Modules.visitEntrypoint, so here we just act
+            // defensively to ignore duplicates.
+            EntrypointDirective d = new EntrypointDirective((ClassSymbol) t.tsym);
+            if (env.info.modcon.getDirectives(Directive.Kind.ENTRYPOINT, d.sym.fullname).isEmpty())
+                env.info.modcon.addDirective(d, tree, d.sym.fullname);
+        }
+    }
+
+    @Override
+    public void visitView(JCViewDecl tree) {
+        Name name = TreeInfo.fullName(tree.name);
+        if (env.tree.hasTag(JCTree.Tag.MODULE)) {
+            ViewDeclaration orig = (ViewDeclaration) env.info.modcon.directiveForTree.get(tree);
+            Env<AttrContext> prevEnv = env;
+            env = env.dup(tree, env.info.dup());
+            try {
+                attribStats(tree.directives, env);
+            } finally {
+                ViewDeclaration d = new ViewDeclaration(name,
+                        merge(env.info.modcon.directives, orig.directives));
+                env = prevEnv;
+                env.info.modcon.directives.add(d);
+            }
+        }
+    }
+
     public void visitErroneous(JCErroneous tree) {
         if (tree.errs != null)
             for (JCTree err : tree.errs)
@@ -3979,14 +4157,33 @@ public class Attr extends JCTree.Visitor {
         throw new AssertionError();
     }
 
+    private List<Directive> merge(ListBuffer<Directive> primary, List<Directive> secondary) {
+        Set<Directive> set = new LinkedHashSet<Directive>();
+        set.addAll(primary);
+        for (Directive d: secondary) {
+            if (d.getKind() != Directive.Kind.VIEW)
+                set.add(d);
+        }
+        ListBuffer<Directive> results = new ListBuffer<Directive>();
+        for (Directive d: set)
+            results.add(d);
+        return results.toList();
+    }
+
     /**
      * Attribute an env for either a top level tree or class declaration.
      */
     public void attrib(Env<AttrContext> env) {
-        if (env.tree.hasTag(TOPLEVEL))
-            attribTopLevel(env);
-        else
-            attribClass(env.tree.pos(), env.enclClass.sym);
+        switch (env.tree.getTag()) {
+            case MODULE:
+                attribModule(env.tree.pos(), ((JCModuleDecl)env.tree).sym);
+                break;
+            case TOPLEVEL:
+                attribTopLevel(env);
+                break;
+            default:
+                attribClass(env.tree.pos(), env.enclClass.sym);
+        }
     }
 
     /**
@@ -3997,10 +4194,27 @@ public class Attr extends JCTree.Visitor {
         JCCompilationUnit toplevel = env.toplevel;
         try {
             annotate.flush();
-            chk.validateAnnotations(toplevel.packageAnnotations, toplevel.packge);
+            chk.validateAnnotations(toplevel.getPackageAnnotations(), toplevel.packge);
         } catch (CompletionFailure ex) {
             chk.completionError(toplevel.pos(), ex);
         }
+    }
+
+    public void attribModule(DiagnosticPosition pos, ModuleSymbol m) {
+        try {
+            annotate.flush();
+            attribModule(m);
+        } catch (CompletionFailure ex) {
+            chk.completionError(pos, ex);
+        }
+
+    }
+
+    void attribModule(ModuleSymbol m) {
+        // Get environment current at the point of module definition.
+        Env<AttrContext> env = enter.typeEnvs.get(m);
+        //System.err.println("Attr.attribModule: " + env + " " + env.tree);
+        attribStat(env.tree, env);
     }
 
     /** Main method: attribute class definition associated with given class symbol.

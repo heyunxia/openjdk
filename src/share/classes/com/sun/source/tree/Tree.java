@@ -581,6 +581,30 @@ public interface Tree {
          */
         ERRONEOUS(ErroneousTree.class),
 
+        MODULE(ModuleTree.class),
+
+        ENTRYPOINT_DIRECTIVE(EntrypointDirectiveTree.class),
+
+        EXPORT_DIRECTIVE(ExportDirectiveTree.class),
+
+        MODULE_ID(ModuleIdTree.class),
+
+        MODULE_QUERY(ModuleQueryTree.class),
+
+        PERMITS_DIRECTIVE(PermitsDirectiveTree.class),
+
+        PROVIDES_MODULE_DIRECTIVE(ProvidesModuleDirectiveTree.class),
+
+        PROVIDES_SERVICE_DIRECTIVE(ProvidesServiceDirectiveTree.class),
+
+        REQUIRES_MODULE_DIRECTIVE(RequiresModuleDirectiveTree.class),
+
+        REQUIRES_SERVICE_DIRECTIVE(RequiresServiceDirectiveTree.class),
+
+        VIEW_DECLARATION(ViewDeclarationTree.class),
+
+        PACKAGE(PackageTree.class),
+
         /**
          * Used for instances of {@link ClassTree} representing interfaces.
          */

@@ -295,4 +295,8 @@ public enum Target {
     public boolean hasEnclosingMethodAttribute() {
         return compareTo(JDK1_5) >= 0;
     }
+
+    public boolean useModules() {
+        return compareTo(JDK1_7) >= 0;
+    }
 }

@@ -309,6 +309,37 @@ public class Main {
             }
         }
 
+
+        Option[] bootclasspathOptions = {
+//            XBOOTCLASSPATH_PREPEND,
+            ENDORSEDDIRS,
+//            BOOTCLASSPATH,
+//            XBOOTCLASSPATH_APPEND,
+            EXTDIRS
+        };
+        Option[] moduleOptions = {
+            L,
+            MODULEPATH
+        };
+        List<Option> bcpOpts = List.nil();
+        List<Option> mOpts = List.nil();
+        for (Option n: bootclasspathOptions) {
+            if (options.get(n) != null)
+                bcpOpts = bcpOpts.prepend(n);
+        }
+        for (Option n: moduleOptions) {
+            if (options.get(n) != null)
+                mOpts = mOpts.prepend(n);
+        }
+        if (bcpOpts.nonEmpty() && mOpts.nonEmpty()) {
+            error("err.conficting.options", bcpOpts.head.text, mOpts.head.text);
+            return null;
+        }
+        if (mOpts.nonEmpty() && !source.allowModules()) {
+            error("err.option.not.supported.in.source", mOpts.head.text, source.name);
+            return null;
+        }
+
         String profileString = options.get(PROFILE);
         if (profileString != null) {
             Profile profile = Profile.lookup(profileString);

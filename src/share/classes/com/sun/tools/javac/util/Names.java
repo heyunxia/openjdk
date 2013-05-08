@@ -50,6 +50,7 @@ public class Names {
     // operators and punctuation
     public final Name asterisk;
     public final Name comma;
+    public final Name double_asterisk;
     public final Name empty;
     public final Name hyphen;
     public final Name one;
@@ -61,8 +62,20 @@ public class Names {
     // keywords
     public final Name _class;
     public final Name _default;
+    public final Name _public;
     public final Name _super;
     public final Name _this;
+    public final Name exports;
+    public final Name local;
+    public final Name main;
+    public final Name module;
+    public final Name optional;
+    public final Name permits;
+    public final Name provides;
+    public final Name requires;
+    public final Name service;
+    public final Name view;
+    public final Name with;
 
     // field and method names
     public final Name _name;
@@ -116,6 +129,10 @@ public class Names {
     // package names
     public final Name java_lang;
 
+    // module names
+    public final Name java_base;
+    public final Name jdk_legacy;
+
     // attribute names
     public final Name Annotation;
     public final Name AnnotationDefault;
@@ -134,6 +151,10 @@ public class Names {
     public final Name LocalVariableTable;
     public final Name LocalVariableTypeTable;
     public final Name MethodParameters;
+    public final Name Module;
+    public final Name ModuleData;
+    public final Name ModuleProvides;
+    public final Name ModuleRequires;
     public final Name RuntimeInvisibleAnnotations;
     public final Name RuntimeInvisibleParameterAnnotations;
     public final Name RuntimeInvisibleTypeAnnotations;
@@ -170,6 +191,7 @@ public class Names {
     public final Name T;
     public final Name deprecated;
     public final Name ex;
+    public final Name module_info;
     public final Name package_info;
 
     //lambda-related
@@ -186,6 +208,7 @@ public class Names {
         // operators and punctuation
         asterisk = fromString("*");
         comma = fromString(",");
+        double_asterisk = fromString("**");
         empty = fromString("");
         hyphen = fromString("-");
         one = fromString("1");
@@ -197,8 +220,20 @@ public class Names {
         // keywords
         _class = fromString("class");
         _default = fromString("default");
+        _public = fromString("public");
         _super = fromString("super");
         _this = fromString("this");
+        exports = fromString("exports");
+        local = fromString("local");
+        main = fromString("main");
+        module = fromString("module");
+        optional = fromString("optional");
+        permits = fromString("permits");
+        provides = fromString("provides");
+        requires = fromString("requires");
+        service = fromString("service");
+        view = fromString("view");
+        with = fromString("with");
 
         // field and method names
         _name = fromString("name");
@@ -252,6 +287,10 @@ public class Names {
         // package names
         java_lang = fromString("java.lang");
 
+        // module names
+        java_base = fromString("java.base");
+        jdk_legacy = fromString("jdk");       // FIXME: update when alias support working
+
         // attribute names
         Annotation = fromString("Annotation");
         AnnotationDefault = fromString("AnnotationDefault");
@@ -270,6 +309,10 @@ public class Names {
         LocalVariableTable = fromString("LocalVariableTable");
         LocalVariableTypeTable = fromString("LocalVariableTypeTable");
         MethodParameters = fromString("MethodParameters");
+        Module = fromString("Module");
+        ModuleData = fromString("ModuleData");
+        ModuleProvides = fromString("ModuleProvides");
+        ModuleRequires = fromString("ModuleRequires");
         RuntimeInvisibleAnnotations = fromString("RuntimeInvisibleAnnotations");
         RuntimeInvisibleParameterAnnotations = fromString("RuntimeInvisibleParameterAnnotations");
         RuntimeInvisibleTypeAnnotations = fromString("RuntimeInvisibleTypeAnnotations");
@@ -306,6 +349,7 @@ public class Names {
         T = fromString("T");
         deprecated = fromString("deprecated");
         ex = fromString("ex");
+        module_info = fromString("module-info");
         package_info = fromString("package-info");
 
         //lambda-related

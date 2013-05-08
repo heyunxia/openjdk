@@ -34,7 +34,7 @@ import com.sun.source.tree.*;
  * @since 1.6
  */
 @jdk.Supported
-public class SimpleTreeVisitor <R,P> implements TreeVisitor<R,P> {
+public class SimpleTreeVisitor<R,P> implements TreeVisitor<R,P> {
     protected final R DEFAULT_VALUE;
 
     protected SimpleTreeVisitor() {
@@ -266,6 +266,65 @@ public class SimpleTreeVisitor <R,P> implements TreeVisitor<R,P> {
     }
 
     public R visitErroneous(ErroneousTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitModule(ModuleTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitModuleId(ModuleIdTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitModuleQuery(ModuleQueryTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitView(ViewDeclarationTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitEntrypoint(EntrypointDirectiveTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitExport(ExportDirectiveTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitPermits(PermitsDirectiveTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitProvidesModule(ProvidesModuleDirectiveTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitProvidesService(ProvidesServiceDirectiveTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitRequiresModule(RequiresModuleDirectiveTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    @Override
+    public R visitRequiresService(RequiresServiceDirectiveTree node, P p) {
+        return defaultAction(node, p);
+    }
+
+    public R visitPackage(PackageTree node, P p) {
         return defaultAction(node, p);
     }
 

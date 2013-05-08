@@ -25,12 +25,9 @@
 
 package com.sun.tools.javac.file;
 
-import java.io.IOException;
-import java.util.Set;
-import javax.tools.JavaFileObject;
-
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
@@ -38,6 +35,10 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.Set;
+
+import javax.tools.JavaFileManager.Location;
+import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.file.JavacFileManager.Archive;
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
@@ -54,11 +55,13 @@ import com.sun.tools.javac.util.List;
 public class ZipFileIndexArchive implements Archive {
 
     private final ZipFileIndex zfIndex;
-    private JavacFileManager fileManager;
+    private final JavacFileManager fileManager;
+    private final Location location;
 
-    public ZipFileIndexArchive(JavacFileManager fileManager, ZipFileIndex zdir) throws IOException {
+    public ZipFileIndexArchive(JavacFileManager fileManager, Location location, ZipFileIndex zdir) throws IOException {
         super();
         this.fileManager = fileManager;
+        this.location = location;
         this.zfIndex = zdir;
     }
 
@@ -73,7 +76,7 @@ public class ZipFileIndexArchive implements Archive {
     public JavaFileObject getFileObject(RelativeDirectory subdirectory, String file) {
         RelativeFile fullZipFileName = new RelativeFile(subdirectory, file);
         ZipFileIndex.Entry entry = zfIndex.getZipIndexEntry(fullZipFileName);
-        JavaFileObject ret = new ZipFileIndexFileObject(fileManager, zfIndex, entry, zfIndex.getZipFile());
+        JavaFileObject ret = new ZipFileIndexFileObject(fileManager, location, zfIndex, entry, zfIndex.getZipFile());
         return ret;
     }
 
@@ -116,8 +119,8 @@ public class ZipFileIndexArchive implements Archive {
         File zipName;
 
 
-        ZipFileIndexFileObject(JavacFileManager fileManager, ZipFileIndex zfIndex, ZipFileIndex.Entry entry, File zipFileName) {
-            super(fileManager);
+        ZipFileIndexFileObject(JavacFileManager fileManager, Location location, ZipFileIndex zfIndex, ZipFileIndex.Entry entry, File zipFileName) {
+            super(fileManager, location);
             this.name = entry.getFileName();
             this.zfIndex = zfIndex;
             this.entry = entry;
@@ -248,6 +251,9 @@ public class ZipFileIndexArchive implements Archive {
                 return zfIndex.symbolFilePrefix.path + entry.getName();
             else
                 return entry.getName();
+        }
+        protected String inferModuleTag(String binaryName) {
+            return removeExtension(zfIndex.getZipFile().getName());
         }
     }
 
