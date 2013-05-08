@@ -54,6 +54,7 @@ class SchemaFactoryFinder  {
      *<p> Take care of restrictions imposed by java security model </p>
      */
     private static SecuritySupport ss = new SecuritySupport();
+    private static final String DEFAULT_PACKAGE = "com.sun.org.apache.xerces.internal";
     /**
      * <p>Cache properties for performance.</p>
      */
@@ -68,7 +69,7 @@ class SchemaFactoryFinder  {
         // Use try/catch block to support applets
         try {
             debug = ss.getSystemProperty("jaxp.debug") != null;
-        } catch (Exception _) {
+        } catch (Exception unused) {
             debug = false;
         }
     }
@@ -113,7 +114,7 @@ class SchemaFactoryFinder  {
                 debugPrintln("using thread context class loader ("+classLoader+") for search");
                 return;
             }
-        } catch( Throwable _ ) {
+        } catch( Throwable unused ) {
             ; // getContextClassLoader() undefined in JDK1.1
         }
 
@@ -213,28 +214,6 @@ class SchemaFactoryFinder  {
             }
         }
 
-        /**
-        // try to read from $java.home/lib/jaxp.properties
-        try {
-            String javah = ss.getSystemProperty( "java.home" );
-            String configFile = javah + File.separator +
-            "lib" + File.separator + "jaxp.properties";
-            File f = new File( configFile );
-            if( ss.doesFileExist(f)) {
-                sf = loadFromProperty(
-                        propertyName,f.getAbsolutePath(), new FileInputStream(f));
-                if(sf!=null)    return sf;
-            } else {
-                debugPrintln("Tried to read "+ f.getAbsolutePath()+", but it doesn't exist.");
-            }
-        } catch(Throwable e) {
-            if( debug ) {
-                debugPrintln("failed to read $java.home/lib/jaxp.properties");
-                e.printStackTrace();
-            }
-        }
-         */
-
         // try META-INF/services files
         Iterator sitr = createServiceFileIterator();
         while(sitr.hasNext()) {
@@ -269,14 +248,20 @@ class SchemaFactoryFinder  {
      */
     private Class createClass(String className) {
             Class clazz;
+        // make sure we have access to restricted packages
+        boolean internal = false;
+        if (System.getSecurityManager() != null) {
+            if (className != null && className.startsWith(DEFAULT_PACKAGE)) {
+                internal = true;
+            }
+        }
 
-            // use approprite ClassLoader
             try {
-                    if (classLoader != null) {
-                            clazz = classLoader.loadClass(className);
-                    } else {
-                            clazz = Class.forName(className);
-                    }
+                if (classLoader != null && !internal) {
+                        clazz = classLoader.loadClass(className);
+                } else {
+                        clazz = Class.forName(className);
+                }
             } catch (Throwable t) {
                 if(debug)   t.printStackTrace();
                     return null;
