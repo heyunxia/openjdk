@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -50,7 +50,7 @@ import sun.security.x509.*;
  * @author Sean Mullan
  * @since 1.4.2
  */
-class DistributionPointFetcher {
+public class DistributionPointFetcher {
 
     private static final Debug debug = Debug.getInstance("certpath");
 
@@ -66,13 +66,14 @@ class DistributionPointFetcher {
      * Return the X509CRLs matching this selector. The selector must be
      * an X509CRLSelector with certificateChecking set.
      */
-    static Collection<X509CRL> getCRLs(X509CRLSelector selector,
-                                       boolean signFlag, PublicKey prevKey,
-                                       String provider,
-                                       List<CertStore> certStores,
-                                       boolean[] reasonsMask,
-                                       Set<TrustAnchor> trustAnchors,
-                                       Date validity)
+    public static Collection<X509CRL> getCRLs(X509CRLSelector selector,
+                                              boolean signFlag,
+                                              PublicKey prevKey,
+                                              String provider,
+                                              List<CertStore> certStores,
+                                              boolean[] reasonsMask,
+                                              Set<TrustAnchor> trustAnchors,
+                                              Date validity)
         throws CertStoreException
     {
         X509Certificate cert = selector.getCertificateChecking();
@@ -345,10 +346,8 @@ class DistributionPointFetcher {
             return false;
         } else {
             // in case of self-issued indirect CRL issuer.
-            byte[] certAKID = certImpl.getExtensionValue(
-                                AuthorityKey_Id.toString());
-            byte[] crlAKID = crlImpl.getExtensionValue(
-                                AuthorityKey_Id.toString());
+            KeyIdentifier certAKID = certImpl.getAuthKeyId();
+            KeyIdentifier crlAKID = crlImpl.getAuthKeyId();
 
             if (certAKID == null || crlAKID == null) {
                 // cannot recognize indirect CRL without AKID
@@ -359,7 +358,7 @@ class DistributionPointFetcher {
                     // reset the public key used to verify the CRL's signature
                     prevKey = certImpl.getPublicKey();
                 }
-            } else if (!Arrays.equals(certAKID, crlAKID)) {
+            } else if (!certAKID.equals(crlAKID)) {
                 // we accept the case that a CRL issuer provide status
                 // information for itself.
                 if (issues(certImpl, crlImpl, provider)) {

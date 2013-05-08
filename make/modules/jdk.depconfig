@@ -609,3 +609,6 @@
 
 @Provider(optional)
   sun.util.spi.XmlPropertiesProvider -> META-INF/services/sun.util.spi.XmlPropertiesProvider
+
+@Provider(optional)
+  javax.script.ScriptEngineFactory -> META-INF/services/javax.script.ScriptEngineFactory

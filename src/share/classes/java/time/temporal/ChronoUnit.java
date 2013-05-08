@@ -57,6 +57,9 @@
 package java.time.temporal;
 
 import java.time.Duration;
+import java.time.chrono.ChronoLocalDate;
+import java.time.chrono.ChronoLocalDateTime;
+import java.time.chrono.ChronoZonedDateTime;
 
 /**
  * A standard set of date periods units.
@@ -175,7 +178,7 @@ public enum ChronoUnit implements TemporalUnit {
      * Unit that represents the concept of an era.
      * The ISO calendar system doesn't have eras thus it is impossible to add
      * an era to a date or date-time.
-     * The estimated duration of the era is artificially defined as {@code 1,000,00,000 Years}.
+     * The estimated duration of the era is artificially defined as {@code 1,000,000,000 Years}.
      * <p>
      * When used with other calendar systems there are no restrictions on the unit.
      */
@@ -254,7 +257,7 @@ public enum ChronoUnit implements TemporalUnit {
 
     //-----------------------------------------------------------------------
     @Override
-    public boolean isSupported(Temporal temporal) {
+    public boolean isSupportedBy(Temporal temporal) {
         if (this == FOREVER) {
             return false;
         }
@@ -264,19 +267,19 @@ public enum ChronoUnit implements TemporalUnit {
         if (temporal instanceof ChronoLocalDateTime || temporal instanceof ChronoZonedDateTime) {
             return true;
         }
-        return TemporalUnit.super.isSupported(temporal);
+        return TemporalUnit.super.isSupportedBy(temporal);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public <R extends Temporal> R doPlus(R dateTime, long periodToAdd) {
-        return (R) dateTime.plus(periodToAdd, this);
+    public <R extends Temporal> R addTo(R temporal, long amount) {
+        return (R) temporal.plus(amount, this);
     }
 
     //-----------------------------------------------------------------------
     @Override
-    public <R extends Temporal> SimplePeriod between(R dateTime1, R dateTime2) {
-        return new SimplePeriod(dateTime1.periodUntil(dateTime2, this), this);
+    public long between(Temporal temporal1, Temporal temporal2) {
+        return temporal1.periodUntil(temporal2, this);
     }
 
     //-----------------------------------------------------------------------

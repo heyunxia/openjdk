@@ -59,7 +59,7 @@
  */
 package test.java.time.zone;
 
-import java.time.zone.*;
+import java.time.zone.ZoneRules;
 
 import static org.testng.Assert.assertEquals;
 
@@ -83,7 +83,7 @@ public class TestFixedZoneRules {
     }
 
     //-----------------------------------------------------------------------
-    @Test(groups="implementation")
+    @Test
     public void test_data_nullInput() {
         ZoneRules test = make(OFFSET_PONE);
         assertEquals(test.getOffset((Instant) null), OFFSET_PONE);

@@ -65,28 +65,25 @@ import static java.time.temporal.ChronoField.INSTANT_SECONDS;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.time.temporal.ChronoField.OFFSET_SECONDS;
 
-import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InvalidObjectException;
+import java.io.ObjectInput;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.time.chrono.ChronoZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatters;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.ChronoZonedDateTime;
-import java.time.temporal.ISOChrono;
-import java.time.temporal.OffsetDateTime;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalAdder;
 import java.time.temporal.TemporalAdjuster;
+import java.time.temporal.TemporalAmount;
 import java.time.temporal.TemporalField;
 import java.time.temporal.TemporalQuery;
-import java.time.temporal.TemporalSubtractor;
 import java.time.temporal.TemporalUnit;
+import java.time.temporal.UnsupportedTemporalTypeException;
 import java.time.temporal.ValueRange;
 import java.time.zone.ZoneOffsetTransition;
 import java.time.zone.ZoneRules;
@@ -139,6 +136,11 @@ import java.util.Objects;
  * used, typically "summer" time.. Two additional methods,
  * {@link #withEarlierOffsetAtOverlap()} and {@link #withLaterOffsetAtOverlap()},
  * help manage the case of an overlap.
+ * <p>
+ * In terms of design, this class should be viewed primarily as the combination
+ * of a {@code LocalDateTime} and a {@code ZoneId}. The {@code ZoneOffset} is
+ * a vital, but secondary, piece of information, used to ensure that the class
+ * represents an instant, especially during a daylight savings overlap.
  *
  * <h3>Specification for implementors</h3>
  * A {@code ZonedDateTime} holds state equivalent to three separate objects,
@@ -152,7 +154,7 @@ import java.util.Objects;
  * @since 1.8
  */
 public final class ZonedDateTime
-        implements Temporal, ChronoZonedDateTime<ISOChrono>, Serializable {
+        implements Temporal, ChronoZonedDateTime<LocalDate>, Serializable {
 
     /**
      * Serialization version.
@@ -226,6 +228,36 @@ public final class ZonedDateTime
 
     //-----------------------------------------------------------------------
     /**
+     * Obtains an instance of {@code ZonedDateTime} from a local date and time.
+     * <p>
+     * This creates a zoned date-time matching the input local date and time as closely as possible.
+     * Time-zone rules, such as daylight savings, mean that not every local date-time
+     * is valid for the specified zone, thus the local date-time may be adjusted.
+     * <p>
+     * The local date time and first combined to form a local date-time.
+     * The local date-time is then resolved to a single instant on the time-line.
+     * This is achieved by finding a valid offset from UTC/Greenwich for the local
+     * date-time as defined by the {@link ZoneRules rules} of the zone ID.
+     *<p>
+     * In most cases, there is only one valid offset for a local date-time.
+     * In the case of an overlap, when clocks are set back, there are two valid offsets.
+     * This method uses the earlier offset typically corresponding to "summer".
+     * <p>
+     * In the case of a gap, when clocks jump forward, there is no valid offset.
+     * Instead, the local date-time is adjusted to be later by the length of the gap.
+     * For a typical one hour daylight savings change, the local date-time will be
+     * moved one hour later into the offset typically corresponding to "summer".
+     *
+     * @param date  the local date, not null
+     * @param time  the local time, not null
+     * @param zone  the time-zone, not null
+     * @return the offset date-time, not null
+     */
+    public static ZonedDateTime of(LocalDate date, LocalTime time, ZoneId zone) {
+        return of(LocalDateTime.of(date, time), zone);
+    }
+
+    /**
      * Obtains an instance of {@code ZonedDateTime} from a local date-time.
      * <p>
      * This creates a zoned date-time matching the input local date-time as closely as possible.
@@ -251,6 +283,53 @@ public final class ZonedDateTime
      */
     public static ZonedDateTime of(LocalDateTime localDateTime, ZoneId zone) {
         return ofLocal(localDateTime, zone, null);
+    }
+
+    /**
+     * Obtains an instance of {@code ZonedDateTime} from a year, month, day,
+     * hour, minute, second, nanosecond and time-zone.
+     * <p>
+     * This creates a zoned date-time matching the local date-time of the seven
+     * specified fields as closely as possible.
+     * Time-zone rules, such as daylight savings, mean that not every local date-time
+     * is valid for the specified zone, thus the local date-time may be adjusted.
+     * <p>
+     * The local date-time is resolved to a single instant on the time-line.
+     * This is achieved by finding a valid offset from UTC/Greenwich for the local
+     * date-time as defined by the {@link ZoneRules rules} of the zone ID.
+     *<p>
+     * In most cases, there is only one valid offset for a local date-time.
+     * In the case of an overlap, when clocks are set back, there are two valid offsets.
+     * This method uses the earlier offset typically corresponding to "summer".
+     * <p>
+     * In the case of a gap, when clocks jump forward, there is no valid offset.
+     * Instead, the local date-time is adjusted to be later by the length of the gap.
+     * For a typical one hour daylight savings change, the local date-time will be
+     * moved one hour later into the offset typically corresponding to "summer".
+     * <p>
+     * This method exists primarily for writing test cases.
+     * Non test-code will typically use other methods to create an offset time.
+     * {@code LocalDateTime} has five additional convenience variants of the
+     * equivalent factory method taking fewer arguments.
+     * They are not provided here to reduce the footprint of the API.
+     *
+     * @param year  the year to represent, from MIN_YEAR to MAX_YEAR
+     * @param month  the month-of-year to represent, from 1 (January) to 12 (December)
+     * @param dayOfMonth  the day-of-month to represent, from 1 to 31
+     * @param hour  the hour-of-day to represent, from 0 to 23
+     * @param minute  the minute-of-hour to represent, from 0 to 59
+     * @param second  the second-of-minute to represent, from 0 to 59
+     * @param nanoOfSecond  the nano-of-second to represent, from 0 to 999,999,999
+     * @param zone  the time-zone, not null
+     * @return the offset date-time, not null
+     * @throws DateTimeException if the value of any field is out of range, or
+     *  if the day-of-month is invalid for the month-year
+     */
+    public static ZonedDateTime of(
+            int year, int month, int dayOfMonth,
+            int hour, int minute, int second, int nanoOfSecond, ZoneId zone) {
+        LocalDateTime dt = LocalDateTime.of(year, month, dayOfMonth, hour, minute, second, nanoOfSecond);
+        return ofLocal(dt, zone, null);
     }
 
     /**
@@ -346,6 +425,9 @@ public final class ZonedDateTime
         Objects.requireNonNull(localDateTime, "localDateTime");
         Objects.requireNonNull(offset, "offset");
         Objects.requireNonNull(zone, "zone");
+        if (zone.getRules().isValidOffset(localDateTime, offset)) {
+            return new ZonedDateTime(localDateTime, offset, zone);
+        }
         return create(localDateTime.toEpochSecond(offset), localDateTime.getNano(), zone);
     }
 
@@ -436,13 +518,17 @@ public final class ZonedDateTime
     /**
      * Obtains an instance of {@code ZonedDateTime} from a temporal object.
      * <p>
-     * A {@code TemporalAccessor} represents some form of date and time information.
-     * This factory converts the arbitrary temporal object to an instance of {@code ZonedDateTime}.
+     * This obtains a zoned date-time based on the specified temporal.
+     * A {@code TemporalAccessor} represents an arbitrary set of date and time information,
+     * which this factory converts to an instance of {@code ZonedDateTime}.
      * <p>
-     * The conversion will first obtain a {@code ZoneId}. It will then try to obtain an instant.
-     * If that fails it will try to obtain a local date-time.
-     * The zoned date time will either be a combination of {@code ZoneId} and instant,
-     * or {@code ZoneId} and local date-time.
+     * The conversion will first obtain a {@code ZoneId} from the temporal object,
+     * falling back to a {@code ZoneOffset} if necessary. It will then try to obtain
+     * an {@code Instant}, falling back to a {@code LocalDateTime} if necessary.
+     * The result will be either the combination of {@code ZoneId} or {@code ZoneOffset}
+     * with {@code Instant} or {@code LocalDateTime}.
+     * Implementations are permitted to perform optimizations such as accessing
+     * those fields that are equivalent to the relevant objects.
      * <p>
      * This method matches the signature of the functional interface {@link TemporalQuery}
      * allowing it to be used in queries via method reference, {@code ZonedDateTime::from}.
@@ -477,14 +563,14 @@ public final class ZonedDateTime
      * {@code 2007-12-03T10:15:30+01:00[Europe/Paris]}.
      * <p>
      * The string must represent a valid date-time and is parsed using
-     * {@link java.time.format.DateTimeFormatters#isoZonedDateTime()}.
+     * {@link java.time.format.DateTimeFormatter#ISO_ZONED_DATE_TIME}.
      *
      * @param text  the text to parse such as "2007-12-03T10:15:30+01:00[Europe/Paris]", not null
      * @return the parsed zoned date-time, not null
      * @throws DateTimeParseException if the text cannot be parsed
      */
     public static ZonedDateTime parse(CharSequence text) {
-        return parse(text, DateTimeFormatters.isoZonedDateTime());
+        return parse(text, DateTimeFormatter.ISO_ZONED_DATE_TIME);
     }
 
     /**
@@ -537,17 +623,18 @@ public final class ZonedDateTime
     }
 
     /**
-     * Resolves the offset into this zoned date-time.
+     * Resolves the offset into this zoned date-time for the with methods.
      * <p>
-     * This will use the new offset to find the instant, which is then looked up
-     * using the zone ID to find the actual offset to use.
+     * This typically ignores the offset, unless it can be used to switch offset in a DST overlap.
      *
      * @param offset  the offset, not null
      * @return the zoned date-time, not null
      */
     private ZonedDateTime resolveOffset(ZoneOffset offset) {
-        long epSec = dateTime.toEpochSecond(offset);
-        return create(epSec, dateTime.getNano(), zone);
+        if (offset.equals(this.offset) == false && zone.getRules().isValidOffset(dateTime, offset)) {
+            return new ZonedDateTime(dateTime, offset, zone);
+        }
+        return this;
     }
 
     //-----------------------------------------------------------------------
@@ -585,7 +672,7 @@ public final class ZonedDateTime
      * <li>{@code ALIGNED_WEEK_OF_MONTH}
      * <li>{@code ALIGNED_WEEK_OF_YEAR}
      * <li>{@code MONTH_OF_YEAR}
-     * <li>{@code EPOCH_MONTH}
+     * <li>{@code PROLEPTIC_MONTH}
      * <li>{@code YEAR_OF_ERA}
      * <li>{@code YEAR}
      * <li>{@code ERA}
@@ -595,7 +682,7 @@ public final class ZonedDateTime
      * All other {@code ChronoField} instances will return false.
      * <p>
      * If the field is not a {@code ChronoField}, then the result of this method
-     * is obtained by invoking {@code TemporalField.doIsSupported(TemporalAccessor)}
+     * is obtained by invoking {@code TemporalField.isSupportedBy(TemporalAccessor)}
      * passing {@code this} as the argument.
      * Whether the field is supported is determined by the field.
      *
@@ -604,7 +691,7 @@ public final class ZonedDateTime
      */
     @Override
     public boolean isSupported(TemporalField field) {
-        return field instanceof ChronoField || (field != null && field.doIsSupported(this));
+        return field instanceof ChronoField || (field != null && field.isSupportedBy(this));
     }
 
     /**
@@ -618,16 +705,17 @@ public final class ZonedDateTime
      * If the field is a {@link ChronoField} then the query is implemented here.
      * The {@link #isSupported(TemporalField) supported fields} will return
      * appropriate range instances.
-     * All other {@code ChronoField} instances will throw a {@code DateTimeException}.
+     * All other {@code ChronoField} instances will throw an {@code UnsupportedTemporalTypeException}.
      * <p>
      * If the field is not a {@code ChronoField}, then the result of this method
-     * is obtained by invoking {@code TemporalField.doRange(TemporalAccessor)}
+     * is obtained by invoking {@code TemporalField.rangeRefinedBy(TemporalAccessor)}
      * passing {@code this} as the argument.
      * Whether the range can be obtained is determined by the field.
      *
      * @param field  the field to query the range for, not null
      * @return the range of valid values for the field, not null
      * @throws DateTimeException if the range for the field cannot be obtained
+     * @throws UnsupportedTemporalTypeException if the field is not supported
      */
     @Override
     public ValueRange range(TemporalField field) {
@@ -637,7 +725,7 @@ public final class ZonedDateTime
             }
             return dateTime.range(field);
         }
-        return field.doRange(this);
+        return field.rangeRefinedBy(this);
     }
 
     /**
@@ -651,26 +739,31 @@ public final class ZonedDateTime
      * If the field is a {@link ChronoField} then the query is implemented here.
      * The {@link #isSupported(TemporalField) supported fields} will return valid
      * values based on this date-time, except {@code NANO_OF_DAY}, {@code MICRO_OF_DAY},
-     * {@code EPOCH_DAY}, {@code EPOCH_MONTH} and {@code INSTANT_SECONDS} which are too
+     * {@code EPOCH_DAY}, {@code PROLEPTIC_MONTH} and {@code INSTANT_SECONDS} which are too
      * large to fit in an {@code int} and throw a {@code DateTimeException}.
-     * All other {@code ChronoField} instances will throw a {@code DateTimeException}.
+     * All other {@code ChronoField} instances will throw an {@code UnsupportedTemporalTypeException}.
      * <p>
      * If the field is not a {@code ChronoField}, then the result of this method
-     * is obtained by invoking {@code TemporalField.doGet(TemporalAccessor)}
+     * is obtained by invoking {@code TemporalField.getFrom(TemporalAccessor)}
      * passing {@code this} as the argument. Whether the value can be obtained,
      * and what the value represents, is determined by the field.
      *
      * @param field  the field to get, not null
      * @return the value for the field
-     * @throws DateTimeException if a value for the field cannot be obtained
+     * @throws DateTimeException if a value for the field cannot be obtained or
+     *         the value is outside the range of valid values for the field
+     * @throws UnsupportedTemporalTypeException if the field is not supported or
+     *         the range of values exceeds an {@code int}
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override  // override for Javadoc and performance
     public int get(TemporalField field) {
         if (field instanceof ChronoField) {
             switch ((ChronoField) field) {
-                case INSTANT_SECONDS: throw new DateTimeException("Field too large for an int: " + field);
-                case OFFSET_SECONDS: return getOffset().getTotalSeconds();
+                case INSTANT_SECONDS:
+                    throw new UnsupportedTemporalTypeException("Invalid field 'InstantSeconds' for get() method, use getLong() instead");
+                case OFFSET_SECONDS:
+                    return getOffset().getTotalSeconds();
             }
             return dateTime.get(field);
         }
@@ -687,16 +780,17 @@ public final class ZonedDateTime
      * If the field is a {@link ChronoField} then the query is implemented here.
      * The {@link #isSupported(TemporalField) supported fields} will return valid
      * values based on this date-time.
-     * All other {@code ChronoField} instances will throw a {@code DateTimeException}.
+     * All other {@code ChronoField} instances will throw an {@code UnsupportedTemporalTypeException}.
      * <p>
      * If the field is not a {@code ChronoField}, then the result of this method
-     * is obtained by invoking {@code TemporalField.doGet(TemporalAccessor)}
+     * is obtained by invoking {@code TemporalField.getFrom(TemporalAccessor)}
      * passing {@code this} as the argument. Whether the value can be obtained,
      * and what the value represents, is determined by the field.
      *
      * @param field  the field to get, not null
      * @return the value for the field
      * @throws DateTimeException if a value for the field cannot be obtained
+     * @throws UnsupportedTemporalTypeException if the field is not supported
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
@@ -708,7 +802,7 @@ public final class ZonedDateTime
             }
             return dateTime.getLong(field);
         }
-        return field.doGet(this);
+        return field.getFrom(this);
     }
 
     //-----------------------------------------------------------------------
@@ -770,7 +864,7 @@ public final class ZonedDateTime
      */
     @Override
     public ZonedDateTime withLaterOffsetAtOverlap() {
-        ZoneOffsetTransition trans = getZone().getRules().getTransition(getDateTime());
+        ZoneOffsetTransition trans = getZone().getRules().getTransition(toLocalDateTime());
         if (trans != null) {
             ZoneOffset laterOffset = trans.getOffsetAfter();
             if (laterOffset.equals(offset) == false) {
@@ -859,7 +953,7 @@ public final class ZonedDateTime
      * as most protocols, such as ISO-8601, only handle offsets,
      * and not region-based zone IDs.
      * <p>
-     * This is equivalent to {@code ZonedDateTime.of(zdt.getDateTime(), zdt.getOffset())}.
+     * This is equivalent to {@code ZonedDateTime.of(zdt.toLocalDateTime(), zdt.getOffset())}.
      *
      * @return a {@code ZonedDateTime} with the zone ID set to the offset, not null
      */
@@ -877,7 +971,7 @@ public final class ZonedDateTime
      * @return the local date-time part of this date-time, not null
      */
     @Override  // override for return type
-    public LocalDateTime getDateTime() {
+    public LocalDateTime toLocalDateTime() {
         return dateTime;
     }
 
@@ -891,8 +985,8 @@ public final class ZonedDateTime
      * @return the date part of this date-time, not null
      */
     @Override  // override for return type
-    public LocalDate getDate() {
-        return dateTime.getDate();
+    public LocalDate toLocalDate() {
+        return dateTime.toLocalDate();
     }
 
     /**
@@ -901,7 +995,7 @@ public final class ZonedDateTime
      * This method returns the primitive {@code int} value for the year.
      * <p>
      * The year returned by this method is proleptic as per {@code get(YEAR)}.
-     * To obtain the year-of-era, use {@code get(YEAR_OF_ERA}.
+     * To obtain the year-of-era, use {@code get(YEAR_OF_ERA)}.
      *
      * @return the year, from MIN_YEAR to MAX_YEAR
      */
@@ -987,8 +1081,8 @@ public final class ZonedDateTime
      * @return the time part of this date-time, not null
      */
     @Override  // override for Javadoc and performance
-    public LocalTime getTime() {
-        return dateTime.getTime();
+    public LocalTime toLocalTime() {
+        return dateTime.toLocalTime();
     }
 
     /**
@@ -1031,16 +1125,16 @@ public final class ZonedDateTime
     /**
      * Returns an adjusted copy of this date-time.
      * <p>
-     * This returns a new {@code ZonedDateTime}, based on this one, with the date-time adjusted.
+     * This returns a {@code ZonedDateTime}, based on this one, with the date-time adjusted.
      * The adjustment takes place using the specified adjuster strategy object.
      * Read the documentation of the adjuster to understand what adjustment will be made.
      * <p>
      * A simple adjuster might simply set the one of the fields, such as the year field.
      * A more complex adjuster might set the date to the last day of the month.
-     * A selection of common adjustments is provided in {@link java.time.temporal.Adjusters}.
+     * A selection of common adjustments is provided in {@link TemporalAdjuster}.
      * These include finding the "last day of the month" and "next Wednesday".
      * Key date-time classes also implement the {@code TemporalAdjuster} interface,
-     * such as {@link Month} and {@link java.time.temporal.MonthDay MonthDay}.
+     * such as {@link Month} and {@link java.time.MonthDay MonthDay}.
      * The adjuster is responsible for handling special cases, such as the varying
      * lengths of month and leap years.
      * <p>
@@ -1059,15 +1153,12 @@ public final class ZonedDateTime
      *  result = zonedDateTime.with(time);
      * </pre>
      * <p>
-     * {@link ZoneOffset} also implements {@code TemporalAdjuster} however it is less likely
-     * that setting the offset will have the effect you expect. When an offset is passed in,
-     * the local date-time is combined with the new offset to form an {@code Instant}.
-     * The instant and original zone are then used to create the result.
-     * This algorithm means that it is quite likely that the output has a different offset
-     * to the specified offset. It will however work correctly when passing in the offset
-     * applicable for the instant of the zoned date-time, and will work correctly if passing
-     * one of the two valid offsets during a daylight savings overlap when the same local time
-     * occurs twice.
+     * {@link ZoneOffset} also implements {@code TemporalAdjuster} however using it
+     * as an argument typically has no effect. The offset of a {@code ZonedDateTime} is
+     * controlled primarily by the time-zone. As such, changing the offset does not generally
+     * make sense, because there is only one valid offset for the local date-time and zone.
+     * If the zoned date-time is in a daylight savings overlap, then the offset is used
+     * to switch between the two valid offsets. In all other cases, the offset is ignored.
      * <p>
      * The result of this method is obtained by invoking the
      * {@link TemporalAdjuster#adjustInto(Temporal)} method on the
@@ -1084,11 +1175,14 @@ public final class ZonedDateTime
     public ZonedDateTime with(TemporalAdjuster adjuster) {
         // optimizations
         if (adjuster instanceof LocalDate) {
-            return resolveLocal(LocalDateTime.of((LocalDate) adjuster, dateTime.getTime()));
+            return resolveLocal(LocalDateTime.of((LocalDate) adjuster, dateTime.toLocalTime()));
         } else if (adjuster instanceof LocalTime) {
-            return resolveLocal(LocalDateTime.of(dateTime.getDate(), (LocalTime) adjuster));
+            return resolveLocal(LocalDateTime.of(dateTime.toLocalDate(), (LocalTime) adjuster));
         } else if (adjuster instanceof LocalDateTime) {
             return resolveLocal((LocalDateTime) adjuster);
+        } else if (adjuster instanceof OffsetDateTime) {
+            OffsetDateTime odt = (OffsetDateTime) adjuster;
+            return ofLocal(odt.toLocalDateTime(), zone, odt.getOffset());
         } else if (adjuster instanceof Instant) {
             Instant instant = (Instant) adjuster;
             return create(instant.getEpochSecond(), instant.getNano(), zone);
@@ -1101,7 +1195,7 @@ public final class ZonedDateTime
     /**
      * Returns a copy of this date-time with the specified field set to a new value.
      * <p>
-     * This returns a new {@code ZonedDateTime}, based on this one, with the value
+     * This returns a {@code ZonedDateTime}, based on this one, with the value
      * for the specified field changed.
      * This can be used to change any supported field, such as the year, month or day-of-month.
      * If it is not possible to set the value, because the field is not supported or for
@@ -1119,15 +1213,13 @@ public final class ZonedDateTime
      * The result will have an offset derived from the new instant and original zone.
      * If the new instant value is outside the valid range then a {@code DateTimeException} will be thrown.
      * <p>
-     * The {@code OFFSET_SECONDS} field will return a date-time calculated using the specified offset.
-     * The local date-time is combined with the new offset to form an {@code Instant}.
-     * The instant and original zone are then used to create the result.
-     * This algorithm means that it is quite likely that the output has a different offset
-     * to the specified offset. It will however work correctly when passing in the offset
-     * applicable for the instant of the zoned date-time, and will work correctly if passing
-     * one of the two valid offsets during a daylight savings overlap when the same local time
-     * occurs twice. If the new offset value is outside the valid range then a
-     * {@code DateTimeException} will be thrown.
+     * The {@code OFFSET_SECONDS} field will typically be ignored.
+     * The offset of a {@code ZonedDateTime} is controlled primarily by the time-zone.
+     * As such, changing the offset does not generally make sense, because there is only
+     * one valid offset for the local date-time and zone.
+     * If the zoned date-time is in a daylight savings overlap, then the offset is used
+     * to switch between the two valid offsets. In all other cases, the offset is ignored.
+     * If the new offset value is outside the valid range then a {@code DateTimeException} will be thrown.
      * <p>
      * The other {@link #isSupported(TemporalField) supported fields} will behave as per
      * the matching method on {@link LocalDateTime#with(TemporalField, long) LocalDateTime}.
@@ -1136,10 +1228,10 @@ public final class ZonedDateTime
      * then the offset will be retained if possible, otherwise the earlier offset will be used.
      * If in a gap, the local date-time will be adjusted forward by the length of the gap.
      * <p>
-     * All other {@code ChronoField} instances will throw a {@code DateTimeException}.
+     * All other {@code ChronoField} instances will throw an {@code UnsupportedTemporalTypeException}.
      * <p>
      * If the field is not a {@code ChronoField}, then the result of this method
-     * is obtained by invoking {@code TemporalField.doWith(Temporal, long)}
+     * is obtained by invoking {@code TemporalField.adjustInto(Temporal, long)}
      * passing {@code this} as the argument. In this case, the field determines
      * whether and how to adjust the instant.
      * <p>
@@ -1149,6 +1241,7 @@ public final class ZonedDateTime
      * @param newValue  the new value of the field in the result
      * @return a {@code ZonedDateTime} based on {@code this} with the specified field set, not null
      * @throws DateTimeException if the field cannot be set
+     * @throws UnsupportedTemporalTypeException if the field is not supported
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
@@ -1156,15 +1249,15 @@ public final class ZonedDateTime
         if (field instanceof ChronoField) {
             ChronoField f = (ChronoField) field;
             switch (f) {
-                case INSTANT_SECONDS: return create(newValue, getNano(), zone);
-                case OFFSET_SECONDS: {
+                case INSTANT_SECONDS:
+                    return create(newValue, getNano(), zone);
+                case OFFSET_SECONDS:
                     ZoneOffset offset = ZoneOffset.ofTotalSeconds(f.checkValidIntValue(newValue));
                     return resolveOffset(offset);
-                }
             }
             return resolveLocal(dateTime.with(field, newValue));
         }
-        return field.doWith(this, newValue);
+        return field.adjustInto(this, newValue);
     }
 
     //-----------------------------------------------------------------------
@@ -1228,8 +1321,8 @@ public final class ZonedDateTime
      *
      * @param dayOfMonth  the day-of-month to set in the result, from 1 to 28-31
      * @return a {@code ZonedDateTime} based on this date-time with the requested day, not null
-     * @throws DateTimeException if the day-of-month value is invalid
-     * @throws DateTimeException if the day-of-month is invalid for the month-year
+     * @throws DateTimeException if the day-of-month value is invalid,
+     *  or if the day-of-month is invalid for the month-year
      */
     public ZonedDateTime withDayOfMonth(int dayOfMonth) {
         return resolveLocal(dateTime.withDayOfMonth(dayOfMonth));
@@ -1251,8 +1344,8 @@ public final class ZonedDateTime
      *
      * @param dayOfYear  the day-of-year to set in the result, from 1 to 365-366
      * @return a {@code ZonedDateTime} based on this date with the requested day, not null
-     * @throws DateTimeException if the day-of-year value is invalid
-     * @throws DateTimeException if the day-of-year is invalid for the year
+     * @throws DateTimeException if the day-of-year value is invalid,
+     *  or if the day-of-year is invalid for the year
      */
     public ZonedDateTime withDayOfYear(int dayOfYear) {
         return resolveLocal(dateTime.withDayOfYear(dayOfYear));
@@ -1356,8 +1449,10 @@ public final class ZonedDateTime
      * For example, truncating with the {@link ChronoUnit#MINUTES minutes} unit
      * will set the second-of-minute and nano-of-second field to zero.
      * <p>
-     * Not all units are accepted. The {@link ChronoUnit#DAYS days} unit and time
-     * units with an exact duration can be used, other units throw an exception.
+     * The unit must have a {@linkplain TemporalUnit#getDuration() duration}
+     * that divides into the length of a standard day without remainder.
+     * This includes all supplied time units on {@link ChronoUnit} and
+     * {@link ChronoUnit#DAYS DAYS}. Other units throw an exception.
      * <p>
      * This operates on the local time-line,
      * {@link LocalDateTime#truncatedTo(java.time.temporal.TemporalUnit) truncating}
@@ -1373,6 +1468,7 @@ public final class ZonedDateTime
      * @param unit  the unit to truncate to, not null
      * @return a {@code ZonedDateTime} based on this date-time with the time truncated, not null
      * @throws DateTimeException if unable to truncate
+     * @throws UnsupportedTemporalTypeException if the unit is not supported
      */
     public ZonedDateTime truncatedTo(TemporalUnit unit) {
         return resolveLocal(dateTime.truncatedTo(unit));
@@ -1380,34 +1476,39 @@ public final class ZonedDateTime
 
     //-----------------------------------------------------------------------
     /**
-     * Returns a copy of this date-time with the specified period added.
+     * Returns a copy of this date-time with the specified amount added.
      * <p>
-     * This method returns a new date-time based on this time with the specified period added.
-     * The adder is typically {@link Period} but may be any other type implementing
-     * the {@link TemporalAdder} interface.
-     * The calculation is delegated to the specified adjuster, which typically calls
-     * back to {@link #plus(long, TemporalUnit)}.
+     * This returns a {@code ZonedDateTime}, based on this one, with the specified amount added.
+     * The amount is typically {@link Period} or {@link Duration} but may be
+     * any other type implementing the {@link TemporalAmount} interface.
+     * <p>
+     * The calculation is delegated to the amount object by calling
+     * {@link TemporalAmount#addTo(Temporal)}. The amount implementation is free
+     * to implement the addition in any way it wishes, however it typically
+     * calls back to {@link #plus(long, TemporalUnit)}. Consult the documentation
+     * of the amount implementation to determine if it can be successfully added.
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param adder  the adder to use, not null
+     * @param amountToAdd  the amount to add, not null
      * @return a {@code ZonedDateTime} based on this date-time with the addition made, not null
      * @throws DateTimeException if the addition cannot be made
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
-    public ZonedDateTime plus(TemporalAdder adder) {
-        return (ZonedDateTime) adder.addTo(this);
+    public ZonedDateTime plus(TemporalAmount amountToAdd) {
+        return (ZonedDateTime) amountToAdd.addTo(this);
     }
 
     /**
-     * Returns a copy of this date-time with the specified period added.
+     * Returns a copy of this date-time with the specified amount added.
      * <p>
-     * This method returns a new date-time based on this date-time with the specified period added.
-     * This can be used to add any period that is defined by a unit, for example to add years, months or days.
-     * The unit is responsible for the details of the calculation, including the resolution
-     * of any edge cases in the calculation.
+     * This returns a {@code ZonedDateTime}, based on this one, with the amount
+     * in terms of the unit added. If it is not possible to add the amount, because the
+     * unit is not supported or for some other reason, an exception is thrown.
      * <p>
+     * If the field is a {@link ChronoUnit} then the addition is implemented here.
+     * The zone is not part of the calculation and will be unchanged in the result.
      * The calculation for date and time units differ.
      * <p>
      * Date units operate on the local time-line.
@@ -1422,12 +1523,19 @@ public final class ZonedDateTime
      * The conversion uses {@link #ofInstant(LocalDateTime, ZoneOffset, ZoneId)}
      * with the offset before the addition.
      * <p>
+     * If the field is not a {@code ChronoUnit}, then the result of this method
+     * is obtained by invoking {@code TemporalUnit.addTo(Temporal, long)}
+     * passing {@code this} as the argument. In this case, the unit determines
+     * whether and how to perform the addition.
+     * <p>
      * This instance is immutable and unaffected by this method call.
      *
      * @param amountToAdd  the amount of the unit to add to the result, may be negative
-     * @param unit  the unit of the period to add, not null
-     * @return a {@code ZonedDateTime} based on this date-time with the specified period added, not null
-     * @throws DateTimeException if the unit cannot be added to this type
+     * @param unit  the unit of the amount to add, not null
+     * @return a {@code ZonedDateTime} based on this date-time with the specified amount added, not null
+     * @throws DateTimeException if the addition cannot be made
+     * @throws UnsupportedTemporalTypeException if the unit is not supported
+     * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
     public ZonedDateTime plus(long amountToAdd, TemporalUnit unit) {
@@ -1439,7 +1547,7 @@ public final class ZonedDateTime
                 return resolveInstant(dateTime.plus(amountToAdd, unit));
             }
         }
-        return unit.doPlus(this, amountToAdd);
+        return unit.addTo(this, amountToAdd);
     }
 
     //-----------------------------------------------------------------------
@@ -1616,33 +1724,36 @@ public final class ZonedDateTime
 
     //-----------------------------------------------------------------------
     /**
-     * Returns a copy of this date-time with the specified period subtracted.
+     * Returns a copy of this date-time with the specified amount subtracted.
      * <p>
-     * This method returns a new date-time based on this time with the specified period subtracted.
-     * The subtractor is typically {@link Period} but may be any other type implementing
-     * the {@link TemporalSubtractor} interface.
-     * The calculation is delegated to the specified adjuster, which typically calls
-     * back to {@link #minus(long, TemporalUnit)}.
+     * This returns a {@code ZonedDateTime}, based on this one, with the specified amount subtracted.
+     * The amount is typically {@link Period} or {@link Duration} but may be
+     * any other type implementing the {@link TemporalAmount} interface.
+     * <p>
+     * The calculation is delegated to the amount object by calling
+     * {@link TemporalAmount#subtractFrom(Temporal)}. The amount implementation is free
+     * to implement the subtraction in any way it wishes, however it typically
+     * calls back to {@link #minus(long, TemporalUnit)}. Consult the documentation
+     * of the amount implementation to determine if it can be successfully subtracted.
      * <p>
      * This instance is immutable and unaffected by this method call.
      *
-     * @param subtractor  the subtractor to use, not null
+     * @param amountToSubtract  the amount to subtract, not null
      * @return a {@code ZonedDateTime} based on this date-time with the subtraction made, not null
      * @throws DateTimeException if the subtraction cannot be made
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
-    public ZonedDateTime minus(TemporalSubtractor subtractor) {
-        return (ZonedDateTime) subtractor.subtractFrom(this);
+    public ZonedDateTime minus(TemporalAmount amountToSubtract) {
+        return (ZonedDateTime) amountToSubtract.subtractFrom(this);
     }
 
     /**
-     * Returns a copy of this date-time with the specified period subtracted.
+     * Returns a copy of this date-time with the specified amount subtracted.
      * <p>
-     * This method returns a new date-time based on this date-time with the specified period subtracted.
-     * This can be used to subtract any period that is defined by a unit, for example to subtract years, months or days.
-     * The unit is responsible for the details of the calculation, including the resolution
-     * of any edge cases in the calculation.
+     * This returns a {@code ZonedDateTime}, based on this one, with the amount
+     * in terms of the unit subtracted. If it is not possible to subtract the amount,
+     * because the unit is not supported or for some other reason, an exception is thrown.
      * <p>
      * The calculation for date and time units differ.
      * <p>
@@ -1658,12 +1769,17 @@ public final class ZonedDateTime
      * The conversion uses {@link #ofInstant(LocalDateTime, ZoneOffset, ZoneId)}
      * with the offset before the subtraction.
      * <p>
+     * This method is equivalent to {@link #plus(long, TemporalUnit)} with the amount negated.
+     * See that method for a full description of how addition, and thus subtraction, works.
+     * <p>
      * This instance is immutable and unaffected by this method call.
      *
      * @param amountToSubtract  the amount of the unit to subtract from the result, may be negative
-     * @param unit  the unit of the period to subtract, not null
-     * @return a {@code ZonedDateTime} based on this date-time with the specified period subtracted, not null
-     * @throws DateTimeException if the unit cannot be added to this type
+     * @param unit  the unit of the amount to subtract, not null
+     * @return a {@code ZonedDateTime} based on this date-time with the specified amount subtracted, not null
+     * @throws DateTimeException if the subtraction cannot be made
+     * @throws UnsupportedTemporalTypeException if the unit is not supported
+     * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
     public ZonedDateTime minus(long amountToSubtract, TemporalUnit unit) {
@@ -1885,14 +2001,15 @@ public final class ZonedDateTime
      * For example, the period in months between 2012-06-15T00:00Z and 2012-08-14T23:59Z
      * will only be one month as it is one minute short of two months.
      * <p>
-     * This method operates in association with {@link TemporalUnit#between}.
-     * The result of this method is a {@code long} representing the amount of
-     * the specified unit. By contrast, the result of {@code between} is an
-     * object that can be used directly in addition/subtraction:
+     * There are two equivalent ways of using this method.
+     * The first is to invoke this method.
+     * The second is to use {@link TemporalUnit#between(Temporal, Temporal)}:
      * <pre>
-     *   long period = start.periodUntil(end, MONTHS);   // this method
-     *   dateTime.plus(MONTHS.between(start, end));      // use in plus/minus
+     *   // these two lines are equivalent
+     *   amount = start.periodUntil(end, MONTHS);
+     *   amount = MONTHS.between(start, end);
      * </pre>
+     * The choice should be made based on which makes the code more readable.
      * <p>
      * The calculation is implemented in this method for {@link ChronoUnit}.
      * The units {@code NANOS}, {@code MICROS}, {@code MILLIS}, {@code SECONDS},
@@ -1926,6 +2043,7 @@ public final class ZonedDateTime
      * @param unit  the unit to measure the period in, not null
      * @return the amount of the period between this date-time and the end date-time
      * @throws DateTimeException if the period cannot be calculated
+     * @throws UnsupportedTemporalTypeException if the unit is not supported
      * @throws ArithmeticException if numeric overflow occurs
      */
     @Override
@@ -1944,7 +2062,22 @@ public final class ZonedDateTime
                 return toOffsetDateTime().periodUntil(end.toOffsetDateTime(), unit);
             }
         }
-        return unit.between(this, endDateTime).getAmount();
+        return unit.between(this, endDateTime);
+    }
+
+    /**
+     * Formats this date-time using the specified formatter.
+     * <p>
+     * This date-time will be passed to the formatter to produce a string.
+     *
+     * @param formatter  the formatter to use, not null
+     * @return the formatted date-time string, not null
+     * @throws DateTimeException if an error occurs during printing
+     */
+    @Override  // override for Javadoc and performance
+    public String format(DateTimeFormatter formatter) {
+        Objects.requireNonNull(formatter, "formatter");
+        return formatter.format(this);
     }
 
     //-----------------------------------------------------------------------
@@ -2014,21 +2147,6 @@ public final class ZonedDateTime
         return str;
     }
 
-    /**
-     * Outputs this date-time as a {@code String} using the formatter.
-     * <p>
-     * This date will be passed to the formatter
-     * {@link DateTimeFormatter#print(TemporalAccessor) print method}.
-     *
-     * @param formatter  the formatter to use, not null
-     * @return the formatted date-time string, not null
-     * @throws DateTimeException if an error occurs during printing
-     */
-    @Override  // override for Javadoc
-    public String toString(DateTimeFormatter formatter) {
-        return ChronoZonedDateTime.super.toString(formatter);
-    }
-
     //-----------------------------------------------------------------------
     /**
      * Writes the object using a
@@ -2061,7 +2179,7 @@ public final class ZonedDateTime
         zone.write(out);
     }
 
-    static ZonedDateTime readExternal(DataInput in) throws IOException {
+    static ZonedDateTime readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         LocalDateTime dateTime = LocalDateTime.readExternal(in);
         ZoneOffset offset = ZoneOffset.readExternal(in);
         ZoneId zone = (ZoneId) Ser.read(in);

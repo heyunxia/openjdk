@@ -29,6 +29,9 @@ PACKAGE = sun.java2d.cmm.lcms
 LIBRARY = lcms
 PRODUCT = sun
 
+# Use highest level of optimization on this library
+OPTIMIZATION_LEVEL = HIGHEST
+
 include $(BUILDDIR)/common/Defs.gmk
 
 #
@@ -56,7 +59,7 @@ include $(BUILDDIR)/common/Library.gmk
 SERVICEDIR = $(CLASSBINDIR)/META-INF/services
 
 FILES_copy = \
-	$(SERVICEDIR)/sun.java2d.cmm.PCMM
+	$(SERVICEDIR)/sun.java2d.cmm.CMMServiceProvider
 
 build: copy-files
 

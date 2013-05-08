@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,14 +26,13 @@
 package sun.misc;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Module;
 import sun.reflect.ConstantPool;
 import sun.reflect.annotation.AnnotationType;
 import sun.nio.ch.Interruptible;
 
-
 public interface JavaLangAccess {
-
     /** Return the constant pool for a class. */
     ConstantPool getConstantPool(Class<?> klass);
 
@@ -48,6 +47,18 @@ public interface JavaLangAccess {
      * (This method only applies to annotation types.)
      */
     AnnotationType getAnnotationType(Class<?> klass);
+
+    /**
+     * Get the array of bytes that is the class-file representation
+     * of this Class' type annotations.
+     */
+    byte[] getRawClassTypeAnnotations(Class<?> klass);
+
+    /**
+     * Get the array of bytes that is the class-file representation
+     * of this Executable's type annotations.
+     */
+    byte[] getRawExecutableTypeAnnotations(Executable executable);
 
     /**
      * Returns the elements of an enum class or null if the
@@ -92,9 +103,4 @@ public interface JavaLangAccess {
      * Returns the ith StackTraceElement for the given throwable.
      */
     StackTraceElement getStackTraceElement(Throwable t, int i);
-
-    /**
-     * Returns a directly present annotation.
-     */
-    public <A extends Annotation> A getDirectDeclaredAnnotation(Class<?> klass, Class<A> anno);
 }

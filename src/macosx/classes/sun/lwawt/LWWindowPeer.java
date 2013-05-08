@@ -48,7 +48,8 @@ public class LWWindowPeer
         FRAME,
         DIALOG,
         EMBEDDED_FRAME,
-        VIEW_EMBEDDED_FRAME
+        VIEW_EMBEDDED_FRAME,
+        LW_FRAME
     }
 
     private static final PlatformLogger focusLog = PlatformLogger.getLogger("sun.lwawt.focus.LWWindowPeer");
@@ -169,7 +170,7 @@ public class LWWindowPeer
             setTitle(((Dialog) getTarget()).getTitle());
         }
 
-        setAlwaysOnTop(getTarget().isAlwaysOnTop());
+        updateAlwaysOnTopState();
         updateMinimumSize();
 
         final Shape shape = getTarget().getShape();
@@ -356,8 +357,8 @@ public class LWWindowPeer
     }
 
     @Override
-    public void setAlwaysOnTop(boolean value) {
-        platformWindow.setAlwaysOnTop(value);
+    public void updateAlwaysOnTopState() {
+        platformWindow.setAlwaysOnTop(getTarget().isAlwaysOnTop());
     }
 
     @Override
@@ -579,17 +580,16 @@ public class LWWindowPeer
         setBounds(x, y, w, h, SET_BOUNDS, false, false);
 
         // Second, update the graphics config and surface data
-        checkIfOnNewScreen();
-        if (resized) {
+        final boolean isNewDevice = updateGraphicsDevice();
+        if (resized || isNewDevice) {
             replaceSurfaceData();
-            flushOnscreenGraphics();
         }
 
         // Third, COMPONENT_MOVED/COMPONENT_RESIZED/PAINT events
         if (moved || invalid) {
             handleMove(x, y, true);
         }
-        if (resized || invalid) {
+        if (resized || invalid || isNewDevice) {
             handleResize(w, h, true);
             repaintPeer();
         }
@@ -609,7 +609,7 @@ public class LWWindowPeer
                 }
                 if (!isTextured()) {
                     if (g instanceof SunGraphics2D) {
-                        SG2DConstraint((SunGraphics2D) g, getRegion());
+                        ((SunGraphics2D) g).constrain(0, 0, w, h, getRegion());
                     }
                     g.setColor(getBackground());
                     g.fillRect(0, 0, w, h);
@@ -921,7 +921,7 @@ public class LWWindowPeer
             }
             // If window's graphics config is changed from the app code, the
             // config correspond to the same device as before; when the window
-            // is moved by user, graphicsDevice is updated in checkIfOnNewScreen().
+            // is moved by user, graphicsDevice is updated in notifyReshape().
             // In either case, there's nothing to do with screenOn here
             graphicsConfig = gc;
         }
@@ -929,11 +929,14 @@ public class LWWindowPeer
         return true;
     }
 
-    private void checkIfOnNewScreen() {
+    /**
+     * Returns true if the GraphicsDevice has been changed, false otherwise.
+     */
+    public boolean updateGraphicsDevice() {
         GraphicsDevice newGraphicsDevice = platformWindow.getGraphicsDevice();
         synchronized (getStateLock()) {
             if (graphicsDevice == newGraphicsDevice) {
-                return;
+                return false;
             }
             graphicsDevice = newGraphicsDevice;
         }
@@ -941,13 +944,14 @@ public class LWWindowPeer
         // TODO: DisplayChangedListener stuff
         final GraphicsConfiguration newGC = newGraphicsDevice.getDefaultConfiguration();
 
-        if (!setGraphicsConfig(newGC)) return;
+        if (!setGraphicsConfig(newGC)) return false;
 
         SunToolkit.executeOnEventHandlerThread(getTarget(), new Runnable() {
             public void run() {
                 AWTAccessor.getComponentAccessor().setGraphicsConfiguration(getTarget(), newGC);
             }
         });
+        return true;
     }
 
     /*
@@ -982,6 +986,7 @@ public class LWWindowPeer
                 oldData.flush();
             }
         }
+        flushOnscreenGraphics();
     }
 
     private void blitSurfaceData(final SurfaceData src, final SurfaceData dst) {
@@ -989,14 +994,15 @@ public class LWWindowPeer
         if (src != dst && src != null && dst != null
             && !(dst instanceof NullSurfaceData)
             && !(src instanceof NullSurfaceData)
-            && src.getSurfaceType().equals(dst.getSurfaceType())) {
-            final Rectangle size = getSize();
+            && src.getSurfaceType().equals(dst.getSurfaceType())
+            && src.getDefaultScale() == dst.getDefaultScale()) {
+            final Rectangle size = src.getBounds();
             final Blit blit = Blit.locate(src.getSurfaceType(),
                                           CompositeType.Src,
                                           dst.getSurfaceType());
             if (blit != null) {
-                blit.Blit(src, dst, AlphaComposite.Src,
-                          getRegion(), 0, 0, 0, 0, size.width, size.height);
+                blit.Blit(src, dst, AlphaComposite.Src, null, 0, 0, 0, 0,
+                          size.width, size.height);
             }
         }
     }
@@ -1090,7 +1096,7 @@ public class LWWindowPeer
         return platformWindow.requestWindowFocus();
     }
 
-    private boolean focusAllowedFor() {
+    protected boolean focusAllowedFor() {
         Window window = getTarget();
         // TODO: check if modal blocked
         return window.isVisible() && window.isEnabled() && isFocusableWindow();
@@ -1113,10 +1119,15 @@ public class LWWindowPeer
         return !(window instanceof Dialog || window instanceof Frame);
     }
 
+    @Override
+    public void emulateActivation(boolean activate) {
+        changeFocusedWindow(activate, null);
+    }
+
     /*
      * Changes focused window on java level.
      */
-    private void changeFocusedWindow(boolean becomesFocused, Window opposite) {
+    protected void changeFocusedWindow(boolean becomesFocused, Window opposite) {
         if (focusLog.isLoggable(PlatformLogger.FINE)) {
             focusLog.fine((becomesFocused?"gaining":"loosing") + " focus window: " + this);
         }
@@ -1146,7 +1157,9 @@ public class LWWindowPeer
         if (!becomesFocused &&
             (isGrabbing() || getOwnerFrameDialog(grabbingWindow) == this))
         {
-            focusLog.fine("ungrabbing on " + grabbingWindow);
+            if (focusLog.isLoggable(PlatformLogger.FINE)) {
+                focusLog.fine("ungrabbing on " + grabbingWindow);
+            }
             // ungrab a simple window if its owner looses activation.
             grabbingWindow.ungrab();
         }

@@ -262,7 +262,7 @@ gen-pkgs: $(PKG_TYPES)
 	$(RM) -r $(MODULE_IMAGES_DIR)/$*
 	$(MKDIR) $(MODULE_IMAGES_DIR)/$*
 	$(MKDIR) $(MODULE_IMAGES_DIR)/$*/lib
-	$(CP) $(ABS_OUTPUTDIR)/lib/tzdb.jar $(MODULE_IMAGES_DIR)/$*/lib
+	$(CP) $(ABS_OUTPUTDIR)/lib/tzdb.dat $(MODULE_IMAGES_DIR)/$*/lib
 
 jdk-base-image: jre-base-image \
                 jdk-base-image-setup \

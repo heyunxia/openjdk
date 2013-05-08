@@ -60,37 +60,31 @@
 package tck.java.time.temporal;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertSame;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
+import java.time.temporal.ChronoField;
+import java.time.temporal.IsoFields;
+import java.time.temporal.JulianFields;
+import java.time.temporal.TemporalField;
 
-import java.time.temporal.*;
-
-
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import tck.java.time.AbstractTCKTest;
 
 /**
  * Test.
  */
 @Test
-public class TCKJulianFields {
+public class TCKJulianFields extends AbstractTCKTest {
 
     private static final LocalDate JAN01_1970 = LocalDate.of(1970, 1, 1);
     private static final LocalDate DEC31_1969 = LocalDate.of(1969, 12, 31);
     private static final LocalDate NOV12_1945 = LocalDate.of(1945, 11, 12);
     private static final LocalDate JAN01_0001 = LocalDate.of(1, 1, 1);
-
-    @BeforeMethod
-    public void setUp() {
-    }
 
     //-----------------------------------------------------------------------
     @DataProvider(name="julian_fields")
@@ -127,42 +121,61 @@ public class TCKJulianFields {
         };
     }
 
-    @Test(dataProvider="samples", groups={"tck"})
+    //-----------------------------------------------------------------------
+    @Test(dataProvider="julian_fields")
+    public void test_serializable(TemporalField field) throws IOException, ClassNotFoundException {
+        assertSerializable(field);
+    }
+
+    public void test_basics() {
+        assertEquals(JulianFields.JULIAN_DAY.isDateBased(), true);
+        assertEquals(JulianFields.JULIAN_DAY.isTimeBased(), false);
+
+        assertEquals(JulianFields.MODIFIED_JULIAN_DAY.isDateBased(), true);
+        assertEquals(JulianFields.MODIFIED_JULIAN_DAY.isTimeBased(), false);
+
+        assertEquals(JulianFields.RATA_DIE.isDateBased(), true);
+        assertEquals(JulianFields.RATA_DIE.isTimeBased(), false);
+    }
+
+    //-----------------------------------------------------------------------
+    @Test(dataProvider="samples")
     public void test_samples_get(TemporalField field, LocalDate date, long expected) {
         assertEquals(date.getLong(field), expected);
     }
 
-    @Test(dataProvider="samples", groups={"tck"})
+    @Test(dataProvider="samples")
     public void test_samples_set(TemporalField field, LocalDate date, long value) {
-        assertEquals(field.doWith(LocalDate.MAX, value), date);
-        assertEquals(field.doWith(LocalDate.MIN, value), date);
-        assertEquals(field.doWith(JAN01_1970, value), date);
-        assertEquals(field.doWith(DEC31_1969, value), date);
-        assertEquals(field.doWith(NOV12_1945, value), date);
+        assertEquals(field.adjustInto(LocalDate.MAX, value), date);
+        assertEquals(field.adjustInto(LocalDate.MIN, value), date);
+        assertEquals(field.adjustInto(JAN01_1970, value), date);
+        assertEquals(field.adjustInto(DEC31_1969, value), date);
+        assertEquals(field.adjustInto(NOV12_1945, value), date);
     }
 
     //-----------------------------------------------------------------------
-    // toString()
-    //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
-    public void test_toString() {
-        assertEquals(JulianFields.JULIAN_DAY.toString(), "JulianDay");
-        assertEquals(JulianFields.MODIFIED_JULIAN_DAY.toString(), "ModifiedJulianDay");
-        assertEquals(JulianFields.RATA_DIE.toString(), "RataDie");
+    @Test(dataProvider="samples")
+    public void test_samples_parse_STRICT(TemporalField field, LocalDate date, long value) {
+        DateTimeFormatter f = new DateTimeFormatterBuilder().appendValue(field)
+                .toFormatter().withResolverStyle(ResolverStyle.STRICT);
+        LocalDate parsed = LocalDate.parse(Long.toString(value), f);
+        assertEquals(parsed, date);
     }
 
-    @Test(groups = {"tck"},dataProvider="julian_fields")
-    public void test_JulianFieldsSingleton(TemporalField field) throws IOException, ClassNotFoundException {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-            oos.writeObject(field);
+    @Test(dataProvider="samples")
+    public void test_samples_parse_SMART(TemporalField field, LocalDate date, long value) {
+        DateTimeFormatter f = new DateTimeFormatterBuilder().appendValue(field)
+                .toFormatter().withResolverStyle(ResolverStyle.SMART);
+        LocalDate parsed = LocalDate.parse(Long.toString(value), f);
+        assertEquals(parsed, date);
+    }
 
-            ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(
-                    baos.toByteArray()));
-            TemporalField result = (TemporalField)ois.readObject();
-            assertSame(result, field, "Deserialized object same as serialized.");
-        }
-        // Exceptions will be handled as failures by TestNG
+    @Test(dataProvider="samples")
+    public void test_samples_parse_LENIENT(TemporalField field, LocalDate date, long value) {
+        DateTimeFormatter f = new DateTimeFormatterBuilder().appendValue(field)
+                .toFormatter().withResolverStyle(ResolverStyle.LENIENT);
+        LocalDate parsed = LocalDate.parse(Long.toString(value), f);
+        assertEquals(parsed, date);
     }
 
 }

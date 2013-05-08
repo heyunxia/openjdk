@@ -35,12 +35,12 @@ import java.net.SocketPermission;
 import java.net.NetPermission;
 import java.util.Hashtable;
 import java.net.InetAddress;
-import java.lang.reflect.Member;
 import java.lang.reflect.*;
 import java.net.URL;
 import java.lang.module.RequireOptionalModule;
 import java.lang.module.ModuleNotPresentException;
 
+import sun.reflect.CallerSensitive;
 import sun.security.util.SecurityConstants;
 
 /**
@@ -1321,6 +1321,9 @@ class SecurityManager {
      * <code>AWTPermission("showWindowWithoutWarningBanner")</code> permission,
      * and returns <code>true</code> if a SecurityException is not thrown,
      * otherwise it returns <code>false</code>.
+     * In the case of subset Profiles of Java SE that do not include the
+     * {@code java.awt} package, {@code checkPermission} is instead called
+     * to check the permission {@code java.security.AllPermission}.
      * <p>
      * If you override this method, then you should make a call to
      * <code>super.checkTopLevelWindow</code>
@@ -1344,8 +1347,12 @@ class SecurityManager {
         if (window == null) {
             throw new NullPointerException("window can't be null");
         }
+        Permission perm = SecurityConstants.AWT.TOPLEVEL_WINDOW_PERMISSION;
+        if (perm == null) {
+            perm = SecurityConstants.ALL_PERMISSION;
+        }
         try {
-            checkPermission(SecurityConstants.AWT.TOPLEVEL_WINDOW_PERMISSION);
+            checkPermission(perm);
             return true;
         } catch (SecurityException se) {
             // just return false
@@ -1372,7 +1379,6 @@ class SecurityManager {
      * @since   JDK1.1
      * @see        #checkPermission(java.security.Permission) checkPermission
      */
-    @RequireOptionalModule("jdk.desktop")
     public void checkPrintJobAccess() {
         checkPermission(new RuntimePermission("queuePrintJob"));
     }
@@ -1384,6 +1390,9 @@ class SecurityManager {
      * This method calls <code>checkPermission</code> with the
      * <code>AWTPermission("accessClipboard")</code>
      * permission.
+     * In the case of subset Profiles of Java SE that do not include the
+     * {@code java.awt} package, {@code checkPermission} is instead called
+     * to check the permission {@code java.security.AllPermission}.
      * <p>
      * If you override this method, then you should make a call to
      * <code>super.checkSystemClipboardAccess</code>
@@ -1399,7 +1408,11 @@ class SecurityManager {
     @RequireOptionalModule("jdk.desktop")
     public void checkSystemClipboardAccess() {
         SecurityManager.class.requireModulePresent("jdk.desktop");
-        checkPermission(SecurityConstants.AWT.ACCESS_CLIPBOARD_PERMISSION);
+        Permission perm = SecurityConstants.AWT.ACCESS_CLIPBOARD_PERMISSION;
+        if (perm == null) {
+            perm = SecurityConstants.ALL_PERMISSION;
+        }
+        checkPermission(perm);
     }
 
     /**
@@ -1408,6 +1421,10 @@ class SecurityManager {
      * <p>
      * This method calls <code>checkPermission</code> with the
      * <code>AWTPermission("accessEventQueue")</code> permission.
+     * In the case of subset Profiles of Java SE that do not include the
+     * {@code java.awt} package, {@code checkPermission} is instead called
+     * to check the permission {@code java.security.AllPermission}.
+     *
      * <p>
      * If you override this method, then you should make a call to
      * <code>super.checkAwtEventQueueAccess</code>
@@ -1423,7 +1440,11 @@ class SecurityManager {
     @RequireOptionalModule("jdk.desktop")
     public void checkAwtEventQueueAccess() {
         SecurityManager.class.requireModulePresent("jdk.desktop");
-        checkPermission(SecurityConstants.AWT.CHECK_AWT_EVENTQUEUE_PERMISSION);
+        Permission perm = SecurityConstants.AWT.CHECK_AWT_EVENTQUEUE_PERMISSION;
+        if (perm == null) {
+            perm = SecurityConstants.ALL_PERMISSION;
+        }
+        checkPermission(perm);
     }
 
     /*
@@ -1668,6 +1689,7 @@ class SecurityManager {
      * @since JDK1.1
      * @see        #checkPermission(java.security.Permission) checkPermission
      */
+    @CallerSensitive
     public void checkMemberAccess(Class<?> clazz, int which) {
         if (clazz == null) {
             throw new NullPointerException("class can't be null");

@@ -57,6 +57,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.jar.JarEntry;
 import java.util.spi.ResourceBundleControlProvider;
 
+import sun.reflect.CallerSensitive;
+import sun.reflect.Reflection;
 import org.openjdk.jigsaw.Platform;
 
 import sun.util.locale.BaseLocale;
@@ -442,14 +444,10 @@ public abstract class ResourceBundle {
 
     /*
      * Automatic determination of the ClassLoader to be used to load
-     * resources on behalf of the client.  N.B. The client is getLoader's
-     * caller's caller.
+     * resources on behalf of the client.
      */
-    private static ClassLoader getLoader() {
-        Class<?>[] stack = getClassContext();
-        /* Magic number 2 identifies our caller's caller */
-        Class<?> c = stack[2];
-        ClassLoader cl = (c == null) ? null : c.getClassLoader();
+    private static ClassLoader getLoader(Class<?> caller) {
+        ClassLoader cl = caller == null ? null : caller.getClassLoader();
         if (cl == null) {
             // When the caller's loader is the boot class loader, cl is null
             // here. In that case, ClassLoader.getSystemClassLoader() may
@@ -462,8 +460,6 @@ public abstract class ResourceBundle {
         }
         return cl;
     }
-
-    private static native Class<?>[] getClassContext();
 
     /**
      * A wrapper for the null class loader
@@ -758,11 +754,11 @@ public abstract class ResourceBundle {
      *     if no resource bundle for the specified base name can be found
      * @return a resource bundle for the given base name and the default locale
      */
+    @CallerSensitive
     public static final ResourceBundle getBundle(String baseName)
     {
         return getBundleImpl(baseName, Locale.getDefault(),
-                             /* must determine loader here, else we break stack invariant */
-                             getLoader(),
+                             getLoader(Reflection.getCallerClass()),
                              getDefaultControl(baseName));
     }
 
@@ -800,11 +796,11 @@ public abstract class ResourceBundle {
      *        needed.
      * @since 1.6
      */
+    @CallerSensitive
     public static final ResourceBundle getBundle(String baseName,
                                                  Control control) {
         return getBundleImpl(baseName, Locale.getDefault(),
-                             /* must determine loader here, else we break stack invariant */
-                             getLoader(),
+                             getLoader(Reflection.getCallerClass()),
                              control);
     }
 
@@ -829,12 +825,12 @@ public abstract class ResourceBundle {
      *        if no resource bundle for the specified base name can be found
      * @return a resource bundle for the given base name and locale
      */
+    @CallerSensitive
     public static final ResourceBundle getBundle(String baseName,
                                                  Locale locale)
     {
         return getBundleImpl(baseName, locale,
-                             /* must determine loader here, else we break stack invariant */
-                             getLoader(),
+                             getLoader(Reflection.getCallerClass()),
                              getDefaultControl(baseName));
     }
 
@@ -875,11 +871,11 @@ public abstract class ResourceBundle {
      *        needed.
      * @since 1.6
      */
+    @CallerSensitive
     public static final ResourceBundle getBundle(String baseName, Locale targetLocale,
                                                  Control control) {
         return getBundleImpl(baseName, targetLocale,
-                             /* must determine loader here, else we break stack invariant */
-                             getLoader(),
+                             getLoader(Reflection.getCallerClass()),
                              control);
     }
 
@@ -1733,8 +1729,9 @@ public abstract class ResourceBundle {
      * @since 1.6
      * @see ResourceBundle.Control#getTimeToLive(String,Locale)
      */
+    @CallerSensitive
     public static final void clearCache() {
-        clearCache(getLoader());
+        clearCache(getLoader(Reflection.getCallerClass()));
     }
 
     /**

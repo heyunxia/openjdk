@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,6 +30,8 @@ import java.util.*;
 import java.nio.ByteBuffer;
 import java.nio.BufferUnderflowException;
 import java.lang.reflect.*;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import sun.reflect.ConstantPool;
 
 import sun.reflect.generics.parser.SignatureParser;
@@ -188,7 +190,7 @@ public class AnnotationParser {
      * available at runtime
      */
     @SuppressWarnings("unchecked")
-    private static Annotation parseAnnotation(ByteBuffer buf,
+    static Annotation parseAnnotation(ByteBuffer buf,
                                               ConstantPool constPool,
                                               Class<?> container,
                                               boolean exceptionOnMissingAnnotationClass) {
@@ -253,12 +255,15 @@ public class AnnotationParser {
      * Returns an annotation of the given type backed by the given
      * member -> value map.
      */
-    public static Annotation annotationForMap(
-        Class<? extends Annotation> type, Map<String, Object> memberValues)
+    public static Annotation annotationForMap(final Class<? extends Annotation> type,
+                                              final Map<String, Object> memberValues)
     {
-        return (Annotation) Proxy.newProxyInstance(
-            type.getClassLoader(), new Class<?>[] { type },
-            new AnnotationInvocationHandler(type, memberValues));
+        return AccessController.doPrivileged(new PrivilegedAction<Annotation>() {
+            public Annotation run() {
+                return (Annotation) Proxy.newProxyInstance(
+                    type.getClassLoader(), new Class<?>[] { type },
+                    new AnnotationInvocationHandler(type, memberValues));
+            }});
     }
 
     /**

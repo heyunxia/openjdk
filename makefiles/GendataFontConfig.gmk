@@ -72,7 +72,7 @@ endif
 
 $(GENDATA_FONT_CONFIG_DST)/%.src : \
     $(GENDATA_FONT_CONFIG_SRC_DIR)/$(GENDATA_FONT_CONFIG_SRC_PREFIX)%
-	$(install-file)
+	$(call install-file)
 
 $(GENDATA_FONT_CONFIG_DST)/%.bfc : \
     $(GENDATA_FONT_CONFIG_SRC_DIR)/$(GENDATA_FONT_CONFIG_SRC_PREFIX)%.properties
@@ -83,7 +83,7 @@ $(GENDATA_FONT_CONFIG_DST)/%.bfc : \
 
 # Copy files to submodules locations
 $(SUBMODULES_DIR)/awt/etc/%: $(GENDATA_FONT_CONFIG_DST)/%
-	$(install-file)
+	$(call install-file)
 
 ###
 

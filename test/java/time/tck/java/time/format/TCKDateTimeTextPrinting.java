@@ -59,20 +59,20 @@
  */
 package tck.java.time.format;
 
-import java.time.format.*;
-
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.DAY_OF_WEEK;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static org.testng.Assert.assertEquals;
 
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.TextStyle;
+import java.time.temporal.TemporalField;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-
-import java.time.LocalDateTime;
-import java.time.Month;
-import java.time.temporal.TemporalField;
 
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -86,7 +86,7 @@ public class TCKDateTimeTextPrinting {
 
     private DateTimeFormatterBuilder builder;
 
-    @BeforeMethod(groups={"tck"})
+    @BeforeMethod
     public void setUp() {
         builder = new DateTimeFormatterBuilder();
     }
@@ -135,45 +135,45 @@ public class TCKDateTimeTextPrinting {
        };
     }
 
-    @Test(dataProvider="printText", groups={"tck"})
-    public void test_appendText2arg_print(TemporalField field, TextStyle style, int value, String expected) throws Exception {
+    @Test(dataProvider="printText")
+    public void test_appendText2arg_format(TemporalField field, TextStyle style, int value, String expected) throws Exception {
         DateTimeFormatter f = builder.appendText(field, style).toFormatter(Locale.ENGLISH);
         LocalDateTime dt = LocalDateTime.of(2010, 1, 1, 0, 0);
         dt = dt.with(field, value);
-        String text = f.print(dt);
+        String text = f.format(dt);
         assertEquals(text, expected);
     }
 
-    @Test(dataProvider="printText", groups={"tck"})
-    public void test_appendText1arg_print(TemporalField field, TextStyle style, int value, String expected) throws Exception {
+    @Test(dataProvider="printText")
+    public void test_appendText1arg_format(TemporalField field, TextStyle style, int value, String expected) throws Exception {
         if (style == TextStyle.FULL) {
             DateTimeFormatter f = builder.appendText(field).toFormatter(Locale.ENGLISH);
             LocalDateTime dt = LocalDateTime.of(2010, 1, 1, 0, 0);
             dt = dt.with(field, value);
-            String text = f.print(dt);
+            String text = f.format(dt);
             assertEquals(text, expected);
         }
     }
 
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_print_appendText2arg_french_long() throws Exception {
         DateTimeFormatter f = builder.appendText(MONTH_OF_YEAR, TextStyle.FULL).toFormatter(Locale.FRENCH);
         LocalDateTime dt = LocalDateTime.of(2010, 1, 1, 0, 0);
-        String text = f.print(dt);
+        String text = f.format(dt);
         assertEquals(text, "janvier");
     }
 
-    @Test(groups={"tck"})
+    @Test
     public void test_print_appendText2arg_french_short() throws Exception {
         DateTimeFormatter f = builder.appendText(MONTH_OF_YEAR, TextStyle.SHORT).toFormatter(Locale.FRENCH);
         LocalDateTime dt = LocalDateTime.of(2010, 1, 1, 0, 0);
-        String text = f.print(dt);
+        String text = f.format(dt);
         assertEquals(text, "janv.");
     }
 
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_appendTextMap() throws Exception {
         Map<Long, String> map = new HashMap<Long, String>();
         map.put(1L, "JNY");
@@ -192,11 +192,11 @@ public class TCKDateTimeTextPrinting {
         DateTimeFormatter f = builder.toFormatter();
         LocalDateTime dt = LocalDateTime.of(2010, 1, 1, 0, 0);
         for (Month month : Month.values()) {
-            assertEquals(f.print(dt.with(month)), map.get((long) month.getValue()));
+            assertEquals(f.format(dt.with(month)), map.get((long) month.getValue()));
         }
     }
 
-    @Test(groups={"tck"})
+    @Test
     public void test_appendTextMap_DOM() throws Exception {
         Map<Long, String> map = new HashMap<Long, String>();
         map.put(1L, "1st");
@@ -205,19 +205,19 @@ public class TCKDateTimeTextPrinting {
         builder.appendText(DAY_OF_MONTH, map);
         DateTimeFormatter f = builder.toFormatter();
         LocalDateTime dt = LocalDateTime.of(2010, 1, 1, 0, 0);
-        assertEquals(f.print(dt.withDayOfMonth(1)), "1st");
-        assertEquals(f.print(dt.withDayOfMonth(2)), "2nd");
-        assertEquals(f.print(dt.withDayOfMonth(3)), "3rd");
+        assertEquals(f.format(dt.withDayOfMonth(1)), "1st");
+        assertEquals(f.format(dt.withDayOfMonth(2)), "2nd");
+        assertEquals(f.format(dt.withDayOfMonth(3)), "3rd");
     }
 
-    @Test(groups={"tck"})
+    @Test
     public void test_appendTextMapIncomplete() throws Exception {
         Map<Long, String> map = new HashMap<Long, String>();
         map.put(1L, "JNY");
         builder.appendText(MONTH_OF_YEAR, map);
         DateTimeFormatter f = builder.toFormatter();
         LocalDateTime dt = LocalDateTime.of(2010, 2, 1, 0, 0);
-        assertEquals(f.print(dt), "2");
+        assertEquals(f.format(dt), "2");
     }
 
 }

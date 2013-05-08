@@ -110,5 +110,5 @@ JRE_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/$(JDK_BASE_MODULE).modules.list
 
 # Classpath to use for Modularizer and compiling module-infos. Define it explicitly 
 # to keep track of exactly what goes on it.
-MODULARIZER_CLASSPATH := $(JDK_OUTPUTDIR)/classes$(PATH_SEP)$(JDK_OUTPUTDIR)/demo/nio/zipfs/zipfs.jar$(PATH_SEP)$(JDK_OUTPUTDIR)/lib/sa-jdi.jar$(PATH_SEP)$(POSTMODULES_OUTPUTDIR)/lib/security/US_export_policy.jar$(PATH_SEP)$(POSTMODULES_OUTPUTDIR)/lib/security/local_policy.jar
+MODULARIZER_CLASSPATH := $(JDK_OUTPUTDIR)/classes$(PATH_SEP)$(NASHORN_DIST)/nashorn.jar$(PATH_SEP)$(JDK_OUTPUTDIR)/demo/nio/zipfs/zipfs.jar$(PATH_SEP)$(JDK_OUTPUTDIR)/lib/sa-jdi.jar$(PATH_SEP)$(POSTMODULES_OUTPUTDIR)/lib/security/US_export_policy.jar$(PATH_SEP)$(POSTMODULES_OUTPUTDIR)/lib/security/local_policy.jar
 

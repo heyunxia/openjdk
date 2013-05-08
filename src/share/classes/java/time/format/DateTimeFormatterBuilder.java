@@ -81,12 +81,11 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.chrono.Chronology;
+import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeTextProvider.LocaleStore;
-import java.time.temporal.Chrono;
 import java.time.temporal.ChronoField;
-import java.time.temporal.ISOChrono;
-import java.time.temporal.ISOFields;
-import java.time.temporal.Queries;
+import java.time.temporal.IsoFields;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalField;
 import java.time.temporal.TemporalQuery;
@@ -99,6 +98,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -109,7 +109,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import sun.util.locale.provider.LocaleProviderAdapter;
+import sun.util.locale.provider.LocaleResources;
 import sun.util.locale.provider.TimeZoneNameUtility;
 
 /**
@@ -127,6 +130,8 @@ import sun.util.locale.provider.TimeZoneNameUtility;
  * <li>OffsetId/Offset - the {@linkplain ZoneOffset zone offset}</li>
  * <li>ZoneId - the {@linkplain ZoneId time-zone} id</li>
  * <li>ZoneText - the name of the time-zone</li>
+ * <li>ChronologyId - the {@linkplain Chronology chronology} id</li>
+ * <li>ChronologyText - the name of the chronology</li>
  * <li>Literal - a text literal</li>
  * <li>Nested and Optional - formats can be nested or made optional</li>
  * <li>Other - the printer and parser interfaces can be used to add user supplied formatting</li>
@@ -148,7 +153,7 @@ public final class DateTimeFormatterBuilder {
      * Query for a time-zone that is region-only.
      */
     private static final TemporalQuery<ZoneId> QUERY_REGION_ONLY = (temporal) -> {
-        ZoneId zone = temporal.query(Queries.zoneId());
+        ZoneId zone = temporal.query(TemporalQuery.zoneId());
         return (zone != null && zone instanceof ZoneOffset == false ? zone : null);
     };
 
@@ -286,13 +291,47 @@ public final class DateTimeFormatterBuilder {
 
     //-----------------------------------------------------------------------
     /**
+     * Appends a default value for a field to the formatter for use in parsing.
+     * <p>
+     * This appends an instruction to the builder to inject a default value
+     * into the parsed result. This is especially useful in conjunction with
+     * optional parts of the formatter.
+     * <p>
+     * For example, consider a formatter that parses the year, followed by
+     * an optional month, with a further optional day-of-month. Using such a
+     * formatter would require the calling code to check whether a full date,
+     * year-month or just a year had been parsed. This method can be used to
+     * default the month and day-of-month to a sensible value, such as the
+     * first of the month, allowing the calling code to always get a date.
+     * <p>
+     * During formatting, this method has no effect.
+     * <p>
+     * During parsing, the current state of the parse is inspected.
+     * If the specified field has no associated value, because it has not been
+     * parsed successfully at that point, then the specified value is injected
+     * into the parse result. Injection is immediate, thus the field-value pair
+     * will be visible to any subsequent elements in the formatter.
+     * As such, this method is normally called at the end of the builder.
+     *
+     * @param field  the field to default the value of, not null
+     * @param value  the value to default the field to
+     * @return this, for chaining, not null
+     */
+    public DateTimeFormatterBuilder parseDefaulting(TemporalField field, long value) {
+        Objects.requireNonNull(field, "field");
+        appendInternal(new DefaultValueParser(field, value));
+        return this;
+    }
+
+    //-----------------------------------------------------------------------
+    /**
      * Appends the value of a date-time field to the formatter using a normal
      * output style.
      * <p>
-     * The value of the field will be output during a print.
+     * The value of the field will be output during a format.
      * If the value cannot be obtained then an exception will be thrown.
      * <p>
-     * The value will be printed as per the normal print of an integer value.
+     * The value will be printed as per the normal format of an integer value.
      * Only negative numbers will be signed. No padding will be added.
      * <p>
      * The parser for a variable width value such as this normally behaves greedily,
@@ -313,12 +352,12 @@ public final class DateTimeFormatterBuilder {
      * Appends the value of a date-time field to the formatter using a fixed
      * width, zero-padded approach.
      * <p>
-     * The value of the field will be output during a print.
+     * The value of the field will be output during a format.
      * If the value cannot be obtained then an exception will be thrown.
      * <p>
      * The value will be zero-padded on the left. If the size of the value
      * means that it cannot be printed within the width then an exception is thrown.
-     * If the value of the field is negative then an exception is thrown during printing.
+     * If the value of the field is negative then an exception is thrown during formatting.
      * <p>
      * This method supports a special technique of parsing known as 'adjacent value parsing'.
      * This technique solves the problem where a variable length value is followed by one or more
@@ -368,9 +407,9 @@ public final class DateTimeFormatterBuilder {
 
     /**
      * Appends the value of a date-time field to the formatter providing full
-     * control over printing.
+     * control over formatting.
      * <p>
-     * The value of the field will be output during a print.
+     * The value of the field will be output during a format.
      * If the value cannot be obtained then an exception will be thrown.
      * <p>
      * This method provides full control of the numeric formatting, including
@@ -386,7 +425,7 @@ public final class DateTimeFormatterBuilder {
      * <p>
      * If this method is invoked with equal minimum and maximum widths and a sign style of
      * {@code NOT_NEGATIVE} then it delegates to {@code appendValue(TemporalField,int)}.
-     * In this scenario, the printing and parsing behavior described there occur.
+     * In this scenario, the formatting and parsing behavior described there occur.
      *
      * @param field  the field to append, not null
      * @param minWidth  the minimum field width of the printed field, from 1 to 19
@@ -425,11 +464,11 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends the reduced value of a date-time field to the formatter.
      * <p>
-     * This is typically used for printing and parsing a two digit year.
+     * This is typically used for formatting and parsing a two digit year.
      * The {@code width} is the printed and parsed width.
      * The {@code baseValue} is used during parsing to determine the valid range.
      * <p>
-     * For printing, the width is used to determine the number of characters to print.
+     * For formatting, the width is used to determine the number of characters to format.
      * The rightmost characters are output to match the width, left padding with zero.
      * <p>
      * For parsing, exactly the number of characters specified by the width are parsed.
@@ -525,12 +564,12 @@ public final class DateTimeFormatterBuilder {
      * Appends the text of a date-time field to the formatter using the full
      * text style.
      * <p>
-     * The text of the field will be output during a print.
+     * The text of the field will be output during a format.
      * The value must be within the valid range of the field.
      * If the value cannot be obtained then an exception will be thrown.
      * If the field has no textual representation, then the numeric value will be used.
      * <p>
-     * The value will be printed as per the normal print of an integer value.
+     * The value will be printed as per the normal format of an integer value.
      * Only negative numbers will be signed. No padding will be added.
      *
      * @param field  the field to append, not null
@@ -543,12 +582,12 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends the text of a date-time field to the formatter.
      * <p>
-     * The text of the field will be output during a print.
+     * The text of the field will be output during a format.
      * The value must be within the valid range of the field.
      * If the value cannot be obtained then an exception will be thrown.
      * If the field has no textual representation, then the numeric value will be used.
      * <p>
-     * The value will be printed as per the normal print of an integer value.
+     * The value will be printed as per the normal format of an integer value.
      * Only negative numbers will be signed. No padding will be added.
      *
      * @param field  the field to append, not null
@@ -568,10 +607,10 @@ public final class DateTimeFormatterBuilder {
      * <p>
      * The standard text outputting methods use the localized text in the JDK.
      * This method allows that text to be specified directly.
-     * The supplied map is not validated by the builder to ensure that printing or
+     * The supplied map is not validated by the builder to ensure that formatting or
      * parsing is possible, thus an invalid map may throw an error during later use.
      * <p>
-     * Supplying the map of text provides considerable flexibility in printing and parsing.
+     * Supplying the map of text provides considerable flexibility in formatting and parsing.
      * For example, a legacy application might require or supply the months of the
      * year as "JNY", "FBY", "MCH" etc. These do not match the standard set of text
      * for localized month names. Using this method, a map can be created which
@@ -588,7 +627,7 @@ public final class DateTimeFormatterBuilder {
      * Other uses might be to output the value with a suffix, such as "1st", "2nd", "3rd",
      * or as Roman numerals "I", "II", "III", "IV".
      * <p>
-     * During printing, the value is obtained and checked that it is in the valid range.
+     * During formatting, the value is obtained and checked that it is in the valid range.
      * If text is not available for the value then it is output as a number.
      * During parsing, the parser will match against the map of text and numeric values.
      *
@@ -624,7 +663,7 @@ public final class DateTimeFormatterBuilder {
      * They are converted to a date-time with a zone-offset of UTC and printed
      * using the standard ISO-8601 format.
      * <p>
-     * An alternative to this method is to print/parse the instant as a single
+     * An alternative to this method is to format/parse the instant as a single
      * epoch-seconds value. That is achieved using {@code appendValue(INSTANT_SECONDS)}.
      *
      * @return this, for chaining, not null
@@ -637,23 +676,23 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends the zone offset, such as '+01:00', to the formatter.
      * <p>
-     * This appends an instruction to print/parse the offset ID to the builder.
+     * This appends an instruction to format/parse the offset ID to the builder.
      * This is equivalent to calling {@code appendOffset("HH:MM:ss", "Z")}.
      *
      * @return this, for chaining, not null
      */
     public DateTimeFormatterBuilder appendOffsetId() {
-        appendInternal(OffsetIdPrinterParser.INSTANCE_ID);
+        appendInternal(OffsetIdPrinterParser.INSTANCE_ID_Z);
         return this;
     }
 
     /**
      * Appends the zone offset, such as '+01:00', to the formatter.
      * <p>
-     * This appends an instruction to print/parse the offset ID to the builder.
+     * This appends an instruction to format/parse the offset ID to the builder.
      * <p>
-     * During printing, the offset is obtained using a mechanism equivalent
-     * to querying the temporal with {@link Queries#offset()}.
+     * During formatting, the offset is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#offset()}.
      * It will be printed using the format defined below.
      * If the offset cannot be obtained then an exception is thrown unless the
      * section of the formatter is optional.
@@ -665,15 +704,18 @@ public final class DateTimeFormatterBuilder {
      * The format of the offset is controlled by a pattern which must be one
      * of the following:
      * <p><ul>
-     * <li>{@code +HH} - hour only, ignoring any minute
-     * <li>{@code +HHMM} - hour and minute, no colon
-     * <li>{@code +HH:MM} - hour and minute, with colon
-     * <li>{@code +HHMMss} - hour and minute, with second if non-zero and no colon
-     * <li>{@code +HH:MM:ss} - hour and minute, with second if non-zero and colon
+     * <li>{@code +HH} - hour only, ignoring minute and second
+     * <li>{@code +HHmm} - hour, with minute if non-zero, ignoring second, no colon
+     * <li>{@code +HH:mm} - hour, with minute if non-zero, ignoring second, with colon
+     * <li>{@code +HHMM} - hour and minute, ignoring second, no colon
+     * <li>{@code +HH:MM} - hour and minute, ignoring second, with colon
+     * <li>{@code +HHMMss} - hour and minute, with second if non-zero, no colon
+     * <li>{@code +HH:MM:ss} - hour and minute, with second if non-zero, with colon
      * <li>{@code +HHMMSS} - hour, minute and second, no colon
      * <li>{@code +HH:MM:SS} - hour, minute and second, with colon
      * </ul><p>
-     * The "no offset" text controls what text is printed when the offset is zero.
+     * The "no offset" text controls what text is printed when the total amount of
+     * the offset fields to be output is zero.
      * Example values would be 'Z', '+00:00', 'UTC' or 'GMT'.
      * Three formats are accepted for parsing UTC - the "no offset" text, and the
      * plus and minus versions of zero defined by the pattern.
@@ -683,7 +725,45 @@ public final class DateTimeFormatterBuilder {
      * @return this, for chaining, not null
      */
     public DateTimeFormatterBuilder appendOffset(String pattern, String noOffsetText) {
-        appendInternal(new OffsetIdPrinterParser(noOffsetText, pattern));
+        appendInternal(new OffsetIdPrinterParser(pattern, noOffsetText));
+        return this;
+    }
+
+    /**
+     * Appends the localized zone offset, such as 'GMT+01:00', to the formatter.
+     * <p>
+     * This appends a localized zone offset to the builder, the format of the
+     * localized offset is controlled by the specified {@link FormatStyle style}
+     * to this method:
+     * <p><ul>
+     * <li>{@link TextStyle#FULL full} - formats with localized offset text, such
+     * as 'GMT, 2-digit hour and minute field, optional second field if non-zero,
+     * and colon.
+     * <li>{@link TextStyle#SHORT short} - formats with localized offset text,
+     * such as 'GMT, hour without leading zero, optional 2-digit minute and
+     * second if non-zero, and colon.
+     * </ul><p>
+     * <p>
+     * During formatting, the offset is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#offset()}.
+     * If the offset cannot be obtained then an exception is thrown unless the
+     * section of the formatter is optional.
+     * <p>
+     * During parsing, the offset is parsed using the format defined above.
+     * If the offset cannot be parsed then an exception is thrown unless the
+     * section of the formatter is optional.
+     * <p>
+     * @param style  the format style to use, not null
+     * @return this, for chaining, not null
+     * @throws IllegalArgumentException if style is neither {@link TextStyle#FULL
+     * full} nor {@link TextStyle#SHORT short}
+     */
+    public DateTimeFormatterBuilder appendLocalizedOffset(TextStyle style) {
+        Objects.requireNonNull(style, "style");
+        if (style != TextStyle.FULL && style != TextStyle.SHORT) {
+            throw new IllegalArgumentException("Style must be either full or short");
+        }
+        appendInternal(new LocalizedOffsetIdPrinterParser(style));
         return this;
     }
 
@@ -691,26 +771,54 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends the time-zone ID, such as 'Europe/Paris' or '+02:00', to the formatter.
      * <p>
-     * This appends an instruction to print/parse the zone ID to the builder.
+     * This appends an instruction to format/parse the zone ID to the builder.
      * The zone ID is obtained in a strict manner suitable for {@code ZonedDateTime}.
      * By contrast, {@code OffsetDateTime} does not have a zone ID suitable
      * for use with this method, see {@link #appendZoneOrOffsetId()}.
      * <p>
-     * During printing, the zone is obtained using a mechanism equivalent
-     * to querying the temporal with {@link Queries#zoneId()}.
+     * During formatting, the zone is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#zoneId()}.
      * It will be printed using the result of {@link ZoneId#getId()}.
      * If the zone cannot be obtained then an exception is thrown unless the
      * section of the formatter is optional.
      * <p>
-     * During parsing, the zone is parsed and must match a known zone or offset.
-     * If the zone cannot be parsed then an exception is thrown unless the
-     * section of the formatter is optional.
+     * During parsing, the text must match a known zone or offset.
+     * There are two types of zone ID, offset-based, such as '+01:30' and
+     * region-based, such as 'Europe/London'. These are parsed differently.
+     * If the parse starts with '+', '-', 'UT', 'UTC' or 'GMT', then the parser
+     * expects an offset-based zone and will not match region-based zones.
+     * The offset ID, such as '+02:30', may be at the start of the parse,
+     * or prefixed by  'UT', 'UTC' or 'GMT'. The offset ID parsing is
+     * equivalent to using {@link #appendOffset(String, String)} using the
+     * arguments 'HH:MM:ss' and the no offset string '0'.
+     * If the parse starts with 'UT', 'UTC' or 'GMT', and the parser cannot
+     * match a following offset ID, then {@link ZoneOffset#UTC} is selected.
+     * In all other cases, the list of known region-based zones is used to
+     * find the longest available match. If no match is found, and the parse
+     * starts with 'Z', then {@code ZoneOffset.UTC} is selected.
+     * The parser uses the {@linkplain #parseCaseInsensitive() case sensitive} setting.
+     * <p>
+     * For example, the following will parse:
+     * <pre>
+     *   "Europe/London"           -- ZoneId.of("Europe/London")
+     *   "Z"                       -- ZoneOffset.UTC
+     *   "UT"                      -- ZoneOffset.UTC
+     *   "UTC"                     -- ZoneOffset.UTC
+     *   "GMT"                     -- ZoneOffset.UTC
+     *   "UT0"                     -- ZoneOffset.UTC
+     *   "UTC0"                    -- ZoneOffset.UTC
+     *   "GMT0"                    -- ZoneOffset.UTC
+     *   "+01:30"                  -- ZoneOffset.of("+01:30")
+     *   "UT+01:30"                -- ZoneOffset.of("+01:30")
+     *   "UTC+01:30"               -- ZoneOffset.of("+01:30")
+     *   "GMT+01:30"               -- ZoneOffset.of("+01:30")
+     * </pre>
      *
      * @return this, for chaining, not null
      * @see #appendZoneRegionId()
      */
     public DateTimeFormatterBuilder appendZoneId() {
-        appendInternal(new ZoneIdPrinterParser(Queries.zoneId(), "ZoneId()"));
+        appendInternal(new ZoneIdPrinterParser(TemporalQuery.zoneId(), "ZoneId()"));
         return this;
     }
 
@@ -718,21 +826,52 @@ public final class DateTimeFormatterBuilder {
      * Appends the time-zone region ID, such as 'Europe/Paris', to the formatter,
      * rejecting the zone ID if it is a {@code ZoneOffset}.
      * <p>
-     * This appends an instruction to print/parse the zone ID to the builder
+     * This appends an instruction to format/parse the zone ID to the builder
      * only if it is a region-based ID.
      * <p>
-     * During printing, the zone is obtained using a mechanism equivalent
-     * to querying the temporal with {@link Queries#zoneId()}.
+     * During formatting, the zone is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#zoneId()}.
      * If the zone is a {@code ZoneOffset} or it cannot be obtained then
      * an exception is thrown unless the section of the formatter is optional.
      * If the zone is not an offset, then the zone will be printed using
      * the zone ID from {@link ZoneId#getId()}.
      * <p>
-     * During parsing, the zone is parsed and must match a known zone or offset.
-     * If the zone cannot be parsed then an exception is thrown unless the
-     * section of the formatter is optional.
-     * Note that parsing accepts offsets, whereas printing will never produce
-     * one, thus parsing is equivalent to {@code appendZoneId}.
+     * During parsing, the text must match a known zone or offset.
+     * There are two types of zone ID, offset-based, such as '+01:30' and
+     * region-based, such as 'Europe/London'. These are parsed differently.
+     * If the parse starts with '+', '-', 'UT', 'UTC' or 'GMT', then the parser
+     * expects an offset-based zone and will not match region-based zones.
+     * The offset ID, such as '+02:30', may be at the start of the parse,
+     * or prefixed by  'UT', 'UTC' or 'GMT'. The offset ID parsing is
+     * equivalent to using {@link #appendOffset(String, String)} using the
+     * arguments 'HH:MM:ss' and the no offset string '0'.
+     * If the parse starts with 'UT', 'UTC' or 'GMT', and the parser cannot
+     * match a following offset ID, then {@link ZoneOffset#UTC} is selected.
+     * In all other cases, the list of known region-based zones is used to
+     * find the longest available match. If no match is found, and the parse
+     * starts with 'Z', then {@code ZoneOffset.UTC} is selected.
+     * The parser uses the {@linkplain #parseCaseInsensitive() case sensitive} setting.
+     * <p>
+     * For example, the following will parse:
+     * <pre>
+     *   "Europe/London"           -- ZoneId.of("Europe/London")
+     *   "Z"                       -- ZoneOffset.UTC
+     *   "UT"                      -- ZoneOffset.UTC
+     *   "UTC"                     -- ZoneOffset.UTC
+     *   "GMT"                     -- ZoneOffset.UTC
+     *   "UT0"                     -- ZoneOffset.UTC
+     *   "UTC0"                    -- ZoneOffset.UTC
+     *   "GMT0"                    -- ZoneOffset.UTC
+     *   "+01:30"                  -- ZoneOffset.of("+01:30")
+     *   "UT+01:30"                -- ZoneOffset.of("+01:30")
+     *   "UTC+01:30"               -- ZoneOffset.of("+01:30")
+     *   "GMT+01:30"               -- ZoneOffset.of("+01:30")
+     * </pre>
+     * <p>
+     * Note that this method is is identical to {@code appendZoneId()} except
+     * in the mechanism used to obtain the zone.
+     * Note also that parsing accepts offsets, whereas formatting will never
+     * produce one.
      *
      * @return this, for chaining, not null
      * @see #appendZoneId()
@@ -746,40 +885,69 @@ public final class DateTimeFormatterBuilder {
      * Appends the time-zone ID, such as 'Europe/Paris' or '+02:00', to
      * the formatter, using the best available zone ID.
      * <p>
-     * This appends an instruction to print/parse the best available
+     * This appends an instruction to format/parse the best available
      * zone or offset ID to the builder.
      * The zone ID is obtained in a lenient manner that first attempts to
      * find a true zone ID, such as that on {@code ZonedDateTime}, and
      * then attempts to find an offset, such as that on {@code OffsetDateTime}.
      * <p>
-     * During printing, the zone is obtained using a mechanism equivalent
-     * to querying the temporal with {@link Queries#zone()}.
+     * During formatting, the zone is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#zone()}.
      * It will be printed using the result of {@link ZoneId#getId()}.
      * If the zone cannot be obtained then an exception is thrown unless the
      * section of the formatter is optional.
      * <p>
-     * During parsing, the zone is parsed and must match a known zone or offset.
-     * If the zone cannot be parsed then an exception is thrown unless the
-     * section of the formatter is optional.
+     * During parsing, the text must match a known zone or offset.
+     * There are two types of zone ID, offset-based, such as '+01:30' and
+     * region-based, such as 'Europe/London'. These are parsed differently.
+     * If the parse starts with '+', '-', 'UT', 'UTC' or 'GMT', then the parser
+     * expects an offset-based zone and will not match region-based zones.
+     * The offset ID, such as '+02:30', may be at the start of the parse,
+     * or prefixed by  'UT', 'UTC' or 'GMT'. The offset ID parsing is
+     * equivalent to using {@link #appendOffset(String, String)} using the
+     * arguments 'HH:MM:ss' and the no offset string '0'.
+     * If the parse starts with 'UT', 'UTC' or 'GMT', and the parser cannot
+     * match a following offset ID, then {@link ZoneOffset#UTC} is selected.
+     * In all other cases, the list of known region-based zones is used to
+     * find the longest available match. If no match is found, and the parse
+     * starts with 'Z', then {@code ZoneOffset.UTC} is selected.
+     * The parser uses the {@linkplain #parseCaseInsensitive() case sensitive} setting.
      * <p>
-     * This method is is identical to {@code appendZoneId()} except in the
-     * mechanism used to obtain the zone.
+     * For example, the following will parse:
+     * <pre>
+     *   "Europe/London"           -- ZoneId.of("Europe/London")
+     *   "Z"                       -- ZoneOffset.UTC
+     *   "UT"                      -- ZoneOffset.UTC
+     *   "UTC"                     -- ZoneOffset.UTC
+     *   "GMT"                     -- ZoneOffset.UTC
+     *   "UT0"                     -- ZoneOffset.UTC
+     *   "UTC0"                    -- ZoneOffset.UTC
+     *   "GMT0"                    -- ZoneOffset.UTC
+     *   "+01:30"                  -- ZoneOffset.of("+01:30")
+     *   "UT+01:30"                -- ZoneOffset.of("+01:30")
+     *   "UTC+01:30"               -- ZoneOffset.of("+01:30")
+     *   "GMT+01:30"               -- ZoneOffset.of("+01:30")
+     * </pre>
+     * <p>
+     * Note that this method is is identical to {@code appendZoneId()} except
+     * in the mechanism used to obtain the zone.
      *
      * @return this, for chaining, not null
      * @see #appendZoneId()
      */
     public DateTimeFormatterBuilder appendZoneOrOffsetId() {
-        appendInternal(new ZoneIdPrinterParser(Queries.zone(), "ZoneOrOffsetId()"));
+        appendInternal(new ZoneIdPrinterParser(TemporalQuery.zone(), "ZoneOrOffsetId()"));
         return this;
     }
 
     /**
      * Appends the time-zone name, such as 'British Summer Time', to the formatter.
      * <p>
-     * This appends an instruction to print the textual name of the zone to the builder.
+     * This appends an instruction to format/parse the textual name of the zone to
+     * the builder.
      * <p>
-     * During printing, the zone is obtained using a mechanism equivalent
-     * to querying the temporal with {@link Queries#zoneId()}.
+     * During formatting, the zone is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#zoneId()}.
      * If the zone is a {@code ZoneOffset} it will be printed using the
      * result of {@link ZoneOffset#getId()}.
      * If the zone is not an offset, the textual name will be looked up
@@ -791,31 +959,87 @@ public final class DateTimeFormatterBuilder {
      * If the zone cannot be obtained then an exception is thrown unless the
      * section of the formatter is optional.
      * <p>
-     * Parsing is not currently supported.
+     * During parsing, either the textual zone name, the zone ID or the offset
+     * is accepted. Many textual zone names are not unique, such as CST can be
+     * for both "Central Standard Time" and "China Standard Time". In this
+     * situation, the zone id will be determined by the region information from
+     * formatter's  {@link DateTimeFormatter#getLocale() locale} and the standard
+     * zone id for that area, for example, America/New_York for the America Eastern
+     * zone. The {@link #appendZoneText(TextStyle, Set)} may be used
+     * to specify a set of preferred {@link ZoneId} in this situation.
      *
      * @param textStyle  the text style to use, not null
      * @return this, for chaining, not null
      */
     public DateTimeFormatterBuilder appendZoneText(TextStyle textStyle) {
-        // TODO: parsing of zone text?
-//        * During parsing, either the textual zone name, the zone ID or the offset
-//        * is accepted.
-//        * If the zone cannot be parsed then an exception is thrown unless the
-//        * section of the formatter is optional.
-        appendInternal(new ZoneTextPrinterParser(textStyle));
+        appendInternal(new ZoneTextPrinterParser(textStyle, null));
+        return this;
+    }
+
+    /**
+     * Appends the time-zone name, such as 'British Summer Time', to the formatter.
+     * <p>
+     * This appends an instruction to format/parse the textual name of the zone to
+     * the builder.
+     * <p>
+     * During formatting, the zone is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#zoneId()}.
+     * If the zone is a {@code ZoneOffset} it will be printed using the
+     * result of {@link ZoneOffset#getId()}.
+     * If the zone is not an offset, the textual name will be looked up
+     * for the locale set in the {@link DateTimeFormatter}.
+     * If the temporal object being printed represents an instant, then the text
+     * will be the summer or winter time text as appropriate.
+     * If the lookup for text does not find any suitable reuslt, then the
+     * {@link ZoneId#getId() ID} will be printed instead.
+     * If the zone cannot be obtained then an exception is thrown unless the
+     * section of the formatter is optional.
+     * <p>
+     * During parsing, either the textual zone name, the zone ID or the offset
+     * is accepted. Many textual zone names are not unique, such as CST can be
+     * for both "Central Standard Time" and "China Standard Time". In this
+     * situation, the zone id will be determined by the region information from
+     * formatter's  {@link DateTimeFormatter#getLocale() locale} and the standard
+     * zone id for that area, for example, America/New_York for the America Eastern
+     * zone. This method also allows a set of preferred {@link ZoneId} to be
+     * specified for parsing. The matched preferred zone id will be used if the
+     * textural zone name being parsed is not unique.
+     *
+     * If the zone cannot be parsed then an exception is thrown unless the
+     * section of the formatter is optional.
+     *
+     * @param textStyle  the text style to use, not null
+     * @param preferredZones  the set of preferred zone ids, not null
+     * @return this, for chaining, not null
+     */
+    public DateTimeFormatterBuilder appendZoneText(TextStyle textStyle,
+                                                   Set<ZoneId> preferredZones) {
+        Objects.requireNonNull(preferredZones, "preferredZones");
+        appendInternal(new ZoneTextPrinterParser(textStyle, preferredZones));
         return this;
     }
 
     //-----------------------------------------------------------------------
     /**
-     * Appends the chronology ID to the formatter.
+     * Appends the chronology ID, such as 'ISO' or 'ThaiBuddhist', to the formatter.
      * <p>
-     * The chronology ID will be output during a print.
-     * If the chronology cannot be obtained then an exception will be thrown.
+     * This appends an instruction to format/parse the chronology ID to the builder.
+     * <p>
+     * During formatting, the chronology is obtained using a mechanism equivalent
+     * to querying the temporal with {@link TemporalQuery#chronology()}.
+     * It will be printed using the result of {@link Chronology#getId()}.
+     * If the chronology cannot be obtained then an exception is thrown unless the
+     * section of the formatter is optional.
+     * <p>
+     * During parsing, the chronology is parsed and must match one of the chronologies
+     * in {@link Chronology#getAvailableChronologies()}.
+     * If the chronology cannot be parsed then an exception is thrown unless the
+     * section of the formatter is optional.
+     * The parser uses the {@linkplain #parseCaseInsensitive() case sensitive} setting.
      *
      * @return this, for chaining, not null
      */
-    public DateTimeFormatterBuilder appendChronoId() {
+    public DateTimeFormatterBuilder appendChronologyId() {
         appendInternal(new ChronoPrinterParser(null));
         return this;
     }
@@ -823,14 +1047,14 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends the chronology name to the formatter.
      * <p>
-     * The calendar system name will be output during a print.
+     * The calendar system name will be output during a format.
      * If the chronology cannot be obtained then an exception will be thrown.
      * The calendar system name is obtained from the formatting symbols.
      *
      * @param textStyle  the text style to use, not null
      * @return this, for chaining, not null
      */
-    public DateTimeFormatterBuilder appendChronoText(TextStyle textStyle) {
+    public DateTimeFormatterBuilder appendChronologyText(TextStyle textStyle) {
         Objects.requireNonNull(textStyle, "textStyle");
         appendInternal(new ChronoPrinterParser(textStyle));
         return this;
@@ -840,39 +1064,36 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends a localized date-time pattern to the formatter.
      * <p>
-     * The pattern is resolved lazily using the locale being used during the print/parse
-     * (stored in {@link DateTimeFormatter}.
+     * This appends a localized section to the builder, suitable for outputting
+     * a date, time or date-time combination. The format of the localized
+     * section is lazily looked up based on four items:
+     * <p><ul>
+     * <li>the {@code dateStyle} specified to this method
+     * <li>the {@code timeStyle} specified to this method
+     * <li>the {@code Locale} of the {@code DateTimeFormatter}
+     * <li>the {@code Chronology}, selecting the best available
+     * </ul><p>
+     * During formatting, the chronology is obtained from the temporal object
+     * being formatted, which may have been overridden by
+     * {@link DateTimeFormatter#withChronology(Chronology)}.
      * <p>
-     * The pattern can vary by chronology, although typically it doesn't.
-     * This method uses the standard ISO chronology patterns.
+     * During parsing, if a chronology has already been parsed, then it is used.
+     * Otherwise the default from {@code DateTimeFormatter.withChronology(Chronology)}
+     * is used, with {@code IsoChronology} as the fallback.
+     * <p>
+     * Note that this method provides similar functionality to methods on
+     * {@code DateFormat} such as {@link java.text.DateFormat#getDateTimeInstance(int, int)}.
      *
      * @param dateStyle  the date style to use, null means no date required
      * @param timeStyle  the time style to use, null means no time required
      * @return this, for chaining, not null
+     * @throws IllegalArgumentException if both the date and time styles are null
      */
     public DateTimeFormatterBuilder appendLocalized(FormatStyle dateStyle, FormatStyle timeStyle) {
-        return appendLocalized(dateStyle, timeStyle, ISOChrono.INSTANCE);
-    }
-
-    /**
-     * Appends a localized date-time pattern to the formatter.
-     * <p>
-     * The pattern is resolved lazily using the locale being used during the print/parse,
-     * stored in {@link DateTimeFormatter}.
-     * <p>
-     * The pattern can vary by chronology, although typically it doesn't.
-     * This method allows the chronology to be specified.
-     *
-     * @param dateStyle  the date style to use, null means no date required
-     * @param timeStyle  the time style to use, null means no time required
-     * @param chrono  the chronology to use, not null
-     * @return this, for chaining, not null
-     */
-    public DateTimeFormatterBuilder appendLocalized(FormatStyle dateStyle, FormatStyle timeStyle, Chrono<?> chrono) {
-        Objects.requireNonNull(chrono, "chrono");
-        if (dateStyle != null || timeStyle != null) {
-            appendInternal(new LocalizedPrinterParser(dateStyle, timeStyle, chrono));
+        if (dateStyle == null && timeStyle == null) {
+            throw new IllegalArgumentException("Either the date or time style must be non-null");
         }
+        appendInternal(new LocalizedPrinterParser(dateStyle, timeStyle));
         return this;
     }
 
@@ -880,7 +1101,7 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends a character literal to the formatter.
      * <p>
-     * This character will be output during a print.
+     * This character will be output during a format.
      *
      * @param literal  the literal to append, not null
      * @return this, for chaining, not null
@@ -893,7 +1114,7 @@ public final class DateTimeFormatterBuilder {
     /**
      * Appends a string literal to the formatter.
      * <p>
-     * This string will be output during a print.
+     * This string will be output during a format.
      * <p>
      * If the literal is empty, nothing is added to the formatter.
      *
@@ -929,13 +1150,13 @@ public final class DateTimeFormatterBuilder {
     }
 
     /**
-     * Appends a formatter to the builder which will optionally print/parse.
+     * Appends a formatter to the builder which will optionally format/parse.
      * <p>
      * This method has the same effect as appending each of the constituent
      * parts directly to this builder surrounded by an {@link #optionalStart()} and
      * {@link #optionalEnd()}.
      * <p>
-     * The formatter will print if data is available for all the fields contained within it.
+     * The formatter will format if data is available for all the fields contained within it.
      * The formatter will parse if the string matches, otherwise no error is returned.
      *
      * @param formatter  the formatter to add, not null
@@ -952,24 +1173,25 @@ public final class DateTimeFormatterBuilder {
      * Appends the elements defined by the specified pattern to the builder.
      * <p>
      * All letters 'A' to 'Z' and 'a' to 'z' are reserved as pattern letters.
-     * The characters '{' and '}' are reserved for future use.
+     * The characters '#', '{' and '}' are reserved for future use.
      * The characters '[' and ']' indicate optional patterns.
      * The following pattern letters are defined:
      * <pre>
      *  Symbol  Meaning                     Presentation      Examples
      *  ------  -------                     ------------      -------
-     *   G       era                         number/text       1; 01; AD; Anno Domini
-     *   y       year                        year              2004; 04
+     *   G       era                         text              AD; Anno Domini; A
+     *   u       year                        year              2004; 04
+     *   y       year-of-era                 year              2004; 04
      *   D       day-of-year                 number            189
-     *   M       month-of-year               number/text       7; 07; Jul; July; J
+     *   M/L     month-of-year               number/text       7; 07; Jul; July; J
      *   d       day-of-month                number            10
      *
-     *   Q       quarter-of-year             number/text       3; 03; Q3
+     *   Q/q     quarter-of-year             number/text       3; 03; Q3; 3rd quarter
      *   Y       week-based-year             year              1996; 96
-     *   w       week-of-year                number            27
-     *   W       week-of-month               number            27
-     *   e       localized day-of-week       number            2; Tue; Tuesday; T
-     *   E       day-of-week                 number/text       2; Tue; Tuesday; T
+     *   w       week-of-week-based-year     number            27
+     *   W       week-of-month               number            4
+     *   E       day-of-week                 text              Tue; Tuesday; T
+     *   e/c     localized day-of-week       number/text       2; 02; Tue; Tuesday; T
      *   F       week-of-month               number            3
      *
      *   a       am-pm-of-day                text              PM
@@ -985,10 +1207,12 @@ public final class DateTimeFormatterBuilder {
      *   n       nano-of-second              number            987654321
      *   N       nano-of-day                 number            1234000000
      *
-     *   I       time-zone ID                zoneId            America/Los_Angeles
-     *   z       time-zone name              text              Pacific Standard Time; PST
-     *   Z       zone-offset                 offset-Z          +0000; -0800; -08:00;
+     *   V       time-zone ID                zone-id           America/Los_Angeles; Z; -08:30
+     *   z       time-zone name              zone-name         Pacific Standard Time; PST
+     *   O       localized zone-offset       offset-O          GMT+8; GMT+08:00; UTC-08:00;
      *   X       zone-offset 'Z' for zero    offset-X          Z; -08; -0830; -08:30; -083015; -08:30:15;
+     *   x       zone-offset                 offset-x          +0000; -08; -0830; -08:30; -083015; -08:30:15;
+     *   Z       zone-offset                 offset-Z          +0000; -0800; -08:00;
      *
      *   p       pad next                    pad modifier      1
      *
@@ -996,76 +1220,170 @@ public final class DateTimeFormatterBuilder {
      *   ''      single quote                literal           '
      *   [       optional section start
      *   ]       optional section end
-     *   {}      reserved for future use
+     *   #       reserved for future use
+     *   {       reserved for future use
+     *   }       reserved for future use
      * </pre>
      * <p>
      * The count of pattern letters determine the format.
+     * See <a href="DateTimeFormatter.html#patterns">DateTimeFormatter</a> for a user-focused description of the patterns.
+     * The following tables define how the pattern letters map to the builder.
      * <p>
-     * <b>Text</b>: The text style is determined based on the number of pattern letters used.
-     * Less than 4 pattern letters will use the {@link TextStyle#SHORT short form}.
-     * Exactly 4 pattern letters will use the {@link TextStyle#FULL full form}.
-     * Exactly 5 pattern letters will use the {@link TextStyle#NARROW narrow form}.
+     * <b>Date fields</b>: Pattern letters to output a date.
+     * <pre>
+     *  Pattern  Count  Equivalent builder methods
+     *  -------  -----  --------------------------
+     *    G       1      appendText(ChronoField.ERA, TextStyle.SHORT)
+     *    GG      2      appendText(ChronoField.ERA, TextStyle.SHORT)
+     *    GGG     3      appendText(ChronoField.ERA, TextStyle.SHORT)
+     *    GGGG    4      appendText(ChronoField.ERA, TextStyle.FULL)
+     *    GGGGG   5      appendText(ChronoField.ERA, TextStyle.NARROW)
+     *
+     *    u       1      appendValue(ChronoField.YEAR, 1, 19, SignStyle.NORMAL);
+     *    uu      2      appendValueReduced(ChronoField.YEAR, 2, 2000);
+     *    uuu     3      appendValue(ChronoField.YEAR, 3, 19, SignStyle.NORMAL);
+     *    u..u    4..n   appendValue(ChronoField.YEAR, n, 19, SignStyle.EXCEEDS_PAD);
+     *    y       1      appendValue(ChronoField.YEAR_OF_ERA, 1, 19, SignStyle.NORMAL);
+     *    yy      2      appendValueReduced(ChronoField.YEAR_OF_ERA, 2, 2000);
+     *    yyy     3      appendValue(ChronoField.YEAR_OF_ERA, 3, 19, SignStyle.NORMAL);
+     *    y..y    4..n   appendValue(ChronoField.YEAR_OF_ERA, n, 19, SignStyle.EXCEEDS_PAD);
+     *    Y       1      append special localized WeekFields element for numeric week-based-year
+     *    YY      2      append special localized WeekFields element for reduced numeric week-based-year 2 digits;
+     *    YYY     3      append special localized WeekFields element for numeric week-based-year (3, 19, SignStyle.NORMAL);
+     *    Y..Y    4..n   append special localized WeekFields element for numeric week-based-year (n, 19, SignStyle.EXCEEDS_PAD);
+     *
+     *    Q       1      appendValue(IsoFields.QUARTER_OF_YEAR);
+     *    QQ      2      appendValue(IsoFields.QUARTER_OF_YEAR, 2);
+     *    QQQ     3      appendText(IsoFields.QUARTER_OF_YEAR, TextStyle.SHORT)
+     *    QQQQ    4      appendText(IsoFields.QUARTER_OF_YEAR, TextStyle.FULL)
+     *    QQQQQ   5      appendText(IsoFields.QUARTER_OF_YEAR, TextStyle.NARROW)
+     *    q       1      appendValue(IsoFields.QUARTER_OF_YEAR);
+     *    qq      2      appendValue(IsoFields.QUARTER_OF_YEAR, 2);
+     *    qqq     3      appendText(IsoFields.QUARTER_OF_YEAR, TextStyle.SHORT_STANDALONE)
+     *    qqqq    4      appendText(IsoFields.QUARTER_OF_YEAR, TextStyle.FULL_STANDALONE)
+     *    qqqqq   5      appendText(IsoFields.QUARTER_OF_YEAR, TextStyle.NARROW_STANDALONE)
+     *
+     *    M       1      appendValue(ChronoField.MONTH_OF_YEAR);
+     *    MM      2      appendValue(ChronoField.MONTH_OF_YEAR, 2);
+     *    MMM     3      appendText(ChronoField.MONTH_OF_YEAR, TextStyle.SHORT)
+     *    MMMM    4      appendText(ChronoField.MONTH_OF_YEAR, TextStyle.FULL)
+     *    MMMMM   5      appendText(ChronoField.MONTH_OF_YEAR, TextStyle.NARROW)
+     *    L       1      appendValue(ChronoField.MONTH_OF_YEAR);
+     *    LL      2      appendValue(ChronoField.MONTH_OF_YEAR, 2);
+     *    LLL     3      appendText(ChronoField.MONTH_OF_YEAR, TextStyle.SHORT_STANDALONE)
+     *    LLLL    4      appendText(ChronoField.MONTH_OF_YEAR, TextStyle.FULL_STANDALONE)
+     *    LLLLL   5      appendText(ChronoField.MONTH_OF_YEAR, TextStyle.NARROW_STANDALONE)
+     *
+     *    w       1      append special localized WeekFields element for numeric week-of-year
+     *    ww      1      append special localized WeekFields element for numeric week-of-year, zero-padded
+     *    W       1      append special localized WeekFields element for numeric week-of-month
+     *    d       1      appendValue(ChronoField.DAY_OF_MONTH)
+     *    dd      2      appendValue(ChronoField.DAY_OF_MONTH, 2)
+     *    D       1      appendValue(ChronoField.DAY_OF_YEAR)
+     *    DD      2      appendValue(ChronoField.DAY_OF_YEAR, 2)
+     *    DDD     3      appendValue(ChronoField.DAY_OF_YEAR, 3)
+     *    F       1      appendValue(ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH)
+     *    E       1      appendText(ChronoField.DAY_OF_WEEK, TextStyle.SHORT)
+     *    EE      2      appendText(ChronoField.DAY_OF_WEEK, TextStyle.SHORT)
+     *    EEE     3      appendText(ChronoField.DAY_OF_WEEK, TextStyle.SHORT)
+     *    EEEE    4      appendText(ChronoField.DAY_OF_WEEK, TextStyle.FULL)
+     *    EEEEE   5      appendText(ChronoField.DAY_OF_WEEK, TextStyle.NARROW)
+     *    e       1      append special localized WeekFields element for numeric day-of-week
+     *    ee      2      append special localized WeekFields element for numeric day-of-week, zero-padded
+     *    eee     3      appendText(ChronoField.DAY_OF_WEEK, TextStyle.SHORT)
+     *    eeee    4      appendText(ChronoField.DAY_OF_WEEK, TextStyle.FULL)
+     *    eeeee   5      appendText(ChronoField.DAY_OF_WEEK, TextStyle.NARROW)
+     *    c       1      append special localized WeekFields element for numeric day-of-week
+     *    ccc     3      appendText(ChronoField.DAY_OF_WEEK, TextStyle.SHORT_STANDALONE)
+     *    cccc    4      appendText(ChronoField.DAY_OF_WEEK, TextStyle.FULL_STANDALONE)
+     *    ccccc   5      appendText(ChronoField.DAY_OF_WEEK, TextStyle.NARROW_STANDALONE)
+     * </pre>
      * <p>
-     * <b>Number</b>: If the count of letters is one, then the value is printed using the minimum number
-     * of digits and without padding as per {@link #appendValue(java.time.temporal.TemporalField)}. Otherwise, the
-     * count of digits is used as the width of the output field as per {@link #appendValue(java.time.temporal.TemporalField, int)}.
+     * <b>Time fields</b>: Pattern letters to output a time.
+     * <pre>
+     *  Pattern  Count  Equivalent builder methods
+     *  -------  -----  --------------------------
+     *    a       1      appendText(ChronoField.AMPM_OF_DAY, TextStyle.SHORT)
+     *    h       1      appendValue(ChronoField.CLOCK_HOUR_OF_AMPM)
+     *    hh      2      appendValue(ChronoField.CLOCK_HOUR_OF_AMPM, 2)
+     *    H       1      appendValue(ChronoField.HOUR_OF_DAY)
+     *    HH      2      appendValue(ChronoField.HOUR_OF_DAY, 2)
+     *    k       1      appendValue(ChronoField.CLOCK_HOUR_OF_DAY)
+     *    kk      2      appendValue(ChronoField.CLOCK_HOUR_OF_DAY, 2)
+     *    K       1      appendValue(ChronoField.HOUR_OF_AMPM)
+     *    KK      2      appendValue(ChronoField.HOUR_OF_AMPM, 2)
+     *    m       1      appendValue(ChronoField.MINUTE_OF_HOUR)
+     *    mm      2      appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+     *    s       1      appendValue(ChronoField.SECOND_OF_MINUTE)
+     *    ss      2      appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+     *
+     *    S..S    1..n   appendFraction(ChronoField.NANO_OF_SECOND, n, n, false)
+     *    A       1      appendValue(ChronoField.MILLI_OF_DAY)
+     *    A..A    2..n   appendValue(ChronoField.MILLI_OF_DAY, n)
+     *    n       1      appendValue(ChronoField.NANO_OF_SECOND)
+     *    n..n    2..n   appendValue(ChronoField.NANO_OF_SECOND, n)
+     *    N       1      appendValue(ChronoField.NANO_OF_DAY)
+     *    N..N    2..n   appendValue(ChronoField.NANO_OF_DAY, n)
+     * </pre>
      * <p>
-     * <b>Number/Text</b>: If the count of pattern letters is 3 or greater, use the Text rules above.
-     * Otherwise use the Number rules above.
+     * <b>Zone ID</b>: Pattern letters to output {@code ZoneId}.
+     * <pre>
+     *  Pattern  Count  Equivalent builder methods
+     *  -------  -----  --------------------------
+     *    VV      2      appendZoneId()
+     *    z       1      appendZoneText(TextStyle.SHORT)
+     *    zz      2      appendZoneText(TextStyle.SHORT)
+     *    zzz     3      appendZoneText(TextStyle.SHORT)
+     *    zzzz    4      appendZoneText(TextStyle.FULL)
+     * </pre>
      * <p>
-     * <b>Fraction</b>: Outputs the nano-of-second field as a fraction-of-second.
-     * The nano-of-second value has nine digits, thus the count of pattern letters is from 1 to 9.
-     * If it is less than 9, then the nano-of-second value is truncated, with only the most
-     * significant digits being output.
-     * When parsing in strict mode, the number of parsed digits must match the count of pattern letters.
-     * When parsing in lenient mode, the number of parsed digits must be at least the count of pattern
-     * letters, up to 9 digits.
+     * <b>Zone offset</b>: Pattern letters to output {@code ZoneOffset}.
+     * <pre>
+     *  Pattern  Count  Equivalent builder methods
+     *  -------  -----  --------------------------
+     *    O       1      appendLocalizedOffsetPrefixed(TextStyle.SHORT);
+     *    OOOO    4      appendLocalizedOffsetPrefixed(TextStyle.FULL);
+     *    X       1      appendOffset("+HHmm","Z")
+     *    XX      2      appendOffset("+HHMM","Z")
+     *    XXX     3      appendOffset("+HH:MM","Z")
+     *    XXXX    4      appendOffset("+HHMMss","Z")
+     *    XXXXX   5      appendOffset("+HH:MM:ss","Z")
+     *    x       1      appendOffset("+HHmm","+00")
+     *    xx      2      appendOffset("+HHMM","+0000")
+     *    xxx     3      appendOffset("+HH:MM","+00:00")
+     *    xxxx    4      appendOffset("+HHMMss","+0000")
+     *    xxxxx   5      appendOffset("+HH:MM:ss","+00:00")
+     *    Z       1      appendOffset("+HHMM","+0000")
+     *    ZZ      2      appendOffset("+HHMM","+0000")
+     *    ZZZ     3      appendOffset("+HHMM","+0000")
+     *    ZZZZ    4      appendLocalizedOffset(TextStyle.FULL);
+     *    ZZZZZ   5      appendOffset("+HH:MM:ss","Z")
+     * </pre>
      * <p>
-     * <b>Year</b>: The count of letters determines the minimum field width below which padding is used.
-     * If the count of letters is two, then a {@link #appendValueReduced reduced} two digit form is used.
-     * For printing, this outputs the rightmost two digits. For parsing, this will parse using the
-     * base value of 2000, resulting in a year within the range 2000 to 2099 inclusive.
-     * If the count of letters is less than four (but not two), then the sign is only output for negative
-     * years as per {@link SignStyle#NORMAL}.
-     * Otherwise, the sign is output if the pad width is exceeded, as per {@link SignStyle#EXCEEDS_PAD}
+     * <b>Modifiers</b>: Pattern letters that modify the rest of the pattern:
+     * <pre>
+     *  Pattern  Count  Equivalent builder methods
+     *  -------  -----  --------------------------
+     *    [       1      optionalStart()
+     *    ]       1      optionalEnd()
+     *    p..p    1..n   padNext(n)
+     * </pre>
      * <p>
-     * <b>ZoneId</b>: 'I' outputs the zone ID, such as 'Europe/Paris'.
+     * Any sequence of letters not specified above, unrecognized letter or
+     * reserved character will throw an exception.
+     * Future versions may add to the set of patterns.
+     * It is recommended to use single quotes around all characters that you want
+     * to output directly to ensure that future changes do not break your application.
      * <p>
-     * <b>Offset X</b>: This formats the offset using 'Z' when the offset is zero.
-     * One letter outputs just the hour', such as '+01'
-     * Two letters outputs the hour and minute, without a colon, such as '+0130'.
-     * Three letters outputs the hour and minute, with a colon, such as '+01:30'.
-     * Four letters outputs the hour and minute and optional second, without a colon, such as '+013015'.
-     * Five letters outputs the hour and minute and optional second, with a colon, such as '+01:30:15'.
-     * <p>
-     * <b>Offset Z</b>: This formats the offset using '+0000' or '+00:00' when the offset is zero.
-     * One or two letters outputs the hour and minute, without a colon, such as '+0130'.
-     * Three letters outputs the hour and minute, with a colon, such as '+01:30'.
-     * <p>
-     * <b>Zone names</b>: Time zone names ('z') cannot be parsed.
-     * <p>
-     * <b>Optional section</b>: The optional section markers work exactly like calling {@link #optionalStart()}
-     * and {@link #optionalEnd()}.
-     * <p>
-     * <b>Pad modifier</b>: Modifies the pattern that immediately follows to be padded with spaces.
-     * The pad width is determined by the number of pattern letters.
-     * This is the same as calling {@link #padNext(int)}.
-     * <p>
-     * For example, 'ppH' outputs the hour-of-day padded on the left with spaces to a width of 2.
-     * <p>
-     * Any unrecognized letter is an error.
-     * Any non-letter character, other than '[', ']', '{', '}' and the single quote will be output directly.
-     * Despite this, it is recommended to use single quotes around all characters that you want to
-     * output directly to ensure that future changes do not break your application.
-     * <p>
-     * The pattern string is similar, but not identical, to {@link java.text.SimpleDateFormat SimpleDateFormat}.
-     * Pattern letters 'E' and 'u' are merged, which changes the meaning of "E" and "EE" to be numeric.
-     * Pattern letters 'Z' and 'X' are extended.
-     * Pattern letter 'y' and 'Y' parse years of two digits and more than 4 digits differently.
-     * Pattern letters 'n', 'A', 'N', 'I' and 'p' are added.
-     * Number types will reject large numbers.
+     * Note that the pattern string is similar, but not identical, to
+     * {@link java.text.SimpleDateFormat SimpleDateFormat}.
      * The pattern string is also similar, but not identical, to that defined by the
-     * Unicode Common Locale Data Repository (CLDR).
+     * Unicode Common Locale Data Repository (CLDR/LDML).
+     * Pattern letters 'X' and 'u' are aligned with Unicode CLDR/LDML.
+     * By contrast, {@code SimpleDateFormat} uses 'u' for the numeric day of week.
+     * Pattern letters 'y' and 'Y' parse years of two digits and more than 4 digits differently.
+     * Pattern letters 'n', 'A', 'N', and 'p' are added.
+     * Number types will reject large numbers.
      *
      * @param pattern  the pattern to add, not null
      * @return this, for chaining, not null
@@ -1107,38 +1425,61 @@ public final class DateTimeFormatterBuilder {
                 if (field != null) {
                     parseField(cur, count, field);
                 } else if (cur == 'z') {
-                    if (count < 4) {
-                        appendZoneText(TextStyle.SHORT);
-                    } else {
+                    if (count > 4) {
+                        throw new IllegalArgumentException("Too many pattern letters: " + cur);
+                    } else if (count == 4) {
                         appendZoneText(TextStyle.FULL);
+                    } else {
+                        appendZoneText(TextStyle.SHORT);
                     }
-                } else if (cur == 'I') {
+                } else if (cur == 'V') {
+                    if (count != 2) {
+                        throw new IllegalArgumentException("Pattern letter count must be 2: " + cur);
+                    }
                     appendZoneId();
                 } else if (cur == 'Z') {
-                    if (count > 3) {
+                    if (count < 4) {
+                        appendOffset("+HHMM", "+0000");
+                    } else if (count == 4) {
+                        appendLocalizedOffset(TextStyle.FULL);
+                    } else if (count == 5) {
+                        appendOffset("+HH:MM:ss","Z");
+                    } else {
                         throw new IllegalArgumentException("Too many pattern letters: " + cur);
                     }
-                    if (count < 3) {
-                        appendOffset("+HHMM", "+0000");
+                } else if (cur == 'O') {
+                    if (count == 1) {
+                        appendLocalizedOffset(TextStyle.SHORT);
+                    } else if (count == 4) {
+                        appendLocalizedOffset(TextStyle.FULL);
                     } else {
-                        appendOffset("+HH:MM", "+00:00");
+                        throw new IllegalArgumentException("Pattern letter count must be 1 or 4: " + cur);
                     }
                 } else if (cur == 'X') {
                     if (count > 5) {
                         throw new IllegalArgumentException("Too many pattern letters: " + cur);
                     }
-                    appendOffset(OffsetIdPrinterParser.PATTERNS[count - 1], "Z");
-                } else if (cur == 'w' || cur == 'e') {
+                    appendOffset(OffsetIdPrinterParser.PATTERNS[count + (count == 1 ? 0 : 1)], "Z");
+                } else if (cur == 'x') {
+                    if (count > 5) {
+                        throw new IllegalArgumentException("Too many pattern letters: " + cur);
+                    }
+                    String zero = (count == 1 ? "+00" : (count % 2 == 0 ? "+0000" : "+00:00"));
+                    appendOffset(OffsetIdPrinterParser.PATTERNS[count + (count == 1 ? 0 : 1)], zero);
+                } else if (cur == 'W') {
                     // Fields defined by Locale
                     if (count > 1) {
                         throw new IllegalArgumentException("Too many pattern letters: " + cur);
                     }
                     appendInternal(new WeekBasedFieldPrinterParser(cur, count));
-                } else if (cur == 'W') {
+                } else if (cur == 'w') {
                     // Fields defined by Locale
                     if (count > 2) {
                         throw new IllegalArgumentException("Too many pattern letters: " + cur);
                     }
+                    appendInternal(new WeekBasedFieldPrinterParser(cur, count));
+                } else if (cur == 'Y') {
+                    // Fields defined by Locale
                     appendInternal(new WeekBasedFieldPrinterParser(cur, count));
                 } else {
                     throw new IllegalArgumentException("Unknown pattern letter: " + cur);
@@ -1176,7 +1517,7 @@ public final class DateTimeFormatterBuilder {
                 }
                 optionalEnd();
 
-            } else if (cur == '{' || cur == '}') {
+            } else if (cur == '{' || cur == '}' || cur == '#') {
                 throw new IllegalArgumentException("Pattern includes reserved character: '" + cur + "'");
             } else {
                 appendLiteral(cur);
@@ -1184,10 +1525,12 @@ public final class DateTimeFormatterBuilder {
         }
     }
 
+    @SuppressWarnings("fallthrough")
     private void parseField(char cur, int count, TemporalField field) {
+        boolean standalone = false;
         switch (cur) {
+            case 'u':
             case 'y':
-            case 'Y':
                 if (count == 2) {
                     appendValueReduced(field, 2, 2000);
                 } else if (count < 4) {
@@ -1196,31 +1539,55 @@ public final class DateTimeFormatterBuilder {
                     appendValue(field, count, 19, SignStyle.EXCEEDS_PAD);
                 }
                 break;
-            case 'G':
+            case 'c':
+                if (count == 2) {
+                    throw new IllegalArgumentException("Invalid pattern \"cc\"");
+                }
+                /*fallthrough*/
+            case 'L':
+            case 'q':
+                standalone = true;
+                /*fallthrough*/
             case 'M':
             case 'Q':
             case 'E':
+            case 'e':
                 switch (count) {
                     case 1:
-                        appendValue(field);
-                        break;
                     case 2:
-                        appendValue(field, 2);
+                        if (cur == 'c' || cur == 'e') {
+                            appendInternal(new WeekBasedFieldPrinterParser(cur, count));
+                        } else if (cur == 'E') {
+                            appendText(field, TextStyle.SHORT);
+                        } else {
+                            if (count == 1) {
+                                appendValue(field);
+                            } else {
+                                appendValue(field, 2);
+                            }
+                        }
                         break;
                     case 3:
-                        appendText(field, TextStyle.SHORT);
+                        appendText(field, standalone ? TextStyle.SHORT_STANDALONE : TextStyle.SHORT);
                         break;
                     case 4:
-                        appendText(field, TextStyle.FULL);
+                        appendText(field, standalone ? TextStyle.FULL_STANDALONE : TextStyle.FULL);
                         break;
                     case 5:
-                        appendText(field, TextStyle.NARROW);
+                        appendText(field, standalone ? TextStyle.NARROW_STANDALONE : TextStyle.NARROW);
                         break;
                     default:
                         throw new IllegalArgumentException("Too many pattern letters: " + cur);
                 }
                 break;
             case 'a':
+                if (count == 1) {
+                    appendText(field, TextStyle.SHORT);
+                } else {
+                    throw new IllegalArgumentException("Too many pattern letters: " + cur);
+                }
+                break;
+            case 'G':
                 switch (count) {
                     case 1:
                     case 2:
@@ -1240,6 +1607,37 @@ public final class DateTimeFormatterBuilder {
             case 'S':
                 appendFraction(NANO_OF_SECOND, count, count, false);
                 break;
+            case 'F':
+                if (count == 1) {
+                    appendValue(field);
+                } else {
+                    throw new IllegalArgumentException("Too many pattern letters: " + cur);
+                }
+                break;
+            case 'd':
+            case 'h':
+            case 'H':
+            case 'k':
+            case 'K':
+            case 'm':
+            case 's':
+                if (count == 1) {
+                    appendValue(field);
+                } else if (count == 2) {
+                    appendValue(field, count);
+                } else {
+                    throw new IllegalArgumentException("Too many pattern letters: " + cur);
+                }
+                break;
+            case 'D':
+                if (count == 1) {
+                    appendValue(field);
+                } else if (count <= 3) {
+                    appendValue(field, count);
+                } else {
+                    throw new IllegalArgumentException("Too many pattern letters: " + cur);
+                }
+                break;
             default:
                 if (count == 1) {
                     appendValue(field);
@@ -1253,44 +1651,43 @@ public final class DateTimeFormatterBuilder {
     /** Map of letters to fields. */
     private static final Map<Character, TemporalField> FIELD_MAP = new HashMap<>();
     static {
-        FIELD_MAP.put('G', ChronoField.ERA);                       // Java, CLDR (different to both for 1/2 chars)
-        FIELD_MAP.put('y', ChronoField.YEAR);                      // CLDR
-        // FIELD_MAP.put('y', ChronoField.YEAR_OF_ERA);            // Java, CLDR  // TODO redefine from above
-        // FIELD_MAP.put('u', ChronoField.YEAR);                   // CLDR  // TODO
-        // FIELD_MAP.put('Y', ISODateTimeField.WEEK_BASED_YEAR);          // Java7, CLDR (needs localized week number)  // TODO
-        FIELD_MAP.put('Q', ISOFields.QUARTER_OF_YEAR);             // CLDR (removed quarter from 310)
-        FIELD_MAP.put('M', ChronoField.MONTH_OF_YEAR);             // Java, CLDR
-        // FIELD_MAP.put('w', WeekFields.weekOfYear());            // Java, CLDR (needs localized week number)
-        // FIELD_MAP.put('W', WeekFields.weekOfMonth());           // Java, CLDR (needs localized week number)
-        FIELD_MAP.put('D', ChronoField.DAY_OF_YEAR);               // Java, CLDR
-        FIELD_MAP.put('d', ChronoField.DAY_OF_MONTH);              // Java, CLDR
-        FIELD_MAP.put('F', ChronoField.ALIGNED_WEEK_OF_MONTH);     // Java, CLDR
-        FIELD_MAP.put('E', ChronoField.DAY_OF_WEEK);               // Java, CLDR (different to both for 1/2 chars)
-        // FIELD_MAP.put('e', WeekFields.dayOfWeek());             // CLDR (needs localized week number)
-        FIELD_MAP.put('a', ChronoField.AMPM_OF_DAY);               // Java, CLDR
-        FIELD_MAP.put('H', ChronoField.HOUR_OF_DAY);               // Java, CLDR
-        FIELD_MAP.put('k', ChronoField.CLOCK_HOUR_OF_DAY);         // Java, CLDR
-        FIELD_MAP.put('K', ChronoField.HOUR_OF_AMPM);              // Java, CLDR
-        FIELD_MAP.put('h', ChronoField.CLOCK_HOUR_OF_AMPM);        // Java, CLDR
-        FIELD_MAP.put('m', ChronoField.MINUTE_OF_HOUR);            // Java, CLDR
-        FIELD_MAP.put('s', ChronoField.SECOND_OF_MINUTE);          // Java, CLDR
-        FIELD_MAP.put('S', ChronoField.NANO_OF_SECOND);            // CLDR (Java uses milli-of-second number)
-        FIELD_MAP.put('A', ChronoField.MILLI_OF_DAY);              // CLDR
-        FIELD_MAP.put('n', ChronoField.NANO_OF_SECOND);            // 310
-        FIELD_MAP.put('N', ChronoField.NANO_OF_DAY);               // 310
-        // reserved - z,Z,X,I,p
-        // Java - X - compatible, but extended to 4 and 5 letters
-        // Java - u - clashes with CLDR, go with CLDR (year-proleptic) here
-        // CLDR - U - cycle year name, not supported by 310 yet
-        // CLDR - l - deprecated
-        // CLDR - j - not relevant
-        // CLDR - g - modified-julian-day
-        // CLDR - z - time-zone names  // TODO properly
-        // CLDR - Z - different approach here  // TODO bring 310 in line with CLDR
-        // CLDR - v,V - extended time-zone names
-        // CLDR - q/c/L - standalone quarter/day-of-week/month
-        //  310 - I - time-zone id
-        //  310 - p - prefix for padding
+        // SDF = SimpleDateFormat
+        FIELD_MAP.put('G', ChronoField.ERA);                       // SDF, LDML (different to both for 1/2 chars)
+        FIELD_MAP.put('y', ChronoField.YEAR_OF_ERA);               // SDF, LDML
+        FIELD_MAP.put('u', ChronoField.YEAR);                      // LDML (different in SDF)
+        FIELD_MAP.put('Q', IsoFields.QUARTER_OF_YEAR);             // LDML (removed quarter from 310)
+        FIELD_MAP.put('q', IsoFields.QUARTER_OF_YEAR);             // LDML (stand-alone)
+        FIELD_MAP.put('M', ChronoField.MONTH_OF_YEAR);             // SDF, LDML
+        FIELD_MAP.put('L', ChronoField.MONTH_OF_YEAR);             // SDF, LDML (stand-alone)
+        FIELD_MAP.put('D', ChronoField.DAY_OF_YEAR);               // SDF, LDML
+        FIELD_MAP.put('d', ChronoField.DAY_OF_MONTH);              // SDF, LDML
+        FIELD_MAP.put('F', ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH);  // SDF, LDML
+        FIELD_MAP.put('E', ChronoField.DAY_OF_WEEK);               // SDF, LDML (different to both for 1/2 chars)
+        FIELD_MAP.put('c', ChronoField.DAY_OF_WEEK);               // LDML (stand-alone)
+        FIELD_MAP.put('e', ChronoField.DAY_OF_WEEK);               // LDML (needs localized week number)
+        FIELD_MAP.put('a', ChronoField.AMPM_OF_DAY);               // SDF, LDML
+        FIELD_MAP.put('H', ChronoField.HOUR_OF_DAY);               // SDF, LDML
+        FIELD_MAP.put('k', ChronoField.CLOCK_HOUR_OF_DAY);         // SDF, LDML
+        FIELD_MAP.put('K', ChronoField.HOUR_OF_AMPM);              // SDF, LDML
+        FIELD_MAP.put('h', ChronoField.CLOCK_HOUR_OF_AMPM);        // SDF, LDML
+        FIELD_MAP.put('m', ChronoField.MINUTE_OF_HOUR);            // SDF, LDML
+        FIELD_MAP.put('s', ChronoField.SECOND_OF_MINUTE);          // SDF, LDML
+        FIELD_MAP.put('S', ChronoField.NANO_OF_SECOND);            // LDML (SDF uses milli-of-second number)
+        FIELD_MAP.put('A', ChronoField.MILLI_OF_DAY);              // LDML
+        FIELD_MAP.put('n', ChronoField.NANO_OF_SECOND);            // 310 (proposed for LDML)
+        FIELD_MAP.put('N', ChronoField.NANO_OF_DAY);               // 310 (proposed for LDML)
+        // 310 - z - time-zone names, matches LDML and SimpleDateFormat 1 to 4
+        // 310 - Z - matches SimpleDateFormat and LDML
+        // 310 - V - time-zone id, matches LDML
+        // 310 - p - prefix for padding
+        // 310 - X - matches LDML, almost matches SDF for 1, exact match 2&3, extended 4&5
+        // 310 - x - matches LDML
+        // 310 - w, W, and Y are localized forms matching LDML
+        // LDML - U - cycle year name, not supported by 310 yet
+        // LDML - l - deprecated
+        // LDML - j - not relevant
+        // LDML - g - modified-julian-day
+        // LDML - v,V - extended time-zone names
     }
 
     //-----------------------------------------------------------------------
@@ -1299,8 +1696,15 @@ public final class DateTimeFormatterBuilder {
      * <p>
      * This padding will pad to a fixed width using spaces.
      * <p>
-     * An exception will be thrown during printing if the pad width
-     * is exceeded.
+     * During formatting, the decorated element will be output and then padded
+     * to the specified width. An exception will be thrown during formatting if
+     * the pad width is exceeded.
+     * <p>
+     * During parsing, the padding and decorated element are parsed.
+     * If parsing is lenient, then the pad width is treated as a maximum.
+     * If parsing is case insensitive, then the pad character is matched ignoring case.
+     * The padding is parsed greedily. Thus, if the decorated element starts with
+     * the pad character, it will not be parsed.
      *
      * @param padWidth  the pad width, 1 or greater
      * @return this, for chaining, not null
@@ -1316,8 +1720,15 @@ public final class DateTimeFormatterBuilder {
      * This padding is intended for padding other than zero-padding.
      * Zero-padding should be achieved using the appendValue methods.
      * <p>
-     * An exception will be thrown during printing if the pad width
-     * is exceeded.
+     * During formatting, the decorated element will be output and then padded
+     * to the specified width. An exception will be thrown during formatting if
+     * the pad width is exceeded.
+     * <p>
+     * During parsing, the padding and decorated element are parsed.
+     * If parsing is lenient, then the pad width is treated as a maximum.
+     * If parsing is case insensitive, then the pad character is matched ignoring case.
+     * The padding is parsed greedily. Thus, if the decorated element starts with
+     * the pad character, it will not be parsed.
      *
      * @param padWidth  the pad width, 1 or greater
      * @param padChar  the pad character
@@ -1338,19 +1749,19 @@ public final class DateTimeFormatterBuilder {
     /**
      * Mark the start of an optional section.
      * <p>
-     * The output of printing can include optional sections, which may be nested.
+     * The output of formatting can include optional sections, which may be nested.
      * An optional section is started by calling this method and ended by calling
      * {@link #optionalEnd()} or by ending the build process.
      * <p>
      * All elements in the optional section are treated as optional.
-     * During printing, the section is only output if data is available in the
+     * During formatting, the section is only output if data is available in the
      * {@code TemporalAccessor} for all the elements in the section.
      * During parsing, the whole section may be missing from the parsed string.
      * <p>
      * For example, consider a builder setup as
      * {@code builder.appendValue(HOUR_OF_DAY,2).optionalStart().appendValue(MINUTE_OF_HOUR,2)}.
      * The optional section ends automatically at the end of the builder.
-     * During printing, the minute will only be output if its value can be obtained from the date-time.
+     * During formatting, the minute will only be output if its value can be obtained from the date-time.
      * During parsing, the input will be successfully parsed whether the minute is present or not.
      *
      * @return this, for chaining, not null
@@ -1364,7 +1775,7 @@ public final class DateTimeFormatterBuilder {
     /**
      * Ends an optional section.
      * <p>
-     * The output of printing can include optional sections, which may be nested.
+     * The output of formatting can include optional sections, which may be nested.
      * An optional section is started by calling {@link #optionalStart()} and ended
      * using this method (or at the end of the builder).
      * <p>
@@ -1374,13 +1785,13 @@ public final class DateTimeFormatterBuilder {
      * on the formatter other than ending the (empty) optional section.
      * <p>
      * All elements in the optional section are treated as optional.
-     * During printing, the section is only output if data is available in the
+     * During formatting, the section is only output if data is available in the
      * {@code TemporalAccessor} for all the elements in the section.
      * During parsing, the whole section may be missing from the parsed string.
      * <p>
      * For example, consider a builder setup as
      * {@code builder.appendValue(HOUR_OF_DAY,2).optionalStart().appendValue(MINUTE_OF_HOUR,2).optionalEnd()}.
-     * During printing, the minute will only be output if its value can be obtained from the date-time.
+     * During formatting, the minute will only be output if its value can be obtained from the date-time.
      * During parsing, the input will be successfully parsed whether the minute is present or not.
      *
      * @return this, for chaining, not null
@@ -1423,10 +1834,12 @@ public final class DateTimeFormatterBuilder {
 
     //-----------------------------------------------------------------------
     /**
-     * Completes this builder by creating the DateTimeFormatter using the default locale.
+     * Completes this builder by creating the {@code DateTimeFormatter}
+     * using the default locale.
      * <p>
-     * This will create a formatter with the {@link Locale#getDefault(Locale.Category) default FORMAT locale}.
+     * This will create a formatter with the {@linkplain Locale#getDefault(Locale.Category) default FORMAT locale}.
      * Numbers will be printed and parsed using the standard non-localized set of symbols.
+     * The resolver style will be {@link ResolverStyle#SMART SMART}.
      * <p>
      * Calling this method will end any open optional sections by repeatedly
      * calling {@link #optionalEnd()} before creating the formatter.
@@ -1441,10 +1854,12 @@ public final class DateTimeFormatterBuilder {
     }
 
     /**
-     * Completes this builder by creating the DateTimeFormatter using the specified locale.
+     * Completes this builder by creating the {@code DateTimeFormatter}
+     * using the specified locale.
      * <p>
      * This will create a formatter with the specified locale.
      * Numbers will be printed and parsed using the standard non-localized set of symbols.
+     * The resolver style will be {@link ResolverStyle#SMART SMART}.
      * <p>
      * Calling this method will end any open optional sections by repeatedly
      * calling {@link #optionalEnd()} before creating the formatter.
@@ -1456,28 +1871,50 @@ public final class DateTimeFormatterBuilder {
      * @return the created formatter, not null
      */
     public DateTimeFormatter toFormatter(Locale locale) {
+        return toFormatter(locale, ResolverStyle.SMART, null);
+    }
+
+    /**
+     * Completes this builder by creating the formatter.
+     * This uses the default locale.
+     *
+     * @param resolverStyle  the resolver style to use, not null
+     * @return the created formatter, not null
+     */
+    DateTimeFormatter toFormatter(ResolverStyle resolverStyle, Chronology chrono) {
+        return toFormatter(Locale.getDefault(Locale.Category.FORMAT), resolverStyle, chrono);
+    }
+
+    /**
+     * Completes this builder by creating the formatter.
+     *
+     * @param locale  the locale to use for formatting, not null
+     * @param chrono  the chronology to use, may be null
+     * @return the created formatter, not null
+     */
+    private DateTimeFormatter toFormatter(Locale locale, ResolverStyle resolverStyle, Chronology chrono) {
         Objects.requireNonNull(locale, "locale");
         while (active.parent != null) {
             optionalEnd();
         }
         CompositePrinterParser pp = new CompositePrinterParser(printerParsers, false);
-        return new DateTimeFormatter(pp, locale, DateTimeFormatSymbols.STANDARD, null, null);
+        return new DateTimeFormatter(pp, locale, DateTimeFormatSymbols.STANDARD,
+                resolverStyle, null, chrono, null);
     }
 
     //-----------------------------------------------------------------------
     /**
-     * Strategy for printing/parsing date-time information.
+     * Strategy for formatting/parsing date-time information.
      * <p>
-     * The printer may print any part, or the whole, of the input date-time object.
-     * Typically, a complete print is constructed from a number of smaller
+     * The printer may format any part, or the whole, of the input date-time object.
+     * Typically, a complete format is constructed from a number of smaller
      * units, each outputting a single field.
      * <p>
      * The parser may parse any piece of text from the input, storing the result
      * in the context. Typically, each individual parser will just parse one
      * field, such as the day-of-month, storing the value in the context.
-     * Once the parse is complete, the caller will then convert the context
-     * to a {@link DateTimeBuilder} to merge the parsed values to create the
-     * desired object, such as a {@code LocalDate}.
+     * Once the parse is complete, the caller will then resolve the parsed values
+     * to create the desired object, such as a {@code LocalDate}.
      * <p>
      * The parse position will be updated during the parse. Parsing will start at
      * the specified index and the return value specifies the new parse position
@@ -1489,7 +1926,7 @@ public final class DateTimeFormatterBuilder {
      * All implementations that can be instantiated must be final, immutable and thread-safe.
      * <p>
      * The context is not a thread-safe object and a new instance will be created
-     * for each print that occurs. The context must not be stored in an instance
+     * for each format that occurs. The context must not be stored in an instance
      * variable or shared with any other threads.
      */
     interface DateTimePrinterParser {
@@ -1497,17 +1934,17 @@ public final class DateTimeFormatterBuilder {
         /**
          * Prints the date-time object to the buffer.
          * <p>
-         * The context holds information to use during the print.
+         * The context holds information to use during the format.
          * It also contains the date-time information to be printed.
          * <p>
          * The buffer must not be mutated beyond the content controlled by the implementation.
          *
-         * @param context  the context to print using, not null
+         * @param context  the context to format using, not null
          * @param buf  the buffer to append to, not null
          * @return false if unable to query the value from the date-time, true otherwise
          * @throws DateTimeException if the date-time cannot be printed successfully
          */
-        boolean print(DateTimePrintContext context, StringBuilder buf);
+        boolean format(DateTimePrintContext context, StringBuilder buf);
 
         /**
          * Parses text into date-time information.
@@ -1557,14 +1994,14 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             int length = buf.length();
             if (optional) {
                 context.startOptional();
             }
             try {
                 for (DateTimePrinterParser pp : printerParsers) {
-                    if (pp.print(context, buf) == false) {
+                    if (pp.format(context, buf) == false) {
                         buf.setLength(length);  // reset buffer
                         return true;
                     }
@@ -1640,14 +2077,14 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             int preLen = buf.length();
-            if (printerParser.print(context, buf) == false) {
+            if (printerParser.format(context, buf) == false) {
                 return false;
             }
             int len = buf.length() - preLen;
             if (len > padWidth) {
-                throw new DateTimePrintException(
+                throw new DateTimeException(
                     "Cannot print as output of " + len + " characters exceeds pad width of " + padWidth);
             }
             for (int i = 0; i < padWidth - len; i++) {
@@ -1658,37 +2095,32 @@ public final class DateTimeFormatterBuilder {
 
         @Override
         public int parse(DateTimeParseContext context, CharSequence text, int position) {
+            // cache context before changed by decorated parser
+            final boolean strict = context.isStrict();
+            // parse
             if (position > text.length()) {
                 throw new IndexOutOfBoundsException();
             }
+            if (position == text.length()) {
+                return ~position;  // no more characters in the string
+            }
             int endPos = position + padWidth;
             if (endPos > text.length()) {
-                return ~position;  // not enough characters in the string to meet the parse width
+                if (strict) {
+                    return ~position;  // not enough characters in the string to meet the parse width
+                }
+                endPos = text.length();
             }
             int pos = position;
-            while (pos < endPos && text.charAt(pos) == padChar) {
+            while (pos < endPos && context.charEquals(text.charAt(pos), padChar)) {
                 pos++;
             }
             text = text.subSequence(0, endPos);
-            int firstError = 0;
-            while (pos >= position) {
-                int resultPos = printerParser.parse(context, text, pos);
-                if (resultPos < 0) {
-                    // parse of decorated field had an error
-                    if (firstError == 0) {
-                        firstError = resultPos;
-                    }
-                    // loop around in case the decorated parser can handle the padChar at the start
-                    pos--;
-                    continue;
-                }
-                if (resultPos != endPos) {
-                    return ~position;  // parse of decorated field didn't parse to the end
-                }
-                return resultPos;
+            int resultPos = printerParser.parse(context, text, pos);
+            if (resultPos != endPos && strict) {
+                return ~(position + pos);  // parse of decorated field didn't parse to the end
             }
-            // loop runs at least once, so firstError must be set by the time we get here
-            return firstError;  // return error from first parse of decorated field
+            return resultPos;
         }
 
         @Override
@@ -1708,7 +2140,7 @@ public final class DateTimeFormatterBuilder {
         LENIENT;
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             return true;  // nothing to do here
         }
 
@@ -1739,6 +2171,31 @@ public final class DateTimeFormatterBuilder {
 
     //-----------------------------------------------------------------------
     /**
+     * Defaults a value into the parse if not currently present.
+     */
+    static class DefaultValueParser implements DateTimePrinterParser {
+        private final TemporalField field;
+        private final long value;
+
+        DefaultValueParser(TemporalField field, long value) {
+            this.field = field;
+            this.value = value;
+        }
+
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
+            return true;
+        }
+
+        public int parse(DateTimeParseContext context, CharSequence text, int position) {
+            if (context.getParsed(field) == null) {
+                context.setParsedField(field, value, position, position);
+            }
+            return position;
+        }
+    }
+
+    //-----------------------------------------------------------------------
+    /**
      * Prints or parses a character literal.
      */
     static final class CharLiteralPrinterParser implements DateTimePrinterParser {
@@ -1749,7 +2206,7 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             buf.append(literal);
             return true;
         }
@@ -1792,7 +2249,7 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             buf.append(literal);
             return true;
         }
@@ -1847,7 +2304,7 @@ public final class DateTimeFormatterBuilder {
         /**
          * Constructor.
          *
-         * @param field  the field to print, not null
+         * @param field  the field to format, not null
          * @param minWidth  the minimum field width, from 1 to 19
          * @param maxWidth  the maximum field width, from minWidth to 19
          * @param signStyle  the positive/negative sign style, not null
@@ -1864,7 +2321,7 @@ public final class DateTimeFormatterBuilder {
         /**
          * Constructor.
          *
-         * @param field  the field to print, not null
+         * @param field  the field to format, not null
          * @param minWidth  the minimum field width, from 1 to 19
          * @param maxWidth  the maximum field width, from minWidth to 19
          * @param signStyle  the positive/negative sign style, not null
@@ -1900,7 +2357,7 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             Long valueLong = context.getValue(field);
             if (valueLong == null) {
                 return false;
@@ -1909,7 +2366,7 @@ public final class DateTimeFormatterBuilder {
             DateTimeFormatSymbols symbols = context.getSymbols();
             String str = (value == Long.MIN_VALUE ? "9223372036854775808" : Long.toString(Math.abs(value)));
             if (str.length() > maxWidth) {
-                throw new DateTimePrintException("Field " + field.getName() +
+                throw new DateTimeException("Field " + field.getName() +
                     " cannot be printed as the value " + value +
                     " exceeds the maximum print width of " + maxWidth);
             }
@@ -1934,7 +2391,7 @@ public final class DateTimeFormatterBuilder {
                         buf.append(symbols.getNegativeSign());
                         break;
                     case NOT_NEGATIVE:
-                        throw new DateTimePrintException("Field " + field.getName() +
+                        throw new DateTimeException("Field " + field.getName() +
                             " cannot be printed as the value " + value +
                             " cannot be negative according to the SignStyle");
                 }
@@ -2057,11 +2514,9 @@ public final class DateTimeFormatterBuilder {
                     totalBig = totalBig.divide(BigInteger.TEN);
                     pos--;
                 }
-                setValue(context, totalBig.longValue());
-            } else {
-                setValue(context, total);
+                return setValue(context, totalBig.longValue(), position, pos);
             }
-            return pos;
+            return setValue(context, total, position, pos);
         }
 
         /**
@@ -2069,9 +2524,12 @@ public final class DateTimeFormatterBuilder {
          *
          * @param context  the context to store into, not null
          * @param value  the value
+         * @param errorPos  the position of the field being parsed
+         * @param successPos  the position after the field being parsed
+         * @return the new position
          */
-        void setValue(DateTimeParseContext context, long value) {
-            context.setParsedField(field, value);
+        int setValue(DateTimeParseContext context, long value, int errorPos, int successPos) {
+            return context.setParsedField(field, value, errorPos, successPos);
         }
 
         @Override
@@ -2097,7 +2555,7 @@ public final class DateTimeFormatterBuilder {
         /**
          * Constructor.
          *
-         * @param field  the field to print, validated not null
+         * @param field  the field to format, validated not null
          * @param width  the field width, from 1 to 18
          * @param baseValue  the base value
          */
@@ -2122,7 +2580,7 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        void setValue(DateTimeParseContext context, long value) {
+        int setValue(DateTimeParseContext context, long value, int errorPos, int successPos) {
             int lastPart = baseValue % range;
             if (baseValue > 0) {
                 value = baseValue - lastPart + value;
@@ -2132,7 +2590,7 @@ public final class DateTimeFormatterBuilder {
             if (value < baseValue) {
                 value += range;
             }
-            context.setParsedField(field, value);
+            return context.setParsedField(field, value, errorPos, successPos);
         }
 
         @Override
@@ -2191,7 +2649,7 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             Long value = context.getValue(field);
             if (value == null) {
                 return false;
@@ -2257,8 +2715,7 @@ public final class DateTimeFormatterBuilder {
             }
             BigDecimal fraction = new BigDecimal(total).movePointLeft(pos - position);
             long value = convertFromFraction(fraction);
-            context.setParsedField(field, value);
-            return pos;
+            return context.setParsedField(field, value, position, pos);
         }
 
         /**
@@ -2348,23 +2805,20 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             Long value = context.getValue(field);
             if (value == null) {
                 return false;
             }
-            String text = null;
-            if (field == ChronoField.ERA) {
-                Chrono chrono = context.getTemporal().query(Queries.chrono());
-                if (chrono == null) {
-                    chrono = ISOChrono.INSTANCE;
-                }
-                text = provider.getEraText(chrono, value, textStyle, context.getLocale());
-            } else {
+            String text;
+            Chronology chrono = context.getTemporal().query(TemporalQuery.chronology());
+            if (chrono == null || chrono == IsoChronology.INSTANCE) {
                 text = provider.getText(field, value, textStyle, context.getLocale());
+            } else {
+                text = provider.getText(chrono, field, value, textStyle, context.getLocale());
             }
             if (text == null) {
-                return numberPrinterParser().print(context, buf);
+                return numberPrinterParser().format(context, buf);
             }
             buf.append(text);
             return true;
@@ -2377,14 +2831,19 @@ public final class DateTimeFormatterBuilder {
                 throw new IndexOutOfBoundsException();
             }
             TextStyle style = (context.isStrict() ? textStyle : null);
-            Iterator<Entry<String, Long>> it = provider.getTextIterator(field, style, context.getLocale());
+            Chronology chrono = context.getEffectiveChronology();
+            Iterator<Entry<String, Long>> it;
+            if (chrono == null || chrono == IsoChronology.INSTANCE) {
+                it = provider.getTextIterator(field, style, context.getLocale());
+            } else {
+                it = provider.getTextIterator(chrono, field, style, context.getLocale());
+            }
             if (it != null) {
                 while (it.hasNext()) {
                     Entry<String, Long> entry = it.next();
                     String itText = entry.getKey();
                     if (context.subSequenceEquals(itText, 0, parseText, position, itText.length())) {
-                        context.setParsedField(field, entry.getValue());
-                        return position + itText.length();
+                        return context.setParsedField(field, entry.getValue(), position, position + itText.length());
                     }
                 }
                 if (context.isStrict()) {
@@ -2426,15 +2885,15 @@ public final class DateTimeFormatterBuilder {
         private static final long SECONDS_0000_TO_1970 = ((146097L * 5L) - (30L * 365L + 7L)) * 86400L;
         private static final CompositePrinterParser PARSER = new DateTimeFormatterBuilder()
                     .parseCaseInsensitive()
-                    .append(DateTimeFormatters.isoLocalDate()).appendLiteral('T')
-                    .append(DateTimeFormatters.isoLocalTime()).appendLiteral('Z')
+                    .append(DateTimeFormatter.ISO_LOCAL_DATE).appendLiteral('T')
+                    .append(DateTimeFormatter.ISO_LOCAL_TIME).appendLiteral('Z')
                     .toFormatter().toPrinterParser(false);
 
         InstantPrinterParser() {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             // use INSTANT_SECONDS, thus this code is not bound by Instant.MAX
             Long inSecs = context.getValue(INSTANT_SECONDS);
             Long inNanos = context.getValue(NANO_OF_SECOND);
@@ -2502,9 +2961,9 @@ public final class DateTimeFormatterBuilder {
             } catch (RuntimeException ex) {
                 return ~position;
             }
-            context.setParsedField(INSTANT_SECONDS, instantSecs);
-            context.setParsedField(NANO_OF_SECOND, nano);
-            return text.length();
+            int successPos = text.length();
+            successPos = context.setParsedField(INSTANT_SECONDS, instantSecs, position, successPos);
+            return context.setParsedField(NANO_OF_SECOND, nano, position, successPos);
         }
 
         @Override
@@ -2519,9 +2978,10 @@ public final class DateTimeFormatterBuilder {
      */
     static final class OffsetIdPrinterParser implements DateTimePrinterParser {
         static final String[] PATTERNS = new String[] {
-            "+HH", "+HHMM", "+HH:MM", "+HHMMss", "+HH:MM:ss", "+HHMMSS", "+HH:MM:SS",
+            "+HH", "+HHmm", "+HH:mm", "+HHMM", "+HH:MM", "+HHMMss", "+HH:MM:ss", "+HHMMSS", "+HH:MM:SS",
         };  // order used in pattern builder
-        static final OffsetIdPrinterParser INSTANCE_ID = new OffsetIdPrinterParser("Z", "+HH:MM:ss");
+        static final OffsetIdPrinterParser INSTANCE_ID_Z = new OffsetIdPrinterParser("+HH:MM:ss", "Z");
+        static final OffsetIdPrinterParser INSTANCE_ID_ZERO = new OffsetIdPrinterParser("+HH:MM:ss", "0");
 
         private final String noOffsetText;
         private final int type;
@@ -2529,14 +2989,14 @@ public final class DateTimeFormatterBuilder {
         /**
          * Constructor.
          *
-         * @param noOffsetText  the text to use for UTC, not null
          * @param pattern  the pattern
+         * @param noOffsetText  the text to use for UTC, not null
          */
-        OffsetIdPrinterParser(String noOffsetText, String pattern) {
-            Objects.requireNonNull(noOffsetText, "noOffsetText");
+        OffsetIdPrinterParser(String pattern, String noOffsetText) {
             Objects.requireNonNull(pattern, "pattern");
-            this.noOffsetText = noOffsetText;
+            Objects.requireNonNull(noOffsetText, "noOffsetText");
             this.type = checkPattern(pattern);
+            this.noOffsetText = noOffsetText;
         }
 
         private int checkPattern(String pattern) {
@@ -2549,7 +3009,7 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             Long offsetSecs = context.getValue(OFFSET_SECONDS);
             if (offsetSecs == null) {
                 return false;
@@ -2561,15 +3021,23 @@ public final class DateTimeFormatterBuilder {
                 int absHours = Math.abs((totalSecs / 3600) % 100);  // anything larger than 99 silently dropped
                 int absMinutes = Math.abs((totalSecs / 60) % 60);
                 int absSeconds = Math.abs(totalSecs % 60);
+                int bufPos = buf.length();
+                int output = absHours;
                 buf.append(totalSecs < 0 ? "-" : "+")
                     .append((char) (absHours / 10 + '0')).append((char) (absHours % 10 + '0'));
-                if (type >= 1) {
+                if (type >= 3 || (type >= 1 && absMinutes > 0)) {
                     buf.append((type % 2) == 0 ? ":" : "")
                         .append((char) (absMinutes / 10 + '0')).append((char) (absMinutes % 10 + '0'));
-                    if (type >= 5 || (type >= 3 && absSeconds > 0)) {
+                    output += absMinutes;
+                    if (type >= 7 || (type >= 5 && absSeconds > 0)) {
                         buf.append((type % 2) == 0 ? ":" : "")
                             .append((char) (absSeconds / 10 + '0')).append((char) (absSeconds % 10 + '0'));
+                        output += absSeconds;
                     }
+                }
+                if (output == 0) {
+                    buf.setLength(bufPos);
+                    buf.append(noOffsetText);
                 }
             }
             return true;
@@ -2581,16 +3049,14 @@ public final class DateTimeFormatterBuilder {
             int noOffsetLen = noOffsetText.length();
             if (noOffsetLen == 0) {
                 if (position == length) {
-                    context.setParsedField(OFFSET_SECONDS, 0);
-                    return position;
+                    return context.setParsedField(OFFSET_SECONDS, 0, position, position);
                 }
             } else {
                 if (position == length) {
                     return ~position;
                 }
                 if (context.subSequenceEquals(text, position, noOffsetText, 0, noOffsetLen)) {
-                    context.setParsedField(OFFSET_SECONDS, 0);
-                    return position + noOffsetLen;
+                    return context.setParsedField(OFFSET_SECONDS, 0, position, position + noOffsetLen);
                 }
             }
 
@@ -2601,22 +3067,19 @@ public final class DateTimeFormatterBuilder {
                 int negative = (sign == '-' ? -1 : 1);
                 int[] array = new int[4];
                 array[0] = position + 1;
-                if (parseNumber(array, 1, text, true) ||
-                        parseNumber(array, 2, text, type > 0) ||
-                        parseNumber(array, 3, text, false)) {
-                    return ~position;
+                if ((parseNumber(array, 1, text, true) ||
+                        parseNumber(array, 2, text, type >=3) ||
+                        parseNumber(array, 3, text, false)) == false) {
+                    // success
+                    long offsetSecs = negative * (array[1] * 3600L + array[2] * 60L + array[3]);
+                    return context.setParsedField(OFFSET_SECONDS, offsetSecs, position, array[0]);
                 }
-                long offsetSecs = negative * (array[1] * 3600L + array[2] * 60L + array[3]);
-                context.setParsedField(OFFSET_SECONDS, offsetSecs);
-                return array[0];
-            } else {
-                // handle special case of empty no offset text
-                if (noOffsetLen == 0) {
-                    context.setParsedField(OFFSET_SECONDS, 0);
-                    return position + noOffsetLen;
-                }
-                return ~position;
             }
+            // handle special case of empty no offset text
+            if (noOffsetLen == 0) {
+                return context.setParsedField(OFFSET_SECONDS, 0, position, position + noOffsetLen);
+            }
+            return ~position;
         }
 
         /**
@@ -2659,7 +3122,168 @@ public final class DateTimeFormatterBuilder {
         @Override
         public String toString() {
             String converted = noOffsetText.replace("'", "''");
-            return "Offset('" + converted + "'," + PATTERNS[type] + ")";
+            return "Offset(" + PATTERNS[type] + ",'" + converted + "')";
+        }
+    }
+
+    //-----------------------------------------------------------------------
+    /**
+     * Prints or parses an offset ID.
+     */
+    static final class LocalizedOffsetIdPrinterParser implements DateTimePrinterParser {
+        private final TextStyle style;
+
+        /**
+         * Constructor.
+         *
+         * @param style  the style, not null
+         */
+        LocalizedOffsetIdPrinterParser(TextStyle style) {
+            this.style = style;
+        }
+
+        private static StringBuilder appendHMS(StringBuilder buf, int t) {
+            return buf.append((char)(t / 10 + '0'))
+                      .append((char)(t % 10 + '0'));
+        }
+
+        @Override
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
+            Long offsetSecs = context.getValue(OFFSET_SECONDS);
+            if (offsetSecs == null) {
+                return false;
+            }
+            String gmtText = "GMT";  // TODO: get localized version of 'GMT'
+            if (gmtText != null) {
+                buf.append(gmtText);
+            }
+            int totalSecs = Math.toIntExact(offsetSecs);
+            if (totalSecs != 0) {
+                int absHours = Math.abs((totalSecs / 3600) % 100);  // anything larger than 99 silently dropped
+                int absMinutes = Math.abs((totalSecs / 60) % 60);
+                int absSeconds = Math.abs(totalSecs % 60);
+                buf.append(totalSecs < 0 ? "-" : "+");
+                if (style == TextStyle.FULL) {
+                    appendHMS(buf, absHours);
+                    buf.append(':');
+                    appendHMS(buf, absMinutes);
+                    if (absSeconds != 0) {
+                       buf.append(':');
+                       appendHMS(buf, absSeconds);
+                    }
+                } else {
+                    if (absHours >= 10) {
+                        buf.append((char)(absHours / 10 + '0'));
+                    }
+                    buf.append((char)(absHours % 10 + '0'));
+                    if (absMinutes != 0 || absSeconds != 0) {
+                        buf.append(':');
+                        appendHMS(buf, absMinutes);
+                        if (absSeconds != 0) {
+                            buf.append(':');
+                            appendHMS(buf, absSeconds);
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        int getDigit(CharSequence text, int position) {
+            char c = text.charAt(position);
+            if (c < '0' || c > '9') {
+                return -1;
+            }
+            return c - '0';
+        }
+
+        @Override
+        public int parse(DateTimeParseContext context, CharSequence text, int position) {
+            int pos = position;
+            int end = pos + text.length();
+            String gmtText = "GMT";  // TODO: get localized version of 'GMT'
+            if (gmtText != null) {
+                if (!context.subSequenceEquals(text, pos, gmtText, 0, gmtText.length())) {
+                    return ~position;
+                }
+                pos += gmtText.length();
+            }
+            // parse normal plus/minus offset
+            int negative = 0;
+            if (pos == end) {
+                return context.setParsedField(OFFSET_SECONDS, 0, position, pos);
+            }
+            char sign = text.charAt(pos);  // IOOBE if invalid position
+            if (sign == '+') {
+                negative = 1;
+            } else if (sign == '-') {
+                negative = -1;
+            } else {
+                return context.setParsedField(OFFSET_SECONDS, 0, position, pos);
+            }
+            pos++;
+            int h = 0;
+            int m = 0;
+            int s = 0;
+            if (style == TextStyle.FULL) {
+                int h1 = getDigit(text, pos++);
+                int h2 = getDigit(text, pos++);
+                if (h1 < 0 || h2 < 0 || text.charAt(pos++) != ':') {
+                    return ~position;
+                }
+                h = h1 * 10 + h2;
+                int m1 = getDigit(text, pos++);
+                int m2 = getDigit(text, pos++);
+                if (m1 < 0 || m2 < 0) {
+                    return ~position;
+                }
+                m = m1 * 10 + m2;
+                if (pos + 2 < end && text.charAt(pos) == ':') {
+                    int s1 = getDigit(text, pos + 1);
+                    int s2 = getDigit(text, pos + 2);
+                    if (s1 >= 0 && s2 >= 0) {
+                        s = s1 * 10 + s2;
+                        pos += 3;
+                    }
+                }
+            } else {
+                h = getDigit(text, pos++);
+                if (h < 0) {
+                    return ~position;
+                }
+                if (pos < end) {
+                    int h2 = getDigit(text, pos);
+                    if (h2 >=0) {
+                        h = h * 10 + h2;
+                        pos++;
+                    }
+                    if (pos + 2 < end && text.charAt(pos) == ':') {
+                        if (pos + 2 < end && text.charAt(pos) == ':') {
+                            int m1 = getDigit(text, pos + 1);
+                            int m2 = getDigit(text, pos + 2);
+                            if (m1 >= 0 && m2 >= 0) {
+                                m = m1 * 10 + m2;
+                                pos += 3;
+                                if (pos + 2 < end && text.charAt(pos) == ':') {
+                                    int s1 = getDigit(text, pos + 1);
+                                    int s2 = getDigit(text, pos + 2);
+                                    if (s1 >= 0 && s2 >= 0) {
+                                        s = s1 * 10 + s2;
+                                        pos += 3;
+                                   }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            long offsetSecs = negative * (h * 3600L + m * 60L + s);
+            return context.setParsedField(OFFSET_SECONDS, offsetSecs, position, pos);
+        }
+
+        @Override
+        public String toString() {
+            return "LocalizedOffset(" + style + ")";
         }
     }
 
@@ -2667,29 +3291,38 @@ public final class DateTimeFormatterBuilder {
     /**
      * Prints or parses a zone ID.
      */
-    static final class ZoneTextPrinterParser implements DateTimePrinterParser {
+    static final class ZoneTextPrinterParser extends ZoneIdPrinterParser {
 
         /** The text style to output. */
         private final TextStyle textStyle;
 
-        ZoneTextPrinterParser(TextStyle textStyle) {
+        /** The preferred zoneid map */
+        private Set<String> preferredZones;
+
+        ZoneTextPrinterParser(TextStyle textStyle, Set<ZoneId> preferredZones) {
+            super(TemporalQuery.zone(), "ZoneText(" + textStyle + ")");
             this.textStyle = Objects.requireNonNull(textStyle, "textStyle");
+            if (preferredZones != null && preferredZones.size() != 0) {
+                this.preferredZones = new HashSet<>();
+                for (ZoneId id : preferredZones) {
+                    this.preferredZones.add(id.getId());
+                }
+            }
         }
 
         private static final int STD = 0;
         private static final int DST = 1;
         private static final int GENERIC = 2;
-
         private static final Map<String, SoftReference<Map<Locale, String[]>>> cache =
             new ConcurrentHashMap<>();
 
-        private static String getDisplayName(String id, int type, TextStyle style, Locale locale) {
-            if (style == TextStyle.NARROW) {
+        private String getDisplayName(String id, int type, Locale locale) {
+            if (textStyle == TextStyle.NARROW) {
                 return null;
             }
             String[] names;
             SoftReference<Map<Locale, String[]>> ref = cache.get(id);
-            Map<Locale, String[]> perLocale;
+            Map<Locale, String[]> perLocale = null;
             if (ref == null || (perLocale = ref.get()) == null ||
                 (names = perLocale.get(locale)) == null) {
                 names = TimeZoneNameUtility.retrieveDisplayNames(id, locale);
@@ -2698,64 +3331,108 @@ public final class DateTimeFormatterBuilder {
                 }
                 names = Arrays.copyOfRange(names, 0, 7);
                 names[5] =
-                    TimeZoneNameUtility.retrieveGenericDisplayName(id, TimeZone.LONG,locale);
+                    TimeZoneNameUtility.retrieveGenericDisplayName(id, TimeZone.LONG, locale);
                 if (names[5] == null) {
                     names[5] = names[0]; // use the id
                 }
                 names[6] =
-                    TimeZoneNameUtility.retrieveGenericDisplayName(id, TimeZone.SHORT,locale);
+                    TimeZoneNameUtility.retrieveGenericDisplayName(id, TimeZone.SHORT, locale);
                 if (names[6] == null) {
                     names[6] = names[0];
                 }
-                perLocale = new ConcurrentHashMap<>();
+                if (perLocale == null) {
+                    perLocale = new ConcurrentHashMap<>();
+                }
                 perLocale.put(locale, names);
-                ref = new SoftReference<>(perLocale);
-                cache.put(id, ref);
+                cache.put(id, new SoftReference<>(perLocale));
             }
             switch (type) {
             case STD:
-                return names[style.ordinal() + 1];
+                return names[textStyle.zoneNameStyleIndex() + 1];
             case DST:
-                return names[style.ordinal() + 3];
+                return names[textStyle.zoneNameStyleIndex() + 3];
             }
-            return names[style.ordinal() + 5];
+            return names[textStyle.zoneNameStyleIndex() + 5];
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
-            ZoneId zone = context.getValue(Queries.zoneId());
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
+            ZoneId zone = context.getValue(TemporalQuery.zoneId());
             if (zone == null) {
                 return false;
             }
-            if (zone instanceof ZoneOffset) {
-                buf.append(zone.getId());
-            } else {
+            String zname = zone.getId();
+            if (!(zone instanceof ZoneOffset)) {
                 TemporalAccessor dt = context.getTemporal();
-                Instant instant = null;
-                if (dt.isSupported(ChronoField.INSTANT_SECONDS)) {
-                    instant = Instant.from(dt);
-                }
-                String name = getDisplayName(zone.getId(),
-                                             instant == null ? GENERIC
-                                                             : (zone.getRules().isDaylightSavings(instant) ? DST : STD),
-                    textStyle, context.getLocale());
+                String name = getDisplayName(zname,
+                                             dt.isSupported(ChronoField.INSTANT_SECONDS)
+                                             ? (zone.getRules().isDaylightSavings(Instant.from(dt)) ? DST : STD)
+                                             : GENERIC,
+                                             context.getLocale());
                 if (name != null) {
-                    buf.append(name);
-                } else {
-                    buf.append(zone.getId());
+                    zname = name;
                 }
             }
+            buf.append(zname);
             return true;
         }
 
-        @Override
-        public int parse(DateTimeParseContext context, CharSequence text, int position) {
-            throw new UnsupportedOperationException();
-        }
+        // cache per instance for now
+        private final Map<Locale, Entry<Integer, SoftReference<PrefixTree>>>
+            cachedTree = new HashMap<>();
+        private final Map<Locale, Entry<Integer, SoftReference<PrefixTree>>>
+            cachedTreeCI = new HashMap<>();
 
         @Override
-        public String toString() {
-            return "ZoneText(" + textStyle + ")";
+        protected PrefixTree getTree(DateTimeParseContext context) {
+            if (textStyle == TextStyle.NARROW) {
+                return super.getTree(context);
+            }
+            Locale locale = context.getLocale();
+            boolean isCaseSensitive = context.isCaseSensitive();
+            Set<String> regionIds = ZoneRulesProvider.getAvailableZoneIds();
+            int regionIdsSize = regionIds.size();
+
+            Map<Locale, Entry<Integer, SoftReference<PrefixTree>>> cached =
+                isCaseSensitive ? cachedTree : cachedTreeCI;
+
+            Entry<Integer, SoftReference<PrefixTree>> entry = null;
+            PrefixTree tree = null;
+            String[][] zoneStrings = null;
+            if ((entry = cached.get(locale)) == null ||
+                (entry.getKey() != regionIdsSize ||
+                (tree = entry.getValue().get()) == null)) {
+                tree = PrefixTree.newTree(context);
+                zoneStrings = TimeZoneNameUtility.getZoneStrings(locale);
+                for (String[] names : zoneStrings) {
+                    String zid = names[0];
+                    if (!regionIds.contains(zid)) {
+                        continue;
+                    }
+                    tree.add(zid, zid);    // don't convert zid -> metazone
+                    zid = ZoneName.toZid(zid, locale);
+                    int i = textStyle == TextStyle.FULL ? 1 : 2;
+                    for (; i < names.length; i += 2) {
+                        tree.add(names[i], zid);
+                    }
+                }
+                // if we have a set of preferred zones, need a copy and
+                // add the preferred zones again to overwrite
+                if (preferredZones != null) {
+                    for (String[] names : zoneStrings) {
+                        String zid = names[0];
+                        if (!preferredZones.contains(zid) || !regionIds.contains(zid)) {
+                            continue;
+                        }
+                        int i = textStyle == TextStyle.FULL ? 1 : 2;
+                        for (; i < names.length; i += 2) {
+                            tree.add(names[i], zid);
+                       }
+                    }
+                }
+                cached.put(locale, new SimpleImmutableEntry<>(regionIdsSize, new SoftReference<>(tree)));
+            }
+            return tree;
         }
     }
 
@@ -2763,7 +3440,7 @@ public final class DateTimeFormatterBuilder {
     /**
      * Prints or parses a zone ID.
      */
-    static final class ZoneIdPrinterParser implements DateTimePrinterParser {
+    static class ZoneIdPrinterParser implements DateTimePrinterParser {
         private final TemporalQuery<ZoneId> query;
         private final String description;
 
@@ -2772,9 +3449,8 @@ public final class DateTimeFormatterBuilder {
             this.description = description;
         }
 
-        //-----------------------------------------------------------------------
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
             ZoneId zone = context.getValue(query);
             if (zone == null) {
                 return false;
@@ -2783,12 +3459,33 @@ public final class DateTimeFormatterBuilder {
             return true;
         }
 
-        //-----------------------------------------------------------------------
         /**
          * The cached tree to speed up parsing.
          */
         private static volatile Entry<Integer, PrefixTree> cachedPrefixTree;
         private static volatile Entry<Integer, PrefixTree> cachedPrefixTreeCI;
+
+        protected PrefixTree getTree(DateTimeParseContext context) {
+            // prepare parse tree
+            Set<String> regionIds = ZoneRulesProvider.getAvailableZoneIds();
+            final int regionIdsSize = regionIds.size();
+            Entry<Integer, PrefixTree> cached = context.isCaseSensitive()
+                                                ? cachedPrefixTree : cachedPrefixTreeCI;
+            if (cached == null || cached.getKey() != regionIdsSize) {
+                synchronized (this) {
+                    cached = context.isCaseSensitive() ? cachedPrefixTree : cachedPrefixTreeCI;
+                    if (cached == null || cached.getKey() != regionIdsSize) {
+                        cached = new SimpleImmutableEntry<>(regionIdsSize, PrefixTree.newTree(regionIds, context));
+                        if (context.isCaseSensitive()) {
+                            cachedPrefixTree = cached;
+                        } else {
+                            cachedPrefixTreeCI = cached;
+                        }
+                    }
+                }
+            }
+            return cached.getValue();
+        }
 
         /**
          * This implementation looks for the longest matching string.
@@ -2801,58 +3498,57 @@ public final class DateTimeFormatterBuilder {
             if (position > length) {
                 throw new IndexOutOfBoundsException();
             }
+            if (position == length) {
+                return ~position;
+            }
 
             // handle fixed time-zone IDs
-            if ((text.length() - position) >= 1) {
-                char nextChar = text.charAt(position);
-                if (nextChar == '+' || nextChar == '-') {
-                    DateTimeParseContext newContext = context.copy();
-                    int endPos = OffsetIdPrinterParser.INSTANCE_ID.parse(newContext, text, position);
-                    if (endPos < 0) {
-                        return endPos;
+            char nextChar = text.charAt(position);
+            if (nextChar == '+' || nextChar == '-') {
+                return parseOffsetBased(context, text, position, OffsetIdPrinterParser.INSTANCE_ID_Z);
+            } else if (length >= position + 2) {
+                char nextNextChar = text.charAt(position + 1);
+                if (context.charEquals(nextChar, 'U') && context.charEquals(nextNextChar, 'T')) {
+                    if (length >= position + 3 && context.charEquals(text.charAt(position + 2), 'C')) {
+                        return parseOffsetBased(context, text, position + 3, OffsetIdPrinterParser.INSTANCE_ID_ZERO);
                     }
-                    int offset = (int) (long) newContext.getParsed(OFFSET_SECONDS);
-                    ZoneId zone = ZoneOffset.ofTotalSeconds(offset);
-                    context.setParsed(zone);
-                    return endPos;
+                    return parseOffsetBased(context, text, position + 2, OffsetIdPrinterParser.INSTANCE_ID_ZERO);
+                } else if (context.charEquals(nextChar, 'G') && length >= position + 3 &&
+                        context.charEquals(nextNextChar, 'M') && context.charEquals(text.charAt(position + 2), 'T')) {
+                    return parseOffsetBased(context, text, position + 3, OffsetIdPrinterParser.INSTANCE_ID_ZERO);
                 }
             }
-
-            // prepare parse tree
-            Set<String> regionIds = ZoneRulesProvider.getAvailableZoneIds();
-            final int regionIdsSize = regionIds.size();
-            Entry<Integer, PrefixTree> cached = context.isCaseSensitive()
-                                                ? cachedPrefixTree : cachedPrefixTreeCI;
-            if (cached == null || cached.getKey() != regionIdsSize) {
-                synchronized (this) {
-                    cached = context.isCaseSensitive() ? cachedPrefixTree : cachedPrefixTreeCI;
-                    if (cached == null || cached.getKey() != regionIdsSize) {
-                        cached = new SimpleImmutableEntry<>(regionIdsSize,
-                            PrefixTree.newTree(regionIds, context.isCaseSensitive()
-                                                          ? PrefixTree.STRICT : PrefixTree.CASE_INSENSITIVE));
-                        if (context.isCaseSensitive()) {
-                            cachedPrefixTree = cached;
-                        } else {
-                            cachedPrefixTreeCI = cached;
-                        }
-                    }
-                }
-            }
-            PrefixTree tree = cached.getValue();
 
             // parse
-            String parsedZoneId = tree.match(text, position, length);
-            if (parsedZoneId == null || regionIds.contains(parsedZoneId) == false) {
-                if (text.charAt(position) == 'Z') {
+            PrefixTree tree = getTree(context);
+            ParsePosition ppos = new ParsePosition(position);
+            String parsedZoneId = tree.match(text, ppos);
+            if (parsedZoneId == null) {
+                if (context.charEquals(nextChar, 'Z')) {
                     context.setParsed(ZoneOffset.UTC);
                     return position + 1;
                 }
                 return ~position;
             }
             context.setParsed(ZoneId.of(parsedZoneId));
-            return position + parsedZoneId.length();
+            return ppos.getIndex();
         }
 
+        private int parseOffsetBased(DateTimeParseContext context, CharSequence text, int position, OffsetIdPrinterParser parser) {
+            DateTimeParseContext newContext = context.copy();
+            int endPos = parser.parse(newContext, text, position);
+            if (endPos < 0) {
+                if (parser == OffsetIdPrinterParser.INSTANCE_ID_Z) {
+                    return ~position;
+                }
+                context.setParsed(ZoneOffset.UTC);
+                return position;
+            }
+            int offset = (int) newContext.getParsed(OFFSET_SECONDS).longValue();
+            ZoneId zone = ZoneOffset.ofTotalSeconds(offset);
+            context.setParsed(zone);
+            return endPos;
+        }
 
         @Override
         public String toString() {
@@ -2872,10 +3568,6 @@ public final class DateTimeFormatterBuilder {
         protected PrefixTree child;
         protected PrefixTree sibling;
 
-        static final int STRICT = 1;
-        static final int CASE_INSENSITIVE = 2;
-        static final int LENIENT = 3;
-
         private PrefixTree(String k, String v, PrefixTree child) {
             this.key = k;
             this.value = v;
@@ -2888,45 +3580,50 @@ public final class DateTimeFormatterBuilder {
         }
 
         /**
-         * Creates a new prefix parsing tree.
+         * Creates a new prefix parsing tree based on parse context.
          *
-         * @param type  the type of the prefix tree. One of the three supported
-         *  types, STRICT, CASE_INSENSITIVE and LENIENT
+         * @param context  the parse context
          * @return the tree, not null
          */
-        public static PrefixTree newTree(int type) {
-            PrefixTree tree;
-            switch(type) {
-                case STRICT:
-                    tree = new PrefixTree("", null, null);
-                    break;
-                case CASE_INSENSITIVE:
-                    tree = new CI("", null, null);
-                    break;
-                case LENIENT:
-                    tree = new LENIENT("", null, null);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unknown type");
+        public static PrefixTree newTree(DateTimeParseContext context) {
+            //if (!context.isStrict()) {
+            //    return new LENIENT("", null, null);
+            //}
+            if (context.isCaseSensitive()) {
+                return new PrefixTree("", null, null);
             }
-            return tree;
+            return new CI("", null, null);
         }
 
         /**
          * Creates a new prefix parsing tree.
          *
          * @param keys  a set of strings to build the prefix parsing tree, not null
-         * @param type  the type of the prefix tree. One of the three supported
-         *  types, STRICT, CASE_INSENSITIVE and LENIENT
+         * @param context  the parse context
          * @return the tree, not null
          */
-        public static  PrefixTree newTree(Set<String> keys, int type) {
-            PrefixTree tree = newTree(type);
+        public static  PrefixTree newTree(Set<String> keys, DateTimeParseContext context) {
+            PrefixTree tree = newTree(context);
             for (String k : keys) {
                 tree.add0(k, k);
             }
             return tree;
         }
+
+        /**
+         * Clone a copy of this tree
+         */
+        public PrefixTree copyTree() {
+            PrefixTree copy = new PrefixTree(key, value, null);
+            if (child != null) {
+                copy.child = child.copyTree();
+            }
+            if (sibling != null) {
+                copy.sibling = sibling.copyTree();
+            }
+            return copy;
+        }
+
 
         /**
          * Adds a pair of {key, value} into the prefix tree.
@@ -2958,10 +3655,10 @@ public final class DateTimeFormatterBuilder {
                     child = c;
                     return true;
                 }
-                // have an existing <key, value> already, keep it.
-                if (value != null) {
-                    return false;
-                }
+                // have an existing <key, value> already, overwrite it
+                // if (value != null) {
+                //    return false;
+                //}
                 value = v;
                 return true;
             }
@@ -3097,9 +3794,7 @@ public final class DateTimeFormatterBuilder {
 
             @Override
             protected boolean isEqual(char c1, char c2) {
-                return c1 == c2 ||
-                       Character.toUpperCase(c1) == Character.toUpperCase(c2) ||
-                       Character.toLowerCase(c1) == Character.toLowerCase(c2);
+                return DateTimeParseContext.charEqualsIgnoreCase(c1, c2);
             }
 
             @Override
@@ -3213,22 +3908,62 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
-            Chrono<?> chrono = context.getValue(Queries.chrono());
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
+            Chronology chrono = context.getValue(TemporalQuery.chronology());
             if (chrono == null) {
                 return false;
             }
             if (textStyle == null) {
                 buf.append(chrono.getId());
             } else {
-                buf.append(chrono.getId());  // TODO: Use symbols
+                buf.append(getChronologyName(chrono, context.getLocale()));
             }
             return true;
         }
 
         @Override
         public int parse(DateTimeParseContext context, CharSequence text, int position) {
-            return ~position;  // TODO, including case insensitive
+            // simple looping parser to find the chronology
+            if (position < 0 || position > text.length()) {
+                throw new IndexOutOfBoundsException();
+            }
+            Set<Chronology> chronos = Chronology.getAvailableChronologies();
+            Chronology bestMatch = null;
+            int matchLen = -1;
+            for (Chronology chrono : chronos) {
+                String name;
+                if (textStyle == null) {
+                    name = chrono.getId();
+                } else {
+                    name = getChronologyName(chrono, context.getLocale());
+                }
+                int nameLen = name.length();
+                if (nameLen > matchLen && context.subSequenceEquals(text, position, name, 0, nameLen)) {
+                    bestMatch = chrono;
+                    matchLen = nameLen;
+                }
+            }
+            if (bestMatch == null) {
+                return ~position;
+            }
+            context.setParsed(bestMatch);
+            return position + matchLen;
+        }
+
+        /**
+         * Returns the chronology name of the given chrono in the given locale
+         * if available, or the chronology Id otherwise. The regular ResourceBundle
+         * search path is used for looking up the chronology name.
+         *
+         * @param chrono  the chronology, not null
+         * @param locale  the locale, not null
+         * @return the chronology name of chrono in locale, or the id if no name is available
+         * @throws NullPointerException if chrono or locale is null
+         */
+        private String getChronologyName(Chronology chrono, Locale locale) {
+            String key = "calendarname." + chrono.getCalendarType();
+            String name = DateTimeTextProvider.getLocalizedResource(key, locale);
+            return name != null ? name : chrono.getId();
         }
     }
 
@@ -3237,53 +3972,82 @@ public final class DateTimeFormatterBuilder {
      * Prints or parses a localized pattern.
      */
     static final class LocalizedPrinterParser implements DateTimePrinterParser {
+        /** Cache of formatters. */
+        private static final ConcurrentMap<String, DateTimeFormatter> FORMATTER_CACHE = new ConcurrentHashMap<>(16, 0.75f, 2);
+
         private final FormatStyle dateStyle;
         private final FormatStyle timeStyle;
-        private final Chrono<?> chrono;
 
         /**
          * Constructor.
          *
          * @param dateStyle  the date style to use, may be null
          * @param timeStyle  the time style to use, may be null
-         * @param chrono  the chronology to use, not null
          */
-        LocalizedPrinterParser(FormatStyle dateStyle, FormatStyle timeStyle, Chrono<?> chrono) {
+        LocalizedPrinterParser(FormatStyle dateStyle, FormatStyle timeStyle) {
             // validated by caller
             this.dateStyle = dateStyle;
             this.timeStyle = timeStyle;
-            this.chrono = chrono;
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
-            return formatter(context.getLocale()).toPrinterParser(false).print(context, buf);
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
+            Chronology chrono = Chronology.from(context.getTemporal());
+            return formatter(context.getLocale(), chrono).toPrinterParser(false).format(context, buf);
         }
 
         @Override
         public int parse(DateTimeParseContext context, CharSequence text, int position) {
-            return formatter(context.getLocale()).toPrinterParser(false).parse(context, text, position);
+            Chronology chrono = context.getEffectiveChronology();
+            return formatter(context.getLocale(), chrono).toPrinterParser(false).parse(context, text, position);
         }
 
         /**
          * Gets the formatter to use.
+         * <p>
+         * The formatter will be the most appropriate to use for the date and time style in the locale.
+         * For example, some locales will use the month name while others will use the number.
          *
          * @param locale  the locale to use, not null
+         * @param chrono  the chronology to use, not null
          * @return the formatter, not null
          * @throws IllegalArgumentException if the formatter cannot be found
          */
-        private DateTimeFormatter formatter(Locale locale) {
-            return DateTimeFormatStyleProvider.getInstance()
-                                              .getFormatter(dateStyle, timeStyle, chrono, locale);
+        private DateTimeFormatter formatter(Locale locale, Chronology chrono) {
+            String key = chrono.getId() + '|' + locale.toString() + '|' + dateStyle + timeStyle;
+            DateTimeFormatter formatter = FORMATTER_CACHE.get(key);
+            if (formatter == null) {
+                LocaleResources lr = LocaleProviderAdapter.getResourceBundleBased().getLocaleResources(locale);
+                String pattern = lr.getJavaTimeDateTimePattern(
+                        convertStyle(timeStyle), convertStyle(dateStyle), chrono.getCalendarType());
+                formatter = new DateTimeFormatterBuilder().appendPattern(pattern).toFormatter(locale);
+                DateTimeFormatter old = FORMATTER_CACHE.putIfAbsent(key, formatter);
+                if (old != null) {
+                    formatter = old;
+                }
+            }
+            return formatter;
+        }
+
+        /**
+         * Converts the given FormatStyle to the java.text.DateFormat style.
+         *
+         * @param style  the FormatStyle style
+         * @return the int style, or -1 if style is null, indicating unrequired
+         */
+        private int convertStyle(FormatStyle style) {
+            if (style == null) {
+                return -1;
+            }
+            return style.ordinal();  // indices happen to align
         }
 
         @Override
         public String toString() {
             return "Localized(" + (dateStyle != null ? dateStyle : "") + "," +
-                (timeStyle != null ? timeStyle : "") + "," + chrono.getId() + ")";
+                (timeStyle != null ? timeStyle : "") + ")";
         }
     }
-
 
     //-----------------------------------------------------------------------
     /**
@@ -3309,8 +4073,8 @@ public final class DateTimeFormatterBuilder {
         }
 
         @Override
-        public boolean print(DateTimePrintContext context, StringBuilder buf) {
-            return printerParser(context.getLocale()).print(context, buf);
+        public boolean format(DateTimePrintContext context, StringBuilder buf) {
+            return printerParser(context.getLocale()).format(context, buf);
         }
 
         @Override
@@ -3329,14 +4093,23 @@ public final class DateTimeFormatterBuilder {
             WeekFields weekDef = WeekFields.of(locale);
             TemporalField field = null;
             switch (chr) {
+                case 'Y':
+                    field = weekDef.weekBasedYear();
+                    if (count == 2) {
+                        return new ReducedPrinterParser(field, 2, 2000);
+                    } else {
+                        return new NumberPrinterParser(field, count, 19,
+                                (count < 4) ? SignStyle.NORMAL : SignStyle.EXCEEDS_PAD, -1);
+                    }
                 case 'e':
+                case 'c':
                     field = weekDef.dayOfWeek();
                     break;
                 case 'w':
-                    field = weekDef.weekOfMonth();
+                    field = weekDef.weekOfWeekBasedYear();
                     break;
                 case 'W':
-                    field = weekDef.weekOfYear();
+                    field = weekDef.weekOfMonth();
                     break;
                 default:
                     throw new IllegalStateException("unreachable");
@@ -3346,10 +4119,40 @@ public final class DateTimeFormatterBuilder {
 
         @Override
         public String toString() {
-            return String.format("WeekBased(%c%d)", chr, count);
+            StringBuilder sb = new StringBuilder(30);
+            sb.append("Localized(");
+            if (chr == 'Y') {
+                if (count == 1) {
+                    sb.append("WeekBasedYear");
+                } else if (count == 2) {
+                    sb.append("ReducedValue(WeekBasedYear,2,2000)");
+                } else {
+                    sb.append("WeekBasedYear,").append(count).append(",")
+                            .append(19).append(",")
+                            .append((count < 4) ? SignStyle.NORMAL : SignStyle.EXCEEDS_PAD);
+                }
+            } else {
+                switch (chr) {
+                    case 'c':
+                    case 'e':
+                        sb.append("DayOfWeek");
+                        break;
+                    case 'w':
+                        sb.append("WeekOfWeekBasedYear");
+                        break;
+                    case 'W':
+                        sb.append("WeekOfMonth");
+                        break;
+                    default:
+                        break;
+                }
+                sb.append(",");
+                sb.append(count);
+            }
+            sb.append(")");
+            return sb.toString();
         }
     }
-
 
     //-------------------------------------------------------------------------
     /**
@@ -3361,5 +4164,4 @@ public final class DateTimeFormatterBuilder {
             return str1.length() == str2.length() ? str1.compareTo(str2) : str1.length() - str2.length();
         }
     };
-
 }

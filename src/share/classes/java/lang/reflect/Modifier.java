@@ -43,8 +43,7 @@ import sun.reflect.ReflectionFactory;
  * @author Nakul Saraiya
  * @author Kenneth Russell
  */
-public
-class Modifier {
+public class Modifier {
 
     /*
      * Bootstrapping protocol between java.lang and java.lang.reflect
@@ -233,7 +232,7 @@ class Modifier {
      * represented by {@code mod}
      */
     public static String toString(int mod) {
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         int len;
 
         if ((mod & PUBLIC) != 0)        sb.append("public ");
@@ -342,13 +341,13 @@ class Modifier {
     static final int SYNTHETIC = 0x00001000;
     static final int ANNOTATION  = 0x00002000;
     static final int ENUM      = 0x00004000;
-    static final int SYNTHESIZED = 0x00010000;
+    static final int MANDATED  = 0x00008000;
     static boolean isSynthetic(int mod) {
       return (mod & SYNTHETIC) != 0;
     }
 
-    static boolean isSynthesized(int mod) {
-      return (mod & SYNTHESIZED) != 0;
+    static boolean isMandated(int mod) {
+      return (mod & MANDATED) != 0;
     }
 
     /**
@@ -388,6 +387,12 @@ class Modifier {
         Modifier.PUBLIC         | Modifier.PROTECTED    | Modifier.PRIVATE |
         Modifier.STATIC         | Modifier.FINAL        | Modifier.TRANSIENT |
         Modifier.VOLATILE;
+
+    /**
+     *
+     */
+    static final int ACCESS_MODIFIERS =
+        Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
 
     /**
      * Return an {@code int} value OR-ing together the source language

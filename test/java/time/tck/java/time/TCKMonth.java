@@ -62,23 +62,22 @@ package tck.java.time;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static org.testng.Assert.assertEquals;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.Month;
+import java.time.chrono.IsoChronology;
 import java.time.format.TextStyle;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.ISOChrono;
 import java.time.temporal.JulianFields;
-import java.time.temporal.Queries;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalField;
+import java.time.temporal.TemporalQuery;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -117,7 +116,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     }
 
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_factory_int_singleton() {
         for (int i = 1; i <= MAX_LENGTH; i++) {
             Month test = Month.of(i);
@@ -125,28 +124,28 @@ public class TCKMonth extends AbstractDateTimeTest {
         }
     }
 
-    @Test(expectedExceptions=DateTimeException.class, groups={"tck"})
+    @Test(expectedExceptions=DateTimeException.class)
     public void test_factory_int_tooLow() {
         Month.of(0);
     }
 
-    @Test(expectedExceptions=DateTimeException.class, groups={"tck"})
+    @Test(expectedExceptions=DateTimeException.class)
     public void test_factory_int_tooHigh() {
         Month.of(13);
     }
 
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_factory_CalendricalObject() {
         assertEquals(Month.from(LocalDate.of(2011, 6, 6)), Month.JUNE);
     }
 
-    @Test(expectedExceptions=DateTimeException.class, groups={"tck"})
+    @Test(expectedExceptions=DateTimeException.class)
     public void test_factory_CalendricalObject_invalid_noDerive() {
         Month.from(LocalTime.of(12, 30));
     }
 
-    @Test(expectedExceptions=NullPointerException.class, groups={"tck"})
+    @Test(expectedExceptions=NullPointerException.class)
     public void test_factory_CalendricalObject_null() {
         Month.from((TemporalAccessor) null);
     }
@@ -167,34 +166,27 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // query(TemporalQuery)
     //-----------------------------------------------------------------------
-    @Test
-    public void test_query_chrono() {
-        assertEquals(Month.JUNE.query(Queries.chrono()), ISOChrono.INSTANCE);
-        assertEquals(Queries.chrono().queryFrom(Month.JUNE), ISOChrono.INSTANCE);
+    @DataProvider(name="query")
+    Object[][] data_query() {
+        return new Object[][] {
+                {Month.JUNE, TemporalQuery.chronology(), IsoChronology.INSTANCE},
+                {Month.JUNE, TemporalQuery.zoneId(), null},
+                {Month.JUNE, TemporalQuery.precision(), ChronoUnit.MONTHS},
+                {Month.JUNE, TemporalQuery.zone(), null},
+                {Month.JUNE, TemporalQuery.offset(), null},
+                {Month.JUNE, TemporalQuery.localDate(), null},
+                {Month.JUNE, TemporalQuery.localTime(), null},
+        };
     }
 
-    @Test
-    public void test_query_zoneId() {
-        assertEquals(Month.JUNE.query(Queries.zoneId()), null);
-        assertEquals(Queries.zoneId().queryFrom(Month.JUNE), null);
+    @Test(dataProvider="query")
+    public <T> void test_query(TemporalAccessor temporal, TemporalQuery<T> query, T expected) {
+        assertEquals(temporal.query(query), expected);
     }
 
-    @Test
-    public void test_query_precision() {
-        assertEquals(Month.JUNE.query(Queries.precision()), ChronoUnit.MONTHS);
-        assertEquals(Queries.precision().queryFrom(Month.JUNE), ChronoUnit.MONTHS);
-    }
-
-    @Test
-    public void test_query_offset() {
-        assertEquals(Month.JUNE.query(Queries.offset()), null);
-        assertEquals(Queries.offset().queryFrom(Month.JUNE), null);
-    }
-
-    @Test
-    public void test_query_zone() {
-        assertEquals(Month.JUNE.query(Queries.zone()), null);
-        assertEquals(Queries.zone().queryFrom(Month.JUNE), null);
+    @Test(dataProvider="query")
+    public <T> void test_queryFrom(TemporalAccessor temporal, TemporalQuery<T> query, T expected) {
+        assertEquals(query.queryFrom(temporal), expected);
     }
 
     @Test(expectedExceptions=NullPointerException.class)
@@ -205,19 +197,19 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // getText()
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_getText() {
-        assertEquals(Month.JANUARY.getText(TextStyle.SHORT, Locale.US), "Jan");
+        assertEquals(Month.JANUARY.getDisplayName(TextStyle.SHORT, Locale.US), "Jan");
     }
 
-    @Test(expectedExceptions = NullPointerException.class, groups={"tck"})
+    @Test(expectedExceptions = NullPointerException.class)
     public void test_getText_nullStyle() {
-        Month.JANUARY.getText(null, Locale.US);
+        Month.JANUARY.getDisplayName(null, Locale.US);
     }
 
-    @Test(expectedExceptions = NullPointerException.class, groups={"tck"})
+    @Test(expectedExceptions = NullPointerException.class)
     public void test_getText_nullLocale() {
-        Month.JANUARY.getText(TextStyle.FULL, null);
+        Month.JANUARY.getDisplayName(TextStyle.FULL, null);
     }
 
     //-----------------------------------------------------------------------
@@ -282,7 +274,7 @@ public class TCKMonth extends AbstractDateTimeTest {
         };
     }
 
-    @Test(dataProvider="plus", groups={"tck"})
+    @Test(dataProvider="plus")
     public void test_plus_long(int base, long amount, int expected) {
         assertEquals(Month.of(base).plus(amount), Month.of(expected));
     }
@@ -323,7 +315,7 @@ public class TCKMonth extends AbstractDateTimeTest {
         };
     }
 
-    @Test(dataProvider="minus", groups={"tck"})
+    @Test(dataProvider="minus")
     public void test_minus_long(int base, long amount, int expected) {
         assertEquals(Month.of(base).minus(amount), Month.of(expected));
     }
@@ -331,7 +323,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // length(boolean)
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_length_boolean_notLeapYear() {
         assertEquals(Month.JANUARY.length(false), 31);
         assertEquals(Month.FEBRUARY.length(false), 28);
@@ -347,7 +339,7 @@ public class TCKMonth extends AbstractDateTimeTest {
         assertEquals(Month.DECEMBER.length(false), 31);
     }
 
-    @Test(groups={"tck"})
+    @Test
     public void test_length_boolean_leapYear() {
         assertEquals(Month.JANUARY.length(true), 31);
         assertEquals(Month.FEBRUARY.length(true), 29);
@@ -366,7 +358,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // minLength()
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_minLength() {
         assertEquals(Month.JANUARY.minLength(), 31);
         assertEquals(Month.FEBRUARY.minLength(), 28);
@@ -385,7 +377,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // maxLength()
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_maxLength() {
         assertEquals(Month.JANUARY.maxLength(), 31);
         assertEquals(Month.FEBRUARY.maxLength(), 29);
@@ -404,7 +396,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // firstDayOfYear(boolean)
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_firstDayOfYear_notLeapYear() {
         assertEquals(Month.JANUARY.firstDayOfYear(false), 1);
         assertEquals(Month.FEBRUARY.firstDayOfYear(false), 1 + 31);
@@ -420,7 +412,7 @@ public class TCKMonth extends AbstractDateTimeTest {
         assertEquals(Month.DECEMBER.firstDayOfYear(false), 1 + 31 + 28 + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30);
     }
 
-    @Test(groups={"tck"})
+    @Test
     public void test_firstDayOfYear_leapYear() {
         assertEquals(Month.JANUARY.firstDayOfYear(true), 1);
         assertEquals(Month.FEBRUARY.firstDayOfYear(true), 1 + 31);
@@ -439,7 +431,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // firstMonthOfQuarter()
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_firstMonthOfQuarter() {
         assertEquals(Month.JANUARY.firstMonthOfQuarter(), Month.JANUARY);
         assertEquals(Month.FEBRUARY.firstMonthOfQuarter(), Month.JANUARY);
@@ -458,7 +450,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // toString()
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_toString() {
         assertEquals(Month.JANUARY.toString(), "JANUARY");
         assertEquals(Month.FEBRUARY.toString(), "FEBRUARY");
@@ -477,7 +469,7 @@ public class TCKMonth extends AbstractDateTimeTest {
     //-----------------------------------------------------------------------
     // generated methods
     //-----------------------------------------------------------------------
-    @Test(groups={"tck"})
+    @Test
     public void test_enum() {
         assertEquals(Month.valueOf("JANUARY"), Month.JANUARY);
         assertEquals(Month.values()[0], Month.JANUARY);

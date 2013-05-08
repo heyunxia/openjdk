@@ -50,7 +50,7 @@ public
 class Main {
     String program;
     PrintStream out, err;
-    String fname, mname, ename;
+    String fname, mname, ename, pname;
     String zname = "";
     String moduleid;
     String[] files;
@@ -81,6 +81,9 @@ class Main {
 
     static final String MANIFEST_DIR = "META-INF/";
     static final String VERSION = "1.0";
+
+    // valid values for Profile attribute
+    private static final String[] PROFILES = { "compact1", "compact2", "compact3" };
 
     private static ResourceBundle rsrc;
 
@@ -178,6 +181,14 @@ class Main {
                     if (ename != null) {
                         addMainClass(manifest, ename);
                     }
+                    if (pname != null) {
+                        if (!addProfileName(manifest, pname)) {
+                            if (in != null) {
+                                in.close();
+                            }
+                            return false;
+                        }
+                    }
                 }
                 OutputStream out;
                 if (fname != null) {
@@ -225,7 +236,6 @@ class Main {
                     out = new FileOutputStream(FileDescriptor.out);
                     vflag = false;
                 }
-
                 InputStream manifest = (!Mflag && (mname != null)) ?
                     (new FileInputStream(mname)) : null;
                 expand(null, files, true);
@@ -372,6 +382,9 @@ class Main {
                 case 'e':
                     ename = args[count++];
                     break;
+                case 'p':
+                     pname = args[count++];
+                     break;
                 case 'I':
                     moduleid = args[count++];
                     break;
@@ -424,7 +437,7 @@ class Main {
             usageError();
             return false;
         } else if (uflag) {
-            if ((mname != null) || (ename != null) || (moduleid != null)) {
+            if ((mname != null) || (ename != null) || (pname != null) || (moduleid != null)) {
                 /* just want to update the manifest */
                 return true;
             } else {
@@ -661,7 +674,7 @@ class Main {
                     // the existing manifest entry.  JarInputStream
                     // only creates a Manifest if it's the first entry;
                     // otherwise, it treats it as an ordinary ZipEntry.
-                    if (newManifest != null || ename != null) {
+                    if (newManifest != null || ename != null || pname != null) {
                         updateManifest(mf, zos);
                     } else {
                         writeManifest(mf, zos, e.getTime());
@@ -761,7 +774,7 @@ class Main {
         zos.closeEntry();
     }
 
-    private void updateManifest(Manifest m, ZipOutputStream zos)
+    private boolean updateManifest(Manifest m, ZipOutputStream zos)
         throws IOException
     {
         addVersion(m);
@@ -769,10 +782,16 @@ class Main {
         if (ename != null) {
             addMainClass(m, ename);
         }
+        if (pname != null) {
+            if (!addProfileName(m, pname)) {
+                return false;
+            }
+        }
         writeManifest(m, zos, System.currentTimeMillis());
         if (vflag) {
             output(getMsg("out.update.manifest"));
         }
+        return true;
     }
 
     /**
@@ -850,6 +869,28 @@ class Main {
 
         // overrides any existing Main-Class attribute
         global.put(Attributes.Name.MAIN_CLASS, mainApp);
+    }
+
+    private boolean addProfileName(Manifest m, String profile) {
+        // check profile name
+        boolean found = false;
+        int i = 0;
+        while (i < PROFILES.length) {
+            if (profile.equals(PROFILES[i])) {
+                found = true;
+                break;
+            }
+            i++;
+        }
+        if (!found) {
+            error(formatMsg("error.bad.pvalue", profile));
+            return false;
+        }
+
+        // overrides any existing Profile attribute
+        Attributes global = m.getMainAttributes();
+        global.put(Attributes.Name.PROFILE, profile);
+        return true;
     }
 
     // Returns the entry point if set; otherwise the Main-Class

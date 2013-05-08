@@ -46,10 +46,6 @@ include GendataFontConfig.gmk
 GENDATA += $(GENDATA_FONT_CONFIG)
 SUBMODULES_COPY += $(GENDATA_SUBMODULES_CONFIGS)
 
-include GendataTimeZone.gmk
-GENDATA += $(GENDATA_TIMEZONE)
-SUBMODULES_COPY += $(GENDATA_TIMEZONE_SUBMODULES)
-
 include GendataTZDB.gmk
 GENDATA += $(GENDATA_TZDB)
 
@@ -78,7 +74,7 @@ $(GENDATA_CURDATA): $(JDK_TOPDIR)/src/share/classes/java/util/CurrencyData.prope
 	$(CHMOD) 444 $@
 
 $(SUBMODULES_DIR)/base/etc/currency.data: $(GENDATA_CURDATA)
-	$(install-file)
+	$(call install-file)
 
 GENDATA += $(GENDATA_CURDATA)
 SUBMODULES_COPY += $(SUBMODULES_DIR)/base/etc/currency.data

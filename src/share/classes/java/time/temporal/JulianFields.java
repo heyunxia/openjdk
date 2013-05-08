@@ -65,11 +65,10 @@ import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.FOREVER;
 
-import java.io.InvalidObjectException;
-import java.io.Serializable;
 import java.time.DateTimeException;
-import java.time.LocalDate;
-import java.time.format.DateTimeBuilder;
+import java.time.format.ResolverStyle;
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * A set of date fields that provide access to Julian Days.
@@ -77,6 +76,10 @@ import java.time.format.DateTimeBuilder;
  * The Julian Day is a standard way of expressing date and time commonly used in the scientific community.
  * It is expressed as a decimal number of whole days where days start at midday.
  * This class represents variations on Julian Days that count whole days from midnight.
+ * <p>
+ * The fields are implemented relative to {@link ChronoField#EPOCH_DAY EPOCH_DAY}.
+ * The fields are supported, and can be queried and set if {@code EPOCH_DAY} is available.
+ * The fields work with all chronologies.
  *
  * <h3>Specification for implementors</h3>
  * This is an immutable and thread-safe class.
@@ -99,12 +102,17 @@ public final class JulianFields {
      * The field  has "JulianDay" as 'name', and 'DAYS' as 'baseUnit'.
      * The field always refers to the local date-time, ignoring the offset or zone.
      * <p>
-     * For date-times, 'JULIAN_DAY.doGet()' assumes the same value from
+     * For date-times, 'JULIAN_DAY.getFrom()' assumes the same value from
      * midnight until just before the next midnight.
-     * When 'JULIAN_DAY.doWith()' is applied to a date-time, the time of day portion remains unaltered.
-     * 'JULIAN_DAY.doWith()' and 'JULIAN_DAY.doGet()' only apply to {@code Temporal} objects that
+     * When 'JULIAN_DAY.adjustInto()' is applied to a date-time, the time of day portion remains unaltered.
+     * 'JULIAN_DAY.adjustInto()' and 'JULIAN_DAY.getFrom()' only apply to {@code Temporal} objects that
      * can be converted into {@link ChronoField#EPOCH_DAY}.
-     * A {@link DateTimeException} is thrown for any other type of object.
+     * An {@link UnsupportedTemporalTypeException} is thrown for any other type of object.
+     * <p>
+     * In the resolving phase of parsing, a date can be created from a Julian Day field.
+     * In {@linkplain ResolverStyle#STRICT strict mode} and {@linkplain ResolverStyle#SMART smart mode}
+     * the Julian Day value is validated against the range of valid values.
+     * In {@linkplain ResolverStyle#LENIENT lenient mode} no validation occurs.
      * <p>
      * <h3>Astronomical and Scientific Notes</h3>
      * The standard astronomical definition uses a fraction to indicate the time-of-day,
@@ -129,7 +137,7 @@ public final class JulianFields {
      * implementation always uses the Julian Day number for the local date,
      * regardless of the offset or time-zone.
      */
-    public static final TemporalField JULIAN_DAY = new Field("JulianDay", DAYS, FOREVER, JULIAN_DAY_OFFSET);
+    public static final TemporalField JULIAN_DAY = Field.JULIAN_DAY;
 
     /**
      * Modified Julian Day field.
@@ -140,14 +148,19 @@ public final class JulianFields {
      * Each Modified Julian Day runs from midnight to midnight.
      * The field always refers to the local date-time, ignoring the offset or zone.
      * <p>
-     * For date-times, 'MODIFIED_JULIAN_DAY.doGet()' assumes the same value from
+     * For date-times, 'MODIFIED_JULIAN_DAY.getFrom()' assumes the same value from
      * midnight until just before the next midnight.
-     * When 'MODIFIED_JULIAN_DAY.doWith()' is applied to a date-time, the time of day portion remains unaltered.
-     * 'MODIFIED_JULIAN_DAY.doWith()' and 'MODIFIED_JULIAN_DAY.doGet()' only apply to {@code Temporal} objects
+     * When 'MODIFIED_JULIAN_DAY.adjustInto()' is applied to a date-time, the time of day portion remains unaltered.
+     * 'MODIFIED_JULIAN_DAY.adjustInto()' and 'MODIFIED_JULIAN_DAY.getFrom()' only apply to {@code Temporal} objects
      * that can be converted into {@link ChronoField#EPOCH_DAY}.
-     * A {@link DateTimeException} is thrown for any other type of object.
+     * An {@link UnsupportedTemporalTypeException} is thrown for any other type of object.
      * <p>
      * This implementation is an integer version of MJD with the decimal part rounded to floor.
+     * <p>
+     * In the resolving phase of parsing, a date can be created from a Modified Julian Day field.
+     * In {@linkplain ResolverStyle#STRICT strict mode} and {@linkplain ResolverStyle#SMART smart mode}
+     * the Modified Julian Day value is validated against the range of valid values.
+     * In {@linkplain ResolverStyle#LENIENT lenient mode} no validation occurs.
      * <p>
      * <h3>Astronomical and Scientific Notes</h3>
      * <pre>
@@ -165,7 +178,7 @@ public final class JulianFields {
      * implementation always uses the Modified Julian Day for the local date,
      * regardless of the offset or time-zone.
      */
-    public static final TemporalField MODIFIED_JULIAN_DAY = new Field("ModifiedJulianDay", DAYS, FOREVER, 40587L);
+    public static final TemporalField MODIFIED_JULIAN_DAY = Field.MODIFIED_JULIAN_DAY;
 
     /**
      * Rata Die field.
@@ -173,14 +186,19 @@ public final class JulianFields {
      * Rata Die counts whole days continuously starting day 1 at midnight at the beginning of 0001-01-01 (ISO).
      * The field always refers to the local date-time, ignoring the offset or zone.
      * <p>
-     * For date-times, 'RATA_DIE.doGet()' assumes the same value from
+     * For date-times, 'RATA_DIE.getFrom()' assumes the same value from
      * midnight until just before the next midnight.
-     * When 'RATA_DIE.doWith()' is applied to a date-time, the time of day portion remains unaltered.
-     * 'MODIFIED_JULIAN_DAY.doWith()' and 'RATA_DIE.doGet()' only apply to {@code Temporal} objects
+     * When 'RATA_DIE.adjustInto()' is applied to a date-time, the time of day portion remains unaltered.
+     * 'RATA_DIE.adjustInto()' and 'RATA_DIE.getFrom()' only apply to {@code Temporal} objects
      * that can be converted into {@link ChronoField#EPOCH_DAY}.
-     * A {@link DateTimeException} is thrown for any other type of object.
+     * An {@link UnsupportedTemporalTypeException} is thrown for any other type of object.
+     * <p>
+     * In the resolving phase of parsing, a date can be created from a Rata Die field.
+     * In {@linkplain ResolverStyle#STRICT strict mode} and {@linkplain ResolverStyle#SMART smart mode}
+     * the Rata Die value is validated against the range of valid values.
+     * In {@linkplain ResolverStyle#LENIENT lenient mode} no validation occurs.
      */
-    public static final TemporalField RATA_DIE = new Field("RataDie", DAYS, FOREVER, 719163L);
+    public static final TemporalField RATA_DIE = Field.RATA_DIE;
 
     /**
      * Restricted constructor.
@@ -190,13 +208,16 @@ public final class JulianFields {
     }
 
     /**
-     * implementation of JulianFields.  Each instance is a singleton.
+     * Implementation of JulianFields.  Each instance is a singleton.
      */
-    private static class Field implements TemporalField, Serializable {
+    private static enum Field implements TemporalField {
+        JULIAN_DAY("JulianDay", DAYS, FOREVER, JULIAN_DAY_OFFSET),
+        MODIFIED_JULIAN_DAY("ModifiedJulianDay", DAYS, FOREVER, 40587L),
+        RATA_DIE("RataDie", DAYS, FOREVER, 719163L);
 
         private static final long serialVersionUID = -7501623920830201812L;
 
-        private final String name;
+        private final transient String name;
         private final transient TemporalUnit baseUnit;
         private final transient TemporalUnit rangeUnit;
         private final transient ValueRange range;
@@ -208,25 +229,6 @@ public final class JulianFields {
             this.rangeUnit = rangeUnit;
             this.range = ValueRange.of(-365243219162L + offset, 365241780471L + offset);
             this.offset = offset;
-        }
-
-
-        /**
-         * Resolve the object from the stream to the appropriate singleton.
-         * @return one of the singleton objects {@link #JULIAN_DAY},
-         *     {@link #MODIFIED_JULIAN_DAY}, or {@link #RATA_DIE}.
-         * @throws InvalidObjectException if the object in the stream is not one of the singletons.
-         */
-        private Object readResolve() throws InvalidObjectException {
-            if (JULIAN_DAY.getName().equals(name)) {
-                return JULIAN_DAY;
-            } else if (MODIFIED_JULIAN_DAY.getName().equals(name)) {
-                return MODIFIED_JULIAN_DAY;
-            } else if (RATA_DIE.getName().equals(name)) {
-                return RATA_DIE;
-            } else {
-                throw new InvalidObjectException("Not one of the singletons");
-            }
         }
 
         //-----------------------------------------------------------------------
@@ -246,31 +248,37 @@ public final class JulianFields {
         }
 
         @Override
+        public boolean isDateBased() {
+            return true;
+        }
+
+        @Override
         public ValueRange range() {
             return range;
         }
 
         //-----------------------------------------------------------------------
         @Override
-        public boolean doIsSupported(TemporalAccessor temporal) {
+        public boolean isSupportedBy(TemporalAccessor temporal) {
             return temporal.isSupported(EPOCH_DAY);
         }
 
         @Override
-        public ValueRange doRange(TemporalAccessor temporal) {
-            if (doIsSupported(temporal) == false) {
+        public ValueRange rangeRefinedBy(TemporalAccessor temporal) {
+            if (isSupportedBy(temporal) == false) {
                 throw new DateTimeException("Unsupported field: " + this);
             }
             return range();
         }
 
         @Override
-        public long doGet(TemporalAccessor temporal) {
+        public long getFrom(TemporalAccessor temporal) {
             return temporal.getLong(EPOCH_DAY) + offset;
         }
 
+        @SuppressWarnings("unchecked")
         @Override
-        public <R extends Temporal> R doWith(R temporal, long newValue) {
+        public <R extends Temporal> R adjustInto(R temporal, long newValue) {
             if (range().isValidValue(newValue) == false) {
                 throw new DateTimeException("Invalid value: " + name + " " + newValue);
             }
@@ -279,27 +287,21 @@ public final class JulianFields {
 
         //-----------------------------------------------------------------------
         @Override
-        public boolean resolve(DateTimeBuilder builder, long value) {
-            boolean changed = false;
-            changed = resolve0(JULIAN_DAY, builder, changed);
-            changed = resolve0(MODIFIED_JULIAN_DAY, builder, changed);
-            changed = resolve0(RATA_DIE, builder, changed);
-            return changed;
-        }
-
-        private boolean resolve0(TemporalField field, DateTimeBuilder builder, boolean changed) {
-            if (builder.containsFieldValue(field)) {
-                builder.addCalendrical(LocalDate.ofEpochDay(Math.subtractExact(builder.getFieldValue(JULIAN_DAY), JULIAN_DAY_OFFSET)));
-                builder.removeFieldValue(JULIAN_DAY);
-                changed = true;
+        public Map<TemporalField, Long> resolve(TemporalAccessor temporal, long value, ResolverStyle resolverStyle) {
+            long epochDay;
+            if (resolverStyle == ResolverStyle.LENIENT) {
+                epochDay = Math.subtractExact(value, offset);
+            } else {
+                range().checkValidValue(value, this);
+                epochDay = value - offset;
             }
-            return changed;
+            return Collections.<TemporalField, Long>singletonMap(EPOCH_DAY, epochDay);
         }
 
         //-----------------------------------------------------------------------
         @Override
         public String toString() {
-            return getName();
+            return name;
         }
     }
 }

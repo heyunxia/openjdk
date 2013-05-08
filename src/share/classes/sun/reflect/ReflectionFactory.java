@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,6 +28,7 @@ package sun.reflect;
 import java.lang.module.ModuleInfo;
 import java.lang.module.ModuleClassLoader;
 import java.lang.reflect.Field;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Module;
 import java.lang.reflect.Constructor;
@@ -323,6 +324,12 @@ public class ReflectionFactory {
         in Constructor.java for details. */
     public <T> Constructor<T> copyConstructor(Constructor<T> arg) {
         return langReflectAccess().copyConstructor(arg);
+    }
+
+    /** Gets the byte[] that encodes TypeAnnotations on an executable.
+     */
+    public byte[] getExecutableTypeAnnotationBytes(Executable ex) {
+        return langReflectAccess().getExecutableTypeAnnotationBytes(ex);
     }
 
     //--------------------------------------------------------------------------

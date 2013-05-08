@@ -407,6 +407,7 @@ module jdk.scripting {
     provides javax.script;
     include scripting;
     include scripting-rhino;
+    include nashorn;
 }
 
 // ## corba and jdbc depends on javax.transaction.

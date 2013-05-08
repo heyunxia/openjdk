@@ -25,6 +25,7 @@
 
 package java.lang;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.annotation.Annotation;
 import java.lang.module.ModuleClassLoader;
 import java.lang.module.ModuleNotPresentException;
@@ -32,6 +33,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Member;
 import java.lang.reflect.Field;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
@@ -39,6 +41,7 @@ import java.lang.reflect.Module;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.AnnotatedType;
 import java.lang.ref.SoftReference;
 import java.io.InputStream;
 import java.io.ObjectStreamField;
@@ -55,6 +58,7 @@ import java.util.HashMap;
 import java.util.Objects;
 import org.openjdk.jigsaw.Platform;
 import sun.misc.Unsafe;
+import sun.reflect.CallerSensitive;
 import sun.reflect.ConstantPool;
 import sun.reflect.Reflection;
 import sun.reflect.ReflectionFactory;
@@ -65,7 +69,9 @@ import sun.reflect.generics.repository.MethodRepository;
 import sun.reflect.generics.repository.ConstructorRepository;
 import sun.reflect.generics.scope.ClassScope;
 import sun.security.util.SecurityConstants;
+import java.lang.reflect.Proxy;
 import sun.reflect.annotation.*;
+import sun.reflect.misc.ReflectUtil;
 
 /**
  * Instances of the class {@code Class} represent classes and
@@ -112,12 +118,10 @@ import sun.reflect.annotation.*;
  * @see     java.lang.ClassLoader#defineClass(byte[], int, int)
  * @since   JDK1.0
  */
-public final class Class<T>
-    implements java.io.Serializable,
-               java.lang.reflect.GenericDeclaration,
-               java.lang.reflect.Type,
-               java.lang.reflect.AnnotatedElement
-{
+public final class Class<T> implements java.io.Serializable,
+                              java.lang.reflect.GenericDeclaration,
+                              java.lang.reflect.Type,
+                              java.lang.reflect.AnnotatedElement {
     private static final int ANNOTATION= 0x00002000;
     private static final int ENUM      = 0x00004000;
     private static final int SYNTHETIC = 0x00001000;
@@ -150,6 +154,75 @@ public final class Class<T>
             + getName();
     }
 
+    /**
+     * Returns a string describing this {@code Class}, including
+     * information about modifiers and type parameters.
+     *
+     * The string is formatted as a list of type modifiers, if any,
+     * followed by the kind of type (empty string for primitive types
+     * and {@code class}, {@code enum}, {@code interface}, or {@code
+     * &#64;interface}, as appropriate), followed by the type's name,
+     * followed by an angle-bracketed comma-separated list of the
+     * type's type parameters, if any.
+     *
+     * A space is used to separate modifiers from one another and to
+     * separate any modifiers from the kind of type. The modifiers
+     * occur in canonical order. If there are no type parameters, the
+     * type parameter list is elided.
+     *
+     * <p>Note that since information about the runtime representation
+     * of a type is being generated, modifiers not present on the
+     * originating source code or illegal on the originating source
+     * code may be present.
+     *
+     * @return a string describing this {@code Class}, including
+     * information about modifiers and type parameters
+     *
+     * @since 1.8
+     */
+    public String toGenericString() {
+        if (isPrimitive()) {
+            return toString();
+        } else {
+            StringBuilder sb = new StringBuilder();
+
+            // Class modifiers are a superset of interface modifiers
+            int modifiers = getModifiers() & Modifier.classModifiers();
+            if (modifiers != 0) {
+                sb.append(Modifier.toString(modifiers));
+                sb.append(' ');
+            }
+
+            if (isAnnotation()) {
+                sb.append('@');
+            }
+            if (isInterface()) { // Note: all annotation types are interfaces
+                sb.append("interface");
+            } else {
+                if (isEnum())
+                    sb.append("enum");
+                else
+                    sb.append("class");
+            }
+            sb.append(' ');
+            sb.append(getName());
+
+            TypeVariable<?>[] typeparms = getTypeParameters();
+            if (typeparms.length > 0) {
+                boolean first = true;
+                sb.append('<');
+                for(TypeVariable<?> typeparm: typeparms) {
+                    if (!first)
+                        sb.append(',');
+                    sb.append(typeparm.getTypeName());
+                    first = false;
+                }
+                sb.append('>');
+            }
+
+            return sb.toString();
+        }
+    }
 
     /**
      * Returns the {@code Class} object associated with the class or
@@ -182,9 +255,11 @@ public final class Class<T>
      *            by this method fails
      * @exception ClassNotFoundException if the class cannot be located
      */
+    @CallerSensitive
     public static Class<?> forName(String className)
                 throws ClassNotFoundException {
-        return forName0(className, true, ClassLoader.getCallerClassLoader());
+        return forName0(className, true,
+                        ClassLoader.getClassLoader(Reflection.getCallerClass()));
     }
 
 
@@ -249,15 +324,16 @@ public final class Class<T>
      * @see       java.lang.ClassLoader
      * @since     1.2
      */
+    @CallerSensitive
     public static Class<?> forName(String name, boolean initialize,
                                    ClassLoader loader)
         throws ClassNotFoundException
     {
-        if (loader == null) {
+        if (sun.misc.VM.isSystemDomainLoader(loader)) {
             SecurityManager sm = System.getSecurityManager();
             if (sm != null) {
-                ClassLoader ccl = ClassLoader.getCallerClassLoader();
-                if (ccl != null) {
+                ClassLoader ccl = ClassLoader.getClassLoader(Reflection.getCallerClass());
+                if (!sun.misc.VM.isSystemDomainLoader(ccl)) {
                     sm.checkPermission(
                         SecurityConstants.GET_CLASSLOADER_PERMISSION);
                 }
@@ -318,18 +394,14 @@ public final class Class<T>
      *             </ul>
      *
      */
+    @CallerSensitive
     public T newInstance()
         throws InstantiationException, IllegalAccessException
     {
         if (System.getSecurityManager() != null) {
-            checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+            checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), false);
         }
-        return newInstance0();
-    }
 
-    private T newInstance0()
-        throws InstantiationException, IllegalAccessException
-    {
         // NOTE: the following code may not be strictly correct under
         // the current Java memory model.
 
@@ -364,7 +436,7 @@ public final class Class<T>
         // Security check (same as in java.lang.reflect.Constructor)
         int modifiers = tmpConstructor.getModifiers();
         if (!Reflection.quickCheckMemberAccess(this, modifiers)) {
-            Class<?> caller = Reflection.getCallerClass(3);
+            Class<?> caller = Reflection.getCallerClass();
             if (newInstanceCallerCache != caller) {
                 Reflection.ensureMemberAccess(caller, this, null, modifiers);
                 newInstanceCallerCache = caller;
@@ -606,6 +678,7 @@ public final class Class<T>
      * @see SecurityManager#checkPermission
      * @see java.lang.RuntimePermission
      */
+    @CallerSensitive
     public ClassLoader getClassLoader() {
         ClassLoader cl = getClassLoader0();
         if (cl == null) {
@@ -619,13 +692,10 @@ public final class Class<T>
         }
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
-            ClassLoader ccl = ClassLoader.getCallerClassLoader();
             // ## In module mode, there is no parent-child relationship.
             // ## A module loader can only access itself. Will need to
             // ## evaluate its potential incompatibility risk.
-            if (ClassLoader.needsClassLoaderPermissionCheck(ccl, cl)) {
-                sm.checkPermission(SecurityConstants.GET_CLASSLOADER_PERMISSION);
-            }
+            ClassLoader.checkClassLoaderPermission(cl, Reflection.getCallerClass());
         }
         return cl;
     }
@@ -1173,6 +1243,32 @@ public final class Class<T>
     }
 
     /**
+     * Return an informative string for the name of this type.
+     *
+     * @return an informative string for the name of this type
+     * @since 1.8
+     */
+    public String getTypeName() {
+        if (isArray()) {
+            try {
+                Class<?> cl = this;
+                int dimensions = 0;
+                while (cl.isArray()) {
+                    dimensions++;
+                    cl = cl.getComponentType();
+                }
+                StringBuilder sb = new StringBuilder();
+                sb.append(cl.getName());
+                for (int i = 0; i < dimensions; i++) {
+                    sb.append("[]");
+                }
+                return sb.toString();
+            } catch (Throwable e) { /*FALLTHRU*/ }
+        }
+        return getName();
+    }
+
+    /**
      * Character.isDigit answers {@code true} to some non-ascii
      * digits.  This one does not.
      */
@@ -1307,11 +1403,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Class<?>[] getClasses() {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), false);
 
         // Privileged so this implementation can look at DECLARED classes,
         // something the caller might not have privilege to do.  The code here
@@ -1382,11 +1476,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Field[] getFields() throws SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), true);
         return copyFields(privateGetPublicFields(null));
     }
 
@@ -1433,11 +1525,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Method[] getMethods() throws SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), true);
         return copyMethods(privateGetPublicMethods());
     }
 
@@ -1482,11 +1572,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Constructor<?>[] getConstructors() throws SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), true);
         return copyConstructors(privateGetDeclaredConstructors(true));
     }
 
@@ -1540,12 +1628,10 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Field getField(String name)
         throws NoSuchFieldException, SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), true);
         Field field = getField0(name);
         if (field == null) {
             throw new NoSuchFieldException(name);
@@ -1625,12 +1711,10 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Method getMethod(String name, Class<?>... parameterTypes)
         throws NoSuchMethodException, SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), true);
         Method method = getMethod0(name, parameterTypes);
         if (method == null) {
             throw new NoSuchMethodException(getName() + "." + name + argumentTypesToString(parameterTypes));
@@ -1679,12 +1763,10 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Constructor<T> getConstructor(Class<?>... parameterTypes)
         throws NoSuchMethodException, SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.PUBLIC, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.PUBLIC, Reflection.getCallerClass(), true);
         return getConstructor0(parameterTypes, Member.PUBLIC);
     }
 
@@ -1722,11 +1804,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Class<?>[] getDeclaredClasses() throws SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.DECLARED, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.DECLARED, Reflection.getCallerClass(), false);
         return getDeclaredClasses0();
     }
 
@@ -1766,11 +1846,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Field[] getDeclaredFields() throws SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.DECLARED, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.DECLARED, Reflection.getCallerClass(), true);
         return copyFields(privateGetDeclaredFields(false));
     }
 
@@ -1814,11 +1892,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Method[] getDeclaredMethods() throws SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.DECLARED, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.DECLARED, Reflection.getCallerClass(), true);
         return copyMethods(privateGetDeclaredMethods(false));
     }
 
@@ -1859,11 +1935,9 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Constructor<?>[] getDeclaredConstructors() throws SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.DECLARED, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.DECLARED, Reflection.getCallerClass(), true);
         return copyConstructors(privateGetDeclaredConstructors(false));
     }
 
@@ -1902,12 +1976,10 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Field getDeclaredField(String name)
         throws NoSuchFieldException, SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.DECLARED, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.DECLARED, Reflection.getCallerClass(), true);
         Field field = searchFields(privateGetDeclaredFields(false), name);
         if (field == null) {
             throw new NoSuchFieldException(name);
@@ -1957,12 +2029,10 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Method getDeclaredMethod(String name, Class<?>... parameterTypes)
         throws NoSuchMethodException, SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.DECLARED, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.DECLARED, Reflection.getCallerClass(), true);
         Method method = searchMethods(privateGetDeclaredMethods(false), name, parameterTypes);
         if (method == null) {
             throw new NoSuchMethodException(getName() + "." + name + argumentTypesToString(parameterTypes));
@@ -2007,12 +2077,10 @@ public final class Class<T>
      *
      * @since JDK1.1
      */
+    @CallerSensitive
     public Constructor<T> getDeclaredConstructor(Class<?>... parameterTypes)
         throws NoSuchMethodException, SecurityException {
-        // be very careful not to change the stack depth of this
-        // checkMemberAccess call for security reasons
-        // see java.lang.SecurityManager.checkMemberAccess
-        checkMemberAccess(Member.DECLARED, ClassLoader.getCallerClassLoader());
+        checkMemberAccess(Member.DECLARED, Reflection.getCallerClass(), true);
         return getConstructor0(parameterTypes, Member.DECLARED);
     }
 
@@ -2170,29 +2238,54 @@ public final class Class<T>
      */
     static native Class<?> getPrimitiveClass(String name);
 
+    private static boolean isCheckMemberAccessOverridden(SecurityManager smgr) {
+        if (smgr.getClass() == SecurityManager.class) return false;
+
+        Class<?>[] paramTypes = new Class<?>[] {Class.class, int.class};
+        return smgr.getClass().getMethod0("checkMemberAccess", paramTypes).
+                getDeclaringClass() != SecurityManager.class;
+    }
 
     /*
      * Check if client is allowed to access members.  If access is denied,
      * throw a SecurityException.
      *
-     * Be very careful not to change the stack depth of this checkMemberAccess
-     * call for security reasons.
-     * See java.lang.SecurityManager.checkMemberAccess.
-     *
      * <p> Default policy: allow all clients access with normal Java access
      * control.
      */
-    private void checkMemberAccess(int which, ClassLoader ccl) {
-        SecurityManager s = System.getSecurityManager();
+    private void checkMemberAccess(int which, Class<?> caller, boolean checkProxyInterfaces) {
+        final SecurityManager s = System.getSecurityManager();
         if (s != null) {
-            s.checkMemberAccess(this, which);
-            ClassLoader cl = getClassLoader0();
-            if (sun.reflect.misc.ReflectUtil.needsPackageAccessCheck(ccl, cl)) {
+            final ClassLoader ccl = ClassLoader.getClassLoader(caller);
+            final ClassLoader cl = getClassLoader0();
+            if (!isCheckMemberAccessOverridden(s)) {
+                // Inlined SecurityManager.checkMemberAccess
+                if (which != Member.PUBLIC) {
+                    if (ccl != cl) {
+                        s.checkPermission(SecurityConstants.CHECK_MEMBER_ACCESS_PERMISSION);
+                    }
+                }
+            } else {
+                // Don't refactor; otherwise break the stack depth for
+                // checkMemberAccess of subclasses of SecurityManager as specified.
+                s.checkMemberAccess(this, which);
+            }
+
+
+            if (ReflectUtil.needsPackageAccessCheck(ccl, cl)) {
                 String name = this.getName();
                 int i = name.lastIndexOf('.');
                 if (i != -1) {
-                    s.checkPackageAccess(name.substring(0, i));
+                    // skip the package access check on a proxy class in default proxy package
+                    String pkg = name.substring(0, i);
+                    if (!Proxy.isProxyClass(this) || !pkg.equals(ReflectUtil.PROXY_PACKAGE)) {
+                        s.checkPackageAccess(pkg);
+                    }
                 }
+            }
+            // check package access on the proxy interfaces
+            if (checkProxyInterfaces && Proxy.isProxyClass(this)) {
+                ReflectUtil.checkProxyPackageAccess(ccl, this.getInterfaces());
             }
         }
     }
@@ -2339,6 +2432,11 @@ public final class Class<T>
 
     // Annotations handling
     private native byte[] getRawAnnotations();
+    // Since 1.8
+    native byte[] getRawTypeAnnotations();
+    static byte[] getExecutableTypeAnnotationBytes(Executable ex) {
+        return getReflectionFactory().getExecutableTypeAnnotationBytes(ex);
+    }
 
     native ConstantPool getConstantPool();
 
@@ -3082,28 +3180,30 @@ public final class Class<T>
      * @throws NullPointerException {@inheritDoc}
      * @since 1.5
      */
+    @SuppressWarnings("unchecked")
     public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
         initAnnotationsIfNecessary();
-        return AnnotationSupport.getOneAnnotation(annotations, annotationClass);
+        return (A) annotations.get(annotationClass);
     }
 
     /**
+     * {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      * @since 1.5
      */
+    @Override
     public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-        Objects.requireNonNull(annotationClass);
-
-        return getAnnotation(annotationClass) != null;
+        return AnnotatedElement.super.isAnnotationPresent(annotationClass);
     }
 
     /**
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
      */
-    public <A extends Annotation> A[] getAnnotations(Class<A> annotationClass) {
+    @Override
+    public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
         initAnnotationsIfNecessary();
@@ -3115,25 +3215,28 @@ public final class Class<T>
      */
     public Annotation[] getAnnotations() {
         initAnnotationsIfNecessary();
-        return AnnotationSupport.unpackToArray(annotations);
+        return AnnotationParser.toArray(annotations);
     }
 
     /**
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
      */
+    @Override
+    @SuppressWarnings("unchecked")
     public <A extends Annotation> A getDeclaredAnnotation(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
         initAnnotationsIfNecessary();
-        return AnnotationSupport.getOneAnnotation(declaredAnnotations, annotationClass);
+        return (A) declaredAnnotations.get(annotationClass);
     }
 
     /**
      * @throws NullPointerException {@inheritDoc}
      * @since 1.8
      */
-    public <A extends Annotation> A[] getDeclaredAnnotations(Class<A> annotationClass) {
+    @Override
+    public <A extends Annotation> A[] getDeclaredAnnotationsByType(Class<A> annotationClass) {
         Objects.requireNonNull(annotationClass);
 
         initAnnotationsIfNecessary();
@@ -3145,17 +3248,7 @@ public final class Class<T>
      */
     public Annotation[] getDeclaredAnnotations()  {
         initAnnotationsIfNecessary();
-        return AnnotationSupport.unpackToArray(declaredAnnotations);
-    }
-
-    /** Returns one "directly" present annotation or null */
-    <A extends Annotation> A getDirectDeclaredAnnotation(Class<A> annotationClass) {
-        Objects.requireNonNull(annotationClass);
-
-        initAnnotationsIfNecessary();
-        @SuppressWarnings("unchecked") // TODO check safe
-        A ret = (A)declaredAnnotations.get(annotationClass);
-        return ret;
+        return AnnotationParser.toArray(declaredAnnotations);
     }
 
     // Annotations cache
@@ -3210,6 +3303,55 @@ public final class Class<T>
      * Maintained by the ClassValue class.
      */
     transient ClassValue.ClassValueMap classValueMap;
+
+    /**
+     * Returns an AnnotatedType object that represents the use of a type to specify
+     * the superclass of the entity represented by this Class. (The <em>use</em> of type
+     * Foo to specify the superclass in '... extends Foo' is distinct from the
+     * <em>declaration</em> of type Foo.)
+     *
+     * If this Class represents a class type whose declaration does not explicitly
+     * indicate an annotated superclass, the return value is null.
+     *
+     * If this Class represents either the Object class, an interface type, an
+     * array type, a primitive type, or void, the return value is null.
+     *
+     * @since 1.8
+     */
+    public AnnotatedType getAnnotatedSuperclass() {
+         return TypeAnnotationParser.buildAnnotatedSuperclass(getRawTypeAnnotations(), getConstantPool(), this);
+}
+
+    /**
+     * Returns an array of AnnotatedType objects that represent the use of types to
+     * specify superinterfaces of the entity represented by this Class. (The <em>use</em>
+     * of type Foo to specify a superinterface in '... implements Foo' is
+     * distinct from the <em>declaration</em> of type Foo.)
+     *
+     * If this Class represents a class, the return value is an array
+     * containing objects representing the uses of interface types to specify
+     * interfaces implemented by the class. The order of the objects in the
+     * array corresponds to the order of the interface types used in the
+     * 'implements' clause of the declaration of this Class.
+     *
+     * If this Class represents an interface, the return value is an array
+     * containing objects representing the uses of interface types to specify
+     * interfaces directly extended by the interface. The order of the objects in
+     * the array corresponds to the order of the interface types used in the
+     * 'extends' clause of the declaration of this Class.
+     *
+     * If this Class represents a class or interface whose declaration does not
+     * explicitly indicate any annotated superinterfaces, the return value is an
+     * array of length 0.
+     *
+     * If this Class represents either the Object class, an array type, a
+     * primitive type, or void, the return value is an array of length 0.
+     *
+     * @since 1.8
+     */
+    public AnnotatedType[] getAnnotatedInterfaces() {
+         return TypeAnnotationParser.buildAnnotatedInterfaces(getRawTypeAnnotations(), getConstantPool(), this);
+    }
     // -- Modules --
 
     private Module module;

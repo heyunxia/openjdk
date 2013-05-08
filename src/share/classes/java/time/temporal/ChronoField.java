@@ -72,8 +72,15 @@ import static java.time.temporal.ChronoUnit.YEARS;
 
 import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.Year;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeBuilder;
+import java.time.chrono.ChronoLocalDate;
+import java.time.chrono.Chronology;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.ResourceBundle;
+import sun.util.locale.provider.LocaleProviderAdapter;
+import sun.util.locale.provider.LocaleResources;
 
 /**
  * A standard set of fields.
@@ -185,7 +192,7 @@ public enum ChronoField implements TemporalField {
      * This counts the second within the minute, from 0 to 59.
      * This field has the same meaning for all calendar systems.
      */
-    SECOND_OF_MINUTE("SecondOfMinute", SECONDS, MINUTES, ValueRange.of(0, 59)),
+    SECOND_OF_MINUTE("SecondOfMinute", SECONDS, MINUTES, ValueRange.of(0, 59), "second"),
     /**
      * The second-of-day.
      * <p>
@@ -199,7 +206,7 @@ public enum ChronoField implements TemporalField {
      * This counts the minute within the hour, from 0 to 59.
      * This field has the same meaning for all calendar systems.
      */
-    MINUTE_OF_HOUR("MinuteOfHour", MINUTES, HOURS, ValueRange.of(0, 59)),
+    MINUTE_OF_HOUR("MinuteOfHour", MINUTES, HOURS, ValueRange.of(0, 59), "minute"),
     /**
      * The minute-of-day.
      * <p>
@@ -230,7 +237,7 @@ public enum ChronoField implements TemporalField {
      * This is the hour that would be observed on a standard 24-hour digital clock.
      * This field has the same meaning for all calendar systems.
      */
-    HOUR_OF_DAY("HourOfDay", HOURS, DAYS, ValueRange.of(0, 23)),
+    HOUR_OF_DAY("HourOfDay", HOURS, DAYS, ValueRange.of(0, 23), "hour"),
     /**
      * The clock-hour-of-day.
      * <p>
@@ -245,7 +252,7 @@ public enum ChronoField implements TemporalField {
      * This counts the AM/PM within the day, from 0 (AM) to 1 (PM).
      * This field has the same meaning for all calendar systems.
      */
-    AMPM_OF_DAY("AmPmOfDay", HALF_DAYS, DAYS, ValueRange.of(0, 1)),
+    AMPM_OF_DAY("AmPmOfDay", HALF_DAYS, DAYS, ValueRange.of(0, 1), "dayperiod"),
     /**
      * The day-of-week, such as Tuesday.
      * <p>
@@ -261,7 +268,7 @@ public enum ChronoField implements TemporalField {
      * if they have a similar concept of named or numbered days within a period similar
      * to a week. It is recommended that the numbering starts from 1.
      */
-    DAY_OF_WEEK("DayOfWeek", DAYS, WEEKS, ValueRange.of(1, 7)),
+    DAY_OF_WEEK("DayOfWeek", DAYS, WEEKS, ValueRange.of(1, 7), "weekday"),
     /**
      * The aligned day-of-week within a month.
      * <p>
@@ -310,7 +317,7 @@ public enum ChronoField implements TemporalField {
      * day-of-month values for users of the calendar system.
      * Normally, this is a count of days from 1 to the length of the month.
      */
-    DAY_OF_MONTH("DayOfMonth", DAYS, MONTHS, ValueRange.of(1, 28, 31)),
+    DAY_OF_MONTH("DayOfMonth", DAYS, MONTHS, ValueRange.of(1, 28, 31), "day"),
     /**
      * The day-of-year.
      * <p>
@@ -375,17 +382,27 @@ public enum ChronoField implements TemporalField {
      * month-of-year values for users of the calendar system.
      * Normally, this is a count of months starting from 1.
      */
-    MONTH_OF_YEAR("MonthOfYear", MONTHS, YEARS, ValueRange.of(1, 12)),
+    MONTH_OF_YEAR("MonthOfYear", MONTHS, YEARS, ValueRange.of(1, 12), "month"),
     /**
-     * The epoch-month based on the Java epoch of 1970-01-01.
+     * The proleptic-month based, counting months sequentially from year 0.
      * <p>
-     * This field is the sequential count of months where January 1970 (ISO) is zero.
+     * This field is the sequential count of months where the first month
+     * in proleptic-year zero has the value zero.
+     * Later months have increasingly larger values.
+     * Earlier months have increasingly small values.
+     * There are no gaps or breaks in the sequence of months.
      * Note that this uses the <i>local</i> time-line, ignoring offset and time-zone.
      * <p>
-     * Non-ISO calendar systems should also implement this field to represent a sequential
-     * count of months. It is recommended to define zero as the month of 1970-01-01 (ISO).
+     * In the default ISO calendar system, June 2012 would have the value
+     * {@code (2012 * 12 + 6 - 1)}. This field is primarily for internal use.
+     * <p>
+     * Non-ISO calendar systems must implement this field as per the definition above.
+     * It is just a simple zero-based count of elapsed months from the start of proleptic-year 0.
+     * All calendar systems with a full proleptic-year definition will have a year zero.
+     * If the calendar system has a minimum year that excludes year zero, then one must
+     * be extrapolated in order for this method to be defined.
      */
-    EPOCH_MONTH("EpochMonth", MONTHS, FOREVER, ValueRange.of((Year.MIN_VALUE - 1970L) * 12, (Year.MAX_VALUE - 1970L) * 12L - 1L)),
+    PROLEPTIC_MONTH("ProlepticMonth", MONTHS, FOREVER, ValueRange.of(Year.MIN_VALUE * 12L, Year.MAX_VALUE * 12L + 11)),
     /**
      * The year within the era.
      * <p>
@@ -444,7 +461,7 @@ public enum ChronoField implements TemporalField {
      * defined with any appropriate value, although defining it to be the same as ISO may be
      * the best option.
      */
-    YEAR("Year", YEARS, FOREVER, ValueRange.of(Year.MIN_VALUE, Year.MAX_VALUE)),
+    YEAR("Year", YEARS, FOREVER, ValueRange.of(Year.MIN_VALUE, Year.MAX_VALUE), "year"),
     /**
      * The era.
      * <p>
@@ -461,7 +478,7 @@ public enum ChronoField implements TemporalField {
      * Earlier eras must have sequentially smaller values.
      * Later eras must have sequentially larger values,
      */
-    ERA("Era", ERAS, FOREVER, ValueRange.of(0, 1)),
+    ERA("Era", ERAS, FOREVER, ValueRange.of(0, 1), "era"),
     /**
      * The instant epoch-seconds.
      * <p>
@@ -497,18 +514,43 @@ public enum ChronoField implements TemporalField {
     private final TemporalUnit baseUnit;
     private final TemporalUnit rangeUnit;
     private final ValueRange range;
+    private final String displayNameKey;
 
     private ChronoField(String name, TemporalUnit baseUnit, TemporalUnit rangeUnit, ValueRange range) {
         this.name = name;
         this.baseUnit = baseUnit;
         this.rangeUnit = rangeUnit;
         this.range = range;
+        this.displayNameKey = null;
+    }
+
+    private ChronoField(String name, TemporalUnit baseUnit, TemporalUnit rangeUnit,
+            ValueRange range, String displayNameKey) {
+        this.name = name;
+        this.baseUnit = baseUnit;
+        this.rangeUnit = rangeUnit;
+        this.range = range;
+        this.displayNameKey = displayNameKey;
     }
 
     //-----------------------------------------------------------------------
     @Override
     public String getName() {
         return name;
+    }
+
+    @Override
+    public String getDisplayName(Locale locale) {
+        Objects.requireNonNull(locale, "locale");
+        if (displayNameKey == null) {
+            return getName();
+        }
+
+        LocaleResources lr = LocaleProviderAdapter.getResourceBundleBased()
+                                    .getLocaleResources(locale);
+        ResourceBundle rb = lr.getJavaTimeFormatData();
+        String key = "field." + displayNameKey;
+        return rb.containsKey(key) ? rb.getString(key) : getName();
     }
 
     @Override
@@ -521,6 +563,23 @@ public enum ChronoField implements TemporalField {
         return rangeUnit;
     }
 
+    /**
+     * Gets the range of valid values for the field.
+     * <p>
+     * All fields can be expressed as a {@code long} integer.
+     * This method returns an object that describes the valid range for that value.
+     * <p>
+     * This method returns the range of the field in the ISO-8601 calendar system.
+     * This range may be incorrect for other calendar systems.
+     * Use {@link Chronology#range(ChronoField)} to access the correct range
+     * for a different calendar system.
+     * <p>
+     * Note that the result only describes the minimum and maximum valid values
+     * and it is important not to read too much into them. For example, there
+     * could be values within the range that are invalid for the field.
+     *
+     * @return the range of valid values for the field, not null
+     */
     @Override
     public ValueRange range() {
         return range;
@@ -529,19 +588,25 @@ public enum ChronoField implements TemporalField {
     //-----------------------------------------------------------------------
     /**
      * Checks if this field represents a component of a date.
+     * <p>
+     * Fields from day-of-week to era are date-based.
      *
      * @return true if it is a component of a date
      */
-    public boolean isDateField() {
+    @Override
+    public boolean isDateBased() {
         return ordinal() >= DAY_OF_WEEK.ordinal() && ordinal() <= ERA.ordinal();
     }
 
     /**
      * Checks if this field represents a component of a time.
+     * <p>
+     * Fields from nano-of-second to am-pm-of-day are time-based.
      *
      * @return true if it is a component of a time
      */
-    public boolean isTimeField() {
+    @Override
+    public boolean isTimeBased() {
         return ordinal() < DAY_OF_WEEK.ordinal();
     }
 
@@ -551,6 +616,11 @@ public enum ChronoField implements TemporalField {
      * <p>
      * This validates that the value is within the outer range of valid values
      * returned by {@link #range()}.
+     * <p>
+     * This method checks against the range of the field in the ISO-8601 calendar system.
+     * This range may be incorrect for other calendar systems.
+     * Use {@link Chronology#range(ChronoField)} to access the correct range
+     * for a different calendar system.
      *
      * @param value  the value to check
      * @return the value that was passed in
@@ -565,6 +635,11 @@ public enum ChronoField implements TemporalField {
      * This validates that the value is within the outer range of valid values
      * returned by {@link #range()}.
      * It also checks that all valid values are within the bounds of an {@code int}.
+     * <p>
+     * This method checks against the range of the field in the ISO-8601 calendar system.
+     * This range may be incorrect for other calendar systems.
+     * Use {@link Chronology#range(ChronoField)} to access the correct range
+     * for a different calendar system.
      *
      * @param value  the value to check
      * @return the value that was passed in
@@ -575,30 +650,24 @@ public enum ChronoField implements TemporalField {
 
     //-----------------------------------------------------------------------
     @Override
-    public boolean doIsSupported(TemporalAccessor temporal) {
+    public boolean isSupportedBy(TemporalAccessor temporal) {
         return temporal.isSupported(this);
     }
 
     @Override
-    public ValueRange doRange(TemporalAccessor temporal) {
+    public ValueRange rangeRefinedBy(TemporalAccessor temporal) {
         return temporal.range(this);
     }
 
     @Override
-    public long doGet(TemporalAccessor temporal) {
+    public long getFrom(TemporalAccessor temporal) {
         return temporal.getLong(this);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public <R extends Temporal> R doWith(R temporal, long newValue) {
+    public <R extends Temporal> R adjustInto(R temporal, long newValue) {
         return (R) temporal.with(this, newValue);
-    }
-
-    //-----------------------------------------------------------------------
-    @Override
-    public boolean resolve(DateTimeBuilder builder, long value) {
-        return false;  // resolve implemented in builder
     }
 
     //-----------------------------------------------------------------------

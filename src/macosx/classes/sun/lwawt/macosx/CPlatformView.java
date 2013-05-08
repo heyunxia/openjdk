@@ -54,13 +54,17 @@ public class CPlatformView extends CFRetainedResource {
     }
 
     public void initialize(LWWindowPeer peer, CPlatformResponder responder) {
-        this.peer = peer;
-        this.responder = responder;
+        initializeBase(peer, responder);
 
         if (!LWCToolkit.getSunAwtDisableCALayers()) {
             this.windowLayer = new CGLLayer(peer);
         }
         setPtr(nativeCreateView(0, 0, 0, 0, getWindowLayerPtr()));
+    }
+
+    protected void initializeBase(LWWindowPeer peer, CPlatformResponder responder) {
+        this.peer = peer;
+        this.responder = responder;
     }
 
     public long getAWTView() {
@@ -198,7 +202,7 @@ public class CPlatformView extends CFRetainedResource {
 
     private void deliverKeyEvent(NSEvent event) {
         responder.handleKeyEvent(event.getType(), event.getModifierFlags(),
-                                 event.getCharactersIgnoringModifiers(), event.getKeyCode(), true);
+                                 event.getCharactersIgnoringModifiers(), event.getKeyCode(), true, false);
     }
 
     /**
