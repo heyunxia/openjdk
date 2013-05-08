@@ -1160,6 +1160,7 @@ bool os::set_boot_path(char fileSep, char pathSep) {
     const char* home = Arguments::get_java_home();
     int home_len = (int)strlen(home);
 
+    // meta_index_dir is used for AggressiveOpts and white-box testing
     static const char* meta_index_dir_format = "%/lib/";
     static const char* meta_index_format = "%/lib/meta-index";
     char* meta_index = format_boot_path(meta_index_format, home, home_len, fileSep, pathSep);
@@ -1168,6 +1169,21 @@ bool os::set_boot_path(char fileSep, char pathSep) {
     if (meta_index_dir == NULL) return false;
     Arguments::set_meta_index_path(meta_index, meta_index_dir);
 
+    // Check if module image on disk
+    if (UseModuleNativeLibs) {
+      static const char* jdk_module_image_format = "%/lib/modules/jdk.base";
+      char* jdk_base_module = format_boot_path(jdk_module_image_format, home, home_len, fileSep, pathSep);
+      if (jdk_base_module == NULL) return false;
+      struct stat st;
+      if (os::stat(jdk_base_module, &st) == 0) {
+        // For now fall through so -XX:-UseModuleNativeLibs sees original sysclasspath
+        Arguments::set_bootmodulebase(jdk_base_module);
+      } else {
+        // For now, fall through if no module image
+        UseModuleNativeLibs = false;
+        UseModuleBootLoader = false;
+      }
+    }
     // Any modification to the JAR-file list, for the boot classpath must be
     // aligned with install/install/make/common/Pack.gmk. Note: boot class
     // path class JARs, are stripped for StackMapTable to reduce download size.
@@ -1182,6 +1198,10 @@ bool os::set_boot_path(char fileSep, char pathSep) {
 #ifdef __APPLE__
         "%/lib/JObjC.jar:"
 #endif
+
+        // ## TEMPORARY hack to keep the legacy launcher working when
+        // ## only the boot module is installed (cf. j.l.ClassLoader)
+        "%/lib/modules/jdk.base/8-ea/classes:"
         "%/classes";
     char* sysclasspath = format_boot_path(classpath_format, home, home_len, fileSep, pathSep);
     if (sysclasspath == NULL) return false;

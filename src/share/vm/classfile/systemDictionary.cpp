@@ -46,6 +46,7 @@
 #include "oops/typeArrayKlass.hpp"
 #include "prims/jvmtiEnvBase.hpp"
 #include "prims/methodHandles.hpp"
+#include "runtime/arguments.hpp"
 #include "runtime/biasedLocking.hpp"
 #include "runtime/fieldType.hpp"
 #include "runtime/handles.inline.hpp"
@@ -78,6 +79,7 @@ Klass*      SystemDictionary::_well_known_klasses[SystemDictionary::WKID_LIMIT]
 Klass*      SystemDictionary::_box_klasses[T_VOID+1]      =  { NULL /*, NULL...*/ };
 
 oop         SystemDictionary::_java_system_loader         =  NULL;
+oop         SystemDictionary::_java_base_module_loader    =  NULL;
 
 bool        SystemDictionary::_has_loadClassInternal      =  false;
 bool        SystemDictionary::_has_checkPackageAccess     =  false;
@@ -87,7 +89,7 @@ Klass* volatile SystemDictionary::_abstract_ownable_synchronizer_klass = NULL;
 
 
 // ----------------------------------------------------------------------------
-// Java-level SystemLoader
+// Java-level SystemLoader == application loader == launcher loader for entrypoint
 
 oop SystemDictionary::java_system_loader() {
   return _java_system_loader;
@@ -105,6 +107,40 @@ void SystemDictionary::compute_java_system_loader(TRAPS) {
   _java_system_loader = (oop)result.get_jobject();
 }
 
+// ----------------------------------------------------------------------------
+// Java-level boot loader for base module
+// Today: set for running modular_app both to delegate up to,
+// and to translate to null inside vm
+// If running a non-modular app, this is set to null
+// If this changes, change JDK_GetModuleLoader
+
+oop SystemDictionary::java_base_module_loader() {
+  return _java_base_module_loader;
+}
+
+void SystemDictionary::compute_java_base_module_loader(TRAPS) {
+  if (!UseModuleBootLoader) return;
+  if (!Arguments::running_modular_app()) return;
+
+  // The base module loader should already be loaded by now by the real null loader
+  Klass* k = SystemDictionary::resolve_or_fail(vmSymbols::org_openjdk_jigsaw_BootLoader(),
+                                               Handle(), Handle(), true, THREAD);
+  if (!HAS_PENDING_EXCEPTION && k != NULL) {
+    instanceKlassHandle ik(THREAD, k);
+    JavaValue result(T_OBJECT);
+    JavaCalls::call_static(&result,
+                           ik,
+                           vmSymbols::getBaseModuleLoader_name(),
+                           vmSymbols::void_module_bootloader_signature(),
+                           THREAD);
+    if (HAS_PENDING_EXCEPTION) {
+      UseModuleBootLoader = false;
+      CLEAR_PENDING_EXCEPTION;
+    } else {
+      _java_base_module_loader = (oop)result.get_jobject();
+    }
+  }
+}
 
 ClassLoaderData* SystemDictionary::register_loader(Handle class_loader, TRAPS) {
   if (class_loader() == NULL) return ClassLoaderData::the_null_class_loader_data();
@@ -1096,26 +1132,30 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
                                                              verify,
                                                              THREAD);
 
-  const char* pkg = "java/";
-  if (!HAS_PENDING_EXCEPTION &&
-      !class_loader.is_null() &&
-      parsed_name != NULL &&
-      !strncmp((const char*)parsed_name->bytes(), pkg, strlen(pkg))) {
-    // It is illegal to define classes in the "java." package from
-    // JVM_DefineClass or jni_DefineClass unless you're the bootclassloader
-    ResourceMark rm(THREAD);
-    char* name = parsed_name->as_C_string();
-    char* index = strrchr(name, '/');
-    *index = '\0'; // chop to just the package name
-    while ((index = strchr(name, '/')) != NULL) {
-      *index = '.'; // replace '/' with '.' in package name
+// For modular applications disable this check for now until there is a way to handle
+// non-null platform module loaders
+  if (!Arguments::running_modular_app()) {
+    const char* pkg = "java/";
+    if (!HAS_PENDING_EXCEPTION &&
+        !class_loader.is_null() &&
+        parsed_name != NULL &&
+        !strncmp((const char*)parsed_name->bytes(), pkg, strlen(pkg))) {
+      // It is illegal to define classes in the "java." package from
+      // JVM_DefineClass or jni_DefineClass unless you're the bootclassloader
+      ResourceMark rm(THREAD);
+      char* name = parsed_name->as_C_string();
+      char* index = strrchr(name, '/');
+      *index = '\0'; // chop to just the package name
+      while ((index = strchr(name, '/')) != NULL) {
+        *index = '.'; // replace '/' with '.' in package name
+      }
+      const char* fmt = "Prohibited package name: %s";
+      size_t len = strlen(fmt) + strlen(name);
+      char* message = NEW_RESOURCE_ARRAY(char, len);
+      jio_snprintf(message, len, fmt, name);
+      Exceptions::_throw_msg(THREAD_AND_LOCATION,
+        vmSymbols::java_lang_SecurityException(), message);
     }
-    const char* fmt = "Prohibited package name: %s";
-    size_t len = strlen(fmt) + strlen(name);
-    char* message = NEW_RESOURCE_ARRAY(char, len);
-    jio_snprintf(message, len, fmt, name);
-    Exceptions::_throw_msg(THREAD_AND_LOCATION,
-      vmSymbols::java_lang_SecurityException(), message);
   }
 
   if (!HAS_PENDING_EXCEPTION) {
@@ -1266,35 +1306,71 @@ void SystemDictionary::clean_up_shared_class(instanceKlassHandle ik, Handle clas
   }
 }
 
-instanceKlassHandle SystemDictionary::load_instance_class(Symbol* class_name, Handle class_loader, TRAPS) {
+instanceKlassHandle SystemDictionary::load_local_instance_class(Symbol* class_name, Handle class_loader, TRAPS)  {
+
+  assert(class_loader.is_null(), "only local load for null classloader");
+  assert(THREAD->is_Java_thread(), "must be a JavaThread");
+
   instanceKlassHandle nh = instanceKlassHandle(); // null Handle
-  if (class_loader.is_null()) {
+  JavaThread* jt = (JavaThread*) THREAD;
 
-    // Search the shared system dictionary for classes preloaded into the
-    // shared spaces.
-    instanceKlassHandle k;
-    {
-      PerfTraceTime vmtimer(ClassLoader::perf_shared_classload_time());
-      k = load_shared_class(class_name, class_loader, THREAD);
-    }
+  // Search the shared system dictionary for classes preloaded into the
+  // shared spaces.
+  instanceKlassHandle k;
+  {
+    PerfTraceTime vmtimer(ClassLoader::perf_shared_classload_time());
+    k = load_shared_class(class_name, class_loader, THREAD);
+  }
 
+  if (k.is_null()) {
+    // Use VM class loader
+    PerfClassTraceTime vmtimer(ClassLoader::perf_sys_classload_time(),
+                               ClassLoader::perf_sys_classload_selftime(),
+                               ClassLoader::perf_sys_classload_count(),
+                               jt->get_thread_stat()->perf_recursion_counts_addr(),
+                               jt->get_thread_stat()->perf_timers_addr(),
+                               PerfClassTraceTime::CLASS_LOAD);
+    k = ClassLoader::load_classfile(class_name, CHECK_(nh));
+  }
+
+  // find_or_define_instance_class may return a different instanceKlass
+  if (!k.is_null()) {
+    k = find_or_define_instance_class(class_name, class_loader, k, CHECK_(nh));
+  }
+  return k;
+}
+
+instanceKlassHandle SystemDictionary::load_instance_class(Symbol* class_name, Handle class_loader, TRAPS) {
+
+  instanceKlassHandle k = instanceKlassHandle(); // null Handle
+  Handle call_class_loader = class_loader;
+
+  if (call_class_loader.is_null()) {
+    // load using vm bootloader
+    k =  load_local_instance_class(class_name, call_class_loader, THREAD);
+
+    // for module mode, will need to delegate to module Bootloader if vm bootloader
+    // does not find locally
+    // TODO: ensure that we don't loop forever
     if (k.is_null()) {
-      // Use VM class loader
-      PerfTraceTime vmtimer(ClassLoader::perf_sys_classload_time());
-      k = ClassLoader::load_classfile(class_name, CHECK_(nh));
+      if (java_base_module_loader() != NULL) {
+        call_class_loader = Handle(THREAD, java_base_module_loader());
+      }
+    } else {
+      return k;
     }
+  }
 
-    // find_or_define_instance_class may return a different InstanceKlass
-    if (!k.is_null()) {
-      k = find_or_define_instance_class(class_name, class_loader, k, CHECK_(nh));
-    }
+  if (call_class_loader.is_null()) {
     return k;
   } else {
-    // Use user specified class loader to load class. Call loadClass operation on class_loader.
-    ResourceMark rm(THREAD);
 
+    instanceKlassHandle nh = instanceKlassHandle(); // null Handle
     assert(THREAD->is_Java_thread(), "must be a JavaThread");
     JavaThread* jt = (JavaThread*) THREAD;
+
+    // Use user specified class loader to load class. Call loadClass operation on call_class_loader.
+    ResourceMark rm(THREAD);
 
     PerfClassTraceTime vmtimer(ClassLoader::perf_app_classload_time(),
                                ClassLoader::perf_app_classload_selftime(),
@@ -1322,7 +1398,7 @@ instanceKlassHandle SystemDictionary::load_instance_class(Symbol* class_name, Ha
     // not parallelCapable. This was a risky transitional
     // flag for diagnostic purposes only. It is risky to call
     // custom class loaders without synchronization.
-    // WARNING If a custom class loader does NOT synchronizer findClass, or callers of
+    // WARNING If a custom class loader does NOT synchronize findClass, or callers of
     // findClass, the UnsyncloadClass flag risks unexpected timing bugs in the field.
     // Do NOT assume this will be supported in future releases.
     //
@@ -1330,7 +1406,7 @@ instanceKlassHandle SystemDictionary::load_instance_class(Symbol* class_name, Ha
     // a customer that counts on this call
     if (MustCallLoadClassInternal && has_loadClassInternal()) {
       JavaCalls::call_special(&result,
-                              class_loader,
+                              call_class_loader,
                               spec_klass,
                               vmSymbols::loadClassInternal_name(),
                               vmSymbols::string_class_signature(),
@@ -1338,7 +1414,7 @@ instanceKlassHandle SystemDictionary::load_instance_class(Symbol* class_name, Ha
                               CHECK_(nh));
     } else {
       JavaCalls::call_virtual(&result,
-                              class_loader,
+                              call_class_loader,
                               spec_klass,
                               vmSymbols::loadClass_name(),
                               vmSymbols::string_class_signature(),
@@ -1648,6 +1724,7 @@ void SystemDictionary::add_to_hierarchy(instanceKlassHandle k, TRAPS) {
 void SystemDictionary::always_strong_oops_do(OopClosure* blk) {
   blk->do_oop(&_java_system_loader);
   blk->do_oop(&_system_loader_lock_obj);
+  blk->do_oop(&_java_base_module_loader);
 
   dictionary()->always_strong_oops_do(blk);
 
@@ -1695,6 +1772,7 @@ bool SystemDictionary::do_unloading(BoolObjectClosure* is_alive) {
 void SystemDictionary::oops_do(OopClosure* f) {
   f->do_oop(&_java_system_loader);
   f->do_oop(&_system_loader_lock_obj);
+  f->do_oop(&_java_base_module_loader);
 
   // Adjust dictionary
   dictionary()->oops_do(f);

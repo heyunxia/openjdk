@@ -793,7 +793,10 @@ JVM_ENTRY(jclass, JVM_FindClassFromClassLoader(JNIEnv* env, const char* name,
     }
   }
   TempNewSymbol h_name = SymbolTable::new_symbol(name, CHECK_NULL);
-  Handle h_loader(THREAD, JNIHandles::resolve(loader));
+  oop local_loader = JNIHandles::resolve(loader);
+  oop null_loader = NULL;
+  local_loader = (local_loader == SystemDictionary::java_base_module_loader() ? null_loader : local_loader);
+  Handle h_loader(THREAD, local_loader);
   jclass result = find_class_from_class_loader(env, h_name, init, h_loader,
                                                Handle(), throwError, THREAD);
 
@@ -875,10 +878,6 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name,
                              jt->get_thread_stat()->perf_timers_addr(),
                              PerfClassTraceTime::DEFINE_CLASS);
 
-  if (UsePerfData) {
-    ClassLoader::perf_app_classfile_bytes_read()->inc(len);
-  }
-
   // Since exceptions can be thrown, class initialization can take place
   // if name is NULL no check for class name in .class stream has to be made.
   TempNewSymbol class_name = NULL;
@@ -894,8 +893,17 @@ static jclass jvm_define_class_common(JNIEnv *env, const char *name,
 
   ResourceMark rm(THREAD);
   ClassFileStream st((u1*) buf, len, (char *)source);
-  Handle class_loader (THREAD, JNIHandles::resolve(loader));
+  oop local_loader = JNIHandles::resolve(loader);
+  oop null_loader = NULL;
+  local_loader = (local_loader == SystemDictionary::java_base_module_loader() ? null_loader : local_loader);
+  Handle class_loader(THREAD, local_loader);
+
   if (UsePerfData) {
+    if (loader == NULL) {
+      ClassLoader::perf_sys_classfile_bytes_read()->inc(len);
+    } else {
+      ClassLoader::perf_app_classfile_bytes_read()->inc(len);
+    }
     is_lock_held_by_thread(class_loader,
                            ClassLoader::sync_JVMDefineClassLockFreeCounter(),
                            THREAD);
@@ -958,7 +966,10 @@ JVM_ENTRY(jclass, JVM_FindLoadedClass(JNIEnv *env, jobject loader, jstring name)
   // Security Note:
   //   The Java level wrapper will perform the necessary security check allowing
   //   us to pass the NULL as the initiating class loader.
-  Handle h_loader(THREAD, JNIHandles::resolve(loader));
+  oop local_loader = JNIHandles::resolve(loader);
+  oop null_loader = NULL;
+  local_loader = (local_loader == SystemDictionary::java_base_module_loader() ? null_loader : local_loader);
+  Handle h_loader(THREAD, local_loader);
   if (UsePerfData) {
     is_lock_held_by_thread(h_loader,
                            ClassLoader::sync_JVMFindLoadedClassLockFreeCounter(),
@@ -974,6 +985,17 @@ JVM_ENTRY(jclass, JVM_FindLoadedClass(JNIEnv *env, jobject loader, jstring name)
             (jclass) JNIHandles::make_local(env, k->java_mirror());
 JVM_END
 
+JVM_ENTRY(void, JVM_ExtendBootClassPath(JNIEnv *env, const char *path))
+  JVMWrapper2("JVM_ExtendBootClassPath(%s)", path);
+  {
+    // cf. SystemDictionary::download_and_retry_class_load
+    HandleMark hm(THREAD);
+    ResourceMark rm(THREAD);
+    Handle loader_lock(THREAD, SystemDictionary::system_loader_lock());
+    ObjectLocker ol(loader_lock, THREAD);
+    ClassLoader::update_class_path_entry_list(path, true);
+  }
+JVM_END
 
 // Reflection support //////////////////////////////////////////////////////////////////////////////
 
@@ -1044,6 +1066,21 @@ JVM_ENTRY(jobject, JVM_GetClassLoader(JNIEnv *env, jclass cls))
   }
   Klass* k = java_lang_Class::as_Klass(JNIHandles::resolve_non_null(cls));
   oop loader = k->class_loader();
+  return JNIHandles::make_local(env, loader);
+JVM_END
+
+JVM_ENTRY(jobject, JVM_GetModuleLoader(JNIEnv *env, jclass cls))
+  JVMWrapper("JVM_GetModuleLoader");
+  oop loader;
+  if (java_lang_Class::is_primitive(JNIHandles::resolve_non_null(cls))) {
+    loader = NULL;
+  } else {
+    Klass* k = java_lang_Class::as_Klass(JNIHandles::resolve_non_null(cls));
+    loader = k->class_loader();
+  }
+  if (loader == NULL) {
+    loader = SystemDictionary::java_base_module_loader();
+  }
   return JNIHandles::make_local(env, loader);
 JVM_END
 
@@ -1233,6 +1270,9 @@ class RegisterArrayForGC {
 
 JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
   JVMWrapper("JVM_GetStackAccessControlContext");
+  if (UsePerfData) {
+      ClassLoader::perf_getstackacc_count()->inc();
+  }
   if (!UsePrivilegedStack) return NULL;
 
   ResourceMark rm(THREAD);
@@ -1271,7 +1311,15 @@ JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
       previous_protection_domain = protection_domain;
     }
 
-    if (is_privileged) break;
+    if (is_privileged) {
+      if (UsePerfData) {
+        ClassLoader::perf_getstackacc_priv_count()->inc();
+      }
+      break;
+    }
+    if (UsePerfData) {
+      ClassLoader::perf_getstackacc_frames_count()->inc();
+    }
   }
 
 
@@ -1281,6 +1329,9 @@ JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
     if (is_privileged && privileged_context.is_null()) return NULL;
 
     oop result = java_security_AccessControlContext::create(objArrayHandle(), is_privileged, privileged_context, CHECK_NULL);
+  if (UsePerfData) {
+      ClassLoader::perf_getstackacc_newacc_count()->inc();
+  }
     return JNIHandles::make_local(env, result);
   }
 
@@ -1294,6 +1345,9 @@ JVM_ENTRY(jobject, JVM_GetStackAccessControlContext(JNIEnv *env, jclass cls))
   }
 
   oop result = java_security_AccessControlContext::create(h_context, is_privileged, privileged_context, CHECK_NULL);
+  if (UsePerfData) {
+      ClassLoader::perf_getstackacc_newacc_count()->inc();
+  }
 
   return JNIHandles::make_local(env, result);
 JVM_END

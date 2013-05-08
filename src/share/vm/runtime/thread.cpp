@@ -3607,6 +3607,30 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
     vm_exit_during_initialization(Handle(THREAD, PENDING_EXCEPTION));
   }
 
+  // For running a module application today we need to map the java base module loader
+  // to null on entry to the vm
+  // We also need to call out to this module loader for classes not found by
+  // the VM boot loader for the module delegation handling.
+  // This loader is initialized during InitializeSystemProperties
+  if (Arguments::running_modular_app()) {
+    SystemDictionary::compute_java_base_module_loader(THREAD);
+    if (HAS_PENDING_EXCEPTION) {
+      vm_exit_during_initialization(Handle(THREAD, PENDING_EXCEPTION));
+    }
+  }
+
+  // For running a module application today we need to map the java base module loader
+  // to null on entry to the vm
+  // We also need to call out to this module loader for classes not found by
+  // the VM boot loader for the module delegation handling.
+  // This loader is initialized during InitializeSystemProperties
+  if (Arguments::running_modular_app()) {
+    SystemDictionary::compute_java_base_module_loader(THREAD);
+    if (HAS_PENDING_EXCEPTION) {
+      vm_exit_during_initialization(Handle(THREAD, PENDING_EXCEPTION));
+    }
+  }
+
 #if INCLUDE_ALL_GCS
   // Support for ConcurrentMarkSweep. This should be cleaned up
   // and better encapsulated. The ugly nested if test would go away

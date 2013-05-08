@@ -464,11 +464,16 @@ public:
   static bool Object_klass_loaded()         { return WK_KLASS(Object_klass) != NULL; }
   static bool ClassLoader_klass_loaded()    { return WK_KLASS(ClassLoader_klass) != NULL; }
 
-  // Returns default system loader
+  // Returns default system loader == application loader == launcher loader for entrypoint
   static oop java_system_loader();
+
+  // Returns module loader for jdk base module 
+  static oop java_base_module_loader();
 
   // Compute the default system loader
   static void compute_java_system_loader(TRAPS);
+  // Compute the module loader for jdk base module
+  static void compute_java_base_module_loader(TRAPS);
 
   // Register a new class loader
   static ClassLoaderData* register_loader(Handle class_loader, TRAPS);
@@ -625,6 +630,7 @@ private:
                                                Handle class_loader, TRAPS);
   static void clean_up_shared_class(instanceKlassHandle ik, Handle class_loader, TRAPS);
   static instanceKlassHandle load_instance_class(Symbol* class_name, Handle class_loader, TRAPS);
+  static instanceKlassHandle load_local_instance_class(Symbol* class_name, Handle class_loader, TRAPS);
   static Handle compute_loader_lock_object(Handle class_loader, TRAPS);
   static void check_loader_lock_contention(Handle loader_lock, TRAPS);
   static bool is_parallelCapable(Handle class_loader);
@@ -692,6 +698,7 @@ private:
   static Klass* _box_klasses[T_VOID+1];
 
   static oop  _java_system_loader;
+  static oop  _java_base_module_loader;
 
   static bool _has_loadClassInternal;
   static bool _has_checkPackageAccess;
