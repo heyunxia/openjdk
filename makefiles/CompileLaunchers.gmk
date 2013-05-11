@@ -134,6 +134,10 @@ define SetupLauncher
         $1_MAPFILE:=
     endif
 
+    ifneq ($1,java)
+        $1_CFLAGS += -DMODULE_NAME='"jdk.$1"' -DMODULE_VERSION='"$(MODULE_VERSION)"'
+    endif
+
     $(call SetupNativeCompilation,BUILD_LAUNCHER_$1,\
 	SRC:=$(JDK_TOPDIR)/src/share/bin,\
 	INCLUDE_FILES:=main.c,\
@@ -254,32 +258,46 @@ $(eval $(call SetupLauncher,jar,\
 $(eval $(call SetupLauncher,jarsigner,\
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.security.tools.jarsigner.Main"$(COMMA) }'))
 
+#
+# TODO: langtools classpath mode support to replace bootclasspath
+# tools are running in classpath (aka legacy) mode for now.
+
 $(eval $(call SetupLauncher,javac,\
     -DEXPAND_CLASSPATH_WILDCARDS \
     -DNEVER_ACT_AS_SERVER_CLASS_MACHINE \
-    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "com.sun.tools.javac.Main"$(COMMA) }'))
+    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
+                   "-J-Xmode:legacy"$(COMMA) \
+                   "com.sun.tools.javac.Main"$(COMMA) }'))
 
 ifeq ($(ENABLE_SJAVAC),yes)
 $(eval $(call SetupLauncher,sjavac,\
     -DEXPAND_CLASSPATH_WILDCARDS \
     -DNEVER_ACT_AS_SERVER_CLASS_MACHINE \
-    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "com.sun.tools.sjavac.Main"$(COMMA) }'))
+    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
+                   "-J-Xmode:legacy"$(COMMA) \
+                   "com.sun.tools.sjavac.Main"$(COMMA) }'))
 endif
 
 $(eval $(call SetupLauncher,javadoc,\
     -DEXPAND_CLASSPATH_WILDCARDS \
     -DNEVER_ACT_AS_SERVER_CLASS_MACHINE \
-    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "com.sun.tools.javadoc.Main"$(COMMA) }'))
+    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
+                   "-J-Xmode:legacy"$(COMMA) \
+                   "com.sun.tools.javadoc.Main"$(COMMA) }'))
 
 $(eval $(call SetupLauncher,javah,\
     -DEXPAND_CLASSPATH_WILDCARDS \
     -DNEVER_ACT_AS_SERVER_CLASS_MACHINE \
-    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "com.sun.tools.javah.Main"$(COMMA) }'))
+    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
+                   "-J-Xmode:legacy"$(COMMA) \
+                   "com.sun.tools.javah.Main"$(COMMA) }'))
 
 $(eval $(call SetupLauncher,javap,\
     -DEXPAND_CLASSPATH_WILDCARDS \
     -DNEVER_ACT_AS_SERVER_CLASS_MACHINE \
-    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "com.sun.tools.javap.Main"$(COMMA) }'))
+    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
+                   "-J-Xmode:legacy"$(COMMA) \
+                   "com.sun.tools.javap.Main"$(COMMA) }'))
 
 $(eval $(call SetupLauncher,jdeps,\
     -DEXPAND_CLASSPATH_WILDCARDS \
@@ -341,8 +359,13 @@ $(eval $(call SetupLauncher,jstack,\
 $(eval $(call SetupLauncher,jstat,\
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.tools.jstat.Jstat"$(COMMA) }'))
 
+## jstatd in module mode: RMIClassLoader can't find
+## sun.jvmstat.monitor.remote.RemoteHost
+
 $(eval $(call SetupLauncher,jstatd,\
-    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.tools.jstatd.Jstatd"$(COMMA) }'))
+    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
+                   "-J-Xmode:legacy"$(COMMA) \
+                   "sun.tools.jstatd.Jstatd"$(COMMA) }'))
 
 $(eval $(call SetupLauncher,keytool,\
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.security.tools.keytool.Main"$(COMMA) }'))
@@ -356,9 +379,16 @@ $(eval $(call SetupLauncher,policytool,\
     $(XLIBS)))
 endif
 
+## Until rmic works with module image, it runs in legacy mode
+## and uses the launcher hack setting -Xbootclasspath and
+## set -XX:-UseModuleNativeLibs flag.
+
 $(eval $(call SetupLauncher,rmic,\
     -DEXPAND_CLASSPATH_WILDCARDS \
-    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.rmi.rmic.Main"$(COMMA) }'))
+    -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
+                   "-J-Xmode:legacy"$(COMMA) \
+                   "-J-XX:-UseModuleNativeLibs"$(COMMA) \
+                   "sun.rmi.rmic.Main"$(COMMA) }'))
 
 $(eval $(call SetupLauncher,schemagen,\
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "com.sun.tools.internal.jxc.SchemaGenerator"$(COMMA) }'))
@@ -406,7 +436,9 @@ $(eval $(call SetupLauncher,jcmd,\
     -DJAVA_ARGS='{	"-J-ms8m"$(COMMA) "sun.tools.jcmd.JCmd"$(COMMA) }'))
 
 $(eval $(call SetupLauncher,jmod,\
-    -DJAVA_ARGS='{      "-J-ms8m"$(COMMA) "org.openjdk.jigsaw.cli.Librarian"$(COMMA) }'))
+    -DJAVA_ARGS='{      "-J-ms8m"$(COMMA) \
+                        "-J-Xmode:legacy"$(COMMA) \
+                        "org.openjdk.jigsaw.cli.Librarian"$(COMMA) }'))
 
 $(eval $(call SetupLauncher,jpkg,\
     -DJAVA_ARGS='{      "-J-ms8m"$(COMMA) "org.openjdk.jigsaw.cli.Packager"$(COMMA) }'))
