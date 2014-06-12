@@ -146,7 +146,9 @@ ifndef OPENJDK
 
     ACCESSBRIDGE_SRCDIR := $(JDK_TOPDIR)/src/closed/java.desktop/windows/native/libaccessbridge
     ACCESSBRIDGE_CFLAGS := -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
-        -I$(JDK_TOPDIR)/src/closed/java.desktop/windows/native/include/bridge
+        -I$(JDK_TOPDIR)/src/closed/java.desktop/windows/native/include/bridge \
+        -I$(JDK_TOPDIR)/src/java.desktop/windows/native/include \
+        -I$(JDK_TOPDIR)/src/java.desktop/share/native/include
 
     define SetupAccessBridge
       # Parameter 1 Suffix

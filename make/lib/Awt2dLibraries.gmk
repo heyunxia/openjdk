@@ -214,6 +214,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       -I$(JDK_TOPDIR)/src/java.desktop/share/native/common/sun/java2d/opengl \
       -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/common/sun/java2d/opengl \
       -I$(JDK_TOPDIR)/src/java.desktop/windows/native/include \
+      -I$(JDK_TOPDIR)/src/java.desktop/share/native/include \
       -I$(JDK_OUTPUTDIR)/gensrc_headers/java.base \
       #
   LIBAWT_EXFILES += \
@@ -649,6 +650,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/libawt/sun/java2d/windows \
       -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
       -I$(JDK_TOPDIR)/src/java.desktop/windows/native/include \
+      -I$(JDK_TOPDIR)/src/java.desktop/share/native/include \
       $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
       #
 
