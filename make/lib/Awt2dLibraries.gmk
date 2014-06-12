@@ -690,21 +690,16 @@ else # OPENJDK_TARGET_OS not windows
 
   ifeq ($(OPENJDK_TARGET_OS), macosx)
     LIBJAWT_SRC := $(JDK_TOPDIR)/src/java.desktop/macosx/native/libjawt
-    LIBJAWT_CFLAGS := \
-      -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/common/sun/awt \
-      -I$(JDK_TOPDIR)/src/java.desktop/macosx/native/include \
-      $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
-      #
   else
     LIBJAWT_SRC := $(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/libjawt
-    LIBJAWT_CFLAGS := \
+  endif
+  LIBJAWT_CFLAGS := \
       -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/common/sun/awt \
-      -I$(JDK_TOPDIR)/src/java.desktop/share/native/include \
       -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS)/native/include \
       -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/include \
+      -I$(JDK_TOPDIR)/src/java.desktop/share/native/include \
       $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
       #
-  endif
 
   ifeq ($(OPENJDK_TARGET_OS), macosx)
     JAWT_LIBS := -lawt_lwawt
@@ -1082,6 +1077,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       $(addprefix -I, $(LIBAWT_LWAWT_DIRS)) \
       -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
       -I$(JDK_TOPDIR)/src/java.desktop/macosx/native/include \
+      -I$(JDK_TOPDIR)/src/java.desktop/share/native/include \
       -I$(JDK_TOPDIR)/src/java.desktop/macosx/native/libawt_lwawt/sun/java2d/opengl \
       -I$(JDK_TOPDIR)/src/java.desktop/macosx/native/libawt_lwawt/sun/awt \
       -I$(JDK_TOPDIR)/src/java.desktop/unix/native/libawt_xawt/sun/awt \
