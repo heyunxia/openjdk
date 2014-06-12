@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -23,20 +23,22 @@
 # questions.
 #
 
-GENDATA_TZDB :=
+default: all
 
-#
-# Time zone data file creation
-#
-TZDATA_DIR := $(JDK_TOPDIR)/make/data/tzdata
-TZDATA_TZFILE := africa antarctica asia australasia europe northamerica pacificnew southamerica backward etcetera gmt jdk11_backward
-TZDATA_TZFILES := $(addprefix $(TZDATA_DIR)/,$(TZDATA_TZFILE))
+include $(SPEC)
+include MakeBase.gmk
+include RMICompilation.gmk
 
-GENDATA_TZDB_DAT := $(JDK_OUTPUTDIR)/lib/tzdb.dat
+##########################################################################################
 
-$(GENDATA_TZDB_DAT): $(TZDATA_TZFILES)
-	$(RM) $(GENDATA_TZDB_DAT)
-	$(MKDIR) -p $(@D)
-	$(TOOL_TZDB) -srcdir $(TZDATA_DIR) -dstfile $(GENDATA_TZDB_DAT) $(TZDATA_TZFILE)
+BTRMIC_CP := $(INTERIM_CORBA_JAR)$(PATH_SEP)$(JDK_OUTPUTDIR)/interim_rmic_classes$(PATH_SEP)$(INTERIM_LANGTOOLS_JAR)
+BTRMIC_ARGS := "-Xbootclasspath/p:$(BTRMIC_CP)" -cp "$(BTRMIC_CP)"
+RMIC := $(JAVA) $(BTRMIC_ARGS) sun.rmi.rmic.Main
 
-GENDATA_TZDB += $(GENDATA_TZDB_DAT)
+CLASSES_DIR := $(JDK_OUTPUTDIR)/modules
+# NOTE: If the smart javac dependency management is reintroduced, these classes risk
+# interfering with the dependency checking. In that case they will need to be kept separate.
+STUB_CLASSES_DIR := $(JDK_OUTPUTDIR)/modules
+RMIC_GENSRC_DIR := $(JDK_OUTPUTDIR)/gendocsrc_rmic
+
+##########################################################################################

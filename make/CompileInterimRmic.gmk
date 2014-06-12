@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -23,20 +23,32 @@
 # questions.
 #
 
-GENDATA_TZDB :=
+default: all
 
-#
-# Time zone data file creation
-#
-TZDATA_DIR := $(JDK_TOPDIR)/make/data/tzdata
-TZDATA_TZFILE := africa antarctica asia australasia europe northamerica pacificnew southamerica backward etcetera gmt jdk11_backward
-TZDATA_TZFILES := $(addprefix $(TZDATA_DIR)/,$(TZDATA_TZFILE))
+include $(SPEC)
+include MakeBase.gmk
+include JavaCompilation.gmk
+include Setup.gmk
 
-GENDATA_TZDB_DAT := $(JDK_OUTPUTDIR)/lib/tzdb.dat
+##########################################################################################
 
-$(GENDATA_TZDB_DAT): $(TZDATA_TZFILES)
-	$(RM) $(GENDATA_TZDB_DAT)
-	$(MKDIR) -p $(@D)
-	$(TOOL_TZDB) -srcdir $(TZDATA_DIR) -dstfile $(GENDATA_TZDB_DAT) $(TZDATA_TZFILE)
+RMIC_PKGS := \
+    sun/rmi/rmic \
+    sun/tools/asm \
+    sun/tools/java \
+    sun/tools/javac \
+    sun/tools/tree \
+    sun/tools/util \
+    #
 
-GENDATA_TZDB += $(GENDATA_TZDB_DAT)
+$(eval $(call SetupJavaCompilation,BUILD_INTERIM_RMIC, \
+    SETUP := GENERATE_OLDBYTECODE, \
+    SRC := $(JDK_TOPDIR)/src/jdk.rmic/share/classes, \
+    INCLUDES := $(RMIC_PKGS), \
+    BIN := $(JDK_OUTPUTDIR)/interim_rmic_classes, \
+    COPY := .properties, \
+    JAVAC_SOURCE_PATH_OVERRIDE := $(addprefix $(JDK_TOPDIR)/src/jdk.rmic/share/classes/, $(RMIC_PKGS))))
+
+##########################################################################################
+
+all: $(BUILD_INTERIM_RMIC)

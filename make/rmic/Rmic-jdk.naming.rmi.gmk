@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -23,20 +23,23 @@
 # questions.
 #
 
-GENDATA_TZDB :=
+default: all
 
+include RmicCommon.gmk
+
+##########################################################################################
 #
-# Time zone data file creation
+# Generate RMI stubs
 #
-TZDATA_DIR := $(JDK_TOPDIR)/make/data/tzdata
-TZDATA_TZFILE := africa antarctica asia australasia europe northamerica pacificnew southamerica backward etcetera gmt jdk11_backward
-TZDATA_TZFILES := $(addprefix $(TZDATA_DIR)/,$(TZDATA_TZFILE))
 
-GENDATA_TZDB_DAT := $(JDK_OUTPUTDIR)/lib/tzdb.dat
+$(eval $(call SetupRMICompilation,RMI_12, \
+    CLASSES := com.sun.jndi.rmi.registry.ReferenceWrapper, \
+    CLASSES_DIR := $(CLASSES_DIR)/jdk.naming.rmi, \
+    STUB_CLASSES_DIR := $(STUB_CLASSES_DIR)/jdk.naming.rmi, \
+    RUN_V12 := true))
 
-$(GENDATA_TZDB_DAT): $(TZDATA_TZFILES)
-	$(RM) $(GENDATA_TZDB_DAT)
-	$(MKDIR) -p $(@D)
-	$(TOOL_TZDB) -srcdir $(TZDATA_DIR) -dstfile $(GENDATA_TZDB_DAT) $(TZDATA_TZFILE)
+##########################################################################################
 
-GENDATA_TZDB += $(GENDATA_TZDB_DAT)
+all: $(RMI_12)
+
+.PHONY: all
