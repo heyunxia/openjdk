@@ -612,7 +612,7 @@ ifndef OPENJDK
       LIBRARY := t2k, \
       OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
       SRC := $(LIBT2K_SRC), \
-      EXCLUDE_FILES := orion.c, \
+      EXCLUDE_FILES := t2k/orion.c, \
       LANG := C++, \
       OPTIMIZATION := HIGH, \
       CFLAGS := $(CFLAGS_JDKLIB) $(LIBT2K_CFLAGS), \
