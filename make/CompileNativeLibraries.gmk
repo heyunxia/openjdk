@@ -156,6 +156,7 @@ jdk.jdi: $(JDI_TRANSPORT_LIBRARIES)
 jdk.hprof.agent: $(HPROF_LIBRARIES) $(CRW_LIBRARIES)
 jdk.runtime: $(JSDT_LIBRARIES) $(UNPACK_LIBRARIES)
 java.prefs: $(PREFS_LIBRARIES)
+jdk.deploy.osx: $(DEPLOY_OSX_LIBRARIES)
 
 all: $(BUILD_LIBRARIES)
 
@@ -163,4 +164,4 @@ all: $(BUILD_LIBRARIES)
 .PHONY: java.base java.desktop java.instrument java.management java.scripting jdk.sctp \
     jdk.security.auth java.security.jgss jdk.crypto.mscapi jdk.crypto.pkcs11 \
     java.smartcardio jdk.crypto.ec jdk.crypto.ucrypto jdk.attach \
-    jdk.jdwp.agent jdk.jdi jdk.hprof.agent jdk.runtime java.prefs
+    jdk.jdwp.agent jdk.jdi jdk.hprof.agent jdk.runtime java.prefs jdk.deploy.osx
