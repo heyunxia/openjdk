@@ -755,7 +755,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
   # sec-windows-bin.zip is used by builds where the corresponding sources are not available
   $(eval $(call SetupZipArchive,BUILD_SEC_WINDOWS_BIN_ZIP, \
       SRC := $(JDK_OUTPUTDIR), \
-      INCLUDES := classes/sun/security/krb5/internal/tools, \
+      INCLUDES := modules/java.security.jgss/sun/security/krb5/internal/tools, \
       ZIP := $(IMAGES_OUTPUTDIR)/sec-windows-bin.zip))
 
   JARS += $(IMAGES_OUTPUTDIR)/sec-windows-bin.zip
