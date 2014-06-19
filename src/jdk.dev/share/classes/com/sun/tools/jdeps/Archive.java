@@ -25,30 +25,40 @@
 package com.sun.tools.jdeps;
 
 import com.sun.tools.classfile.Dependency.Location;
+
+import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Represents the source of the class files.
  */
 public class Archive {
-    private final Path path;
-    private final String filename;
-    private final ClassFileReader reader;
-    private final Map<Location, Set<Location>> deps = new HashMap<>();
-
-    public Archive(String name) {
-        this.path = null;
-        this.filename = name;
-        this.reader = null;
+    public static Archive getInstance(Path p) throws IOException {
+        return new Archive(p, ClassFileReader.newInstance(p));
     }
 
-    public Archive(Path p, ClassFileReader reader) {
+    private final Path path;
+    private final String name;
+    private final ClassFileReader reader;
+    protected Map<Location, Set<Location>> deps = new ConcurrentHashMap<>();
+
+    protected Archive(String name) {
+        this(name, null);
+    }
+
+    protected Archive(String name, ClassFileReader reader) {
+        this.name = name;
+        this.path = reader != null ? reader.path : null;
+        this.reader = reader;
+    }
+
+    protected Archive(Path p, ClassFileReader reader) {
         this.path = p;
-        this.filename = path.getFileName().toString();
+        this.name = path.getFileName().toString();
         this.reader = reader;
     }
 
@@ -56,8 +66,8 @@ public class Archive {
         return reader;
     }
 
-    public String getFileName() {
-        return filename;
+    public String getName() {
+        return name;
     }
 
     public void addClass(Location origin) {
@@ -89,12 +99,16 @@ public class Archive {
         }
     }
 
+    public boolean isEmpty() {
+        return getClasses().isEmpty();
+    }
+
     public String getPathName() {
-        return path != null ? path.toString() : filename;
+        return path != null ? path.toString() : name;
     }
 
     public String toString() {
-        return filename;
+        return getPathName();
     }
 
     interface Visitor {
