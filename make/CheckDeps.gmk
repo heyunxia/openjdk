@@ -51,7 +51,7 @@ $(JDEPS_MODULES_XML): $(BUILD_TOOLS_JDK) $(METADATA)
 #
 checkdeps: $(JDEPS_MODULES_XML)
 	$(ECHO) "Checking dependencies across JDK modules"
-	$(JDK_OUTPUTDIR)/bin/jdeps -verify:access -mp $(JDK_OUTPUTDIR)/modules
+	$(FIXPATH) $(JDK_OUTPUTDIR)/bin/jdeps -verify:access -mp $(JDK_OUTPUTDIR)/modules
 
 gen-modules-xml: $(JDEPS_MODULES_XML)
 
