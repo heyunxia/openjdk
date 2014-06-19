@@ -301,7 +301,7 @@ public final class GenerateModulesXml {
     }
 
     private String packageName(Path p) {
-        return packageName(p.toString().replace(File.pathSeparatorChar, '/'));
+        return packageName(p.toString().replace(File.separatorChar, '/'));
     }
     private String packageName(String name) {
         int i = name.lastIndexOf('/');
@@ -314,23 +314,13 @@ public final class GenerateModulesXml {
 
     public void buildIncludes(Module.Builder mb, String modulename) throws IOException {
         Path mclasses = modulepath.resolve(modulename);
-        if (Files.exists(mclasses.resolve("classes"))) {
-            // zip file
-            try (JarFile jf = new JarFile(mclasses.resolve("classes").toFile())) {
-                jf.stream().filter(je -> includes(je.getName()))
-                           .map(JarEntry::getName)
-                           .map(this::packageName)
-                           .forEach(mb::include);
-            }
-        } else {
-            try {
-                Files.find(mclasses, Integer.MAX_VALUE, (Path p, BasicFileAttributes attr)
-                             -> includes(p.getFileName().toString()))
-                     .map(p -> packageName(mclasses.relativize(p)))
-                     .forEach(mb::include);
-            } catch (NoSuchFileException e) {
-                // aggregate module may not have class
-            }
+        try {
+            Files.find(mclasses, Integer.MAX_VALUE, (Path p, BasicFileAttributes attr)
+                         -> includes(p.getFileName().toString()))
+                 .map(p -> packageName(mclasses.relativize(p)))
+                 .forEach(mb::include);
+        } catch (NoSuchFileException e) {
+            // aggregate module may not have class
         }
     }
 
