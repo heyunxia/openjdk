@@ -40,15 +40,6 @@ BUILD_LIBNIO_CFLAGS := \
 
 ifeq ($(OPENJDK_TARGET_OS), linux)
   BUILD_LIBNIO_MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libnio/mapfile-$(OPENJDK_TARGET_OS)
-else
-  BUILD_LIBNIO_EXFILES += \
-      EPoll.c \
-      EPollArrayWrapper.c \
-      EPollPort.c \
-      MagicFileTypeDetector.c \
-      LinuxNativeDispatcher.c \
-      LinuxWatchService.c \
-      #
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)
@@ -56,25 +47,10 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
   BUILD_LIBNIO_EXFILES += \
       GnomeFileTypeDetector.c \
       #
-else
-  BUILD_LIBNIO_EXFILES += \
-      BsdNativeDispatcher.c \
-      MacOSXNativeDispatcher.c \
-      KQueue.c \
-      KQueuePort.c \
-      KQueueArrayWrapper.c \
-      #
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), solaris)
   BUILD_LIBNIO_MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libnio/mapfile-$(OPENJDK_TARGET_OS)
-else
-  BUILD_LIBNIO_EXFILES += \
-      DevPollArrayWrapper.c \
-      SolarisEventPort.c \
-      SolarisNativeDispatcher.c \
-      SolarisWatchService.c \
-      #
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), aix)
