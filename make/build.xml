@@ -800,7 +800,7 @@
             <attribute name="java" default="${launcher.java}"/>
             <sequential>
                 <mkdir dir="@{bin.dir}"/>
-                <copy file="${src.bin.dir}/launcher.sh-template" tofile="@{bin.dir}/@{name}">
+                <copy file="${make.dir}/launcher.sh-template" tofile="@{bin.dir}/@{name}">
                     <filterset begintoken="#" endtoken="#">
                         <filter token="PROGRAM" value="@{name}"/>
                         <filter token="TARGET_JAVA" value="@{java}"/>
