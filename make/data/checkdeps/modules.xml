@@ -1648,7 +1648,7 @@
   <module>
     <name>jdk.jfr</name>
     <depend>java.base</depend>
-    <depend>java.management</depend>
+    <depend re-exports="true">java.management</depend>
     <depend>java.xml</depend>
     <export>
       <name>com.oracle.jrockit.jfr</name>
