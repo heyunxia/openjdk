@@ -207,11 +207,11 @@ public class Analyzer {
             if (findJDKInternals) {
                 Module from = findModule(archive);
                 Module to = findModule(targetArchive);
-                if (to == null || Profile.JDK.contains(to)) {
+                if (to == null || !Profile.JDK.contains(to)) {
                     // non-JDK module
                     return false;
                 }
-                return !to.isAccessibleTo(o.getClassName(), from);
+                return !to.isExportedPackage(t.getPackageName());
             } else {
                 // filter intra-dependency unless in verbose mode
                 return level == Type.VERBOSE || archive != targetArchive;

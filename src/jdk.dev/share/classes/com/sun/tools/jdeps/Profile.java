@@ -76,6 +76,18 @@ enum Profile {
         return null;
     }
 
+    /*
+     * Returns the Profile for a given Module; null if not found.
+     */
+    public static Profile getProfile(Module m) {
+        for (Profile p : Profile.values()) {
+            if (p.modules.contains(m)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
     final static Set<Module> JDK = new HashSet<>();
     static void initProfiles() {
         for (Profile p : Profile.values()) {

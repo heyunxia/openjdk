@@ -847,7 +847,7 @@ class JdepsTask {
         Set<String> permits = module.exports().get(pn);
         if (permits != null && permits.isEmpty()) {
             // exported API
-            Profile p = getProfile(name);
+            Profile p = Profile.getProfile(module);
             return options.showProfile && p != null ? p.profileName() : "";
         } else {
             return "JDK internal API (" + source.getName() + ")";

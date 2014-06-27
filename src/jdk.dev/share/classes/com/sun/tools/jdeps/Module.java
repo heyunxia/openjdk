@@ -68,6 +68,13 @@ public final class Module extends Archive {
     }
 
     /**
+     * Tests if a given package name is exported.
+     */
+    public boolean isExportedPackage(String pn) {
+        return exports.containsKey(pn) ? exports.get(pn).isEmpty() : false;
+    }
+
+    /**
      * Tests if the given classname is accessible to module m
      * @param classname
      * @param m
