@@ -34,7 +34,7 @@ include Tools.gmk
 JDEPS_MODULES_XML := $(JDK_OUTPUTDIR)/modules/jdk.dev/com/sun/tools/jdeps/resources/modules.xml
 
 METADATA := $(JDK_OUTPUTDIR)/btclasses/build/tools/module/modules.xml
-$(METADATA): $(JDK_TOPDIR)/make/data/checkdeps/modules.xml
+$(METADATA): $(TOPDIR)/modules.xml
 	$(call install-file)
 
 #
