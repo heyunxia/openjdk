@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -34,7 +34,7 @@ enum Profile {
     COMPACT1("compact1", 1, "java.compact1"),
     COMPACT2("compact2", 2, "java.compact2"),
     COMPACT3("compact3", 3, "java.compact3"),
-    FULL_JRE("Full JRE", 4, "jdk.runtime");
+    FULL_JRE("Full JRE", 4, "java.se");
 
     final String name;
     final int profile;
@@ -53,7 +53,6 @@ enum Profile {
 
     @Override
     public String toString() {
-        // print module name?
         return moduleName;
     }
 
@@ -62,8 +61,7 @@ enum Profile {
     }
 
     /**
-     * Returns the Profile for the given package name. It returns an empty
-     * string if the given package is not in any profile.
+     * Returns the Profile for the given package name; null if not found.
      */
     public static Profile getProfile(String pn) {
         for (Profile p : Profile.values()) {
@@ -96,7 +94,7 @@ enum Profile {
                 throw new Error(p.moduleName + " doesn't exist");
             p.modules.add(m);
             JDK.add(m);
-            for (String n : m.requires()) {
+            for (String n : m.requires().keySet()) {
                 Module d = PlatformClassPath.findModule(n);
                 if (d == null)
                     throw new Error(n + " doesn't exist");

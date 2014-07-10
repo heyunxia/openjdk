@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,6 +24,7 @@
  */
 package com.sun.tools.jdeps;
 
+import com.sun.tools.classfile.ClassFile;
 import com.sun.tools.classfile.Dependency.Location;
 
 import java.io.IOException;
@@ -42,23 +43,21 @@ public class Archive {
     }
 
     private final Path path;
-    private final String name;
+    private final String filename;
     private final ClassFileReader reader;
     protected Map<Location, Set<Location>> deps = new ConcurrentHashMap<>();
 
     protected Archive(String name) {
         this(name, null);
     }
-
     protected Archive(String name, ClassFileReader reader) {
-        this.name = name;
-        this.path = reader != null ? reader.path : null;
+        this.path = null;
+        this.filename = name;
         this.reader = reader;
     }
-
     protected Archive(Path p, ClassFileReader reader) {
         this.path = p;
-        this.name = path.getFileName().toString();
+        this.filename = path.getFileName().toString();
         this.reader = reader;
     }
 
@@ -67,7 +66,7 @@ public class Archive {
     }
 
     public String getName() {
-        return name;
+        return filename;
     }
 
     public void addClass(Location origin) {
@@ -104,11 +103,11 @@ public class Archive {
     }
 
     public String getPathName() {
-        return path != null ? path.toString() : name;
+        return path != null ? path.toString() : filename;
     }
 
     public String toString() {
-        return getPathName();
+        return filename;
     }
 
     interface Visitor {
