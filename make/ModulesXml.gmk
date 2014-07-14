@@ -37,11 +37,21 @@ METADATA := $(JDK_OUTPUTDIR)/btclasses/build/tools/module/modules.xml
 $(METADATA): $(TOPDIR)/modules.xml
 	$(call install-file)
 
+METADATA_FILES := $(METADATA)
+
+ifndef OPENJDK
+  CLOSED_METADATA := $(JDK_OUTPUTDIR)/btclasses/build/tools/module/closed/modules.xml
+  $(CLOSED_METADATA): $(TOPDIR)/closed/modules.xml
+	$(call install-file)
+
+  METADATA_FILES += $(CLOSED_METADATA)
+endif
+
 #
 # Generate modules.xml for jdeps to use
 # It augments make/data/checkdeps/modules.xml to include module membership
 #
-$(JDEPS_MODULES_XML): $(BUILD_TOOLS_JDK) $(METADATA)
+$(JDEPS_MODULES_XML): $(BUILD_TOOLS_JDK) $(METADATA_FILES)
 	$(MKDIR) -p $(@D)
 	$(RM) $@
 	$(TOOL_GENMODULESXML) $@ $(JDK_OUTPUTDIR)/modules
