@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -133,7 +133,7 @@ ifneq ($(BUILD_CRYPTO), no)
   else ifeq ($(OPENJDK_TARGET_OS), macosx)
     BUILD_LIBKRB5_NAME := osxkrb5
     BUILD_LIBKRB5_SRC := $(JDK_TOPDIR)/src/java.security.jgss/macosx/native/libosxkrb5
-    BUILD_LIBKRB5_LIBS := -F/System/Library/Frameworks/JavaVM.framework/Frameworks \
+    BUILD_LIBKRB5_LIBS := \
         -framework JavaNativeFoundation \
         -framework Cocoa \
         -framework SystemConfiguration \
@@ -150,7 +150,6 @@ ifneq ($(BUILD_CRYPTO), no)
         CFLAGS := $(CFLAGS_JDKLIB) \
             $(addprefix -I, $(BUILD_LIBKRB5_SRC)) \
             -I$(JDK_OUTPUTDIR)/gensrc_headers/java.security.jgss, \
-        CFLAGS_macosx := -F/System/Library/Frameworks/JavaVM.framework/Frameworks, \
         LDFLAGS := $(LDFLAGS_JDKLIB) \
             $(call SET_SHARED_LIBRARY_ORIGIN), \
         LDFLAGS_SUFFIX := $(BUILD_LIBKRB5_LIBS), \
