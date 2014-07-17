@@ -53,7 +53,7 @@ import javax.xml.stream.events.XMLEvent;
  * for jdeps to analyze dependencies and enforce module boundaries.
  *
  * $ java build.tools.module.GenerateModulesXml \
- *      com/sun/tools/jdeps/resources/modules.xml $OUTPUTDIR/modules
+ *        com/sun/tools/jdeps/resources/modules.xml $OUTPUTDIR/modules
  *
  * This will generate modules.xml as jdeps resources that extend
  * the metadata to include module membership (jdeps needs the
@@ -81,6 +81,16 @@ public final class GenerateModulesXml {
         Set<Module> modules;
         try (InputStream in = GenerateModulesXml.class.getResourceAsStream("modules.xml")) {
             modules = gentool.load(in);
+        }
+
+        InputStream in = GenerateModulesXml.class.getResourceAsStream("closed/modules.xml");
+        if (in != null) {
+            try {
+                Set<Module> mods = gentool.load(in);
+                modules.addAll(mods);
+            } finally {
+                in.close();
+            }
         }
 
         Files.createDirectories(outfile.getParent());
