@@ -35,7 +35,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OPTIMIZATION := LOW, \
       CFLAGS := $(CFLAGS_JDKLIB) \
           -I$(LIBAPPLESCRIPTENGINE_SRC) \
-          -I$(JDK_OUTPUTDIR)/gensrc_headers/jdk.deploy.osx \
+          -I$(JDK_OUTPUTDIR)/gensrc_headers/jdk.deploy.osx, \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LDFLAGS_SUFFIX := -framework Cocoa \
@@ -107,7 +107,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       LANG := C, \
       OPTIMIZATION := LOW, \
       CFLAGS := $(CFLAGS_JDKLIB) \
-          $(LIBOSX_CFLAGS) \
+          $(LIBOSX_CFLAGS), \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LDFLAGS_SUFFIX_macosx := \

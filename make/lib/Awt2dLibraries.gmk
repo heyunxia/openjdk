@@ -1129,7 +1129,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       CFLAGS := $(CFLAGS_JDKLIB) \
           $(X_CFLAGS) \
           $(X_LIBS) \
-          $(LIBAWT_LWAWT_CFLAGS) \
+          $(LIBAWT_LWAWT_CFLAGS), \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LDFLAGS_SUFFIX_macosx := -lawt -lmlib_image -losxapp -ljvm $(LIBM) \
@@ -1175,7 +1175,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
           -I$(JDK_TOPDIR)/src/java.desktop/macosx/native/libosxapp \
           -I$(JDK_TOPDIR)/src/java.base/share/native/libjava \
           -I$(JDK_TOPDIR)/src/java.base/$(OPENJDK_TARGET_OS_API_DIR)/native/libjava \
-          -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop  \
+          -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop,  \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN) \
           -Xlinker -rpath -Xlinker @loader_path, \
