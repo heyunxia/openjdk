@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,7 +23,7 @@
 
 /*
  * @test
- * @bug 8015912 8029216
+ * @bug 8015912 8029216 8048063
  * @summary Test -apionly and -jdkinternals options
  * @build m.Bar m.Foo m.Gee b.B c.C c.I d.D e.E f.F g.G
  * @run main APIDeps
