@@ -25,14 +25,17 @@
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)
 
+  LIBAPPLESCRIPTENGINE_SRC := $(JDK_TOPDIR)/src/jdk.deploy.osx/macosx/native/libapplescriptengine
+
   $(eval $(call SetupNativeCompilation,BUILD_LIBAPPLESCRIPTENGINE, \
       LIBRARY := AppleScriptEngine, \
       OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
-      SRC := $(JDK_TOPDIR)/src/macosx/native/apple/applescript, \
+      SRC := $(LIBAPPLESCRIPTENGINE_SRC), \
       LANG := C, \
       OPTIMIZATION := LOW, \
       CFLAGS := $(CFLAGS_JDKLIB) \
-          -I$(JDK_TOPDIR)/src/macosx/native/apple/applescript, \
+          -I$(LIBAPPLESCRIPTENGINE_SRC) \
+          -I$(JDK_OUTPUTDIR)/gensrc_headers/jdk.deploy.osx, \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LDFLAGS_SUFFIX := -framework Cocoa \
@@ -44,7 +47,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
 
   $(BUILD_LIBAPPLESCRIPTENGINE): $(BUILD_LIBJAVA)
 
-  BUILD_LIBRARIES += $(BUILD_LIBAPPLESCRIPTENGINE)
+  DEPLOY_OSX_LIBRARIES += $(BUILD_LIBAPPLESCRIPTENGINE)
 
 endif
 
@@ -52,14 +55,16 @@ endif
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)
 
+  LIBOSXAPP_SRC := $(JDK_TOPDIR)/src/java.desktop/macosx/native/libosxapp
+
   $(eval $(call SetupNativeCompilation,BUILD_LIBOSXAPP, \
       LIBRARY := osxapp, \
       OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
-      SRC := $(JDK_TOPDIR)/src/macosx/native/sun/osxapp, \
+      SRC := $(LIBOSXAPP_SRC), \
       LANG := C, \
       OPTIMIZATION := LOW, \
       CFLAGS := $(CFLAGS_JDKLIB) \
-          -I$(JDK_TOPDIR)/src/macosx/native/sun/osxapp \
+          $(addprefix -I, $(LIBOSXAPP_SRC)) \
           -I$(JDK_OUTPUTDIR)/gensrc_headers_icons, \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
@@ -79,7 +84,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libosxapp, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  BUILD_LIBRARIES += $(BUILD_LIBOSXAPP)
+  DESKTOP_LIBRARIES += $(BUILD_LIBOSXAPP)
 
 endif
 
@@ -87,11 +92,13 @@ endif
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)
 
-  LIBOSX_DIRS := \
-      $(JDK_TOPDIR)/src/macosx/native/com/apple/concurrent \
-      $(JDK_TOPDIR)/src/macosx/native/com/apple/eio \
-      $(JDK_TOPDIR)/src/macosx/native/apple/security \
-      $(JDK_TOPDIR)/src/macosx/native/apple/launcher
+  LIBOSX_DIRS := $(JDK_TOPDIR)/src/jdk.deploy.osx/macosx/native/libosx
+  LIBOSX_CFLAGS := -I$(LIBOSX_DIRS) \
+      -I$(JDK_TOPDIR)/src/java.desktop/macosx/native/libosxapp \
+      $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+      -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
+      -I$(JDK_OUTPUTDIR)/gensrc_headers/jdk.deploy.osx \
+      #
 
   $(eval $(call SetupNativeCompilation,BUILD_LIBOSX, \
       LIBRARY := osx, \
@@ -100,8 +107,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       LANG := C, \
       OPTIMIZATION := LOW, \
       CFLAGS := $(CFLAGS_JDKLIB) \
-          $(foreach dir, $(LIBOSX_DIRS), -I$(dir)) \
-          -I$(JDK_TOPDIR)/src/macosx/native/sun/osxapp, \
+          $(LIBOSX_CFLAGS), \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LDFLAGS_SUFFIX_macosx := \
@@ -116,7 +122,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libosx, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  BUILD_LIBRARIES += $(BUILD_LIBOSX)
+  DEPLOY_OSX_LIBRARIES += $(BUILD_LIBOSX)
 
   $(BUILD_LIBOSX): $(BUILD_LIBOSXAPP)
 
@@ -129,7 +135,11 @@ endif
 ifndef OPENJDK
   ifeq ($(OPENJDK_TARGET_OS), windows)
 
-    ACCESSBRIDGE_SRCDIR := $(JDK_TOPDIR)/src/closed/windows/native/sun/bridge
+    ACCESSBRIDGE_SRCDIR := $(JDK_TOPDIR)/src/closed/java.desktop/windows/native/libaccessbridge
+    ACCESSBRIDGE_CFLAGS := -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
+        -I$(JDK_TOPDIR)/src/closed/java.desktop/windows/native/include/bridge \
+        -I$(JDK_TOPDIR)/src/java.desktop/windows/native/include \
+        -I$(JDK_TOPDIR)/src/java.desktop/share/native/include
 
     define SetupAccessBridge
       # Parameter 1 Suffix
@@ -144,7 +154,7 @@ ifndef OPENJDK
           INCLUDE_FILES := JAWTAccessBridge.cpp, \
           LANG := C++, \
           OPTIMIZATION := LOW, \
-          CFLAGS := $(CFLAGS_JDKLIB) \
+          CFLAGS := $(CFLAGS_JDKLIB) $(ACCESSBRIDGE_CFLAGS) \
               -DACCESSBRIDGE_ARCH_$3 \
               -I$(JDK_OUTPUTDIR)/gensrc_headers_ab/$3, \
           LDFLAGS := $(LDFLAGS_JDKLIB) kernel32.lib user32.lib gdi32.lib \
@@ -171,7 +181,7 @@ ifndef OPENJDK
               AccessBridgeMessages.cpp JavaAccessBridge.cpp, \
           LANG := C++, \
           OPTIMIZATION := LOW, \
-          CFLAGS := $(CFLAGS_JDKLIB) \
+          CFLAGS := $(CFLAGS_JDKLIB) $(ACCESSBRIDGE_CFLAGS) \
               -DACCESSBRIDGE_ARCH_$3 \
               -I$(JDK_OUTPUTDIR)/gensrc_headers_ab/$3, \
           LDFLAGS := $(LDFLAGS_JDKLIB) kernel32.lib user32.lib gdi32.lib \
@@ -197,7 +207,7 @@ ifndef OPENJDK
               AccessBridgeEventHandler.cpp, \
           LANG := C++, \
           OPTIMIZATION := LOW, \
-          CFLAGS := $(filter-out -MD, $(CFLAGS_JDKLIB)) -MT \
+          CFLAGS := $(filter-out -MD, $(CFLAGS_JDKLIB)) -MT $(ACCESSBRIDGE_CFLAGS) \
               -DACCESSBRIDGE_ARCH_$3 \
               -I$(JDK_OUTPUTDIR)/gensrc_headers_ab/$3, \
           LDFLAGS := $(LDFLAGS_JDKLIB) kernel32.lib user32.lib gdi32.lib \
@@ -213,7 +223,7 @@ ifndef OPENJDK
           OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libwindowsaccessbridge$1, \
           DEBUG_SYMBOLS := true)
 
-      BUILD_LIBRARIES += $$(BUILD_JAWTACCESSBRIDGE$1) $$(BUILD_JAVAACCESSBRIDGE$1) \
+      DESKTOP_LIBRARIES += $$(BUILD_JAWTACCESSBRIDGE$1) $$(BUILD_JAVAACCESSBRIDGE$1) \
           $$(BUILD_WINDOWSACCESSBRIDGE$1)
 
     endef

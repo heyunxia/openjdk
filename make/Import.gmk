@@ -103,7 +103,7 @@ IMPORT_TARGET_FILES += $(IMPORT_TARGET_CLASSES) $(IMPORT_TARGET_SOURCES) $(IMPOR
 define CopyDir
   $1_SRC_FILES := $(shell $(FIND) $2 -type f -a \( -name DUMMY $(addprefix -o$(SPACE)-name$(SPACE),$4) \))
   $1_DST_FILES := $$(patsubst $2/%,$3/%,$$($1_SRC_FILES))
-  IMPORT_TARGET_FILES += $$($1_DST_FILES)
+  HOTSPOT_IMPORT_TARGET_FILES += $$($1_DST_FILES)
   $3/%: $2/%
 	$(ECHO) $(LOG_INFO) Copying $$(@F)
 	$$(install-file)
@@ -129,22 +129,22 @@ endif
 
 ifneq ($(OPENJDK_TARGET_OS), windows)
   ifeq ($(JVM_VARIANT_SERVER), true)
-    IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/server/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
+    HOTSPOT_IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/server/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
     ifneq (, $(JSIG_DEBUGINFO))
-      IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/server/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
+      HOTSPOT_IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/server/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
     endif
   endif
   ifeq ($(JVM_VARIANT_CLIENT), true)
-    IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/client/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
+    HOTSPOT_IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/client/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
     ifneq (, $(JSIG_DEBUGINFO))
-      IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/client/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
+      HOTSPOT_IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/client/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
     endif
   endif
   ifneq ($(OPENJDK_TARGET_OS), macosx)
     ifeq ($(JVM_VARIANT_MINIMAL1), true)
-      IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/minimal/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
+      HOTSPOT_IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/minimal/$(LIBRARY_PREFIX)jsig$(SHARED_LIBRARY_SUFFIX)
       ifneq (,$(JSIG_DEBUGINFO))
-        IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/minimal/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
+        HOTSPOT_IMPORT_TARGET_FILES += $(INSTALL_LIBRARIES_HERE)/minimal/$(foreach I,$(JSIG_DEBUGINFO),$(notdir $I))
       endif
     endif
   endif
@@ -282,5 +282,7 @@ ifneq ($(wildcard $(SEC_FILES_ZIP)), )
 endif
 
 ##########################################################################################
+
+hotspot: $(HOTSPOT_IMPORT_TARGET_FILES)
 
 all: $(IMPORT_TARGET_FILES)
