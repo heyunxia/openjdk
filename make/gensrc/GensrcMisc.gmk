@@ -48,19 +48,6 @@ GENSRC_JAVA_BASE += $(JDK_OUTPUTDIR)/gensrc/java.base/sun/misc/Version.java \
     $(PROFILE_VERSION_JAVA_TARGETS)
 
 ##########################################################################################
-# Version file for jconsole
-
-$(JDK_OUTPUTDIR)/gensrc/jdk.jconsole/sun/tools/jconsole/Version.java: \
-    $(JDK_TOPDIR)/src/jdk.jconsole/share/classes/sun/tools/jconsole/Version.java.template
-	$(MKDIR) -p $(@D)
-	$(RM) $@ $@.tmp
-	$(ECHO) $(LOG_INFO) Generating sun/tools/jconsole/Version.java
-	$(SED) -e 's/@@jconsole_version@@/$(FULL_VERSION)/g' $< > $@.tmp
-	$(MV) $@.tmp $@
-
-GENSRC_JDK_JCONSOLE += $(JDK_OUTPUTDIR)/gensrc/jdk.jconsole/sun/tools/jconsole/Version.java
-
-##########################################################################################
 
 GENSRC_JAVA_BASE += $(JDK_OUTPUTDIR)/gensrc/java.base/sun/nio/ch/SocketOptionRegistry.java
 
@@ -166,56 +153,6 @@ ifeq ($(OPENJDK_TARGET_OS), solaris)
 	$(MV) $@.tmp $@
 
 
-endif
-
-##########################################################################################
-
-ifndef OPENJDK
-  ifeq ($(OPENJDK_TARGET_OS), windows)
-
-    AB_GENSRC_DIR := $(JDK_OUTPUTDIR)/gensrc_ab
-    AB_SRC_DIR := $(JDK_TOPDIR)/src/closed/java.desktop/windows/classes/com/sun/java/accessibility
-
-    ifeq ($(OPENJDK_TARGET_CPU_BITS), 32)
-      $(AB_GENSRC_DIR)/32bit/com/sun/java/accessibility/AccessBridgeLoader.java: \
-          $(AB_SRC_DIR)/32bit/AccessBridgeLoader.java
-		$(install-file)
-
-      $(AB_GENSRC_DIR)/32bit/com/sun/java/accessibility/AccessBridge.java: \
-          $(AB_SRC_DIR)/AccessBridge.java
-		$(install-file)
-
-      $(AB_GENSRC_DIR)/legacy/com/sun/java/accessibility/AccessBridgeLoader.java: \
-          $(AB_SRC_DIR)/legacy/AccessBridgeLoader.java
-		$(install-file)
-
-      $(AB_GENSRC_DIR)/legacy/com/sun/java/accessibility/AccessBridge.java: \
-          $(AB_SRC_DIR)/AccessBridge.java
-		$(install-file)
-
-      GENSRC_JAVA_DESKTOP += \
-          $(AB_GENSRC_DIR)/32bit/com/sun/java/accessibility/AccessBridgeLoader.java \
-          $(AB_GENSRC_DIR)/legacy/com/sun/java/accessibility/AccessBridgeLoader.java \
-          $(AB_GENSRC_DIR)/32bit/com/sun/java/accessibility/AccessBridge.java \
-          $(AB_GENSRC_DIR)/legacy/com/sun/java/accessibility/AccessBridge.java \
-          #
-
-    else
-      $(AB_GENSRC_DIR)/64bit/com/sun/java/accessibility/AccessBridgeLoader.java: \
-          $(AB_SRC_DIR)/64bit/AccessBridgeLoader.java
-		$(install-file)
-
-      $(AB_GENSRC_DIR)/64bit/com/sun/java/accessibility/AccessBridge.java: \
-          $(AB_SRC_DIR)/AccessBridge.java
-		$(install-file)
-
-      GENSRC_JAVA_DESKTOP += \
-          $(AB_GENSRC_DIR)/64bit/com/sun/java/accessibility/AccessBridgeLoader.java \
-          $(AB_GENSRC_DIR)/64bit/com/sun/java/accessibility/AccessBridge.java \
-          #
-
-    endif
-  endif
 endif
 
 ##########################################################################################

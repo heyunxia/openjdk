@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -36,46 +36,3 @@ include Setup.gmk
 # We need the tools.
 include Tools.gmk
 
-# Now include all the rules that generate Java sources.
-# The Java sources are written into the gensrc_.... directories.
-
-# TODO: maybe split into separate modules?
-include gensrc/GensrcProperties.gmk
-GENSRC_JAVA_BASE += $(GENSRC_PROPERTIES)
-
-include gensrc/GensrcLocaleDataMetaInfo.gmk
-include gensrc/GensrcCharacterData.gmk
-include gensrc/GensrcJDWP.gmk
-include gensrc/GensrcMisc.gmk
-include gensrc/GensrcCharsetMapping.gmk
-include gensrc/GensrcCharsetCoder.gmk
-include gensrc/GensrcBuffer.gmk
-include gensrc/GensrcExceptions.gmk
-
-ifneq ($(OPENJDK_TARGET_OS), windows)
-  include gensrc/GensrcIcons.gmk
-
-  ifneq ($(OPENJDK_TARGET_OS), macosx)
-    include gensrc/GensrcX11Wrappers.gmk
-  endif
-endif
-
-include gensrc/GensrcCLDR.gmk
-include gensrc/GensrcSwing.gmk
-include gensrc/GensrcProviders.gmk
-
-java.base: $(GENSRC_JAVA_BASE)
-java.desktop: $(GENSRC_JAVA_DESKTOP)
-jdk.attach: $(GENSRC_JDK_ATTACH)
-jdk.charsets: $(GENSRC_JDK_CHARSETS)
-jdk.jconsole: $(GENSRC_JDK_JCONSOLE)
-jdk.jdi: $(GENSRC_JDK_JDI)
-
-all: $(GENSRC_JAVA_BASE) \
-    $(GENSRC_JAVA_DESKTOP) \
-    $(GENSRC_JDK_CHARSETS) \
-    $(GENSRC_JDK_JCONSOLE) \
-    $(GENSRC_JDK_JDI) \
-    #
-
-.PHONY: all java.base java.desktop jdk.attach jdk.jdwp jdk.charsets jdk.jconsole jdk.jdi
