@@ -28,16 +28,7 @@ default: all
 include $(SPEC)
 include MakeBase.gmk
 
-#######
-
-IMPORT_TARGET_FILES :=
-
-IMPORT_CLASSES := CORBA JAXP JAXWS LANGTOOLS
-IMPORT_SOURCES := CORBA JAXP JAXWS LANGTOOLS
-# Only Corba has binaries
-IMPORT_BINARIES := CORBA
-
-#######
+################################################################################
 
 # Put the libraries here. Different locations for different target apis.
 ifeq ($(OPENJDK_TARGET_OS_API), posix)
@@ -48,57 +39,7 @@ else
   HOTSPOT_LIB_DIR := $(HOTSPOT_DIST)/jre/bin
 endif
 
-#######
-
-#
-# jar xf/unzip fails when executing them all in parallel
-# introduce artificial dependency (_DEP) buuhhh
-
-define ImportClasses
-  $1_CLASSES_DEP := $$(IMPORT_TARGET_CLASSES)
-  IMPORT_TARGET_CLASSES += $(JDK_OUTPUTDIR)/classes/_the.$1.classes.imported
-
-  $(JDK_OUTPUTDIR)/classes/_the.$1.classes.imported: $$($1_DIST)/lib/classes.jar $$($1_CLASSES_DEP)
-	$(ECHO) Importing $1 classes.jar
-	$(MKDIR) -p $$(@D)
-	$(RM) $$@ $$@.tmp
-	($(CD) $$(@D) && $(JAR) xvf $$< > $$@.tmp)
-	$(MV) $$@.tmp $$@
-endef
-
-define ImportSources
-  $1_SOURCES_DEP := $$(IMPORT_TARGET_SOURCES)
-  IMPORT_TARGET_SOURCES += $(JDK_OUTPUTDIR)/impsrc/_the.$1.src.imported
-
-  $(JDK_OUTPUTDIR)/impsrc/_the.$1.src.imported: $$($1_DIST)/lib/src.zip $$($1_SOURCES_DEP)
-	$(ECHO) Importing $1 src.zip
-	$(MKDIR) -p $$(@D)
-	$(RM) $$@ $$@.tmp
-	($(CD) $$(@D) && $(JAR) xvf $$< > $$@.tmp)
-	$(MV) $$@.tmp $$@
-endef
-
-define ImportBinaries
-  $1_BINARIES_DEP := $$(IMPORT_TARGET_BINARIES)
-  IMPORT_TARGET_BINARIES += $(JDK_OUTPUTDIR)/_the.$1.binaries.imported
-
-  $(JDK_OUTPUTDIR)/_the.$1.binaries.imported: $$($1_DIST)/lib/bin.zip $$($1_BINARIES_DEP)
-	$(ECHO) Importing $1 bin.zip
-	$(MKDIR) -p $$(@D)
-	$(RM) $$@ $$@.tmp
-	($(CD) $$(@D) && $(JAR) xvf $$< > $$@.tmp)
-	$(MV) $$@.tmp $$@
-endef
-
-#######
-
-$(foreach I, $(IMPORT_CLASSES), $(eval $(call ImportClasses,$I)))
-$(foreach I, $(IMPORT_SOURCES), $(eval $(call ImportSources,$I)))
-$(foreach I, $(IMPORT_BINARIES), $(eval $(call ImportBinaries,$I)))
-
-IMPORT_TARGET_FILES += $(IMPORT_TARGET_CLASSES) $(IMPORT_TARGET_SOURCES) $(IMPORT_TARGET_BINARIES)
-
-#######
+################################################################################
 
 define CopyDir
   $1_SRC_FILES := $(shell $(FIND) $2 -type f -a \( -name DUMMY $(addprefix -o$(SPACE)-name$(SPACE),$4) \))
@@ -109,7 +50,7 @@ define CopyDir
 	$$(install-file)
 endef
 
-#######
+################################################################################
 
 #
 # Import hotspot
@@ -285,4 +226,4 @@ endif
 
 hotspot: $(HOTSPOT_IMPORT_TARGET_FILES)
 
-all: $(IMPORT_TARGET_FILES)
+sec: $(IMPORT_TARGET_FILES)
