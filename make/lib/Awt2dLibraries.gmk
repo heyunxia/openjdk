@@ -169,7 +169,8 @@ endif
 LIBAWT_CFLAGS += -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
     $(addprefix -I, $(shell find $(LIBAWT_DIRS) -type d)) \
     -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/common/sun/awt \
-    $(addprefix -I, $(BUILD_LIBJAVA_SRC) $(BUILD_LIBMLIB_IMAGE_SRC)) \
+    $(LIBJAVA_HEADER_FLAGS) \
+    $(addprefix -I, $(BUILD_LIBMLIB_IMAGE_SRC)) \
     #
 
 LIBAWT_CFLAGS += -D__MEDIALIB_OLD_NAMES -D__USE_J2D_NAMES \
@@ -327,7 +328,7 @@ ifeq ($(findstring $(OPENJDK_TARGET_OS),windows macosx),)
         -I$(JDK_TOPDIR)/src/java.desktop/share/native/libawt/sun/awt/image \
         -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/libsunwjdga \
         -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/common/sun/font \
-        $(addprefix -I, $(BUILD_LIBJAVA_SRC))
+        $(LIBJAVA_HEADER_FLAGS)
         #
 
     LIBAWT_XAWT_CFLAGS += -DXAWT -DXAWT_HACK \
@@ -393,7 +394,7 @@ LIBLCMS_SRC := $(JDK_TOPDIR)/src/java.desktop/share/native/liblcms
 LIBLCMS_CPPFLAGS += -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
     -I$(JDK_TOPDIR)/src/java.desktop/share/native/libawt/sun/java2d \
     -I$(JDK_TOPDIR)/src/java.desktop/share/native/common/sun/awt/debug \
-    $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+    $(LIBJAVA_HEADER_FLAGS) \
     #
 
 ifeq ($(USE_EXTERNAL_LCMS), true)
@@ -495,7 +496,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVAJPEG, \
     INCLUDE_FILES := $(BUILD_LIBJAVAJPEG_INCLUDE_FILES), \
     LANG := C, \
     OPTIMIZATION := HIGHEST, \
-    CFLAGS := $(CFLAGS_JDKLIB) $(addprefix -I, $(LIBJAVAJPEG_SRC) $(BUILD_LIBJAVA_SRC)) \
+    CFLAGS := $(CFLAGS_JDKLIB) $(addprefix -I, $(LIBJAVAJPEG_SRC)) \
+        $(LIBJAVA_HEADER_FLAGS) \
         -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop, \
     MAPFILE := $(BUILD_LIBJAVAJPEG_MAPFILE), \
     LDFLAGS := $(LDFLAGS_JDKLIB) $(LIBJPEG_LIBS) \
@@ -527,7 +529,7 @@ LIBFONTMANAGER_CFLAGS := \
       $(JDK_TOPDIR)/src/java.desktop/share/native/common \
       $(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/common -type d)) \
     -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
-    $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+    $(LIBJAVA_HEADER_FLAGS) \
     #
 
 ifndef OPENJDK
@@ -666,7 +668,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
       -I$(JDK_TOPDIR)/src/java.desktop/windows/native/include \
       -I$(JDK_TOPDIR)/src/java.desktop/share/native/include \
-      $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+      $(LIBJAVA_HEADER_FLAGS) \
       #
 
   ifeq ($(OPENJDK_TARGET_CPU), x86)
@@ -713,7 +715,7 @@ else # OPENJDK_TARGET_OS not windows
       -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS)/native/include \
       -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/include \
       -I$(JDK_TOPDIR)/src/java.desktop/share/native/include \
-      $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+      $(LIBJAVA_HEADER_FLAGS) \
       #
 
   ifeq ($(OPENJDK_TARGET_OS), macosx)
@@ -887,7 +889,7 @@ ifeq ($(BUILD_HEADLESS), true)
         -I$(JDK_TOPDIR)/src/java.desktop/share/native/common/sun/awt/debug \
         -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/common/sun/font \
         -I$(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TARGET_OS_API_DIR)/native/libsunwjdga/ \
-        $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+        $(LIBJAVA_HEADER_FLAGS) \
         #
     LIBAWT_HEADLESS_EXFILES := initIDs.c
 
@@ -969,7 +971,7 @@ ifndef BUILD_HEADLESS_ONLY
 
   LIBSPLASHSCREEN_CFLAGS += -DSPLASHSCREEN -DPNG_NO_MMX_CODE \
       $(addprefix -I, $(LIBSPLASHSCREEN_DIRS)) \
-      $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+      $(LIBJAVA_HEADER_FLAGS) \
       #
 
   ifeq ($(OPENJDK_TARGET_OS), macosx)
@@ -1111,7 +1113,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       -I$(JDK_TOPDIR)/src/java.desktop/share/native/libawt/sun/java2d/pipe \
       -I$(JDK_TOPDIR)/src/java.desktop/share/native/common/sun/awt/debug \
       -I$(JDK_TOPDIR)/src/java.desktop/macosx/native/libosxapp \
-      $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+      $(LIBJAVA_HEADER_FLAGS) \
       #
 
   LIBAWT_LWAWT_EXFILES := fontpath.c awt_Font.c X11Color.c initIDs.c

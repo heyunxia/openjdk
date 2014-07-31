@@ -25,7 +25,6 @@
 
 include LibCommon.gmk
 
-include CoreLibraries.gmk
 include PlatformLibraries.gmk
 include Awt2dLibraries.gmk
 include SoundLibraries.gmk

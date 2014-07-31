@@ -29,7 +29,7 @@ LIBJSOUND_SRC_DIRS := \
     #
 LIBJSOUND_CFLAGS := \
     -I$(JDK_OUTPUTDIR)/gensrc_headers/java.desktop \
-    $(addprefix -I, $(BUILD_LIBJAVA_SRC)) \
+    $(LIBJAVA_HEADER_FLAGS) \
     $(foreach dir, $(LIBJSOUND_SRC_DIRS), -I$(dir)) \
     #
 

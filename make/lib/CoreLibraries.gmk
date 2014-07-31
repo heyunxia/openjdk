@@ -112,13 +112,11 @@ BASE_LIBRARIES += $(BUILD_LIBVERIFY)
 
 ##########################################################################################
 
+LIBJAVA_SRC_DIRS := $(call FindSrcDirsForLib, java.base, java)
+
 ifeq ($(OPENJDK_TARGET_OS), macosx)
-  LIBJAVA_SRC_DIRS += $(JDK_TOPDIR)/src/java.base/macosx/native/libjava
   LIBJAVA_EXCLUDE_FILES += $(JDK_TOPDIR)/src/java.base/unix/native/libjava/HostLocaleProviderAdapter_md.c
 endif
-
-LIBJAVA_SRC_DIRS += $(JDK_TOPDIR)/src/java.base/$(OPENJDK_TARGET_OS_API_DIR)/native/libjava \
-    $(JDK_TOPDIR)/src/java.base/share/native/libjava
 
 LIBJAVA_CFLAGS := $(addprefix -I, $(LIBJAVA_SRC_DIRS)) \
     -I$(JDK_TOPDIR)/src/java.base/share/native/libfdlibm \
@@ -245,74 +243,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBZIP, \
 $(BUILD_LIBZIP): $(BUILD_LIBJAVA)
 
 BASE_LIBRARIES += $(BUILD_LIBZIP)
-
-##########################################################################################
-
-ifeq ($(OPENJDK_TARGET_OS), macosx)
-  LIBPREF_SRC_DIRS := $(JDK_TOPDIR)/src/java.prefs/macosx/native/libprefs
-else
-  LIBPREF_SRC_DIRS := $(JDK_TOPDIR)/src/java.prefs/$(OPENJDK_TARGET_OS_API_DIR)/native/libprefs
-endif
-
-$(eval $(call SetupNativeCompilation,BUILD_LIBPREFS, \
-    LIBRARY := prefs, \
-    OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
-    SRC := $(LIBPREF_SRC_DIRS), \
-    LANG := C, \
-    OPTIMIZATION := HIGH, \
-    CFLAGS := $(CFLAGS_JDKLIB) $(addprefix -I, $(LIBPREF_SRC_DIRS) $(LIBJAVA_SRC_DIRS)), \
-    MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libprefs/mapfile-vers, \
-    LDFLAGS := $(LDFLAGS_JDKLIB) \
-        $(call SET_SHARED_LIBRARY_ORIGIN), \
-    LDFLAGS_SUFFIX_linux := -ljvm -ljava, \
-    LDFLAGS_SUFFIX_solaris := -ljvm -ljava -lc, \
-    LDFLAGS_SUFFIX_aix := -ljvm -ljava, \
-    LDFLAGS_SUFFIX_windows := advapi32.lib jvm.lib $(WIN_JAVA_LIB), \
-    LDFLAGS_SUFFIX_macosx := -ljvm -framework CoreFoundation -framework Foundation, \
-    VERSIONINFO_RESOURCE := $(GLOBAL_VERSION_INFO_RESOURCE), \
-    RC_FLAGS := $(RC_FLAGS) \
-        -D "JDK_FNAME=prefs.dll" \
-        -D "JDK_INTERNAL_NAME=prefs" \
-        -D "JDK_FTYPE=0x2L", \
-    OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libprefs, \
-    DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
-
-$(BUILD_LIBPREFS): $(BUILD_LIBJAVA)
-    
-PREFS_LIBRARIES += $(BUILD_LIBPREFS)
-
-##########################################################################################
-
-$(eval $(call SetupNativeCompilation,BUILD_LIBUNPACK, \
-    LIBRARY := unpack, \
-    OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
-    SRC := $(JDK_TOPDIR)/src/jdk.runtime/share/native/libunpack \
-        $(JDK_TOPDIR)/src/jdk.runtime/share/native/common-unpack, \
-    LANG := C++, \
-    OPTIMIZATION := LOW, \
-    CFLAGS := $(CXXFLAGS_JDKLIB) \
-        -DNO_ZLIB -DUNPACK_JNI -DFULL \
-        -I$(JDK_OUTPUTDIR)/gensrc_headers/java.base \
-        -I$(JDK_TOPDIR)/src/jdk.runtime/share/native/common-unpack \
-        $(addprefix -I, $(BUILD_LIBJAVA_SRC)), \
-    CFLAGS_release := -DPRODUCT, \
-    MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libunpack/mapfile-vers, \
-    LDFLAGS := $(LDFLAGS_JDKLIB) $(LDFLAGS_CXX_JDK) \
-        $(call SET_SHARED_LIBRARY_ORIGIN), \
-    LDFLAGS_windows := -map:$(JDK_OUTPUTDIR)/objs/unpack.map -debug \
-        jvm.lib $(WIN_JAVA_LIB), \
-    LDFLAGS_SUFFIX_posix := -ljvm $(LIBCXX) -ljava -lc, \
-    OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libunpack, \
-    VERSIONINFO_RESOURCE := $(GLOBAL_VERSION_INFO_RESOURCE), \
-    RC_FLAGS := $(RC_FLAGS) \
-        -D "JDK_FNAME=unpack.dll" \
-        -D "JDK_INTERNAL_NAME=unpack" \
-        -D "JDK_FTYPE=0x2L", \
-    DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
-
-$(BUILD_LIBUNPACK): $(BUILD_LIBJAVA)
-
-UNPACK_LIBRARIES += $(BUILD_LIBUNPACK)
 
 ##########################################################################################
 

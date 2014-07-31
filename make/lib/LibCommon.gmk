@@ -33,7 +33,7 @@ include NativeCompilation.gmk
 include Setup.gmk
 
 # Prepare the find cache.
-$(eval $(call FillCacheFind, $(JDK_TOPDIR)/src))
+$(eval $(call FillCacheFind, $(wildcard $(JDK_TOPDIR)/src/*/*/native)))
 
 # Build tools
 include Tools.gmk
@@ -61,3 +61,22 @@ endif
 ifdef OPENJDK
   DEBUG_ALL_BINARIES := true
 endif
+
+################################################################################
+
+# Find the default set of src dirs for a native library.
+# Param 1 - module name
+# Param 2 - library name
+FindSrcDirsForLib = $(call uniq, $(wildcard \
+    $(JDK_TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS)/native/lib$(strip $2) \
+    $(JDK_TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS_API_DIR)/native/lib$(strip $2) \
+    $(JDK_TOPDIR)/src/$(strip $1)/share/native/lib$(strip $2)))
+
+################################################################################
+
+# A lot of libraries are dependent on libjava. Define the name of that
+# library here to make dependency declarations to it possible in other files.
+BUILD_LIBJAVA := $(INSTALL_LIBRARIES_HERE)/$(LIBRARY_PREFIX)java$(SHARED_LIBRARY_SUFFIX)
+
+# Also define the header include flags needed to compile against it.
+LIBJAVA_HEADER_FLAGS := $(addprefix -I, $(call FindSrcDirsForLib, java.base, java))
