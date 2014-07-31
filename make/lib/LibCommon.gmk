@@ -80,3 +80,12 @@ BUILD_LIBJAVA := $(INSTALL_LIBRARIES_HERE)/$(LIBRARY_PREFIX)java$(SHARED_LIBRARY
 
 # Also define the header include flags needed to compile against it.
 LIBJAVA_HEADER_FLAGS := $(addprefix -I, $(call FindSrcDirsForLib, java.base, java))
+
+################################################################################
+
+# Define it here since there are multiple uses.
+ifeq ($(USE_EXTERNAL_LIBZ), true)
+  LIBZ := -lz
+else
+  ZLIB_CPPFLAGS := -I$(JDK_TOPDIR)/src/java.base/share/native/libzip/zlib-1.2.8
+endif

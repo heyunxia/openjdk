@@ -189,10 +189,7 @@ $(BUILD_LIBJAVA): $(BUILD_LIBFDLIBM)
 
 BUILD_LIBZIP_EXCLUDES :=
 ifeq ($(USE_EXTERNAL_LIBZ), true)
-  LIBZ := -lz
   LIBZIP_EXCLUDES += zlib-1.2.8
-else
-  ZLIB_CPPFLAGS := -I$(JDK_TOPDIR)/src/java.base/share/native/libzip/zlib-1.2.8
 endif
 
 BUILD_LIBZIP_REORDER :=
