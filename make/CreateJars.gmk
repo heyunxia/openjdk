@@ -33,6 +33,7 @@ default: all
 include Tools.gmk
 
 JDK_OUT_CLASSES := $(wildcard $(JDK_OUTPUTDIR)/modules/*)
+$(eval $(call FillCacheFind, $(JDK_OUT_CLASSES)))
 
 include Profiles.gmk
 
