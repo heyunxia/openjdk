@@ -26,7 +26,6 @@
 include $(SPEC)
 include MakeBase.gmk
 include JavaCompilation.gmk
-include Setup.gmk
 
 default: all
 
