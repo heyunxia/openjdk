@@ -29,9 +29,6 @@ include $(SPEC)
 include MakeBase.gmk
 include NativeCompilation.gmk
 
-# Setup the java compilers for the JDK build.
-include Setup.gmk
-
 # Prepare the find cache.
 $(eval $(call FillCacheFind, $(wildcard $(JDK_TOPDIR)/src/*/*/native)))
 

@@ -32,7 +32,7 @@ include NativeCompilation.gmk
 include TextFileProcessing.gmk
 
 # Setup the java compilers for the JDK build.
-include Setup.gmk
+include SetupJava.gmk
 # We need the tools.
 include Tools.gmk
 

@@ -28,7 +28,6 @@ default: all
 include $(SPEC)
 include MakeBase.gmk
 include JavaCompilation.gmk
-include Setup.gmk
 
 # The jars created in this file are required for the exploded jdk image to function and
 # cannot wait to be built in the images target.
