@@ -25,47 +25,14 @@
 
 include LauncherCommon.gmk
 
+# Hook to include the corresponding custom file, if present.
+$(eval $(call IncludeCustomExtension, jdk, launcher/Launcher-java.desktop.gmk))
+
 ifndef BUILD_HEADLESS_ONLY
   $(eval $(call SetupLauncher,appletviewer, \
       -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.applet.Main"$(COMMA) }',, \
       $(XLIBS)))
 endif
-
-##########################################################################################
-# jabswitch
-
-ifndef OPENJDK
-  ifeq ($(OPENJDK_TARGET_OS), windows)
-
-    JABSWITCH_SRC := $(JDK_TOPDIR)/src/closed/java.desktop/windows/native/jabswitch
-    ACCESSBRIDGE_SRC := $(JDK_TOPDIR)/src/closed/java.desktop/windows/native/libaccessbridge
-
-    $(eval $(call SetupNativeCompilation,BUILD_JABSWITCH, \
-        SRC := $(JABSWITCH_SRC), \
-        INCLUDE_FILES := jabswitch.cpp, \
-        LANG := C++, \
-        CFLAGS := $(filter-out -Zc:wchar_t-, $(CFLAGS_JDKEXE)) -Zc:wchar_t \
-            -analyze- -Od -Gd -D_WINDOWS \
-            -D_UNICODE -DUNICODE -RTC1 -EHsc, \
-        LDFLAGS := $(LDFLAGS_JDKEXE) \
-            Advapi32.lib Version.lib User32.lib, \
-        OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/jabswitch, \
-        OUTPUT_DIR := $(JDK_OUTPUTDIR)/bin, \
-        PROGRAM := jabswitch, \
-        DEBUG_SYMBOLS := true, \
-        VERSIONINFO_RESOURCE := $(ACCESSBRIDGE_SRC)/AccessBridgeStatusWindow.RC, \
-        RC_FLAGS := $(RC_FLAGS) \
-            -D "JDK_FNAME=jabswitch.exe" \
-            -D "JDK_INTERNAL_NAME=jabswitch" \
-            -D "JDK_FTYPE=0x01L", \
-        MANIFEST := $(JABSWITCH_SRC)/jabswitch.manifest))
-
-    LAUNCHERS += $(BUILD_JABSWITCH)
-
-  endif
-endif
-
-##########################################################################################
 
 java.desktop: $(LAUNCHERS)
 

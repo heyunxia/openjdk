@@ -25,13 +25,16 @@
 
 include GendataCommon.gmk
 
-include gendata/GendataBreakIterator.gmk
+# Hook to include the corresponding custom file, if present.
+$(eval $(call IncludeCustomExtension, jdk, gendata/Gendata-java.base.gmk))
+
+include GendataBreakIterator.gmk
 GENDATA += $(BREAK_ITERATOR)
 
-include gendata/GendataTZDB.gmk
+include GendataTZDB.gmk
 GENDATA += $(GENDATA_TZDB)
 
-include gendata/GendataBlacklistedCerts.gmk
+include GendataBlacklistedCerts.gmk
 GENDATA += $(GENDATA_BLACKLISTED_CERTS)
 
 ##########################################################################################
@@ -62,13 +65,12 @@ GENDATA += $(GENDATA_CURDATA)
 PROPS_SRC := $(JDK_TOPDIR)/src/java.base/share/conf/security/java.security-$(OPENJDK_TARGET_OS)
 PROPS_DST := $(JDK_OUTPUTDIR)/lib/security/java.security
 
-ifndef OPENJDK
+# Optionally set this variable to a file to add extra restricted packages.
+ifneq ($(RESTRICTED_PKGS_SRC), )
 
-  RESTRICTED_PKGS_SRC := $(JDK_TOPDIR)/src/closed/java.base/share/conf/security/restricted.pkgs
-
-  $(PROPS_DST): $(PROPS_SRC)
+  $(PROPS_DST): $(PROPS_SRC) $(RESTRICTED_PKGS_SRC)
 	$(MKDIR) -p $(@D)
-	$(TOOL_ADDTORESTRICTEDPKGS) $< $@.tmp `$(CAT) $(RESTRICTED_PKGS_SRC) | $(TR) "\n" " "`
+	$(TOOL_ADDTORESTRICTEDPKGS) $(PROPS_SRC) $@.tmp `$(CAT) $(RESTRICTED_PKGS_SRC) | $(TR) "\n" " "`
 	$(MV) $@.tmp $@
 
 else

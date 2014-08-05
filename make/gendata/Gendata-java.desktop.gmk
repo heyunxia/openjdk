@@ -25,10 +25,10 @@
 
 include GendataCommon.gmk
 
-include gendata/GendataFontConfig.gmk
+include GendataFontConfig.gmk
 GENDATA += $(GENDATA_FONT_CONFIG)
 
-include gendata/GendataHtml32dtd.gmk
+include GendataHtml32dtd.gmk
 GENDATA += $(GENDATA_HTML32DTD)
 
 $(GENDATA): $(BUILD_TOOLS_JDK)
