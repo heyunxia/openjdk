@@ -678,46 +678,6 @@ $(eval $(call SetupZipArchive,BUILD_SRC_ZIP, \
 
 ##########################################################################################
 
-ifndef OPENJDK
-  ifeq ($(OPENJDK_TARGET_OS), windows)
-
-    $(eval $(call SetupArchive,BUILD_JACCESS_JAR, , \
-        SRCS := $(JDK_OUTPUTDIR)/modules/java.desktop, \
-        INCLUDES := com/sun/java/accessibility/util, \
-        JAR := $(IMAGES_OUTPUTDIR)/lib/ext/jaccess.jar, \
-        SKIP_METAINF := true))
-
-    JARS += $(IMAGES_OUTPUTDIR)/lib/ext/jaccess.jar
-
-    ifeq ($(OPENJDK_TARGET_CPU_BITS), 32)
-      $(eval $(call SetupArchive,BUILD_ACCESSBRIDGE_32_JAR, , \
-          SRCS := $(JDK_OUTPUTDIR)/classes_ab/32bit, \
-          INCLUDES := com/sun/java/accessibility, \
-          JAR := $(IMAGES_OUTPUTDIR)/lib/ext/access-bridge-32.jar, \
-          SKIP_METAINF := true))
-
-      $(eval $(call SetupArchive,BUILD_ACCESSBRIDGE_LEGACY_JAR, , \
-          SRCS := $(JDK_OUTPUTDIR)/classes_ab/legacy, \
-          INCLUDES := com/sun/java/accessibility, \
-          JAR := $(IMAGES_OUTPUTDIR)/lib/ext/access-bridge.jar, \
-          SKIP_METAINF := true))
-
-      JARS += $(IMAGES_OUTPUTDIR)/lib/ext/access-bridge-32.jar \
-          $(IMAGES_OUTPUTDIR)/lib/ext/access-bridge.jar
-    else
-      $(eval $(call SetupArchive,BUILD_ACCESSBRIDGE_64_JAR, , \
-          SRCS := $(JDK_OUTPUTDIR)/classes_ab/64bit, \
-          INCLUDES := com/sun/java/accessibility, \
-          JAR := $(IMAGES_OUTPUTDIR)/lib/ext/access-bridge-64.jar, \
-          SKIP_METAINF := true))
-
-      JARS += $(IMAGES_OUTPUTDIR)/lib/ext/access-bridge-64.jar
-    endif
-  endif
-endif
-
-##########################################################################################
-
 # This file is imported from hotspot in Import.gmk. Copying it into images/lib so that
 # all jars can be found in one place when creating images in Images.gmk. It needs to be
 # done here so that clean targets can be simple and accurate.
