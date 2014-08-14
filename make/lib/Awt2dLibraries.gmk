@@ -443,8 +443,6 @@ $(BUILD_LIBLCMS): $(BUILD_LIBAWT)
 
 ##########################################################################################
 
-LIBJAVAJPEG_SRC := $(JDK_TOPDIR)/src/java.desktop/share/native/libjavajpeg
-
 ifdef OPENJDK
   BUILD_LIBJAVAJPEG_MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libjpeg/mapfile-vers
 else
@@ -486,7 +484,7 @@ ifeq ($(USE_EXTERNAL_LIBJPEG), true)
 else
   LIBJPEG_LIBS :=
   BUILD_LIBJAVAJPEG_INCLUDE_FILES :=
-  BUILD_LIBJAVAJPEG_HEADERS := -I$(LIBJAVAJPEG_SRC)
+  BUILD_LIBJAVAJPEG_HEADERS := $(addprefix -I, $(LIBJAVAJPEG_SRC))
 endif
 
 $(eval $(call SetupNativeCompilation,BUILD_LIBJAVAJPEG, \
