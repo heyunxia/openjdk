@@ -1143,7 +1143,7 @@ char* os::format_boot_path(const char* format_string,
     return formatted_path;
 }
 
-// returns a PATH of all entries in the given directory
+// returns a PATH of all entries in the given directory that do not start with a '.'
 static char* expand_entries_to_path(char* directory, char fileSep, char pathSep) {
   DIR* dir = os::opendir(directory);
   if (dir == NULL) return NULL;
