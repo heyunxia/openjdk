@@ -30,6 +30,10 @@ include $(SPEC)
 include MakeBase.gmk
 include Tools.gmk
 
+#
+# Generate modules.xml for jdeps to use
+# It augments $(TOPDIR)/modules.xml to include module membership
+#
 JDEPS_MODULES_XML := $(JDK_OUTPUTDIR)/modules/jdk.dev/com/sun/tools/jdeps/resources/modules.xml
 
 METADATA := $(JDK_OUTPUTDIR)/btclasses/build/tools/module/modules.xml
@@ -46,10 +50,6 @@ ifndef OPENJDK
   METADATA_FILES += $(CLOSED_METADATA)
 endif
 
-#
-# Generate modules.xml for jdeps to use
-# It augments make/data/checkdeps/modules.xml to include module membership
-#
 $(JDEPS_MODULES_XML): $(BUILD_TOOLS_JDK) $(METADATA_FILES)
 	$(MKDIR) -p $(@D)
 	$(RM) $@
