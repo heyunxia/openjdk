@@ -32,7 +32,7 @@ include JavaCompilation.gmk
 
 ################################################################################
 # The compileprops tools compiles a properties file into a resource bundle.
-TOOL_COMPILEPROPS_CMD := $(JAVA) -cp $(LANGTOOLS_OUTPUTDIR)/buildtools_classes \
+TOOL_COMPILEPROPS_CMD := $(JAVA) -cp $(BUILDTOOLS_OUTPUTDIR)/langtools_bt_classes \
     compileproperties.CompileProperties -quiet
 
 
@@ -85,7 +85,7 @@ define SetupCompileProperties
   $(LANGTOOLS_OUTPUTDIR)/gensrc/$(MODULE)/_the_props: $$(PROPSOURCES)
 	$(FIND) $$(@D) -name "*.java" $(FIND_DELETE)
 	$(MKDIR) -p $$(@D) $$(PROPDIRS)
-	$(ECHO) Compiling $$(words $$(PROPSOURCES)) properties into resource bundles
+	$(ECHO) Compiling $$(words $$(PROPSOURCES)) properties into resource bundles for $(MODULE)
 	$(TOOL_COMPILEPROPS_CMD) $$(PROPCMDLINE)
 	$(TOUCH) $$@
 
