@@ -43,12 +43,12 @@ TOOL_COMPILEPROPS_CMD := $(JAVA) -cp $(BUILDTOOLS_OUTPUTDIR)/langtools_bt_classe
 # Param 2 - Name of version.properties file including packages from the src
 #           root.
 define SetupVersionProperties
-  $(LANGTOOLS_OUTPUTDIR)/gensrc/$(MODULE)/$$(strip $2):
+  $(SUPPORT_OUTPUTDIR)/gensrc/$(MODULE)/$$(strip $2):
 	$(MKDIR) -p $$(@D)
 	$(PRINTF) "jdk=$(JDK_VERSION)\nfull=$(FULL_VERSION)\nrelease=$(RELEASE)\n" \
 	    > $$@
 
-  $$(strip $1) += $(LANGTOOLS_OUTPUTDIR)/gensrc/$(MODULE)/$$(strip $2)
+  $$(strip $1) += $(SUPPORT_OUTPUTDIR)/gensrc/$(MODULE)/$$(strip $2)
 endef
 
 ################################################################################
@@ -65,7 +65,7 @@ define SetupCompileProperties
   # Strip away prefix and suffix, leaving for example only: 
   # "<module>/share/classes/com/sun/tools/javac/resources/javac_zh_CN"
   PROPJAVAS := $$(patsubst $(LANGTOOLS_TOPDIR)/src/%, \
-      $(LANGTOOLS_OUTPUTDIR)/gensrc/%, \
+      $(SUPPORT_OUTPUTDIR)/gensrc/%, \
       $$(patsubst %.properties, %.java, \
       $$(subst /share/classes,, $$(PROPSOURCES))))
 
@@ -82,14 +82,14 @@ define SetupCompileProperties
       $$(addprefix _SPACE_, $$(PROPJAVAS)))))
 
   # Now setup the rule for the generation of the resource bundles.
-  $(LANGTOOLS_OUTPUTDIR)/gensrc/$(MODULE)/_the_props: $$(PROPSOURCES)
+  $(SUPPORT_OUTPUTDIR)/gensrc/$(MODULE)/_the_props: $$(PROPSOURCES)
 	$(FIND) $$(@D) -name "*.java" $(FIND_DELETE)
 	$(MKDIR) -p $$(@D) $$(PROPDIRS)
 	$(ECHO) Compiling $$(words $$(PROPSOURCES)) properties into resource bundles for $(MODULE)
 	$(TOOL_COMPILEPROPS_CMD) $$(PROPCMDLINE)
 	$(TOUCH) $$@
 
-  $$(strip $1) += $(LANGTOOLS_OUTPUTDIR)/gensrc/$(MODULE)/_the_props
+  $$(strip $1) += $(SUPPORT_OUTPUTDIR)/gensrc/$(MODULE)/_the_props
 endef
 
 ################################################################################
