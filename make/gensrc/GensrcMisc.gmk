@@ -53,7 +53,7 @@ GENSRC_JAVA_BASE += $(JDK_OUTPUTDIR)/gensrc/java.base/sun/nio/ch/SocketOptionReg
 
 GENSRC_SOR_SRC := $(JDK_TOPDIR)/make/src/native/genconstants/ch
 GENSRC_SOR_SRC_FILE := genSocketOptionRegistry.c
-GENSRC_SOR_BIN := $(JDK_OUTPUTDIR)/btnative/genSocketOptionRegistry
+GENSRC_SOR_BIN := $(BUILDTOOLS_OUTPUTDIR)/native/genSocketOptionRegistry
 
 SOR_COPYRIGHT_YEARS = $(shell $(CAT) $(GENSRC_SOR_SRC)/$(GENSRC_SOR_SRC_FILE) | \
     $(NAWK) '/^.*Copyright.*Oracle/ { printf "%s %s",$$4,$$5 }')
@@ -90,7 +90,7 @@ ifneq ($(OPENJDK_TARGET_OS), windows)
 
   GENSRC_UC_SRC := $(JDK_TOPDIR)/make/src/native/genconstants/fs
   GENSRC_UC_SRC_FILE := genUnixConstants.c
-  GENSRC_UC_BIN := $(JDK_OUTPUTDIR)/btnative/genUnixConstants
+  GENSRC_UC_BIN := $(BUILDTOOLS_OUTPUTDIR)/native/genUnixConstants
 
   UC_COPYRIGHT_YEARS = $(shell $(CAT) $(GENSRC_UC_SRC)/$(GENSRC_UC_SRC_FILE) | \
       $(NAWK) '/^.*Copyright.*Oracle/ { printf "%s %s",$$4,$$5 }')
@@ -130,7 +130,7 @@ ifeq ($(OPENJDK_TARGET_OS), solaris)
 
   GENSRC_SOL_SRC := $(JDK_TOPDIR)/make/src/native/genconstants/fs
   GENSRC_SOL_SRC_FILE := genSolarisConstants.c
-  GENSRC_SOL_BIN := $(JDK_OUTPUTDIR)/btnative/genSolarisConstants
+  GENSRC_SOL_BIN := $(BUILDTOOLS_OUTPUTDIR)/native/genSolarisConstants
 
   SOL_COPYRIGHT_YEARS = $(shell $(CAT) $(GENSRC_SOL_SRC)/$(GENSRC_SOL_SRC_FILE) | \
       $(NAWK) '/^.*Copyright.*Oracle/ { printf "%s %s",$$4,$$5 }')
