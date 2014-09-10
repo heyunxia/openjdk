@@ -37,7 +37,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OPTIMIZATION := LOW, \
       CFLAGS := $(CFLAGS_JDKLIB) \
           $(addprefix -I, $(LIBOSXAPP_SRC)) \
-          -I$(JDK_OUTPUTDIR)/gensrc_headers_icons, \
+          -I$(SUPPORT_OUTPUTDIR)/headers/java.desktop, \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LDFLAGS_SUFFIX_macosx := \

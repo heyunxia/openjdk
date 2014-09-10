@@ -81,7 +81,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJDWP, \
     OPTIMIZATION := LOW, \
     CFLAGS := $(CFLAGS_JDKLIB) $(CFLAGS_WARNINGS_ARE_ERRORS) -DJDWP_LOGGING \
         $(LIBJDWP_CPPFLAGS) \
-        -I$(JDK_OUTPUTDIR)/gensrc_jdwp_headers, \
+        -I$(SUPPORT_OUTPUTDIR)/headers/jdk.jdwp.agent, \
     MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libjdwp/mapfile-vers, \
     LDFLAGS := $(LDFLAGS_JDKLIB) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \

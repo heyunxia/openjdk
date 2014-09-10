@@ -630,7 +630,10 @@ else
         org/w3c/dom \
         org/xml/sax \
         #
-    SRC_ZIP_EXCLUDES = javax/swing/beaninfo
+    SRC_ZIP_EXCLUDES := javax/swing/beaninfo
+    # Exclude all the Swing BeanInfo classes.
+    SRC_ZIP_EXCLUDE_FILES := SwingBeanInfoBase.java \
+        javax/swing/*BeanInfo.java
 endif
 
 SRC_ZIP_SRCS := $(wildcard \
@@ -641,9 +644,8 @@ SRC_ZIP_SRCS := $(wildcard \
     $(CORBA_TOPDIR)/src/*/share/classes \
     $(JAXP_TOPDIR)/src/*/share/classes \
     $(JAXWS_TOPDIR)/src/*/share/classes \
-    $(JDK_OUTPUTDIR)/gensrc/j* \
+    $(SUPPORT_OUTPUTDIR)/gensrc/j* \
     $(JDK_OUTPUTDIR)/gendocsrc_rmic \
-    $(CORBA_OUTPUTDIR)/gensrc/j* \
     ) \
     #
 ifndef OPENJDK
@@ -671,6 +673,7 @@ $(eval $(call SetupZipArchive,BUILD_SRC_ZIP, \
     SRC := $(SRC_ZIP_SRCS) $(IMAGES_OUTPUTDIR)/src, \
     INCLUDES := $(SRC_ZIP_INCLUDES) launcher, \
     EXCLUDES := $(SRC_ZIP_EXCLUDES), \
+    EXCLUDE_FILES := $(SRC_ZIP_EXCLUDE_FILES), \
     SUFFIXES := .java .c .h, \
     ZIP := $(IMAGES_OUTPUTDIR)/src.zip, \
     EXTRA_DEPS := $(LAUNCHER_ZIP_SRC)))
