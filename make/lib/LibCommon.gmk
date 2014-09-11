@@ -43,7 +43,7 @@ endif
 
 # Absolute paths to lib files on windows for use in LDFLAGS. Should figure out a more
 # elegant solution to this.
-WIN_JAVA_LIB := $(JDK_OUTPUTDIR)/objs/libjava/java.lib
+WIN_JAVA_LIB := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjava/java.lib
 
 # Use this variable to set DEBUG_SYMBOLS true on windows for all libraries, but
 # not on other platforms.

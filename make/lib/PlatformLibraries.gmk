@@ -53,7 +53,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
           -framework OpenGL \
           -framework IOSurface \
           -framework QuartzCore, \
-      OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libosxapp, \
+      OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libosxapp, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
   DESKTOP_LIBRARIES += $(BUILD_LIBOSXAPP)

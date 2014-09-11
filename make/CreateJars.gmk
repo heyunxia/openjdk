@@ -631,9 +631,6 @@ else
         org/xml/sax \
         #
     SRC_ZIP_EXCLUDES := javax/swing/beaninfo
-    # Exclude all the Swing BeanInfo classes.
-    SRC_ZIP_EXCLUDE_FILES := SwingBeanInfoBase.java \
-        javax/swing/*BeanInfo.java
 endif
 
 SRC_ZIP_SRCS := $(wildcard \
@@ -645,7 +642,7 @@ SRC_ZIP_SRCS := $(wildcard \
     $(JAXP_TOPDIR)/src/*/share/classes \
     $(JAXWS_TOPDIR)/src/*/share/classes \
     $(SUPPORT_OUTPUTDIR)/gensrc/j* \
-    $(JDK_OUTPUTDIR)/gendocsrc_rmic \
+    $(SUPPORT_OUTPUTDIR)/rmic/j* \
     ) \
     #
 ifndef OPENJDK

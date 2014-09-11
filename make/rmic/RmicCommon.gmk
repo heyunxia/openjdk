@@ -39,6 +39,6 @@ CLASSES_DIR := $(JDK_OUTPUTDIR)/modules
 # NOTE: If the smart javac dependency management is reintroduced, these classes risk
 # interfering with the dependency checking. In that case they will need to be kept separate.
 STUB_CLASSES_DIR := $(JDK_OUTPUTDIR)/modules
-RMIC_GENSRC_DIR := $(JDK_OUTPUTDIR)/gendocsrc_rmic
+RMIC_GENSRC_DIR := $(SUPPORT_OUTPUTDIR)/rmic
 
 ##########################################################################################

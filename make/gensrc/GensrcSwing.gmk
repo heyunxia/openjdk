@@ -45,7 +45,7 @@ GENSRC_SWING_NIMBUS := $(SUPPORT_OUTPUTDIR)/gensrc/java.desktop/_the.generated_n
 # Generate beaninfo java files
 #
 
-BEANINFO_OUTPUTDIR := $(SUPPORT_OUTPUTDIR)/gensrc/java.desktop
+BEANINFO_OUTPUTDIR := $(SUPPORT_OUTPUTDIR)/gensrc_no_docs/java.desktop
 DOCLET_DATA_DIR := $(JDK_TOPDIR)/make/data/swingbeaninfo
 
 # javax.swing package
