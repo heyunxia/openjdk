@@ -32,7 +32,7 @@ include JavaCompilation.gmk
 
 ################################################################################
 
-US_EXPORT_POLICY_JAR_DST := $(JDK_OUTPUTDIR)/lib/security/US_export_policy.jar
+US_EXPORT_POLICY_JAR_DST := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base/security/US_export_policy.jar
 
 ifneq ($(BUILD_CRYPTO), no)
 
@@ -94,7 +94,7 @@ POLICY_JARS += $(US_EXPORT_POLICY_JAR_DST)
 
 ################################################################################
 
-LOCAL_POLICY_JAR_DST := $(JDK_OUTPUTDIR)/lib/security/local_policy.jar
+LOCAL_POLICY_JAR_DST := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base/security/local_policy.jar
 
 ifneq ($(BUILD_CRYPTO), no)
 

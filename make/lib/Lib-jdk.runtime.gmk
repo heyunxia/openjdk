@@ -54,7 +54,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBUNPACK, \
         -D "JDK_FTYPE=0x2L", \
     DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-$(BUILD_LIBUNPACK): $(BUILD_LIBJAVA)
+$(BUILD_LIBUNPACK): $(call FindLib, java.base, java)
 
 UNPACK_LIBRARIES += $(BUILD_LIBUNPACK)
 
@@ -88,7 +88,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSDT, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjsdt, \
     DEBUG_SYMBOLS := true))
 
-$(BUILD_LIBJSDT): $(BUILD_LIBJAVA)
+$(BUILD_LIBJSDT): $(call FindLib, java.base, java)
 
 JSDT_LIBRARIES += $(BUILD_LIBJSDT)
 

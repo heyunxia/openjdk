@@ -83,7 +83,7 @@ ifneq ($(FREETYPE_BUNDLE_LIB_PATH), )
   ifeq ($(OPENJDK_TARGET_OS), windows)
     FREETYPE_TARGET_LIB := $(JDK_OUTPUTDIR)/bin/$(call SHARED_LIBRARY,freetype)
   else
-    FREETYPE_TARGET_LIB := $(JDK_OUTPUTDIR)/lib$(OPENJDK_TARGET_CPU_LIBDIR)/$(call SHARED_LIBRARY,freetype).6
+    FREETYPE_TARGET_LIB := $(LIB_DST_DIR)$(OPENJDK_TARGET_CPU_LIBDIR)/$(call SHARED_LIBRARY,freetype).6
   endif
 
   $(FREETYPE_TARGET_LIB): $(FREETYPE_BUNDLE_LIB_PATH)/$(call SHARED_LIBRARY,freetype)
@@ -95,10 +95,10 @@ endif
 
 ################################################################################
 
-$(JDK_OUTPUTDIR)/lib/sound.properties: $(JDK_TOPDIR)/src/java.desktop/share/conf/sound.properties
+$(LIB_DST_DIR)/sound.properties: $(JDK_TOPDIR)/src/java.desktop/share/conf/sound.properties
 	$(call install-file)
 
-DESKTOP_CONF_FILES += $(JDK_OUTPUTDIR)/lib/sound.properties
+DESKTOP_CONF_FILES += $(LIB_DST_DIR)/sound.properties
 
 ################################################################################
 #

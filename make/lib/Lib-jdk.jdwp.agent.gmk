@@ -58,7 +58,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBDT_SOCKET, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libdt_socket, \
     DEBUG_SYMBOLS := true))
 
-$(BUILD_LIBDT_SOCKET): $(BUILD_LIBJAVA)
+$(BUILD_LIBDT_SOCKET): $(call FindLib, java.base, java)
 
 # Include socket transport with JDWP agent to allow for remote debugging
 JDWP_LIBRARIES += $(BUILD_LIBDT_SOCKET)
@@ -97,7 +97,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJDWP, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjdwp, \
     DEBUG_SYMBOLS := true))
 
-$(BUILD_LIBJDWP): $(BUILD_LIBJAVA)
+$(BUILD_LIBJDWP): $(call FindLib, java.base, java)
 
 JDWP_LIBRARIES += $(BUILD_LIBJDWP)
 

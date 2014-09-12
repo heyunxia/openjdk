@@ -57,7 +57,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBPREFS, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libprefs, \
     DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-$(BUILD_LIBPREFS): $(BUILD_LIBJAVA)
+$(BUILD_LIBPREFS): $(call FindLib, java.base, java)
 
 PREFS_LIBRARIES += $(BUILD_LIBPREFS)
 

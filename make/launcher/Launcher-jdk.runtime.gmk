@@ -133,10 +133,10 @@ endif
 # image. The real fix would be clean up linking of unpack200 using
 # -link -incremental:no
 # like all other launchers.
-$(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(EXE_SUFFIX): $(BUILD_UNPACKEXE)
+$(SUPPORT_OUTPUTDIR)/modules_cmds/$(MODULE)/unpack200$(EXE_SUFFIX): $(BUILD_UNPACKEXE)
 	$(call install-file)
 
-LAUNCHERS += $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(EXE_SUFFIX)
+LAUNCHERS += $(SUPPORT_OUTPUTDIR)/modules_cmds/$(MODULE)/unpack200$(EXE_SUFFIX)
 
 ################################################################################
 

@@ -36,7 +36,7 @@ $(eval $(call SetupLauncher,rmiregistry, \
 #
 # The java-rmi.cgi script in bin/ only gets delivered in certain situations
 #
-JAVA_RMI_CGI := $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/java-rmi.cgi
+JAVA_RMI_CGI := $(SUPPORT_OUTPUTDIR)/modules_cmds/$(MODULES)/java-rmi.cgi
 ifeq ($(OPENJDK_TARGET_OS), linux)
   LAUNCHERS += $(JAVA_RMI_CGI)
 endif

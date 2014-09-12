@@ -35,12 +35,12 @@ $(eval $(call SetupLauncher,java, \
     $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/jli_static.lib, $(JAVA_RC_FLAGS), \
     $(JAVA_VERSION_INFO_RESOURCE), $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/java_objs,true))
 
-$(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/java$(EXE_SUFFIX): $(BUILD_LAUNCHER_java)
+$(SUPPORT_OUTPUTDIR)/modules_cmds/java.base/java$(EXE_SUFFIX): $(BUILD_LAUNCHER_java)
 	$(MKDIR) -p $(@D)
 	$(RM) $@
 	$(CP) $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/java_objs$(OUTPUT_SUBDIR)/java$(EXE_SUFFIX) $@
 
-LAUNCHERS += $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/java$(EXE_SUFFIX)
+LAUNCHERS += $(SUPPORT_OUTPUTDIR)/modules_cmds/java.base/java$(EXE_SUFFIX)
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
   $(eval $(call SetupLauncher,javaw, \
@@ -57,7 +57,7 @@ $(eval $(call SetupLauncher,keytool, \
 BUILD_JEXEC :=
 BUILD_JEXEC_SRC :=
 BUILD_JEXEC_INC :=
-BUILD_JEXEC_DST_DIR := $(JDK_OUTPUTDIR)/lib$(OPENJDK_TARGET_CPU_LIBDIR)
+BUILD_JEXEC_DST_DIR := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base$(OPENJDK_TARGET_CPU_LIBDIR)
 
 #
 # UNHANDLED:
@@ -90,7 +90,7 @@ ifeq ($(BUILD_JEXEC), 1)
   endif
 
   ifeq ($(OPENJDK_TARGET_OS), linux)
-    BUILD_JEXEC_DST_DIR := $(JDK_OUTPUTDIR)/lib
+    BUILD_JEXEC_DST_DIR := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base
     BUILD_JEXEC_INC += -I$(JDK_TOPDIR)/src/java.base/share/native/libjli
   endif
 endif
@@ -124,7 +124,7 @@ endif
 BUILD_JSPAWNHELPER :=
 BUILD_JSPAWNHELPER_SRC := $(JDK_TOPDIR)/src/java.base/unix/native/jspawnhelper
 JSPAWNHELPER_CFLAGS := -I$(JDK_TOPDIR)/src/java.base/unix/native/libjava
-BUILD_JSPAWNHELPER_DST_DIR := $(JDK_OUTPUTDIR)/lib$(OPENJDK_TARGET_CPU_LIBDIR)
+BUILD_JSPAWNHELPER_DST_DIR := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base$(OPENJDK_TARGET_CPU_LIBDIR)
 LINK_JSPAWNHELPER_OBJECTS := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjava/childproc.o
 LINK_JSPAWNHELPER_FLAGS :=
 
@@ -133,7 +133,7 @@ ifneq ($(findstring $(OPENJDK_TARGET_OS), macosx solaris aix), )
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)
-  BUILD_JSPAWNHELPER_DST_DIR := $(JDK_OUTPUTDIR)/lib
+  BUILD_JSPAWNHELPER_DST_DIR := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base
 endif
 
 ifeq ($(OPENJDK_TARGET_CPU_BITS), 64)

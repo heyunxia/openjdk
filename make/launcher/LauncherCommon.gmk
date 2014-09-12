@@ -129,7 +129,7 @@ define SetupLauncher
 
   $1_OUTPUT_DIR_ARG := $9
   ifeq (, $$($1_OUTPUT_DIR_ARG))
-    $1_OUTPUT_DIR_ARG := $(JDK_OUTPUTDIR)/bin
+    $1_OUTPUT_DIR_ARG := $(SUPPORT_OUTPUTDIR)/modules_cmds/$(MODULE)
   endif
 
   # TODO: maybe it's better to move this if-statement out of this function
@@ -190,8 +190,8 @@ define SetupLauncher
       LDFLAGS_SUFFIX_posix := $4, \
       LDFLAGS_SUFFIX_windows := $$($1_WINDOWS_JLI_LIB) \
           $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjava/java.lib advapi32.lib $5, \
-      LDFLAGS_SUFFIX_linux := -L$(JDK_OUTPUTDIR)/lib$(OPENJDK_TARGET_CPU_LIBDIR)/jli -ljli $(LIBDL) -lc, \
-      LDFLAGS_SUFFIX_solaris := -L$(JDK_OUTPUTDIR)/lib$(OPENJDK_TARGET_CPU_LIBDIR)/jli -ljli -lthread $(LIBDL) -lc, \
+      LDFLAGS_SUFFIX_linux := -L$(SUPPORT_OUTPUTDIR)/modules_libs/java.base$(OPENJDK_TARGET_CPU_LIBDIR)/jli -ljli $(LIBDL) -lc, \
+      LDFLAGS_SUFFIX_solaris := -L$(SUPPORT_OUTPUTDIR)/modules_libs/java.base$(OPENJDK_TARGET_CPU_LIBDIR)/jli -ljli -lthread $(LIBDL) -lc, \
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/$1_objs$(OUTPUT_SUBDIR), \
       OUTPUT_DIR := $$($1_OUTPUT_DIR_ARG)$(OUTPUT_SUBDIR), \
       PROGRAM := $1, \

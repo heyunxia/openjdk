@@ -63,7 +63,7 @@ ifeq ($(OPENJDK_TARGET_OS_API), posix)
 
     SCTP_LIBRARIES += $(BUILD_LIBSCTP)
 
-    $(BUILD_LIBSCTP): $(INSTALL_LIBRARIES_HERE)/$(LIBRARY_PREFIX)nio$(SHARED_LIBRARY_SUFFIX)
+    $(BUILD_LIBSCTP): $(call FindLib, java.base, nio)
   endif
 endif
 

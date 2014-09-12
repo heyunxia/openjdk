@@ -53,7 +53,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBATTACH, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libattach, \
     DEBUG_SYMBOLS := true))
 
-$(BUILD_LIBATTACH): $(BUILD_LIBJAVA)
+$(BUILD_LIBATTACH): $(call FindLib, java.base, java)
 
 ATTACH_LIBRARIES += $(BUILD_LIBATTACH)
 

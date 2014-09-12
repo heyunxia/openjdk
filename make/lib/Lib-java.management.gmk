@@ -79,7 +79,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBMANAGEMENT, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libmanagement, \
     DEBUG_SYMBOLS := true))
 
-$(BUILD_LIBMANAGEMENT): $(BUILD_LIBJAVA)
+$(BUILD_LIBMANAGEMENT): $(call FindLib, java.base, java)
 
 MANAGEMENT_LIBRARIES += $(BUILD_LIBMANAGEMENT)
 
