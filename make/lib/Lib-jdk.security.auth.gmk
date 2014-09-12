@@ -64,12 +64,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAAS, \
 
 $(BUILD_LIBJAAS): $(call FindLib, java.base, java)
 
-SECURITY_JAAS_LIBRARIES += $(BUILD_LIBJAAS)
+TARGETS += $(BUILD_LIBJAAS)
 
 ################################################################################
-
-jdk.security.auth: $(SECURITY_JAAS_LIBRARIES)
-
-all: jdk.security.auth
-
-.PHONY: all jdk.security.auth

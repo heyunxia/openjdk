@@ -90,7 +90,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNIO, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libnio, \
     DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-BASE_LIBRARIES += $(BUILD_LIBNIO)
+TARGETS += $(BUILD_LIBNIO)
 
 $(BUILD_LIBNIO): $(BUILD_LIBNET)
 

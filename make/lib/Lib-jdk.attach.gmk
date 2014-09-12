@@ -55,12 +55,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBATTACH, \
 
 $(BUILD_LIBATTACH): $(call FindLib, java.base, java)
 
-ATTACH_LIBRARIES += $(BUILD_LIBATTACH)
+TARGETS += $(BUILD_LIBATTACH)
 
 ################################################################################
-
-jdk.attach: $(ATTACH_LIBRARIES)
-
-all: jdk.attach
-
-.PHONY: all jdk.attach

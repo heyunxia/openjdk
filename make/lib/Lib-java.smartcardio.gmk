@@ -55,12 +55,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJ2PCSC, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libj2pcsc, \
     DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-SECURITY_SMARTCARDIO_LIBRARIES += $(BUILD_LIBJ2PCSC)
+TARGETS += $(BUILD_LIBJ2PCSC)
 
 ################################################################################
-
-java.smartcardio: $(SECURITY_SMARTCARDIO_LIBRARIES)
-
-all: java.smartcardio
-
-.PHONY: all java.smartcardio

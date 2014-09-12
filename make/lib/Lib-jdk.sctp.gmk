@@ -61,16 +61,10 @@ ifeq ($(OPENJDK_TARGET_OS_API), posix)
         OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libsctp, \
         DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-    SCTP_LIBRARIES += $(BUILD_LIBSCTP)
+    TARGETS += $(BUILD_LIBSCTP)
 
     $(BUILD_LIBSCTP): $(call FindLib, java.base, nio)
   endif
 endif
 
 ################################################################################
-
-jdk.sctp: $(SCTP_LIBRARIES)
-
-all: jdk.sctp
-
-.PHONY: all jdk.sctp

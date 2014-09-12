@@ -110,7 +110,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBVERIFY, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libverify, \
     DEBUG_SYMBOLS := true))
 
-BASE_LIBRARIES += $(BUILD_LIBVERIFY)
+TARGETS += $(BUILD_LIBVERIFY)
 
 ##########################################################################################
 
@@ -181,7 +181,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjava, \
     DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-BASE_LIBRARIES += $(BUILD_LIBJAVA)
+TARGETS += $(BUILD_LIBJAVA)
 
 $(BUILD_LIBJAVA): $(BUILD_LIBVERIFY)
 
@@ -241,7 +241,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBZIP, \
 
 $(BUILD_LIBZIP): $(BUILD_LIBJAVA)
 
-BASE_LIBRARIES += $(BUILD_LIBZIP)
+TARGETS += $(BUILD_LIBZIP)
 
 ##########################################################################################
 
@@ -365,7 +365,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJLI, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli, \
     DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-BASE_LIBRARIES += $(BUILD_LIBJLI)
+TARGETS += $(BUILD_LIBJLI)
 
 # On windows, the static library has the same suffix as the import library created by
 # with the shared library, so the static library is given a different name. No harm
@@ -383,8 +383,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  BUILD_LIBRARIES += $(BUILD_LIBJLI_STATIC)
-  BASE_STATIC_LIBRARIES += $(BUILD_LIBJLI_STATIC)
+  TARGETS += $(BUILD_LIBJLI_STATIC)
 
 else ifeq ($(OPENJDK_TARGET_OS), macosx)
   #
@@ -406,8 +405,7 @@ else ifeq ($(OPENJDK_TARGET_OS), macosx)
   $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static.a: $(BUILD_LIBJLI_STATIC)
 	$(call install-file)
 
-  BUILD_LIBRARIES += $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static.a
-  BASE_STATIC_LIBRARIES += $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static.a
+  TARGETS += $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static.a
 
 else ifeq ($(OPENJDK_TARGET_OS), aix)
   # AIX also requires a static libjli because the compiler doesn't support '-rpath'
@@ -422,8 +420,7 @@ else ifeq ($(OPENJDK_TARGET_OS), aix)
       ARFLAGS:=$(ARFLAGS),\
       OBJECT_DIR:=$(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static))
 
-  BUILD_LIBRARIES += $(BUILD_LIBJLI_STATIC)
-  BASE_STATIC_LIBRARIES += $(BUILD_LIBJLI_STATIC)
+  TARGETS += $(BUILD_LIBJLI_STATIC)
 
 endif
 

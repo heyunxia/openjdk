@@ -76,5 +76,5 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNET, \
 
 $(BUILD_LIBNET): $(BUILD_LIBJAVA)
 
-BASE_LIBRARIES += $(BUILD_LIBNET)
+TARGETS += $(BUILD_LIBNET)
 

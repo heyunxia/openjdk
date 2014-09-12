@@ -56,7 +56,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBUNPACK, \
 
 $(BUILD_LIBUNPACK): $(call FindLib, java.base, java)
 
-UNPACK_LIBRARIES += $(BUILD_LIBUNPACK)
+TARGETS += $(BUILD_LIBUNPACK)
 
 ################################################################################
 
@@ -90,12 +90,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSDT, \
 
 $(BUILD_LIBJSDT): $(call FindLib, java.base, java)
 
-JSDT_LIBRARIES += $(BUILD_LIBJSDT)
+TARGETS += $(BUILD_LIBJSDT)
 
 ################################################################################
-
-jdk.runtime: $(JSDT_LIBRARIES) $(UNPACK_LIBRARIES)
-
-all: jdk.runtime
-
-.PHONY: all jdk.runtime

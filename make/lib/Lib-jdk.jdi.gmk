@@ -58,14 +58,8 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libdt_shmem, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  JDI_TRANSPORT_LIBRARIES += $(BUILD_LIBDT_SHMEM)
+  TARGETS += $(BUILD_LIBDT_SHMEM)
 
 endif # OPENJDK_TARGET_OS
 
 ################################################################################
-
-jdk.jdi: $(JDI_TRANSPORT_LIBRARIES)
-
-all: jdk.jdi
-
-.PHONY: all jdk.jdi

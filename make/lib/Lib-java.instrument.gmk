@@ -90,12 +90,6 @@ else
 endif
 $(BUILD_LIBINSTRUMENT): $(BUILD_LIBJAVA)
 
-INSTRUMENT_LIBRARIES += $(BUILD_LIBINSTRUMENT)
+TARGETS += $(BUILD_LIBINSTRUMENT)
 
 ################################################################################
-
-java.instrument: $(INSTRUMENT_LIBRARIES)
-
-all: java.instrument
-
-.PHONY: all java.instrument

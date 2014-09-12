@@ -214,6 +214,7 @@ RT_JAR_EXCLUDES += \
     $(LOCALEDATA_INCLUDES) \
     com/oracle/jrockit/jfr \
     oracle/jrockit/jfr \
+    oracle/jvm/hotspot/jfr \
     jdk/jfr \
     jdk/internal/dynalink \
     jdk/nashorn \

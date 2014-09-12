@@ -23,7 +23,7 @@
 # questions.
 #
 
-##########################################################################################
+################################################################################
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)
 
@@ -56,7 +56,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libosxapp, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  DESKTOP_LIBRARIES += $(BUILD_LIBOSXAPP)
+  TARGETS += $(BUILD_LIBOSXAPP)
 
 endif
 

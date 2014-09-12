@@ -59,12 +59,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBPREFS, \
 
 $(BUILD_LIBPREFS): $(call FindLib, java.base, java)
 
-PREFS_LIBRARIES += $(BUILD_LIBPREFS)
+TARGETS += $(BUILD_LIBPREFS)
 
 ################################################################################
-
-java.prefs: $(PREFS_LIBRARIES)
-
-all: java.prefs
-
-.PHONY: all java.prefs

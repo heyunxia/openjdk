@@ -81,12 +81,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBMANAGEMENT, \
 
 $(BUILD_LIBMANAGEMENT): $(call FindLib, java.base, java)
 
-MANAGEMENT_LIBRARIES += $(BUILD_LIBMANAGEMENT)
+TARGETS += $(BUILD_LIBMANAGEMENT)
 
 ################################################################################
-
-java.management: $(MANAGEMENT_LIBRARIES)
-
-all: java.management
-
-.PHONY: all java.management

@@ -61,7 +61,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBDT_SOCKET, \
 $(BUILD_LIBDT_SOCKET): $(call FindLib, java.base, java)
 
 # Include socket transport with JDWP agent to allow for remote debugging
-JDWP_LIBRARIES += $(BUILD_LIBDT_SOCKET)
+TARGETS += $(BUILD_LIBDT_SOCKET)
 
 ################################################################################
 
@@ -99,12 +99,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJDWP, \
 
 $(BUILD_LIBJDWP): $(call FindLib, java.base, java)
 
-JDWP_LIBRARIES += $(BUILD_LIBJDWP)
+TARGETS += $(BUILD_LIBJDWP)
 
 ################################################################################
-
-jdk.jdwp.agent: $(JDWP_LIBRARIES)
-
-all: jdk.jdwp.agent
-
-.PHONY: all jdk.jdwp.agent

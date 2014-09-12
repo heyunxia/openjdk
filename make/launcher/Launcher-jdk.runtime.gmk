@@ -136,12 +136,6 @@ endif
 $(SUPPORT_OUTPUTDIR)/modules_cmds/$(MODULE)/unpack200$(EXE_SUFFIX): $(BUILD_UNPACKEXE)
 	$(call install-file)
 
-LAUNCHERS += $(SUPPORT_OUTPUTDIR)/modules_cmds/$(MODULE)/unpack200$(EXE_SUFFIX)
+TARGETS += $(SUPPORT_OUTPUTDIR)/modules_cmds/$(MODULE)/unpack200$(EXE_SUFFIX)
 
 ################################################################################
-
-jdk.runtime: $(LAUNCHERS)
-
-all: jdk.runtime
-
-.PHONY: all jdk.runtime

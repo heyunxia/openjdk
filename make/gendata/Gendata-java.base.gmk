@@ -29,13 +29,15 @@ include GendataCommon.gmk
 $(eval $(call IncludeCustomExtension, jdk, gendata/Gendata-java.base.gmk))
 
 include GendataBreakIterator.gmk
-GENDATA += $(BREAK_ITERATOR)
+TARGETS += $(BREAK_ITERATOR)
 
 include GendataTZDB.gmk
-GENDATA += $(GENDATA_TZDB)
+TARGETS += $(GENDATA_TZDB)
 
 include GendataBlacklistedCerts.gmk
-GENDATA += $(GENDATA_BLACKLISTED_CERTS)
+TARGETS += $(GENDATA_BLACKLISTED_CERTS)
+
+include GendataPolicyJars.gmk
 
 ##########################################################################################
 
@@ -45,7 +47,7 @@ $(GENDATA_UNINAME): $(JDK_TOPDIR)/make/data/unicodedata/UnicodeData.txt $(BUILD_
 	$(MKDIR) -p $(@D)
 	$(TOOL_CHARACTERNAME) $< $@
 
-GENDATA += $(GENDATA_UNINAME)
+TARGETS += $(GENDATA_UNINAME)
 
 ##########################################################################################
 
@@ -58,7 +60,7 @@ $(GENDATA_CURDATA): $(JDK_TOPDIR)/make/data/currency/CurrencyData.properties $(B
 	$(MV) $@.tmp $@
 	$(CHMOD) 444 $@
 
-GENDATA += $(GENDATA_CURDATA)
+TARGETS += $(GENDATA_CURDATA)
 
 ##########################################################################################
 
@@ -73,14 +75,6 @@ $(GENDATA_JAVA_SECURITY): $(BUILD_TOOLS) $(GENDATA_JAVA_SECURITY_SRC) $(RESTRICT
 	$(TOOL_MAKEJAVASECURITY) $(GENDATA_JAVA_SECURITY_SRC) $@ $(OPENJDK_TARGET_OS) \
 		$(RESTRICTED_PKGS_SRC) || exit 1
 
-GENDATA += $(GENDATA_JAVA_SECURITY)
+TARGETS += $(GENDATA_JAVA_SECURITY)
 
 ##########################################################################################
-
-$(GENDATA): $(BUILD_TOOLS_JDK)
-
-java.base: $(GENDATA)
-
-all: java.base
-
-.PHONY: all java.base

@@ -51,7 +51,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
 
   $(BUILD_LIBAPPLESCRIPTENGINE): $(call FindLib, java.base, java)
 
-  DEPLOY_OSX_LIBRARIES += $(BUILD_LIBAPPLESCRIPTENGINE)
+  TARGETS += $(BUILD_LIBAPPLESCRIPTENGINE)
 
   ################################################################################
 
@@ -85,7 +85,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libosx, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  DEPLOY_OSX_LIBRARIES += $(BUILD_LIBOSX)
+  TARGETS += $(BUILD_LIBOSX)
 
   $(BUILD_LIBOSX): $(call FindLib, java.desktop, osxapp)
 
@@ -94,9 +94,3 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
   ################################################################################
 
 endif
-
-jdk.deploy.osx: $(DEPLOY_OSX_LIBRARIES)
-
-all: jdk.deploy.osx
-
-.PHONY: all jdk.deploy.osx

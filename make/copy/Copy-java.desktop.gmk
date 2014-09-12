@@ -29,7 +29,7 @@ $(eval $(call IncludeCustomExtension, jdk, copy/Copy-java.desktop.gmk))
 
 ################################################################################
 
-JAVA_DESKTOP_HEADERS := \
+TARGETS += \
     $(INCLUDE_DST_DIR)/jawt.h \
     $(INCLUDE_DST_OS_DIR)/jawt_md.h \
     #
@@ -58,7 +58,7 @@ $(ICCPROFILE_DEST_DIR)%.pf: $(ICCPROFILE_SRC_DIR)%.pf
 	$(call install-file)
 	$(CHMOD) 444 $@
 
-DESKTOP_CONF_FILES += $(ICCPROFILE_TARGET_FILES)
+TARGETS += $(ICCPROFILE_TARGET_FILES)
 
 ################################################################################
 
@@ -91,6 +91,8 @@ ifneq ($(FREETYPE_BUNDLE_LIB_PATH), )
         ifeq ($(OPENJDK_BUILD_OS), windows)
 	  $(CHMOD) +rx $@
         endif
+
+  TARGETS += $(FREETYPE_TARGET_LIB)
 endif
 
 ################################################################################
@@ -98,7 +100,7 @@ endif
 $(LIB_DST_DIR)/sound.properties: $(JDK_TOPDIR)/src/java.desktop/share/conf/sound.properties
 	$(call install-file)
 
-DESKTOP_CONF_FILES += $(LIB_DST_DIR)/sound.properties
+TARGETS += $(LIB_DST_DIR)/sound.properties
 
 ################################################################################
 #
@@ -111,7 +113,7 @@ PSFONTPROPFILE_TARGET_FILES := $(subst $(PSFONTPROPFILE_SRC_DIR),$(LIB_DST_DIR),
 $(LIB_DST_DIR)/%: $(PSFONTPROPFILE_SRC_DIR)/%
 	$(call install-file)
 
-DESKTOP_CONF_FILES += $(PSFONTPROPFILE_TARGET_FILES)
+TARGETS += $(PSFONTPROPFILE_TARGET_FILES)
 
 ################################################################################
 #
@@ -129,7 +131,7 @@ CURSORS_OPENJDK_TARGET_OS_LIB_SRC := $(JDK_TOPDIR)/src/java.desktop/$(OPENJDK_TA
 $(CURSORS_DEST_DIR)/cursors.properties: $(CURSORS_OPENJDK_TARGET_OS_LIB_SRC)/cursors.properties
 	$(call install-file)
 
-DESKTOP_CONF_FILES += $(CURSORS_DEST_DIR)/cursors.properties
+TARGETS += $(CURSORS_DEST_DIR)/cursors.properties
 
 CURSORS_LIB_SRC := $(JDK_TOPDIR)/src/java.desktop/share/conf/images/cursors
 ifeq ($(OPENJDK_TARGET_OS), windows)
@@ -142,12 +144,6 @@ CURSORS_TARGET_FILES := $(subst $(CURSORS_LIB_SRC),$(CURSORS_DEST_DIR),$(CURSORS
 $(CURSORS_DEST_DIR)/%: $(CURSORS_LIB_SRC)/%
 	$(call install-file)
 
-DESKTOP_CONF_FILES += $(CURSORS_TARGET_FILES)
+TARGETS += $(CURSORS_TARGET_FILES)
 
 ################################################################################
-
-java.desktop: $(DESKTOP_CONF_FILES) $(FREETYPE_TARGET_LIB) $(JAVA_DESKTOP_HEADERS)
-
-all: java.desktop
-
-.PHONY: all java.desktop

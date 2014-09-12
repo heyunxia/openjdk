@@ -51,8 +51,3 @@ $(eval $(call SetupLauncher,serialver, \
     -DEXPAND_CLASSPATH_WILDCARDS \
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.tools.serialver.SerialVer"$(COMMA) }'))
 
-jdk.compiler: $(LAUNCHERS)
-
-all: jdk.compiler
-
-.PHONY: all jdk.compiler

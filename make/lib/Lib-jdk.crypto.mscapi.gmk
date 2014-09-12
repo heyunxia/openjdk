@@ -50,13 +50,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libsunmscapi, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  SECURITY_MSCAPI_LIBRARIES += $(BUILD_LIBSUNMSCAPI)
+  TARGETS += $(BUILD_LIBSUNMSCAPI)
 endif
 
 ################################################################################
-
-jdk.crypto.mscapi: $(SECURITY_MSCAPI_LIBRARIES)
-
-all: jdk.crypto.mscapi
-
-.PHONY: all jdk.crypto.mscapi

@@ -71,7 +71,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBMLIB_IMAGE, \
 
 $(BUILD_LIBMLIB_IMAGE): $(call FindLib, java.base, java)
 
-DESKTOP_LIBRARIES += $(BUILD_LIBMLIB_IMAGE)
+TARGETS += $(BUILD_LIBMLIB_IMAGE)
 
 ################################################################################
 
@@ -137,7 +137,7 @@ ifeq ($(OPENJDK_TARGET_OS)-$(OPENJDK_TARGET_CPU_ARCH), solaris-sparc)
 
   $(BUILD_LIBMLIB_IMAGE_V): $(call FindLib, java.base, java)
 
-  DESKTOP_LIBRARIES += $(BUILD_LIBMLIB_IMAGE_V)
+  TARGETS += $(BUILD_LIBMLIB_IMAGE_V)
 
 endif
 
@@ -292,7 +292,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
   $(BUILD_LIBAWT): $(BUILD_LIBMLIB_IMAGE)
 endif
 
-DESKTOP_LIBRARIES += $(BUILD_LIBAWT)
+TARGETS += $(BUILD_LIBAWT)
 
 ################################################################################
 
@@ -382,7 +382,7 @@ ifeq ($(findstring $(OPENJDK_TARGET_OS),windows macosx),)
 
     $(BUILD_LIBAWT_XAWT): $(BUILD_LIBAWT)
 
-    DESKTOP_LIBRARIES += $(BUILD_LIBAWT_XAWT)
+    TARGETS += $(BUILD_LIBAWT_XAWT)
 
   endif
 endif
@@ -437,7 +437,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBLCMS, \
     OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/liblcms, \
     DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-DESKTOP_LIBRARIES += $(BUILD_LIBLCMS)
+TARGETS += $(BUILD_LIBLCMS)
 
 $(BUILD_LIBLCMS): $(BUILD_LIBAWT)
 
@@ -513,7 +513,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVAJPEG, \
 
 $(BUILD_LIBJAVAJPEG): $(call FindLib, java.base, java)
 
-DESKTOP_LIBRARIES += $(BUILD_LIBJAVAJPEG)
+TARGETS += $(BUILD_LIBJAVAJPEG)
 
 ################################################################################
 
@@ -606,7 +606,7 @@ ifneq (, $(findstring $(OPENJDK_TARGET_OS), solaris aix))
   $(BUILD_LIBFONTMANAGER): $(BUILD_LIBAWT_XAWT)
 endif
 
-DESKTOP_LIBRARIES += $(BUILD_LIBFONTMANAGER)
+TARGETS += $(BUILD_LIBFONTMANAGER)
 
 ################################################################################
 
@@ -653,7 +653,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
 	$(ECHO) Copying $(@F)
 	$(CP) $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjawt/$(LIBRARY_PREFIX)jawt$(STATIC_LIBRARY_SUFFIX) $@
 
-  DESKTOP_LIBRARIES += $(JDK_OUTPUTDIR)/lib/$(LIBRARY_PREFIX)jawt$(STATIC_LIBRARY_SUFFIX)
+  TARGETS += $(JDK_OUTPUTDIR)/lib/$(LIBRARY_PREFIX)jawt$(STATIC_LIBRARY_SUFFIX)
 
 else # OPENJDK_TARGET_OS not windows
 
@@ -721,7 +721,7 @@ else # OPENJDK_TARGET_OS not windows
 
 endif # OPENJDK_TARGET_OS
 
-DESKTOP_LIBRARIES += $(BUILD_LIBJAWT)
+TARGETS += $(BUILD_LIBJAWT)
 
 ################################################################################
 
@@ -791,7 +791,7 @@ ifeq ($(BUILD_HEADLESS), true)
 
     $(BUILD_LIBAWT_HEADLESS): $(BUILD_LIBAWT)
 
-    DESKTOP_LIBRARIES += $(BUILD_LIBAWT_HEADLESS)
+    TARGETS += $(BUILD_LIBAWT_HEADLESS)
 
   endif
 endif
@@ -897,7 +897,7 @@ ifndef BUILD_HEADLESS_ONLY
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libsplashscreen, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  DESKTOP_LIBRARIES += $(BUILD_LIBSPLASHSCREEN)
+  TARGETS += $(BUILD_LIBSPLASHSCREEN)
 
   ifeq ($(OPENJDK_TARGET_OS), macosx)
     $(BUILD_LIBSPLASHSCREEN): $(INSTALL_LIBRARIES_HERE)/$(LIBRARY_PREFIX)osxapp$(SHARED_LIBRARY_SUFFIX)
@@ -971,7 +971,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libawt_lwawt, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  DESKTOP_LIBRARIES += $(BUILD_LIBAWT_LWAWT)
+  TARGETS += $(BUILD_LIBAWT_LWAWT)
 
   $(BUILD_LIBAWT_LWAWT): $(BUILD_LIBAWT)
 
@@ -1014,7 +1014,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       OBJECT_DIR := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libosxui, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
-  DESKTOP_LIBRARIES += $(BUILD_LIBOSXUI)
+  TARGETS += $(BUILD_LIBOSXUI)
 
   $(BUILD_LIBOSXUI): $(BUILD_LIBAWT)
 

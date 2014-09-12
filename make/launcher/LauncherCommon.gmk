@@ -23,10 +23,6 @@
 # questions.
 #
 
-default: all
-
-include $(SPEC)
-include MakeBase.gmk
 include NativeCompilation.gmk
 
 # Prepare the find cache.
@@ -205,7 +201,7 @@ define SetupLauncher
       MANIFEST := $(JAVA_MANIFEST), \
       CODESIGN := $$($1_CODESIGN))
 
-  LAUNCHERS += $$(BUILD_LAUNCHER_$1)
+  TARGETS += $$(BUILD_LAUNCHER_$1)
 
   ifneq (,$(filter $(OPENJDK_TARGET_OS), macosx aix))
     $$(BUILD_LAUNCHER_$1): $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static.a
