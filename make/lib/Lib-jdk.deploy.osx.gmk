@@ -72,6 +72,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       CFLAGS := $(CFLAGS_JDKLIB) \
           $(LIBOSX_CFLAGS), \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
+          -L$(SUPPORT_OUTPUTDIR)/modules_libs/java.desktop \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LDFLAGS_SUFFIX_macosx := \
           -losxapp \

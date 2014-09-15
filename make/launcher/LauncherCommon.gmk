@@ -204,7 +204,7 @@ define SetupLauncher
   TARGETS += $$(BUILD_LAUNCHER_$1)
 
   ifneq (,$(filter $(OPENJDK_TARGET_OS), macosx aix))
-    $$(BUILD_LAUNCHER_$1): $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjli_static.a
+    $$(BUILD_LAUNCHER_$1): $(SUPPORT_OUTPUTDIR)/native/java.base/libjli_static.a
   endif
 
   ifeq ($(OPENJDK_TARGET_OS), windows)

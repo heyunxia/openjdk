@@ -261,7 +261,8 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBAWT, \
     LDFLAGS_SUFFIX_linux := -ljvm $(LIBM) $(LIBDL) -ljava, \
     LDFLAGS_SUFFIX_solaris := -ljvm $(LIBM) $(LIBDL) -ljava -lc, \
     LDFLAGS_SUFFIX_aix :=-ljvm $(LIBM) $(LIBDL) -ljava -lm,\
-    LDFLAGS_SUFFIX_macosx := -lmlib_image -ljvm $(LIBM) \
+    LDFLAGS_SUFFIX_macosx := -L$(INSTALL_LIBRARIES_HERE) \
+        -lmlib_image -ljvm $(LIBM) \
         -framework Cocoa \
         -framework OpenGL \
         -framework JavaNativeFoundation \
@@ -862,7 +863,9 @@ ifndef BUILD_HEADLESS_ONLY
   endif
 
   ifeq ($(OPENJDK_TARGET_OS), macosx)
-    LIBSPLASHSCREEN_LDFLAGS_SUFFIX += $(LIBM) -lpthread -liconv -losxapp \
+    LIBSPLASHSCREEN_LDFLAGS_SUFFIX += \
+        -L$(INSTALL_LIBRARIES_HERE) \
+        $(LIBM) -lpthread -liconv -losxapp \
         -framework ApplicationServices \
         -framework Foundation \
         -framework Cocoa \
