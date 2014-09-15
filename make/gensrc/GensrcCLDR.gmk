@@ -26,8 +26,8 @@
 CLDRVERSION := 21.0.1
 CLDRSRCDIR := $(JDK_TOPDIR)/src/jdk.localedata/share/classes/sun/util/cldr/resources/$(subst .,_,$(CLDRVERSION))
 
-GENSRC_DIR := $(JDK_OUTPUTDIR)/gensrc/jdk.localedata
-BASE_GENSRC_DIR := $(JDK_OUTPUTDIR)/gensrc/java.base
+GENSRC_DIR := $(SUPPORT_OUTPUTDIR)/gensrc/jdk.localedata
+BASE_GENSRC_DIR := $(SUPPORT_OUTPUTDIR)/gensrc/java.base
 
 CLDR_METAINFO_FILE := $(BASE_GENSRC_DIR)/sun/util/cldr/CLDRLocaleDataMetaInfo.java
 

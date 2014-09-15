@@ -38,7 +38,7 @@ include JavaCompilation.gmk
 # Include these extra attributes for now, should probably take out.
 #
 MAINMANIFEST := $(JDK_TOPDIR)/make/data/mainmanifest/manifest.mf
-JCE_MANIFEST := $(JDK_OUTPUTDIR)/lib/_the.security.manifest.mf
+JCE_MANIFEST := $(SUPPORT_OUTPUTDIR)/security.manifest.mf
 
 $(JCE_MANIFEST): $(MAINMANIFEST)
 	$(MKDIR) -p $(@D)
@@ -62,7 +62,7 @@ $(JCE_MANIFEST): $(MAINMANIFEST)
 # other way to get the jars than to build them.
 
 SUNPKCS11_JAR_DST := $(JDK_OUTPUTDIR)/lib/ext/sunpkcs11.jar
-SUNPKCS11_JAR_UNSIGNED := $(JDK_OUTPUTDIR)/jce/unsigned/sunpkcs11.jar
+SUNPKCS11_JAR_UNSIGNED := $(SUPPORT_OUTPUTDIR)/jce/unsigned/sunpkcs11.jar
 
 $(eval $(call SetupArchive,BUILD_SUNPKCS11_JAR, , \
     SRCS := $(JDK_OUTPUTDIR)/modules/jdk.crypto.pkcs11, \
@@ -89,7 +89,7 @@ TARGETS += $(SUNPKCS11_JAR_UNSIGNED) $(SUNPKCS11_JAR_DST)
 ##########################################################################################
 
 SUNEC_JAR_DST := $(JDK_OUTPUTDIR)/lib/ext/sunec.jar
-SUNEC_JAR_UNSIGNED := $(JDK_OUTPUTDIR)/jce/unsigned/sunec.jar
+SUNEC_JAR_UNSIGNED := $(SUPPORT_OUTPUTDIR)/jce/unsigned/sunec.jar
 
 $(eval $(call SetupArchive,BUILD_SUNEC_JAR, , \
     SRCS := $(JDK_OUTPUTDIR)/modules/jdk.crypto.ec, \
@@ -116,7 +116,7 @@ TARGETS += $(SUNEC_JAR_UNSIGNED) $(SUNEC_JAR_DST)
 ##########################################################################################
 
 SUNJCE_PROVIDER_JAR_DST := $(JDK_OUTPUTDIR)/lib/ext/sunjce_provider.jar
-SUNJCE_PROVIDER_JAR_UNSIGNED := $(JDK_OUTPUTDIR)/jce/unsigned/sunjce_provider.jar
+SUNJCE_PROVIDER_JAR_UNSIGNED := $(SUPPORT_OUTPUTDIR)/jce/unsigned/sunjce_provider.jar
 
 ifneq ($(BUILD_CRYPTO), no)
   $(eval $(call SetupArchive,BUILD_SUNJCE_PROVIDER_JAR, , \
@@ -147,7 +147,7 @@ TARGETS += $(SUNJCE_PROVIDER_JAR_DST)
 ##########################################################################################
 
 JCE_JAR_DST := $(JDK_OUTPUTDIR)/lib/jce.jar
-JCE_JAR_UNSIGNED := $(JDK_OUTPUTDIR)/jce/unsigned/jce.jar
+JCE_JAR_UNSIGNED := $(SUPPORT_OUTPUTDIR)/jce/unsigned/jce.jar
 
 ifneq ($(BUILD_CRYPTO), no)
   $(eval $(call SetupArchive,BUILD_JCE_JAR, , \
@@ -180,7 +180,7 @@ TARGETS += $(JCE_JAR_DST)
 ifeq ($(OPENJDK_TARGET_OS), windows)
 
   SUNMSCAPI_JAR_DST := $(JDK_OUTPUTDIR)/lib/ext/sunmscapi.jar
-  SUNMSCAPI_JAR_UNSIGNED := $(JDK_OUTPUTDIR)/jce/unsigned/sunmscapi.jar
+  SUNMSCAPI_JAR_UNSIGNED := $(SUPPORT_OUTPUTDIR)/jce/unsigned/sunmscapi.jar
 
   $(eval $(call SetupArchive,BUILD_SUNMSCAPI_JAR, , \
       SRCS := $(JDK_OUTPUTDIR)/modules/jdk.crypto.mscapi, \
@@ -212,7 +212,7 @@ ifeq ($(OPENJDK_TARGET_OS), solaris)
   ifndef OPENJDK
 
     UCRYPTO_JAR_DST := $(JDK_OUTPUTDIR)/lib/ext/ucrypto.jar
-    UCRYPTO_JAR_UNSIGNED := $(JDK_OUTPUTDIR)/jce/unsigned/ucrypto.jar
+    UCRYPTO_JAR_UNSIGNED := $(SUPPORT_OUTPUTDIR)/jce/unsigned/ucrypto.jar
     UCRYPTO_JAR_SRC := $(JDK_TOPDIR)/make/closed/tools/crypto/ucrypto/ucrypto.jar
 
     $(eval $(call SetupArchive,BUILD_UCRYPTO_JAR, , \
