@@ -29,9 +29,20 @@ default: all
 include $(SPEC)
 include MakeBase.gmk
 include JavaCompilation.gmk
+include SetupJavaCompilers.gmk
 
-include CommonLangtools.gmk
+################################################################################
+# Setup the compilation of the properties compilation tool. You can depend
+# upon $(BUILD_TOOLS_LANGTOOLS) to trigger a compilation of the tools.
+$(eval $(call SetupJavaCompilation,BUILD_TOOLS_LANGTOOLS, \
+    SETUP := BOOT_JAVAC, \
+    DISABLE_SJAVAC := true, \
+    ADD_JAVAC_FLAGS := -Xprefer:source, \
+    SRC := $(LANGTOOLS_TOPDIR)/make/tools, \
+    INCLUDES := compileproperties, \
+    BIN := $(BUILDTOOLS_OUTPUTDIR)/langtools_bt_classes))
 
+################################################################################
 # Setup the rules to build the interim langtools jar, which is compiled by
 # the boot javac and can be run on the boot jdk. This will be used to compile
 # the rest of the product. Include the Genstubs build tool in this compilation
@@ -43,13 +54,10 @@ $(eval $(call SetupJavaCompilation,BUILD_INTERIM_LANGTOOLS, \
       $(LANGTOOLS_TOPDIR)/src/jdk.compiler/share/classes \
       $(LANGTOOLS_TOPDIR)/src/jdk.dev/share/classes \
       $(LANGTOOLS_TOPDIR)/src/jdk.javadoc/share/classes \
-      $(LANGTOOLS_TOPDIR)/src/java.base/share/classes \
-      $(LANGTOOLS_OUTPUTDIR)/gensrc/jdk.compiler \
-      $(LANGTOOLS_OUTPUTDIR)/gensrc/jdk.dev \
-      $(LANGTOOLS_OUTPUTDIR)/gensrc/jdk.javadoc, \
+      $(LANGTOOLS_TOPDIR)/src/java.base/share/classes, \
     EXCLUDES := com/sun/tools/javac/nio compileproperties anttasks crules, \
-    COPY := $(RESOURCE_SUFFIXES) jdeps.properties jdkinternals.properties version.properties, \
-    BIN := $(LANGTOOLS_OUTPUTDIR)/interim_classes, \
+    COPY := .gif .xml .css .js javax.tools.JavaCompilerTool .properties, \
+    BIN := $(BUILDTOOLS_OUTPUTDIR)/langtools_interim_classes, \
     JAR := $(INTERIM_LANGTOOLS_JAR)))
 
-all: $(BUILD_INTERIM_LANGTOOLS)
+all: $(BUILD_TOOLS_LANGTOOLS) $(BUILD_INTERIM_LANGTOOLS)
