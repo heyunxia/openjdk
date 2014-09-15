@@ -158,7 +158,7 @@ $(eval $(call SetupNativeCompilation,FIX_EMPTY_SEC_HDR_FLAGS, \
     LDEXE := $(BUILD_LD), \
     LDFLAGS := -lelf, \
     OBJECT_DIR := $(BUILDTOOLS_OUTPUTDIR)/objs/fix_empty_sec_hdr_flags, \
-    OUTPUT_DIR := $(BUILDTOOLD_OUTPUTDIR)/bin, \
+    OUTPUT_DIR := $(BUILDTOOLS_OUTPUTDIR)/bin, \
     PROGRAM := fix_empty_sec_hdr_flags))
 endif
 
