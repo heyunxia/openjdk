@@ -28,6 +28,7 @@
 #include "classfile/classLoader.hpp"
 #include "classfile/classLoaderExt.hpp"
 #include "classfile/classLoaderData.inline.hpp"
+#include "classfile/imageFile.hpp"
 #include "classfile/javaClasses.hpp"
 #if INCLUDE_CDS
 #include "classfile/sharedPathsMiscInfo.hpp"
@@ -247,7 +248,7 @@ ClassPathZipEntry::~ClassPathZipEntry() {
 }
 
 u1* ClassPathZipEntry::open_entry(const char* name, jint* filesize, bool nul_terminate, TRAPS) {
-    // enable call to C land
+  // enable call to C land
   JavaThread* thread = JavaThread::current();
   ThreadToNativeFromVM ttn(thread);
   // check whether zip archive contains name
@@ -289,7 +290,7 @@ ClassFileStream* ClassPathZipEntry::open_stream(const char* name, TRAPS) {
   if (UsePerfData) {
     ClassLoader::perf_sys_classfile_bytes_read()->inc(filesize);
   }
-  return new ClassFileStream(buffer, filesize, _zip_name); // Resource allocated
+  return new ClassFileStream(buffer, filesize, _zip_name);    // Resource allocated
 }
 
 // invoke function for each entry in the zip file
@@ -364,6 +365,13 @@ bool LazyClassPathEntry::is_lazy() {
   return true;
 }
 
+ClassPathImageEntry::ClassPathImageEntry(char* name) : ClassPathEntry(), _image(new ImageFile(name)) {
+  bool opened = _image->open();
+  if (!opened) {
+    _image = NULL;
+  }
+}
+
 u1* LazyClassPathEntry::open_entry(const char* name, jint* filesize, bool nul_terminate, TRAPS) {
   if (_has_error) {
     return NULL;
@@ -380,6 +388,74 @@ u1* LazyClassPathEntry::open_entry(const char* name, jint* filesize, bool nul_te
     return NULL;
   }
 }
+
+ClassPathImageEntry::~ClassPathImageEntry() {
+  if (_image) {
+    _image->close();
+    _image = NULL;
+  }
+}
+
+const char* ClassPathImageEntry::name() {
+  return _image ? _image->name() : "";
+}
+
+ClassFileStream* ClassPathImageEntry::open_stream(const char* name, TRAPS) {
+  u1* data = _image->findLocationData(name);
+  if (!data) {
+    return NULL;
+  }
+  ImageLocation location(data);
+  if (_image->verifyLocation(location, name)) {
+    u8 size = location.getAttribute(ImageLocation::ATTRIBUTE_UNCOMPRESSED);
+    u1* buffer = _image->getResource(location);
+    if (!buffer) {
+        return NULL;
+    }
+    if (UsePerfData) {
+      ClassLoader::perf_sys_classfile_bytes_read()->inc(size);
+    }
+    return new ClassFileStream(buffer, (int)size, (char*)name);  // Resource allocated
+  }
+
+  return NULL;
+}
+
+#ifndef PRODUCT
+void ClassPathImageEntry::compile_the_world(Handle loader, TRAPS) {
+  tty->print_cr("CompileTheWorld : Compiling all classes in %s", name());
+  tty->cr();
+/*
+  ImageStrings strings = _image->getStrings();
+  u4 count = _image->getLocationCount();
+  for (u4 i = 0; i < count; i++) {
+    ImageLocation location(_image->getLocationData(i));
+    const char* parent = location.getAttribute(ImageLocation::ATTRIBUTE_PARENT, strings);
+    const char* base = location.getAttribute(ImageLocation::ATTRIBUTE_BASE, strings);
+    const char* extension = location.getAttribute(ImageLocation::ATTRIBUTE_EXTENSION, strings);
+    assert((strlen(parent) + strlen(base) + strlen(extension)) < JVM_MAXPATHLEN, "path exceeds buffer");
+    char path[JVM_MAXPATHLEN];
+    strcpy(path, parent);
+    strcat(path, base);
+    strcat(path, extension);
+    ClassLoader::compile_the_world_in(path, loader, CHECK);
+  }
+  if (HAS_PENDING_EXCEPTION) {
+  if (PENDING_EXCEPTION->is_a(SystemDictionary::OutOfMemoryError_klass())) {
+    CLEAR_PENDING_EXCEPTION;
+    tty->print_cr("\nCompileTheWorld : Ran out of memory\n");
+    tty->print_cr("Increase class metadata storage if a limit was set");
+  } else {
+    tty->print_cr("\nCompileTheWorld : Unexpected exception occurred\n");
+  }
+  }
+*/
+}
+
+bool ClassPathImageEntry::is_rt_jar() {
+  return string_ends_with(name(), "bootmodules.jimage");
+}
+#endif
 
 static void print_meta_index(LazyClassPathEntry* entry,
                              GrowableArray<char*>& meta_packages) {
@@ -627,8 +703,14 @@ ClassPathEntry* ClassLoader::create_class_path_entry(char *path, const struct st
     return new LazyClassPathEntry(path, st, throw_exception);
   }
   ClassPathEntry* new_entry = NULL;
-  if ((st->st_mode & S_IFREG) == S_IFREG) {
-    // Regular file, should be a zip file
+  if ((st->st_mode & S_IFREG) != S_IFREG) {
+    // Directory
+    new_entry = new ClassPathDirEntry(path);
+    if (TraceClassLoading) {
+      tty->print_cr("[Path %s]", path);
+    }
+  } else {
+    // Regular file, should be a zip or image file
     // Canonicalized filename
     char canonical_path[JVM_MAXPATHLEN];
     if (!get_canonical_path(path, canonical_path, JVM_MAXPATHLEN)) {
@@ -639,6 +721,11 @@ ClassPathEntry* ClassLoader::create_class_path_entry(char *path, const struct st
         return NULL;
       }
     }
+    // TODO - add proper criteria for selecting image file
+    ClassPathImageEntry* entry = new ClassPathImageEntry(canonical_path);
+    if (entry->is_open()) {
+      new_entry = entry;
+    } else {
     char* error_msg = NULL;
     jzfile* zip;
     {
@@ -649,9 +736,6 @@ ClassPathEntry* ClassLoader::create_class_path_entry(char *path, const struct st
     }
     if (zip != NULL && error_msg == NULL) {
       new_entry = new ClassPathZipEntry(zip, path);
-      if (TraceClassLoading || TraceClassPaths) {
-        tty->print_cr("[Opened %s]", path);
-      }
     } else {
       ResourceMark rm(thread);
       char *msg;
@@ -669,11 +753,9 @@ ClassPathEntry* ClassLoader::create_class_path_entry(char *path, const struct st
         return NULL;
       }
     }
-  } else {
-    // Directory
-    new_entry = new ClassPathDirEntry(path);
+    }
     if (TraceClassLoading || TraceClassPaths) {
-      tty->print_cr("[Path %s]", path);
+      tty->print_cr("[Opened %s]", path);
     }
   }
   return new_entry;
@@ -936,8 +1018,8 @@ void PackageHashtable::copy_table(char** top, char* end,
                       pp = pp->next()) {
       int n1 = (int)(strlen(pp->pkgname()) + 1);
       if (*top + n1 >= end) {
-        report_out_of_shared_space(SharedMiscData);
-      }
+    report_out_of_shared_space(SharedMiscData);
+  }
       pp->set_pkgname((char*)memcpy(*top, pp->pkgname(), n1));
       *top += n1;
     }
