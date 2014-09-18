@@ -54,7 +54,7 @@ $(eval $(call SetupRMICompilation,RMI_IIOP, \
 $(eval $(call SetupRMICompilation,RMI_SRC, \
     CLASSES := $(JMX_RMI_CLASSES), \
     CLASSES_DIR := $(CLASSES_DIR)/java.management, \
-    STUB_CLASSES_DIR := $(RMIC_GENSRC_DIR), \
+    STUB_CLASSES_DIR := $(RMIC_GENSRC_DIR)/java.management, \
     RUN_V12 := true, \
     KEEP_GENERATED := true))
 
