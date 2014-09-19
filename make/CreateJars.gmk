@@ -47,7 +47,7 @@ PROFILE_MAKEFILES = $(JDK_TOPDIR)/make/Profiles.gmk $(JDK_TOPDIR)/make/profile-r
 MAINMANIFEST := $(JDK_TOPDIR)/make/data/mainmanifest/manifest.mf
 BEANMANIFEST := $(JDK_TOPDIR)/make/data/swingbeaninfo/manifest.mf
 
-$(eval $(call MakeDir, $(IMAGES_OUTPUTDIR)/lib))
+$(eval $(call MakeDir, $(DIST_OUTPUTDIR)/lib))
 
 ##########################################################################################
 
@@ -56,7 +56,7 @@ $(eval $(call SetupArchive,BUILD_JCONSOLE_JAR, , \
     SUFFIXES := .class .gif .png .properties, \
     INCLUDES := sun/tools/jconsole com/sun/tools/jconsole, \
     JARMAIN := sun.tools.jconsole.JConsole, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/jconsole.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/jconsole.jar, \
     SKIP_METAINF := true))
 
 
@@ -66,7 +66,7 @@ $(eval $(call SetupArchive,BUILD_DNS_JAR, , \
     SRCS := $(JDK_OUTPUTDIR)/modules/jdk.naming.dns, \
     INCLUDES := sun/net/spi/nameservice/dns, \
     EXTRA_FILES := META-INF/services/sun.net.spi.nameservice.NameServiceDescriptor, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/ext/dnsns.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/ext/dnsns.jar, \
     SKIP_METAINF := true))
 
 
@@ -85,7 +85,7 @@ $(eval $(call SetupArchive,BUILD_LOCALEDATA_JAR, , \
     SUFFIXES := .class _dict _th, \
     INCLUDES := $(LOCALEDATA_INCLUDES), \
     EXTRA_FILES := META-INF/services/sun.util.locale.provider.LocaleDataMetaInfo, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/ext/localedata.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/ext/localedata.jar, \
     SKIP_METAINF := true))
 
 ##########################################################################################
@@ -234,8 +234,8 @@ RT_JAR_EXCLUDES += \
 ALL_FILES_IN_CLASSES := $(call not-containing, _the., $(filter-out %javac_state, \
     $(call CacheFind, $(JDK_OUT_CLASSES))))
 
-RT_JAR_MANIFEST_FILE := $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar_manifest
-RESOURCE_JAR_MANIFEST_FILE := $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar_manifest
+RT_JAR_MANIFEST_FILE := $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar_manifest
+RESOURCE_JAR_MANIFEST_FILE := $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar_manifest
 
 $(RT_JAR_MANIFEST_FILE): $(MAINMANIFEST) $(BEANMANIFEST)
 	$(MKDIR) -p $(@D)
@@ -255,32 +255,32 @@ $(RESOURCE_JAR_MANIFEST_FILE): $(MAINMANIFEST)
 	    $(MAINMANIFEST) >> $@.tmp
 	$(MV) $@.tmp $@
 
-$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.exclude: $(MAKEFILE) $(PROFILE_MAKEFILES)
+$(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.exclude: $(MAKEFILE) $(PROFILE_MAKEFILES)
 	$(MKDIR) -p $(@D)
 	$(RM) $@ $@.tmp
 	$(call ListPathsSafely,RT_JAR_EXCLUDES,\n, >> $@.tmp)
 	$(MV) $@.tmp $@
 
-$(IMAGES_OUTPUTDIR)/lib/classlist: $(JDK_TOPDIR)/make/data/classlist/classlist.$(OPENJDK_TARGET_OS) \
+$(DIST_OUTPUTDIR)/lib/classlist: $(JDK_TOPDIR)/make/data/classlist/classlist.$(OPENJDK_TARGET_OS) \
     $(MAKEFILE)
 	$(MKDIR) -p $(@D)
 	$(RM) $@ $@.tmp
 	$(TOOL_ADDJSUM) $< $@.tmp
 	$(MV) $@.tmp $@
 
-$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents: $(BUILD_TOOLS_JDK) $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.exclude \
-    $(ALL_FILES_IN_CLASSES) $(IMAGES_OUTPUTDIR)/lib/classlist
+$(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents: $(BUILD_TOOLS_JDK) $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.exclude \
+    $(ALL_FILES_IN_CLASSES) $(DIST_OUTPUTDIR)/lib/classlist
 	$(MKDIR) -p $(@D)
 	$(RM) $@ $@.tmp
 	($(CD) $(JDK_OUTPUTDIR)/modules && \
 	$(TOOL_JARREORDER) -m \
-	    -o $@.tmp $(IMAGES_OUTPUTDIR)/lib/classlist $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.exclude . )
+	    -o $@.tmp $(DIST_OUTPUTDIR)/lib/classlist $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.exclude . )
 	$(MV) $@.tmp $@
 
-$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar.contents: $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents
+$(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar.contents: $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents
 	$(MKDIR) -p $(@D)
 	$(RM) $@ $@.tmp
-	$(GREP) -e '\.class$$' $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents > $@.tmp
+	$(GREP) -e '\.class$$' $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents > $@.tmp
         ifneq ($(PROFILE), )
           # Add back classes from excluded packages (fixing the $ substitution in the process)
           # This currently won't work with modular build layout, but there currently are no 
@@ -291,12 +291,12 @@ $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar.contents: $(IMAGES_OUTPUTDIR)/lib$
         endif
 	$(MV) $@.tmp $@
 
-$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar.contents: $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents
+$(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar.contents: $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents
 	$(MKDIR) -p $(@D)
 	$(RM) $@ $@.tmp
 	$(GREP) -v -e '\.class$$' \
 	    -e '/_the\.' -e '^_the\.' -e '\\_the\.' -e ' _the\.' -e 'javac_state' \
-	    $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents > $@.tmp
+	    $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.jars.contents > $@.tmp
         ifneq ($(PROFILE), )
           # Strip out all META-INF/services/ entries
 	  $(GREP) -v -e 'META-INF/services/' $@.tmp > $@.tmp2
@@ -325,16 +325,16 @@ endif
 
 # This defines a target-specific variables to make the shell logic easier to see.
 # We need to find the Version.class file for the profile currently being built
-$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/rt.jar: \
+$(DIST_OUTPUTDIR)/lib$(PROFILE)/rt.jar: \
     CLASS_FILE = $(if $(PROFILE), $(strip $(foreach class, $(PROFILE_VERSION_CLASS_TARGETS), $(if $(findstring $(PROFILE), $(class)), $(class)))), NO_SUCH_FILE)
 # This is the real target
-$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/rt.jar: $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar.contents $(RT_JAR_MANIFEST_FILE) $(PROFILE_VERSION_CLASS_TARGETS)
+$(DIST_OUTPUTDIR)/lib$(PROFILE)/rt.jar: $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar.contents $(RT_JAR_MANIFEST_FILE) $(PROFILE_VERSION_CLASS_TARGETS)
 	$(ECHO) Creating rt.jar $(PROFILE) Compressed=$(COMPRESS_JARS)
 	$(MKDIR) -p $(@D)
 	$(RM) $@ $@.tmp
 	$(CD) $(JDK_OUTPUTDIR)/modules && \
 	$(JAR) $(RT_JAR_CREATE_OPTIONS) $@.tmp $(RT_JAR_MANIFEST_FILE) \
-	    @$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar.contents && \
+	    @$(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.rt.jar.contents && \
 	if [ -f $(CLASS_FILE) ]; then \
 	  $(ECHO) Updating rt.jar $(PROFILE) && \
 	  $(CD) $(patsubst %$(VERSION_CLASS_PATH), %, $(CLASS_FILE)) && \
@@ -342,14 +342,14 @@ $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/rt.jar: $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the
 	fi
 	$(MV) $@.tmp $@
 
-$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/resources.jar: $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar.contents \
+$(DIST_OUTPUTDIR)/lib$(PROFILE)/resources.jar: $(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar.contents \
     $(RESOURCE_JAR_MANIFEST_FILE)
 	$(ECHO) Creating resources.jar
 	$(MKDIR) -p $(@D)
 	$(RM) $@ $@.tmp
 	$(CD) $(JDK_OUTPUTDIR)/modules && \
 	$(JAR) $(RT_JAR_CREATE_OPTIONS) $@.tmp $(RESOURCE_JAR_MANIFEST_FILE) \
-	    @$(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar.contents
+	    @$(DIST_OUTPUTDIR)/lib$(PROFILE)/_the.resources.jar.contents
 	$(MV) $@.tmp $@
 
 ##########################################################################################
@@ -371,7 +371,7 @@ $(eval $(call SetupArchive,BUILD_CHARSETS_JAR, , \
     INCLUDES := sun/nio/cs/ext, \
     EXTRA_FILES := sun/awt/HKSCS.class \
         $(CHARSETS_EXTRA_FILES), \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/charsets.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/charsets.jar, \
     SKIP_METAINF := true, \
     CHECK_COMPRESS_JAR := true))
 
@@ -381,7 +381,7 @@ $(eval $(call SetupArchive,BUILD_ZIPFS_JAR, , \
     SRCS := $(JDK_OUTPUTDIR)/modules/jdk.zipfs, \
     INCLUDES := jdk/nio/zipfs, \
     EXTRA_FILES := META-INF/services/java.nio.file.spi.FileSystemProvider, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/ext/zipfs.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/ext/zipfs.jar, \
     SKIP_METAINF := true, \
     CHECK_COMPRESS_JAR := true))
 
@@ -395,7 +395,7 @@ ifndef OPENJDK
         INCLUDES := com/oracle/jrockit/jfr \
             oracle/jrockit/jfr \
             jdk/jfr, \
-        JAR := $(IMAGES_OUTPUTDIR)/lib/jfr.jar, \
+        JAR := $(DIST_OUTPUTDIR)/lib/jfr.jar, \
         SKIP_METAINF := true, \
         MANIFEST := $(MAINMANIFEST), \
         CHECK_COMPRESS_JAR := true))
@@ -411,7 +411,7 @@ $(eval $(call SetupArchive,BUILD_JSSE_JAR, , \
         sun/security/rsa/SunRsaSign.class \
         sun/security/ssl \
         com/sun/net/ssl/internal/ssl, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/jsse.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/jsse.jar, \
     SKIP_METAINF := true, \
     MANIFEST := $(MAINMANIFEST), \
     CHECK_COMPRESS_JAR := true))
@@ -424,7 +424,7 @@ $(eval $(call SetupArchive,BUILD_SWINGBEANS_JAR, , \
     INCLUDES := javax/swing sun/swing, \
     EXCLUDES := javax/swing/plaf, \
     EXTRA_FILES := javax/swing/SwingBeanInfoBase.class sun/swing/BeanInfoUtils.class, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/dt.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/dt.jar, \
     SKIP_METAINF := true))
 
 ##########################################################################################
@@ -432,7 +432,7 @@ $(eval $(call SetupArchive,BUILD_SWINGBEANS_JAR, , \
 # Get the CLDRVERSION
 include gensrc/GensrcCLDR.gmk
 
-CLDRDATA_JAR_DST := $(IMAGES_OUTPUTDIR)/lib/ext/cldrdata.jar
+CLDRDATA_JAR_DST := $(DIST_OUTPUTDIR)/lib/ext/cldrdata.jar
 
 $(eval $(call SetupArchive,BUILD_CLDRDATA_JAR, , \
     SRCS := $(JDK_OUTPUTDIR)/modules/jdk.localedata \
@@ -534,7 +534,7 @@ $(eval $(call SetupArchive,BUILD_TOOLS_JAR, , \
         META-INF/services/com.sun.tools.attach.spi.AttachProvider \
         META-INF/services/com.sun.tools.internal.ws.wscompile.Plugin \
         META-INF/services/com.sun.tools.internal.xjc.Plugin, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/tools.jar, \
+    JAR := $(DIST_OUTPUTDIR)/lib/tools.jar, \
     SKIP_METAINF := true, \
     CHECK_COMPRESS_JAR := true))
 
@@ -568,24 +568,24 @@ EXCLUDE_PROPWARN_PKGS = com.sun.java.swing.plaf.windows \
 EXPORTED_PRIVATE_PKGS = com.oracle.net \
     com.oracle.nio
 
-$(IMAGES_OUTPUTDIR)/symbols/_the.symbols: $(IMAGES_OUTPUTDIR)/lib/rt.jar
-	$(RM) -r $(IMAGES_OUTPUTDIR)/symbols/META-INF/sym
-	$(MKDIR) -p $(IMAGES_OUTPUTDIR)/symbols/META-INF/sym
+$(DIST_OUTPUTDIR)/symbols/_the.symbols: $(DIST_OUTPUTDIR)/lib/rt.jar
+	$(RM) -r $(DIST_OUTPUTDIR)/symbols/META-INF/sym
+	$(MKDIR) -p $(DIST_OUTPUTDIR)/symbols/META-INF/sym
 	$(JAVA) $(NEW_JAVAC) \
-	    -bootclasspath "$(IMAGES_OUTPUTDIR)/lib/rt.jar" \
+	    -bootclasspath "$(DIST_OUTPUTDIR)/lib/rt.jar" \
 	    -XDprocess.packages -proc:only \
 	    -processor com.sun.tools.javac.sym.CreateSymbols \
-	    -Acom.sun.tools.javac.sym.Jar=$(IMAGES_OUTPUTDIR)/lib/rt.jar \
-	    -Acom.sun.tools.javac.sym.Dest=$(IMAGES_OUTPUTDIR)/symbols/META-INF/sym/rt.jar \
+	    -Acom.sun.tools.javac.sym.Jar=$(DIST_OUTPUTDIR)/lib/rt.jar \
+	    -Acom.sun.tools.javac.sym.Dest=$(DIST_OUTPUTDIR)/symbols/META-INF/sym/rt.jar \
 	    -Acom.sun.tools.javac.sym.Profiles=profile-rtjar-includes.txt \
 	    $(CORE_PKGS) $(NON_CORE_PKGS) $(EXCLUDE_PROPWARN_PKGS) $(EXPORTED_PRIVATE_PKGS)
 	$(TOUCH) $@
 
-$(eval $(call MakeDir, $(IMAGES_OUTPUTDIR)/symbols))
-$(eval $(call SetupArchive,BUILD_CT_SYM, $(IMAGES_OUTPUTDIR)/symbols/_the.symbols, \
-    SRCS := $(IMAGES_OUTPUTDIR)/symbols, \
+$(eval $(call MakeDir, $(DIST_OUTPUTDIR)/symbols))
+$(eval $(call SetupArchive,BUILD_CT_SYM, $(DIST_OUTPUTDIR)/symbols/_the.symbols, \
+    SRCS := $(DIST_OUTPUTDIR)/symbols, \
     INCLUDES := META-INF/sym, \
-    JAR := $(IMAGES_OUTPUTDIR)/lib/ct.sym, \
+    JAR := $(DIST_OUTPUTDIR)/lib/ct.sym, \
     CHECK_COMPRESS_JAR := true))
 
 
@@ -659,7 +659,7 @@ endif
 # before zipping the sources.
 $(eval $(call SetupCopyFiles,COPY_LAUNCHER_SRC, \
     SRC := $(JDK_TOPDIR)/src/java.base, \
-    DEST := $(IMAGES_OUTPUTDIR)/src/launcher, \
+    DEST := $(DIST_OUTPUTDIR)/src/launcher, \
     FLATTEN := true, \
     FILES := $(wildcard \
         $(JDK_TOPDIR)/src/java.base/share/native/launcher/* \
@@ -668,17 +668,17 @@ $(eval $(call SetupCopyFiles,COPY_LAUNCHER_SRC, \
 
 LAUNCHER_ZIP_SRC := $(COPY_LAUNCHER_SRC)
 
-$(IMAGES_OUTPUTDIR)/src.zip: $(LAUNCHER_ZIP_SRC)
+$(DIST_OUTPUTDIR)/src.zip: $(LAUNCHER_ZIP_SRC)
 
 # This dir needs to exist before macro is evaluated to avoid warning from find.
-$(eval $(call MakeDir, $(IMAGES_OUTPUTDIR)/src))
+$(eval $(call MakeDir, $(DIST_OUTPUTDIR)/src))
 $(eval $(call SetupZipArchive,BUILD_SRC_ZIP, \
-    SRC := $(SRC_ZIP_SRCS) $(IMAGES_OUTPUTDIR)/src, \
+    SRC := $(SRC_ZIP_SRCS) $(DIST_OUTPUTDIR)/src, \
     INCLUDES := $(SRC_ZIP_INCLUDES) launcher, \
     EXCLUDES := $(SRC_ZIP_EXCLUDES), \
     EXCLUDE_FILES := $(SRC_ZIP_EXCLUDE_FILES), \
     SUFFIXES := .java .c .h, \
-    ZIP := $(IMAGES_OUTPUTDIR)/src.zip, \
+    ZIP := $(DIST_OUTPUTDIR)/src.zip, \
     EXTRA_DEPS := $(LAUNCHER_ZIP_SRC)))
 
 ##########################################################################################
@@ -686,7 +686,7 @@ $(eval $(call SetupZipArchive,BUILD_SRC_ZIP, \
 # This file is imported from hotspot in Import.gmk. Copying it into images/lib so that
 # all jars can be found in one place when creating images in Images.gmk. It needs to be
 # done here so that clean targets can be simple and accurate.
-$(IMAGES_OUTPUTDIR)/lib/sa-jdi.jar: $(HOTSPOT_DIST)/lib/sa-jdi.jar
+$(DIST_OUTPUTDIR)/lib/sa-jdi.jar: $(HOTSPOT_DIST)/lib/sa-jdi.jar
 	$(install-file)
 
 ##########################################################################################
@@ -711,9 +711,9 @@ $(eval $(call SetupZipArchive,BUILD_SEC_BIN_ZIP, \
         modules/java.security.jgss/sun/security/krb5/internal/util, \
     INCLUDE_FILES := modules/java.security.jgss/sun/security/jgss/spi/GSSContextSpi.class, \
     EXCLUDES := modules/java.security.jgss/sun/security/krb5/internal/tools, \
-    ZIP := $(IMAGES_OUTPUTDIR)/sec-bin.zip))
+    ZIP := $(DIST_OUTPUTDIR)/sec-bin.zip))
 
-JARS += $(IMAGES_OUTPUTDIR)/sec-bin.zip
+JARS += $(DIST_OUTPUTDIR)/sec-bin.zip
 
 ##########################################################################################
 #
@@ -724,9 +724,9 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
   $(eval $(call SetupZipArchive,BUILD_SEC_WINDOWS_BIN_ZIP, \
       SRC := $(JDK_OUTPUTDIR), \
       INCLUDES := modules/java.security.jgss/sun/security/krb5/internal/tools, \
-      ZIP := $(IMAGES_OUTPUTDIR)/sec-windows-bin.zip))
+      ZIP := $(DIST_OUTPUTDIR)/sec-windows-bin.zip))
 
-  JARS += $(IMAGES_OUTPUTDIR)/sec-windows-bin.zip
+  JARS += $(DIST_OUTPUTDIR)/sec-windows-bin.zip
 
   # JGSS files contain the native Kerberos library
   ifeq ($(OPENJDK_TARGET_CPU), x86_64)
@@ -740,22 +740,22 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       INCLUDE_FILES := bin/w2k_lsa_auth.dll \
           bin/w2k_lsa_auth.map \
           bin/w2k_lsa_auth.pdb, \
-      ZIP := $(IMAGES_OUTPUTDIR)/$(JGSS_ZIP_NAME)))
+      ZIP := $(DIST_OUTPUTDIR)/$(JGSS_ZIP_NAME)))
 
-  JARS += $(IMAGES_OUTPUTDIR)/$(JGSS_ZIP_NAME)
+  JARS += $(DIST_OUTPUTDIR)/$(JGSS_ZIP_NAME)
 endif
 
 ##########################################################################################
 
 # This rule copies all jars from jdk/lib/... to images/lib/... to avoid having to track 
 # which jars are where
-$(IMAGES_OUTPUTDIR)/lib/%: $(JDK_OUTPUTDIR)/lib/%
+$(DIST_OUTPUTDIR)/lib/%: $(JDK_OUTPUTDIR)/lib/%
 	$(install-file)
 
 ##########################################################################################
 
 # Import nashorn.jar from nashorn dist dir.
-$(IMAGES_OUTPUTDIR)/lib/ext/nashorn.jar: $(NASHORN_DIST)/nashorn.jar
+$(DIST_OUTPUTDIR)/lib/ext/nashorn.jar: $(NASHORN_DIST)/nashorn.jar
 	$(install-file)
 
 ##########################################################################################
