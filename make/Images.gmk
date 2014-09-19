@@ -33,10 +33,10 @@ default: images
 $(eval $(call FillCacheFind, \
     $(wildcard $(JDK_OUTPUTDIR)/bin \
         $(JDK_OUTPUTDIR)/lib \
-        $(DIST_OUTPUTDIR)/lib \
+        $(IMAGES_OUTPUTDIR)/lib \
         $(JDK_OUTPUTDIR)/include \
-        $(DIST_OUTPUTDIR)/sample \
-        $(DIST_OUTPUTDIR)/demo)))
+        $(IMAGES_OUTPUTDIR)/sample \
+        $(IMAGES_OUTPUTDIR)/demo)))
 
 include Tools.gmk
 
@@ -226,11 +226,11 @@ endif
 # Jar files are not expected to be here
 ALL_JDKOUT_LIB_LIST := $(call not-containing,_the., $(filter-out %.jar, \
     $(call CacheFind, $(JDK_OUTPUTDIR)/lib)))
-# Find all files to copy from $(DIST_OUTPUTDIR)/lib
+# Find all files to copy from $(IMAGES_OUTPUTDIR)/lib
 # This is were the jar files are and might not exist if building overlay-images
-ifneq ($(wildcard $(DIST_OUTPUTDIR)/lib), )
+ifneq ($(wildcard $(IMAGES_OUTPUTDIR)/lib), )
   ALL_IMAGES_LIB_LIST := $(call not-containing,_the., \
-      $(call CacheFind, $(DIST_OUTPUTDIR)/lib))
+      $(call CacheFind, $(IMAGES_OUTPUTDIR)/lib))
 endif
 
 # Filter files to copy for each destination
@@ -253,11 +253,11 @@ $(foreach f,$(JDKJRE_JDKOUT_LIB_LIST), \
     $(eval $(call AddFileToCopy,$(JDK_OUTPUTDIR),$(JDK_IMAGE_DIR)/jre,$f,JDKJRE_LIB_TARGETS)))
 
 $(foreach f,$(JRE_IMAGES_LIB_LIST), \
-    $(eval $(call AddFileToCopy,$(DIST_OUTPUTDIR),$(JRE_IMAGE_DIR),$f,JRE_LIB_TARGETS)))
+    $(eval $(call AddFileToCopy,$(IMAGES_OUTPUTDIR),$(JRE_IMAGE_DIR),$f,JRE_LIB_TARGETS)))
 $(foreach f,$(JDK_IMAGES_LIB_LIST), \
-    $(eval $(call AddFileToCopy,$(DIST_OUTPUTDIR),$(JDK_IMAGE_DIR),$f,JDK_LIB_TARGETS)))
+    $(eval $(call AddFileToCopy,$(IMAGES_OUTPUTDIR),$(JDK_IMAGE_DIR),$f,JDK_LIB_TARGETS)))
 $(foreach f,$(JDKJRE_IMAGES_LIB_LIST), \
-    $(eval $(call AddFileToCopy,$(DIST_OUTPUTDIR),$(JDK_IMAGE_DIR)/jre,$f,JDKJRE_LIB_TARGETS)))
+    $(eval $(call AddFileToCopy,$(IMAGES_OUTPUTDIR),$(JDK_IMAGE_DIR)/jre,$f,JDKJRE_LIB_TARGETS)))
 
 $(foreach f,$(filter $(JDK_OUTPUTDIR)/lib$(OPENJDK_TARGET_CPU_ISADIR)/%,$(JRE_JDKOUT_LIB_LIST)), \
     $(eval $(call AddFileToCopy,$(JDK_OUTPUTDIR),$(JRE_OVERLAY_IMAGE_DIR),$f,JRE_OVERLAY_LIB_TARGETS)))
@@ -270,7 +270,7 @@ ifneq ($(PROFILE), )
   # Files in lib$(PROFILE) are excluded from the generic copying routines so
   # we have to add them back in here
   $(foreach f,$(CUSTOM_PROFILE_JARS), \
-      $(eval $(call AddFileToCopy,$(DIST_OUTPUTDIR)/lib$(PROFILE),$(JRE_IMAGE_DIR)/lib,$f,JRE_LIB_TARGETS)))
+      $(eval $(call AddFileToCopy,$(IMAGES_OUTPUTDIR)/lib$(PROFILE),$(JRE_IMAGE_DIR)/lib,$f,JRE_LIB_TARGETS)))
 endif
 
 # CTE plugin security change require new empty directory lib/applet
@@ -486,7 +486,7 @@ endif # Windows
 # The db demo contains an empty dir that needs to be copied. The other
 # directories will always trigger the rule for recompile since
 # _the.list_of_packages files are touched.
-$(JDK_IMAGE_DIR)/demo/%: $(DIST_OUTPUTDIR)/demo/%
+$(JDK_IMAGE_DIR)/demo/%: $(IMAGES_OUTPUTDIR)/demo/%
 	if [ ! -d "$@" ]; then \
 	  $(ECHO) $(LOG_INFO) Copying '$(patsubst $(OUTPUT_ROOT)/%,%,$@)'; \
 	  $(MKDIR) -p $(@D); \
@@ -494,14 +494,12 @@ $(JDK_IMAGE_DIR)/demo/%: $(DIST_OUTPUTDIR)/demo/%
 	fi
 
 # Find all files including directories
-JDK_DEMO_TARGETS := $(patsubst $(DIST_OUTPUTDIR)/demo/%, $(JDK_IMAGE_DIR)/demo/%, \
-    $(shell $(FIND) $(DIST_OUTPUTDIR)/demo ! \( -name "_the*" -o -name "javac_state" \) ))
-
-
+JDK_DEMO_TARGETS := $(patsubst $(IMAGES_OUTPUTDIR)/demo/%, $(JDK_IMAGE_DIR)/demo/%, \
+    $(shell $(FIND) $(IMAGES_OUTPUTDIR)/demo ! \( -name "_the*" -o -name "javac_state" \) ))
 
 # Param 1 is source file
 define CreateOverlayDemoRule
-  $1_TARGET := $$(subst $(DIST_OUTPUTDIR),$(JDK_OVERLAY_IMAGE_DIR), \
+  $1_TARGET := $$(subst $(IMAGES_OUTPUTDIR),$(JDK_OVERLAY_IMAGE_DIR), \
       $$(dir $1)$(OPENJDK_TARGET_CPU_ISADIR)/$$(notdir $1))
   $$($1_TARGET): $1
 	$(ECHO) $(LOG_INFO) Copying '$$(patsubst $(OUTPUT_ROOT)/%,%,$$@)'
@@ -509,14 +507,14 @@ define CreateOverlayDemoRule
 
   JDK_OVERLAY_DEMO_TARGETS += $$($1_TARGET)
 endef
-JDK_OVERLAY_DEMO_SOURCES := $(filter %$(SHARED_LIBRARY_SUFFIX), $(call CacheFind, $(DIST_OUTPUTDIR)/demo))
+JDK_OVERLAY_DEMO_SOURCES := $(filter %$(SHARED_LIBRARY_SUFFIX), $(call CacheFind, $(IMAGES_OUTPUTDIR)/demo))
 $(foreach lib, $(JDK_OVERLAY_DEMO_SOURCES), $(eval $(call CreateOverlayDemoRule, $(lib))))
 
 ################################################################################
 # /sample dir
 
-$(foreach f,$(call CacheFind,$(DIST_OUTPUTDIR)/sample), \
-    $(eval $(call AddFileToCopy,$(DIST_OUTPUTDIR),$(JDK_IMAGE_DIR),$f,JDK_SAMPLE_TARGETS)))
+$(foreach f,$(call CacheFind,$(IMAGES_OUTPUTDIR)/sample), \
+    $(eval $(call AddFileToCopy,$(IMAGES_OUTPUTDIR),$(JDK_IMAGE_DIR),$f,JDK_SAMPLE_TARGETS)))
 
 ################################################################################
 # /db dir
@@ -524,7 +522,7 @@ $(foreach f,$(call CacheFind,$(DIST_OUTPUTDIR)/sample), \
 ifndef OPENJDK
   DB_ZIP_DIR := $(wildcard $(JDK_TOPDIR)/src/closed/db)
 
-  $(DIST_OUTPUTDIR)/_unzip/%.unzipped: $(DB_ZIP_DIR)/%
+  $(IMAGES_OUTPUTDIR)/_unzip/%.unzipped: $(DB_ZIP_DIR)/%
 	$(ECHO) Unzipping $(patsubst $(SRC_ROOT)/%,%,$<)
 	$(RM) -r $(JDK_IMAGE_DIR)/db
 	$(MKDIR) -p $(JDK_IMAGE_DIR)/db
@@ -543,7 +541,7 @@ ifndef OPENJDK
 	$(MKDIR) -p $(@D)
 	$(CAT) $< | $(SED) "s/XXXX/$(shell cat $(DB_ZIP_DIR)/COPYRIGHTYEAR)/" > $@
 
-  JDK_DB_TARGETS := $(patsubst $(DB_ZIP_DIR)/%, $(DIST_OUTPUTDIR)/_unzip/%.unzipped, \
+  JDK_DB_TARGETS := $(patsubst $(DB_ZIP_DIR)/%, $(IMAGES_OUTPUTDIR)/_unzip/%.unzipped, \
       $(wildcard $(DB_ZIP_DIR)/*.zip)) \
       $(JDK_IMAGE_DIR)/db/README-JDK.html $(JDK_IMAGE_DIR)/db/3RDPARTY
 
@@ -646,7 +644,7 @@ $(JDK_OVERLAY_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(OUTPUT_ROOT)/source_tips
 	$(ECHO) $(LOG_INFO) Generating $(patsubst $(OUTPUT_ROOT)/%,%,$@)
 	$(call create-info-file)
 
-$(JDK_IMAGE_DIR)/src.zip: $(DIST_OUTPUTDIR)/src.zip
+$(JDK_IMAGE_DIR)/src.zip: $(IMAGES_OUTPUTDIR)/src.zip
 	$(ECHO) $(LOG_INFO) Copying $(patsubst $(OUTPUT_ROOT)/%,%,$@)
 	$(install-file)
 
@@ -674,29 +672,29 @@ ifneq ($(POST_STRIP_CMD), )
   EXEC_LIST_OVERLAY := $(filter $(OVERLAY_FILTER), $(EXEC_LIST_BIN)) $(EXEC_LIST_LIB)
 
   # Filter out non JRE files and convert to unique touch files to depend on
-  JRE_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, $(DIST_OUTPUTDIR)/_strip_jre$(PROFILE)/%.stripped, \
+  JRE_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, $(IMAGES_OUTPUTDIR)/_strip_jre$(PROFILE)/%.stripped, \
       $(filter-out $(addprefix %, $(NOT_JRE_BIN_FILES) $(NOT_JRE_LIB_FILES) $(JDKJRE_LIB_FILES)), \
       $(EXEC_LIST)))
 
   JDKJRE_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, \
-      $(DIST_OUTPUTDIR)/_strip_jdk/jre/%.stripped, \
+      $(IMAGES_OUTPUTDIR)/_strip_jdk/jre/%.stripped, \
       $(filter-out $(addprefix %, $(NOT_JRE_BIN_FILES) $(NOT_JRE_LIB_FILES)), $(EXEC_LIST)))
 
   JDK_BIN_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, \
-      $(DIST_OUTPUTDIR)/_strip_jdk/%.stripped, \
+      $(IMAGES_OUTPUTDIR)/_strip_jdk/%.stripped, \
       $(filter-out $(JDK_OUTPUTDIR)/lib/%, $(EXEC_LIST)))
 
   # Do the same for overlay image
-  JRE_OVERLAY_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, $(DIST_OUTPUTDIR)/_strip_jre_overlay/%.stripped, \
+  JRE_OVERLAY_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, $(IMAGES_OUTPUTDIR)/_strip_jre_overlay/%.stripped, \
       $(filter-out $(addprefix %, $(NOT_JRE_BIN_FILES) $(NOT_JRE_LIB_FILES) $(JDKJRE_LIB_FILES)), \
       $(EXEC_LIST_OVERLAY)))
 
   JDKJRE_OVERLAY_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, \
-      $(DIST_OUTPUTDIR)/_strip_jdk_overlay/jre/%.stripped, \
+      $(IMAGES_OUTPUTDIR)/_strip_jdk_overlay/jre/%.stripped, \
       $(filter-out $(addprefix %, $(NOT_JRE_BIN_FILES) $(NOT_JRE_LIB_FILES)), $(EXEC_LIST_OVERLAY)))
 
   JDK_OVERLAY_BIN_STRIP_LIST := $(patsubst $(JDK_OUTPUTDIR)/%, \
-      $(DIST_OUTPUTDIR)/_strip_jdk_overlay/%.stripped, \
+      $(IMAGES_OUTPUTDIR)/_strip_jdk_overlay/%.stripped, \
       $(filter-out $(JDK_OUTPUTDIR)/lib/%, $(EXEC_LIST_OVERLAY)))
 
   define mcs-file
@@ -714,16 +712,16 @@ ifneq ($(POST_STRIP_CMD), )
   endef
 
   # Setup a rule for stripping files based on touch files
-  $(DIST_OUTPUTDIR)/_strip_jre$(PROFILE)/%.stripped: $(JRE_IMAGE_DIR)/%
+  $(IMAGES_OUTPUTDIR)/_strip_jre$(PROFILE)/%.stripped: $(JRE_IMAGE_DIR)/%
 	$(call strip-file)
 
-  $(DIST_OUTPUTDIR)/_strip_jdk/%.stripped: $(JDK_IMAGE_DIR)/%
+  $(IMAGES_OUTPUTDIR)/_strip_jdk/%.stripped: $(JDK_IMAGE_DIR)/%
 	$(call strip-file)
 
-  $(DIST_OUTPUTDIR)/_strip_jre_overlay/%.stripped: $(JRE_OVERLAY_IMAGE_DIR)/%
+  $(IMAGES_OUTPUTDIR)/_strip_jre_overlay/%.stripped: $(JRE_OVERLAY_IMAGE_DIR)/%
 	$(call strip-file)
 
-  $(DIST_OUTPUTDIR)/_strip_jdk_overlay/%.stripped: $(JDK_OVERLAY_IMAGE_DIR)/%
+  $(IMAGES_OUTPUTDIR)/_strip_jdk_overlay/%.stripped: $(JDK_OVERLAY_IMAGE_DIR)/%
 	$(call strip-file)
 
 endif
@@ -766,7 +764,7 @@ jdk-overlay-image: $(JDK_OVERLAY_BIN_TARGETS) $(JDKJRE_OVERLAY_BIN_TARGETS) \
 ifneq ($(PROFILE), )
   PROFILE_IMAGE_JARS := $(filter %.jar, $(JRE_LIB_TARGETS))
 
-  PROFILE_IMAGE_JARS_CHECKED := $(DIST_OUTPUTDIR)/lib$(PROFILE)/_jars_checked
+  PROFILE_IMAGE_JARS_CHECKED := $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/_jars_checked
 
   $(PROFILE_IMAGE_JARS_CHECKED) : $(PROFILE_IMAGE_JARS)
 	$(TOOL_CHECKDEPS) $(JRE_IMAGE_DIR) \

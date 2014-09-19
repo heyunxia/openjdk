@@ -42,7 +42,7 @@ include profile-includes.txt
 # The incoming lists, eg PROFILE_1_JRE_JARS_FILES, are the jars to be
 # included in this profile. They have the jar name relative to the lib
 # directory. We have to turn these into targets by adding the
-# $(DIST_OUTPUTDIR)/lib prefix
+# $(IMAGES_OUTPUTDIR)/lib prefix
 #
 # Note that some jars may be optional depending on the type of build (jdk vs.
 # openjdk) and the platform.
@@ -53,20 +53,20 @@ include profile-includes.txt
 # These are jar files for which the contents vary depending on the profile
 CUSTOM_JARS := rt.jar resources.jar
 # This is used in Images.gmk
-CUSTOM_PROFILE_JARS := $(addprefix $(DIST_OUTPUTDIR)/lib$(PROFILE)/, $(CUSTOM_JARS))
+CUSTOM_PROFILE_JARS := $(addprefix $(IMAGES_OUTPUTDIR)/lib$(PROFILE)/, $(CUSTOM_JARS))
 
 # These are the common jar files built for and included with this profile
 # Filter out the custom jars and turn them into targets.
 
 PROFILE_1_JARS := \
-    $(addprefix $(DIST_OUTPUTDIR)/lib/, $(filter-out $(CUSTOM_JARS), $(PROFILE_1_JRE_JAR_FILES)))
+    $(addprefix $(IMAGES_OUTPUTDIR)/lib/, $(filter-out $(CUSTOM_JARS), $(PROFILE_1_JRE_JAR_FILES)))
 
 PROFILE_2_JARS := \
-    $(if $(PROFILE_2_JRE_JAR_FILES), $(addprefix $(DIST_OUTPUTDIR)/lib/, $(PROFILE_2_JRE_JAR_FILES))) \
+    $(if $(PROFILE_2_JRE_JAR_FILES), $(addprefix $(IMAGES_OUTPUTDIR)/lib/, $(PROFILE_2_JRE_JAR_FILES))) \
     $(PROFILE_1_JARS)
 
 PROFILE_3_JARS := \
-    $(addprefix $(DIST_OUTPUTDIR)/lib/, $(PROFILE_3_JRE_JAR_FILES)) \
+    $(addprefix $(IMAGES_OUTPUTDIR)/lib/, $(PROFILE_3_JRE_JAR_FILES)) \
     $(PROFILE_2_JARS)
 
 ifneq ($(ENABLE_JFR), true)
@@ -74,7 +74,7 @@ ifneq ($(ENABLE_JFR), true)
 endif
 
 FULL_JRE_JARS := \
-    $(addprefix $(DIST_OUTPUTDIR)/lib/, $(FULL_JRE_JAR_FILES)) \
+    $(addprefix $(IMAGES_OUTPUTDIR)/lib/, $(FULL_JRE_JAR_FILES)) \
     $(PROFILE_3_JARS)
 
 # The full set of "jar" files needed for a complete JDK (ct.sym and src.zip
@@ -83,26 +83,26 @@ FULL_JRE_JARS := \
 # rt.jar and resources.jar that we filtered out above
 
 ALL_JARS := $(FULL_JRE_JARS) \
-    $(DIST_OUTPUTDIR)/lib/rt.jar \
-    $(DIST_OUTPUTDIR)/lib/resources.jar \
-    $(DIST_OUTPUTDIR)/lib/jconsole.jar \
-    $(DIST_OUTPUTDIR)/lib/dt.jar \
-    $(DIST_OUTPUTDIR)/lib/tools.jar \
-    $(DIST_OUTPUTDIR)/lib/ct.sym \
-    $(DIST_OUTPUTDIR)/src.zip
+    $(IMAGES_OUTPUTDIR)/lib/rt.jar \
+    $(IMAGES_OUTPUTDIR)/lib/resources.jar \
+    $(IMAGES_OUTPUTDIR)/lib/jconsole.jar \
+    $(IMAGES_OUTPUTDIR)/lib/dt.jar \
+    $(IMAGES_OUTPUTDIR)/lib/tools.jar \
+    $(IMAGES_OUTPUTDIR)/lib/ct.sym \
+    $(IMAGES_OUTPUTDIR)/src.zip
 
 ifeq ($(INCLUDE_SA), true)
-  ALL_JARS += $(DIST_OUTPUTDIR)/lib/sa-jdi.jar
+  ALL_JARS += $(IMAGES_OUTPUTDIR)/lib/sa-jdi.jar
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), solaris)
   ifndef OPENJDK
-    ALL_JARS += $(DIST_OUTPUTDIR)/lib/ext/ucrypto.jar
+    ALL_JARS += $(IMAGES_OUTPUTDIR)/lib/ext/ucrypto.jar
   endif
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
-  ALL_JARS += $(DIST_OUTPUTDIR)/lib/ext/sunmscapi.jar
+  ALL_JARS += $(IMAGES_OUTPUTDIR)/lib/ext/sunmscapi.jar
 endif
 
 ifeq ($(PROFILE), profile_1)
@@ -161,7 +161,7 @@ NOT_JRE_BIN_FILES := $(addprefix $(JDK_OUTPUTDIR)/bin/, $(NOT_JRE_BIN_FILES))
 
 # Need all files to generate the exclude lists
 NEW_ALL_LIB_LIST := $(patsubst $(JDK_OUTPUTDIR)/lib/%,%,$(shell $(FIND) $(JDK_OUTPUTDIR)/lib \( -type f -o -type l \) -a ! \( -name "_the*" -o -name "javac_state " \) ))
-NEW_ALL_LIB_LIST += $(patsubst $(DIST_OUTPUTDIR)/lib/%,%,$(shell $(FIND) $(DIST_OUTPUTDIR)/lib \( -type f -o -type l \) -a ! \( -name "_the*" -o -name "javac_state " \) ))
+NEW_ALL_LIB_LIST += $(patsubst $(IMAGES_OUTPUTDIR)/lib/%,%,$(shell $(FIND) $(IMAGES_OUTPUTDIR)/lib \( -type f -o -type l \) -a ! \( -name "_the*" -o -name "javac_state " \) ))
 
 ALL_JRE_LIB_FILES := \
     $(PROFILE_1_JRE_LIB_FILES) \
