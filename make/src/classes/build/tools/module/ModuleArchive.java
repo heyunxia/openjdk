@@ -68,7 +68,7 @@ public class ModuleArchive implements Archive {
             Files.walk(classes)
                     .sorted()
                     .filter(p -> !Files.isDirectory(p)
-                            && !p.getFileName().toString().startsWith("_"))
+                            && !classes.relativize(p).toString().startsWith("_the."))
                     .map(this::toResource)
                     .forEach(consumer::accept);
         } catch (IOException ioe) {
@@ -100,7 +100,7 @@ public class ModuleArchive implements Archive {
                 Files.walk(classes)
                         .sorted()
                         .filter(p -> !Files.isDirectory(p)
-                                && !p.getFileName().toString().startsWith("_"))
+                                && !classes.relativize(p).toString().startsWith("_the."))
                         .map(p -> toEntry(p, classes, Section.CLASSES))
                         .forEach(consumer::accept);
             if (cmds != null)
@@ -183,7 +183,7 @@ public class ModuleArchive implements Archive {
                 try (InputStream in = entry.getInputStream()) {
                     switch (section) {
                         case CLASSES:
-                            if (!filename.startsWith("_"))
+                            if (!filename.startsWith("_the."))
                                 writeEntry(in);
                             break;
                         case LIBS:
