@@ -303,7 +303,10 @@ class ImageBuilder {
         }
 
         private Module nameToModule(String name) {
-            return nameToModule.get(name);
+            Module m = nameToModule.get(name);
+            if (m == null)
+                throw new RuntimeException("No module definition for " + name);
+            return m;
         }
 
         private Set<Module> getModuleDependences(Module m) {
