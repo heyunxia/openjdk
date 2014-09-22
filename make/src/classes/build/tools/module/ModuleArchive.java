@@ -78,7 +78,7 @@ public class ModuleArchive implements Archive {
 
     private Resource toResource(Path path) {
         try {
-            return new Resource(classes.relativize(path).toString().replace('\'','/'),
+            return new Resource(classes.relativize(path).toString().replace('\\','/'),
                                 Files.size(path),
                                 0 /* no compression support yet */);
         } catch (IOException ioe) {
@@ -151,7 +151,7 @@ public class ModuleArchive implements Archive {
 
     private Entry toEntry(Path entryPath, Path basePath, Section section) {
         try {
-            return new FileEntry(basePath.relativize(entryPath).toString().replace('\'', '/'),
+            return new FileEntry(basePath.relativize(entryPath).toString().replace('\\', '/'),
                                  Files.newInputStream(entryPath), false,
                                  section);
         } catch (IOException e) {
@@ -187,7 +187,7 @@ public class ModuleArchive implements Archive {
                                 writeEntry(in);
                             break;
                         case LIBS:
-                            writeEntry(in, destFile(nativeDir(), filename));
+                            writeEntry(in, destFile(nativeDir(filename), filename));
                             break;
                         case CMDS:
                             Path path = destFile("bin", filename);
@@ -223,11 +223,15 @@ public class ModuleArchive implements Archive {
                 out.write(buf, 0, n);
         }
 
-        private static String nativeDir() {
-            if (System.getProperty("os.name").startsWith("Windows"))
-                return "bin";
-            else
+        private static String nativeDir(String filename) {
+            if (System.getProperty("os.name").startsWith("Windows")) {
+                if (filename.endsWith(".dll"))
+                    return "bin";
+                 else
+                    return "lib";
+            } else {
                 return "lib";
+            }
         }
     }
 }
