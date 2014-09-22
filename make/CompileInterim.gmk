@@ -47,7 +47,7 @@ $(eval $(call SetupJavaCompilation,BUILD_INTERIM_LANGTOOLS, \
       $(SUPPORT_OUTPUTDIR)/gensrc/jdk.compiler \
       $(SUPPORT_OUTPUTDIR)/gensrc/jdk.dev \
       $(SUPPORT_OUTPUTDIR)/gensrc/jdk.javadoc, \
-    EXCLUDES := com/sun/tools/javac/nio compileproperties anttasks crules, \
+    EXCLUDES := sun jdk, \
     COPY := .gif .xml .css .js javax.tools.JavaCompilerTool, \
     BIN := $(BUILDTOOLS_OUTPUTDIR)/langtools_interim_classes, \
     JAR := $(INTERIM_LANGTOOLS_JAR)))
