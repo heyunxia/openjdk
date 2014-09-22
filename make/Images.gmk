@@ -42,6 +42,10 @@ include Tools.gmk
 
 include Profiles.gmk
 
+# Redirect to legacy location
+JDK_IMAGE_DIR := $(LEGACY_JDK_IMAGE_DIR)
+JRE_IMAGE_DIR := $(LEGACY_JRE_IMAGE_DIR)
+
 # Note: This double-colon rule is intentional, to support
 # custom make file integration.
 images:: jre-image jdk-image
