@@ -75,12 +75,7 @@ $(eval $(call SetupCopyFiles,COPY_HOTSPOT_SA, \
     FILES := $(shell $(FIND) $(HOTSPOT_LIB_DIR) -type f  \
         -a \( -name DUMMY $(addprefix -o$(SPACE)-name$(SPACE), $(HOTSPOT_SA_IMPORT_FILES)) \) )))
 
-$(eval $(call SetupCopyFiles,COPY_HOTSPOT_SA_JAR, \
-    SRC := $(HOTSPOT_DIST)/lib, \
-    DEST := $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent, \
-    FILES := $(HOTSPOT_DIST)/lib/sa-jdi.jar))
-
-SA_TARGETS := $(COPY_HOTSPOT_SA) $(COPY_HOTSPOT_SA_JAR)
+SA_TARGETS := $(COPY_HOTSPOT_SA)
 
 ################################################################################
 
@@ -233,15 +228,13 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
   $(eval $(call SetupCopyFiles,SA_COPY_LIBS, \
       SRC := $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent, \
       DEST := $(JDK_OUTPUTDIR)/lib, \
-      FILES := $(filter %.jar, \
-          $(filter $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent/%, \
+      FILES := $(filter $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent/%, \
           $(SA_TARGETS)))))
 
   $(eval $(call SetupCopyFiles,SA_COPY_LIBS, \
       SRC := $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent, \
       DEST := $(JDK_OUTPUTDIR)/bin, \
-      FILES := $(filter-out %.jar, \
-          $(filter $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent/%, \
+      FILES := $(filter $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent/%, \
           $(SA_TARGETS)))))
 else
   $(eval $(call SetupCopyFiles,BASE_COPY_LIBS, \
