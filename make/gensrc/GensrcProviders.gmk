@@ -31,10 +31,13 @@ define process-provider
 endef
 
 ################################################################################
+# Until the module system is in place, jdk.jdi-gensrc needs to combine service
+# loader configuration with jdk.hotspot.agent.
 
 # Filter com.sun.jdi.connect.Connector
 $(SUPPORT_OUTPUTDIR)/gensrc/jdk.jdi/META-INF/services/com.sun.jdi.connect.Connector: \
-    $(JDK_TOPDIR)/src/jdk.jdi/share/classes/META-INF/services/com.sun.jdi.connect.Connector
+    $(JDK_TOPDIR)/src/jdk.jdi/share/classes/META-INF/services/com.sun.jdi.connect.Connector \
+    $(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/META-INF/services/com.sun.jdi.connect.Connector
 	$(process-provider)
 
 GENSRC_JDK_JDI += $(SUPPORT_OUTPUTDIR)/gensrc/jdk.jdi/META-INF/services/com.sun.jdi.connect.Connector
