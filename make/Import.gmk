@@ -233,13 +233,13 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
       SRC := $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent, \
       DEST := $(JDK_OUTPUTDIR)/lib, \
       FILES := $(filter $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent/%, \
-          $(SA_TARGETS)))))
+          $(SA_TARGETS))))
 
   $(eval $(call SetupCopyFiles,SA_COPY_LIBS, \
       SRC := $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent, \
       DEST := $(JDK_OUTPUTDIR)/bin, \
       FILES := $(filter $(SUPPORT_OUTPUTDIR)/modules_libs/jdk.hotspot.agent/%, \
-          $(SA_TARGETS)))))
+          $(SA_TARGETS))))
 else
   $(eval $(call SetupCopyFiles,BASE_COPY_LIBS, \
       SRC := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base, \
