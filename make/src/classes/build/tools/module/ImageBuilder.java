@@ -35,10 +35,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -321,11 +325,32 @@ class ImageBuilder {
         return (new SimpleResolver(mods, moduleGraph)).resolve();
     }
 
+    /**
+     * chmod ugo+x file
+     */
+    private void setExecutable(Path file) {
+        try {
+            Set<PosixFilePermission> perms = Files.getPosixFilePermissions(file);
+            perms.add(PosixFilePermission.OWNER_EXECUTE);
+            perms.add(PosixFilePermission.GROUP_EXECUTE);
+            perms.add(PosixFilePermission.OTHERS_EXECUTE);
+            Files.setPosixFilePermissions(file, perms);
+        } catch (IOException ioe) {
+            throw new UncheckedIOException(ioe);
+        }
+    }
+
     private void createImage() throws IOException {
         Set<String> modules = resolve(options.mods);
         log.println("Resolved: " + modules.stream().collect(Collectors.joining(",")));
         ImageFileHelper imageHelper = new ImageFileHelper(modules);
         imageHelper.createModularImage(options.output);
+
+        // jspawnhelper
+        Path jspawnhelper = options.output.resolve("lib").resolve("jspawnhelper");
+        if (Files.exists(jspawnhelper))
+            setExecutable(jspawnhelper);
+
     }
 
     private class ImageFileHelper {
