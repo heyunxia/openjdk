@@ -1364,8 +1364,6 @@ void nmethod::invalidate_osr_method() {
   // Remove from list of active nmethods
   if (method() != NULL)
     method()->method_holder()->remove_osr_nmethod(this);
-  // Set entry as invalid
-  _entry_bci = InvalidOSREntryBci;
 }
 
 void nmethod::log_state_change() const {
@@ -2062,7 +2060,7 @@ void nmethod::metadata_do(void f(Metadata*)) {
                "metadata must be found in exactly one place");
         if (r->metadata_is_immediate() && r->metadata_value() != NULL) {
           Metadata* md = r->metadata_value();
-          f(md);
+          if (md != _method) f(md);
         }
       } else if (iter.type() == relocInfo::virtual_call_type) {
         // Check compiledIC holders associated with this nmethod

@@ -53,6 +53,7 @@
 #include "runtime/vm_version.hpp"
 #include "services/attachListener.hpp"
 #include "services/nmtCommon.hpp"
+#include "services/mallocTracker.hpp"
 #include "services/memTracker.hpp"
 #include "services/threadService.hpp"
 #include "utilities/defaultStream.hpp"
@@ -570,6 +571,17 @@ void* os::malloc(size_t size, MEMFLAGS memflags, const NativeCallStack& stack) {
   NOT_PRODUCT(inc_stat_counter(&num_mallocs, 1));
   NOT_PRODUCT(inc_stat_counter(&alloc_bytes, size));
 
+#if INCLUDE_NMT
+  // NMT can not track malloc allocation size > MAX_MALLOC_SIZE, which is
+  // (1GB - 1) on 32-bit system. It is not an issue on 64-bit system, where
+  // MAX_MALLOC_SIZE = ((1 << 62) - 1).
+  // VM code does not have such large malloc allocation. However, it can come
+  // Unsafe call.
+  if (MemTracker::tracking_level() >= NMT_summary && size > MAX_MALLOC_SIZE) {
+    return NULL;
+  }
+#endif
+
 #ifdef ASSERT
   // checking for the WatcherThread and crash_protection first
   // since os::malloc can be called when the libjvm.{dll,so} is
@@ -640,6 +652,13 @@ void* os::realloc(void *memblock, size_t size, MEMFLAGS flags) {
 }
 
 void* os::realloc(void *memblock, size_t size, MEMFLAGS memflags, const NativeCallStack& stack) {
+#if INCLUDE_NMT
+  // See comments in os::malloc() above
+  if (MemTracker::tracking_level() >= NMT_summary && size > MAX_MALLOC_SIZE) {
+    return NULL;
+  }
+#endif
+
 #ifndef ASSERT
   NOT_PRODUCT(inc_stat_counter(&num_mallocs, 1));
   NOT_PRODUCT(inc_stat_counter(&alloc_bytes, size));
@@ -1397,24 +1416,15 @@ bool os::stack_shadow_pages_available(Thread *thread, methodHandle method) {
   return (sp > (stack_limit + reserved_area));
 }
 
-size_t os::page_size_for_region(size_t region_min_size, size_t region_max_size,
-                                uint min_pages)
-{
+size_t os::page_size_for_region(size_t region_size, size_t min_pages) {
   assert(min_pages > 0, "sanity");
   if (UseLargePages) {
-    const size_t max_page_size = region_max_size / min_pages;
+    const size_t max_page_size = region_size / min_pages;
 
-    for (unsigned int i = 0; _page_sizes[i] != 0; ++i) {
-      const size_t sz = _page_sizes[i];
-      const size_t mask = sz - 1;
-      if ((region_min_size & mask) == 0 && (region_max_size & mask) == 0) {
-        // The largest page size with no fragmentation.
-        return sz;
-      }
-
-      if (sz <= max_page_size) {
-        // The largest page size that satisfies the min_pages requirement.
-        return sz;
+    for (size_t i = 0; _page_sizes[i] != 0; ++i) {
+      const size_t page_size = _page_sizes[i];
+      if (page_size <= max_page_size && is_size_aligned(region_size, page_size)) {
+        return page_size;
       }
     }
   }
@@ -1651,3 +1661,63 @@ os::SuspendResume::State os::SuspendResume::switch_state(os::SuspendResume::Stat
   return result;
 }
 #endif
+
+/////////////// Unit tests ///////////////
+
+#ifndef PRODUCT
+
+#define assert_eq(a,b) assert(a == b, err_msg(SIZE_FORMAT " != " SIZE_FORMAT, a, b))
+
+class TestOS : AllStatic {
+  static size_t small_page_size() {
+    return os::vm_page_size();
+  }
+
+  static size_t large_page_size() {
+    const size_t large_page_size_example = 4 * M;
+    return os::page_size_for_region(large_page_size_example, 1);
+  }
+
+  static void test_page_size_for_region() {
+    if (UseLargePages) {
+      const size_t small_page = small_page_size();
+      const size_t large_page = large_page_size();
+
+      if (large_page > small_page) {
+        size_t num_small_pages_in_large = large_page / small_page;
+        size_t page = os::page_size_for_region(large_page, num_small_pages_in_large);
+
+        assert_eq(page, small_page);
+      }
+    }
+  }
+
+  static void test_page_size_for_region_alignment() {
+    if (UseLargePages) {
+      const size_t small_page = small_page_size();
+      const size_t large_page = large_page_size();
+      if (large_page > small_page) {
+        const size_t unaligned_region = large_page + 17;
+        size_t page = os::page_size_for_region(unaligned_region, 1);
+        assert_eq(page, small_page);
+
+        const size_t num_pages = 5;
+        const size_t aligned_region = large_page * num_pages;
+        page = os::page_size_for_region(aligned_region, num_pages);
+        assert_eq(page, large_page);
+      }
+    }
+  }
+
+ public:
+  static void run_tests() {
+    test_page_size_for_region();
+    test_page_size_for_region_alignment();
+  }
+};
+
+void TestOS_test() {
+  TestOS::run_tests();
+}
+
+#endif // PRODUCT
