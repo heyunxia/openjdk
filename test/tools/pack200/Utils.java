@@ -79,12 +79,6 @@ class Utils {
 
     private Utils() {} // all static
 
-    static {
-        if (!JavaHome.endsWith("jre")) {
-            throw new RuntimeException("Error: requires an SDK to run");
-        }
-    }
-
     private static void init() throws IOException {
         if (VerifierJar.exists()) {
             return;
