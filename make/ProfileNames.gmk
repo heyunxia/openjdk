@@ -43,7 +43,7 @@ VERSION_JAVA_FILE := Version.java
 VERSION_JAVA_PATH := $(VERSION_JAVA_DIR)/$(VERSION_JAVA_FILE)
 VERSION_CLASS_PATH := $(VERSION_JAVA_PATH:.java=.class)
 
-PROFILE_VERSION_JAVA_TARGETS := $(foreach i, $(ALL_PROFILES), $(subst XXX,$i, $(JDK_OUTPUTDIR)/gen_XXX/$(VERSION_JAVA_PATH)))
+PROFILE_VERSION_JAVA_TARGETS := $(foreach i, $(ALL_PROFILES), $(subst XXX,$i, $(SUPPORT_OUTPUTDIR)/gen_XXX/$(VERSION_JAVA_PATH)))
 
 PROFILE_VERSION_CLASS_TARGETS := $(foreach i, $(PROFILE_VERSION_JAVA_TARGETS), $(i:.java=.class))
 
@@ -56,7 +56,7 @@ profile_name = $(word $(1), $(PROFILE_NAMES))
 
 # Function to isolate a profile number from a Version.java target
 # Evaluates to the arg if the arg is not a profile version target
-profile_version_number = $(patsubst $(JDK_OUTPUTDIR)/gen_profile_%/$(VERSION_JAVA_PATH), %, $(1))
+profile_version_number = $(patsubst $(SUPPORT_OUTPUTDIR)/gen_profile_%/$(VERSION_JAVA_PATH), %, $(1))
 
 # Function to go from a profile Version.java target to profile name. If not
 # a profile version target then we need a number that maps to an empty name

@@ -37,6 +37,7 @@ import java.util.jar.Attributes;
 import java.util.jar.Attributes.Name;
 import java.net.JarURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.HttpURLConnection;
@@ -50,6 +51,10 @@ import java.security.Permission;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
 import java.security.cert.Certificate;
+
+import jdk.internal.jimage.ImageLocation;
+import jdk.internal.jimage.ImageReader;
+
 import sun.misc.FileURLMapper;
 import sun.net.util.URLUtil;
 
@@ -363,6 +368,10 @@ public class URLClassPath {
                             return new Loader(url);
                         }
                     } else {
+                        if (file != null && "file".equals(url.getProtocol())) {
+                            if (file.endsWith(".jimage"))
+                                return new JImageLoader(url);
+                        }
                         return new JarLoader(url, jarHandler, lmap);
                     }
                 }
@@ -1093,6 +1102,109 @@ public class URLClassPath {
                 return null;
             }
             return null;
+        }
+    }
+
+   /**
+     * A Loader of classes and resources from a jimage file.
+     */
+    private static class JImageLoader extends Loader {
+        private final ImageReader jimage;
+
+        static URL toJImageURL(URL url) throws MalformedURLException {
+            return new URL("jimage" + url.toString().substring(4));
+        }
+
+        JImageLoader(URL url) throws IOException {
+            super(toJImageURL(url));
+            this.jimage = JImageCache.get(getBaseURL());
+        }
+
+        private String toEntryName(String name) {
+            return name;
+        }
+
+        /**
+         * Returns a URL to the given entry in the jimage.
+         */
+        private URL toURL(String entry) {
+            try {
+                return new URL(getBaseURL() + "!/" +  ParseUtil.encodePath(entry, false));
+            } catch (MalformedURLException e) {
+                throw new InternalError(e);
+            }
+        }
+
+        @Override
+        URL findResource(String name, boolean check) {
+            String entry = toEntryName(name);
+            ImageLocation location = jimage.findLocation(entry);
+            if (location == null)
+                return null;
+            return toURL(entry);
+        }
+
+        // Returns the module name containing the given entry of a class file;
+        // otherwise return null
+        String findModule(String entry) {
+            if (entry.endsWith(".class")) {
+                return jimage.findModule(entry);
+            }
+            return null;
+        }
+
+        @Override
+        Resource getResource(String name, boolean check) {
+            final String entry = toEntryName(name);
+            ImageLocation location = jimage.findLocation(entry);
+            if (location == null)
+                return null;
+            if (DEBUG) {
+                System.err.println("JImageLoader.getResource(\"" + name + "\") module: " +
+                                   findModule(entry) + " " + location);
+            }
+            final URL url = toURL(entry);
+            return new Resource() {
+                @Override
+                public String getName() { return entry; }
+                @Override
+                public URL getURL() { return url; }
+                @Override
+                public URL getCodeSourceURL() {
+                    try {
+                        String name = findModule(entry);
+                        return URI.create("module:" + name).toURL();
+                    } catch (MalformedURLException e) {
+                        throw new InternalError(e);
+                    }
+                }
+                @Override
+                public InputStream getInputStream() throws IOException {
+                    long offset = location.getContentOffset();
+                    long size = location.getUncompressedSize();
+                    long compressedSize = location.getCompressedSize();
+                    byte[] resource;
+                    if (compressedSize != 0) {
+                        // TODO - handle compression.
+                        resource = jimage.getResource(offset, compressedSize);
+                        // resource = decompress(resource);
+                    } else {
+                        resource = jimage.getResource(offset, size);
+                    }
+
+                    return new ByteArrayInputStream(resource);
+                }
+                public int getContentLength() {
+                    long size = location.getUncompressedSize();
+                    return (size > Integer.MAX_VALUE) ? -1 : (int)size;
+                }
+            };
+        }
+
+        @Override
+        public void close() throws IOException {
+            JImageCache.remove(getBaseURL());
+            jimage.close();
         }
     }
 }
