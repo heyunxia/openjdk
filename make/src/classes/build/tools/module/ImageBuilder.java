@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -346,11 +347,14 @@ class ImageBuilder {
         ImageFileHelper imageHelper = new ImageFileHelper(modules);
         imageHelper.createModularImage(options.output);
 
-        // jspawnhelper
-        Path jspawnhelper = options.output.resolve("lib").resolve("jspawnhelper");
-        if (Files.exists(jspawnhelper))
-            setExecutable(jspawnhelper);
-
+        // jspawnhelper, might be in lib or lib/ARCH
+        Path jspawnhelper = Paths.get("jspawnhelper");
+        Path lib = options.output.resolve("lib");
+        Optional<Path> helper = Files.walk(lib, 2)
+                                     .filter(f -> f.getFileName().equals(jspawnhelper))
+                                     .findFirst();
+        if (helper.isPresent())
+            setExecutable(helper.get());
     }
 
     private class ImageFileHelper {
