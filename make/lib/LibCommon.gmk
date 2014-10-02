@@ -64,7 +64,7 @@ FindSrcDirsForLib = $(call uniq, $(wildcard \
 ifeq ($(OPENJDK_TARGET_OS_API), posix)
   FindLibDirForModule = $(SUPPORT_OUTPUTDIR)/modules_libs/$(strip $1)$(OPENJDK_TARGET_CPU_LIBDIR)
 else
-  FindLibDirForModule = $(SUPPORT_OUTPUTDIR)/modules_cmds/$(strip $1)
+  FindLibDirForModule = $(SUPPORT_OUTPUTDIR)/modules_libs/$(strip $1)
 endif
 
 ################################################################################
