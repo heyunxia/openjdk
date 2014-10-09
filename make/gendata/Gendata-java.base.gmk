@@ -39,7 +39,7 @@ TARGETS += $(GENDATA_BLACKLISTED_CERTS)
 
 include GendataPolicyJars.gmk
 
-##########################################################################################
+################################################################################
 
 GENDATA_UNINAME := $(JDK_OUTPUTDIR)/modules/java.base/java/lang/uniName.dat
 
@@ -49,7 +49,7 @@ $(GENDATA_UNINAME): $(JDK_TOPDIR)/make/data/unicodedata/UnicodeData.txt $(BUILD_
 
 TARGETS += $(GENDATA_UNINAME)
 
-##########################################################################################
+################################################################################
 
 GENDATA_CURDATA := $(JDK_OUTPUTDIR)/modules/java.base/java/util/currency.data
 
@@ -62,7 +62,7 @@ $(GENDATA_CURDATA): $(JDK_TOPDIR)/make/data/currency/CurrencyData.properties $(B
 
 TARGETS += $(GENDATA_CURDATA)
 
-##########################################################################################
+################################################################################
 
 GENDATA_JAVA_SECURITY_SRC := $(JDK_TOPDIR)/src/java.base/share/conf/security/java.security
 GENDATA_JAVA_SECURITY := $(SUPPORT_OUTPUTDIR)/modules_libs/java.base/security/java.security
@@ -77,4 +77,15 @@ $(GENDATA_JAVA_SECURITY): $(BUILD_TOOLS) $(GENDATA_JAVA_SECURITY_SRC) $(RESTRICT
 
 TARGETS += $(GENDATA_JAVA_SECURITY)
 
-##########################################################################################
+################################################################################
+
+$(SUPPORT_OUTPUTDIR)/modules_libs/java.base/classlist: \
+    $(JDK_TOPDIR)/make/data/classlist/classlist.$(OPENJDK_TARGET_OS)
+	$(MKDIR) -p $(@D)
+	$(RM) $@ $@.tmp
+	$(TOOL_ADDJSUM) $< $@.tmp
+	$(MV) $@.tmp $@
+
+TARGETS += $(SUPPORT_OUTPUTDIR)/modules_libs/java.base/classlist
+
+################################################################################
