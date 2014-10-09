@@ -36,6 +36,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -178,6 +179,17 @@ class ImageBuilder {
             }
             String description() { return "Location of the output path"; }
         },
+        new Option(true, "--endian") {
+            void process(ImageBuilder task, String opt, String arg) throws BadArgs {
+                if (arg.equals("little"))
+                    task.options.endian = ByteOrder.LITTLE_ENDIAN;
+                else if (arg.equals("big"))
+                    task.options.endian = ByteOrder.BIG_ENDIAN;
+                else
+                    throw new BadArgs("Unknown byte order " + arg);
+            }
+            String description() { return "Byte order of the target runtime; {little,big}"; }
+        }
     };
 
     private final Options options = new Options();
@@ -211,6 +223,7 @@ class ImageBuilder {
         List<Path> libs;
         Set<String> mods = new HashSet<>();
         Path output;
+        ByteOrder endian = ByteOrder.nativeOrder(); // default, if not specified
     }
 
     public static void main(String[] args) throws Exception {
@@ -383,7 +396,7 @@ class ImageBuilder {
             Set<Archive> archives = modules.stream()
                                             .map(this::toModuleArchive)
                                             .collect(Collectors.toSet());
-            ImageFile.create(output, archives, imf);
+            ImageFile.create(output, archives, imf, options.endian);
         }
 
         ModuleArchive toModuleArchive(String mn) {
