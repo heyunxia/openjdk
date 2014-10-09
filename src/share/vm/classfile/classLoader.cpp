@@ -321,6 +321,8 @@ LazyClassPathEntry::~LazyClassPathEntry() {
 }
 
 bool LazyClassPathEntry::is_jar_file() {
+  size_t len = strlen(_path);
+  if (len < 4 || strcmp(_path + len - 4, ".jar") != 0) return false;
   return ((_st.st_mode & S_IFREG) == S_IFREG);
 }
 

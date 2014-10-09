@@ -217,10 +217,13 @@ void FileMapInfo::allocate_classpath_entry_table() {
           EXCEPTION_MARK; // The following call should never throw, but would exit VM on error.
           SharedClassUtil::update_shared_classpath(cpe, ent, st.st_mtime, st.st_size, THREAD);
         } else {
-          ent->_filesize  = -1;
-          if (!os::dir_is_empty(name)) {
-            ClassLoader::exit_with_path_failure("Cannot have non-empty directory in archived classpaths", name);
+          struct stat st;
+          if ((os::stat(name, &st) == 0) && ((st.st_mode & S_IFDIR) == S_IFDIR)) {
+            if (!os::dir_is_empty(name)) {
+              ClassLoader::exit_with_path_failure("Cannot have non-empty directory in archived classpaths", name);
+            }
           }
+          ent->_filesize  = -1;
         }
         ent->_name = strptr;
         if (strptr + name_bytes <= strptr_max) {
