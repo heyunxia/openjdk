@@ -68,7 +68,7 @@
 #include "utilities/hashtable.hpp"
 #include "utilities/hashtable.inline.hpp"
 
-// Entry points in zip.dll for loading zip/jar file entries
+// Entry points in zip.dll for loading zip/jar file entries and image file entries
 
 typedef void * * (JNICALL *ZipOpen_t)(const char *name, char **pmsg);
 typedef void (JNICALL *ZipClose_t)(jzfile *zip);
@@ -76,6 +76,7 @@ typedef jzentry* (JNICALL *FindEntry_t)(jzfile *zip, const char *name, jint *siz
 typedef jboolean (JNICALL *ReadEntry_t)(jzfile *zip, jzentry *entry, unsigned char *buf, char *namebuf);
 typedef jboolean (JNICALL *ReadMappedEntry_t)(jzfile *zip, jzentry *entry, unsigned char **buf, char *namebuf);
 typedef jzentry* (JNICALL *GetNextEntry_t)(jzfile *zip, jint n);
+typedef jboolean (JNICALL *ZipInflateFully_t)(void *inBuf, jlong inLen, void *outBuf, jlong outLen, char **pmsg);
 
 static ZipOpen_t         ZipOpen            = NULL;
 static ZipClose_t        ZipClose           = NULL;
@@ -84,6 +85,7 @@ static ReadEntry_t       ReadEntry          = NULL;
 static ReadMappedEntry_t ReadMappedEntry    = NULL;
 static GetNextEntry_t    GetNextEntry       = NULL;
 static canonicalize_fn_t CanonicalizeEntry  = NULL;
+static ZipInflateFully_t  ZipInflateFully   = NULL;
 
 // Globals
 
@@ -423,6 +425,10 @@ ClassFileStream* ClassPathImageEntry::open_stream(const char* name, TRAPS) {
   }
 
   return NULL;
+}
+
+jboolean ClassPathImageEntry::decompress(void *in, u8 inSize, void *out, u8 outSize, char **pmsg) {
+  return (*ZipInflateFully)(in, inSize, out, outSize, pmsg);
 }
 
 #ifndef PRODUCT
@@ -884,9 +890,15 @@ void ClassLoader::load_zip_library() {
   ReadMappedEntry = CAST_TO_FN_PTR(ReadMappedEntry_t, os::dll_lookup(handle, "ZIP_ReadMappedEntry"));
   GetNextEntry = CAST_TO_FN_PTR(GetNextEntry_t, os::dll_lookup(handle, "ZIP_GetNextEntry"));
 
+  ZipInflateFully = CAST_TO_FN_PTR(ZipInflateFully_t, os::dll_lookup(handle, "ZIP_InflateFully"));
+
   // ZIP_Close is not exported on Windows in JDK5.0 so don't abort if ZIP_Close is NULL
   if (ZipOpen == NULL || FindEntry == NULL || ReadEntry == NULL || GetNextEntry == NULL) {
     vm_exit_during_initialization("Corrupted ZIP library", path);
+  }
+
+  if (ZipInflateFully == NULL) {
+    vm_exit_during_initialization("Corrupted ZIP library ZIP_InflateFully missing", path);
   }
 
   // Lookup canonicalize entry in libjava.dll
