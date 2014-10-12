@@ -32,3 +32,4 @@ jdk.sctp
 jdk.security.auth
 jdk.security.jgss
 jdk.jfr
+jdk.snmp
