@@ -35,12 +35,16 @@ $(eval $(call FillCacheFind, \
         $(JDK_OUTPUTDIR)/lib \
         $(IMAGES_OUTPUTDIR)/lib \
         $(JDK_OUTPUTDIR)/include \
-        $(JDK_OUTPUTDIR)/sample \
-        $(JDK_OUTPUTDIR)/demo)))
+        $(IMAGES_OUTPUTDIR)/sample \
+        $(IMAGES_OUTPUTDIR)/demo)))
 
 include Tools.gmk
 
 include Profiles.gmk
+
+# Redirect to legacy location
+JDK_IMAGE_DIR := $(LEGACY_JDK_IMAGE_DIR)
+JRE_IMAGE_DIR := $(LEGACY_JRE_IMAGE_DIR)
 
 # Note: This double-colon rule is intentional, to support
 # custom make file integration.
@@ -484,7 +488,7 @@ endif # Windows
 # The db demo contains an empty dir that needs to be copied. The other
 # directories will always trigger the rule for recompile since
 # _the.list_of_packages files are touched.
-$(JDK_IMAGE_DIR)/demo/%: $(JDK_OUTPUTDIR)/demo/%
+$(JDK_IMAGE_DIR)/demo/%: $(IMAGES_OUTPUTDIR)/demo/%
 	if [ ! -d "$@" ]; then \
 	  $(ECHO) $(LOG_INFO) Copying '$(patsubst $(OUTPUT_ROOT)/%,%,$@)'; \
 	  $(MKDIR) -p $(@D); \
@@ -492,14 +496,12 @@ $(JDK_IMAGE_DIR)/demo/%: $(JDK_OUTPUTDIR)/demo/%
 	fi
 
 # Find all files including directories
-JDK_DEMO_TARGETS := $(patsubst $(JDK_OUTPUTDIR)/demo/%, $(JDK_IMAGE_DIR)/demo/%, \
-    $(shell $(FIND) $(JDK_OUTPUTDIR)/demo ! \( -name "_the*" -o -name "javac_state" \) ))
-
-
+JDK_DEMO_TARGETS := $(patsubst $(IMAGES_OUTPUTDIR)/demo/%, $(JDK_IMAGE_DIR)/demo/%, \
+    $(shell $(FIND) $(IMAGES_OUTPUTDIR)/demo ! \( -name "_the*" -o -name "javac_state" \) ))
 
 # Param 1 is source file
 define CreateOverlayDemoRule
-  $1_TARGET := $$(subst $(JDK_OUTPUTDIR),$(JDK_OVERLAY_IMAGE_DIR), \
+  $1_TARGET := $$(subst $(IMAGES_OUTPUTDIR),$(JDK_OVERLAY_IMAGE_DIR), \
       $$(dir $1)$(OPENJDK_TARGET_CPU_ISADIR)/$$(notdir $1))
   $$($1_TARGET): $1
 	$(ECHO) $(LOG_INFO) Copying '$$(patsubst $(OUTPUT_ROOT)/%,%,$$@)'
@@ -507,14 +509,14 @@ define CreateOverlayDemoRule
 
   JDK_OVERLAY_DEMO_TARGETS += $$($1_TARGET)
 endef
-JDK_OVERLAY_DEMO_SOURCES := $(filter %$(SHARED_LIBRARY_SUFFIX), $(call CacheFind, $(JDK_OUTPUTDIR)/demo))
+JDK_OVERLAY_DEMO_SOURCES := $(filter %$(SHARED_LIBRARY_SUFFIX), $(call CacheFind, $(IMAGES_OUTPUTDIR)/demo))
 $(foreach lib, $(JDK_OVERLAY_DEMO_SOURCES), $(eval $(call CreateOverlayDemoRule, $(lib))))
 
 ################################################################################
 # /sample dir
 
-$(foreach f,$(call CacheFind,$(JDK_OUTPUTDIR)/sample), \
-    $(eval $(call AddFileToCopy,$(JDK_OUTPUTDIR),$(JDK_IMAGE_DIR),$f,JDK_SAMPLE_TARGETS)))
+$(foreach f,$(call CacheFind,$(IMAGES_OUTPUTDIR)/sample), \
+    $(eval $(call AddFileToCopy,$(IMAGES_OUTPUTDIR),$(JDK_IMAGE_DIR),$f,JDK_SAMPLE_TARGETS)))
 
 ################################################################################
 # /db dir

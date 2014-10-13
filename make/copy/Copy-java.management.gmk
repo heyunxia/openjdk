@@ -45,12 +45,6 @@ $(MGMT_LIBDIR)/%: $(MGMT_LIB_SRC)/%
 	$(call install-file)
 	$(CHMOD) 444 $@
 
-MANAGEMENT_CONF_FILES := $(MGMT_TARGET_FILES)
+TARGETS := $(MGMT_TARGET_FILES)
 
 ################################################################################
-
-java.management: $(MANAGEMENT_CONF_FILES)
-
-all: java.management
-
-.PHONY: all java.management
