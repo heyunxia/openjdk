@@ -62,7 +62,7 @@ ifneq ($(FREETYPE_BUNDLE_LIB_PATH), )
   #TODO: rework this to avoid hardcoding library name in the makefile
   #
   ifeq ($(OPENJDK_TARGET_OS), windows)
-    FREETYPE_TARGET_LIB := $(JDK_OUTPUTDIR)/bin/$(call SHARED_LIBRARY,freetype)
+    FREETYPE_TARGET_LIB := $(LIB_DST_DIR)/$(call SHARED_LIBRARY,freetype)
   else
     FREETYPE_TARGET_LIB := $(LIB_DST_DIR)$(OPENJDK_TARGET_CPU_LIBDIR)/$(call SHARED_LIBRARY,freetype).6
   endif
