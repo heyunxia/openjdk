@@ -1141,7 +1141,15 @@ public class URLClassPath {
             ImageLocation location = jimage.findLocation(entry);
             if (location == null)
                 return null;
-            return toURL(entry);
+            URL url = toURL(entry);
+            if (check) {
+                try {
+                    URLClassPath.check(url);
+                } catch (IOException | SecurityException e) {
+                    return null;
+                }
+            }
+            return url;
         }
 
         // Returns the module name containing the given entry of a class file;
@@ -1164,6 +1172,13 @@ public class URLClassPath {
                                    findModule(entry) + " " + location);
             }
             final URL url = toURL(entry);
+            if (check) {
+                try {
+                    URLClassPath.check(url);
+                } catch (IOException | SecurityException e) {
+                    return null;
+                }
+            }
             return new Resource() {
                 @Override
                 public String getName() { return entry; }
