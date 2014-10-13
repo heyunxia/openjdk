@@ -222,8 +222,10 @@ void FileMapInfo::allocate_classpath_entry_table() {
             if (!os::dir_is_empty(name)) {
               ClassLoader::exit_with_path_failure("Cannot have non-empty directory in archived classpaths", name);
             }
+            ent->_filesize = -1;
+          } else {
+            ent->_filesize = -2;
           }
-          ent->_filesize  = -1;
         }
         ent->_name = strptr;
         if (strptr + name_bytes <= strptr_max) {
@@ -274,7 +276,7 @@ bool FileMapInfo::validate_classpath_entry_table() {
         fail_continue("directory is not empty: %s", name);
         ok = false;
       }
-    } else {
+    } else if (ent->is_jar()) {
       if (ent->_timestamp != st.st_mtime ||
           ent->_filesize != st.st_size) {
         ok = false;
