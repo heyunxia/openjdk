@@ -79,7 +79,7 @@ endif
 # Copy msvcrXX.dll on windows
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
-  MSVCR_TARGET := $(JDK_OUTPUTDIR)/bin/$(notdir $(MSVCR_DLL))
+  MSVCR_TARGET := $(LIB_DST_DIR)/$(notdir $(MSVCR_DLL))
   # Chmod to avoid permission issues if bundles are unpacked on unix platforms.
   $(MSVCR_TARGET): $(MSVCR_DLL)
 	$(call install-file)
