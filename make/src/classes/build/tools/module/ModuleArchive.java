@@ -195,7 +195,7 @@ public class ModuleArchive implements Archive {
                             path.toFile().setExecutable(true);
                             break;
                         case CONFIGS:
-                            writeEntry(in, destFile("lib", filename));
+                            writeEntry(in, destFile("conf", filename));
                             break;
                         default:
                             throw new InternalError("unexpected entry: " + filename);

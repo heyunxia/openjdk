@@ -204,11 +204,11 @@ TARGETS += $(CACERTS_DST)
 
 ################################################################################
 
-$(LIB_DST_DIR)/net.properties: $(JDK_TOPDIR)/src/java.base/share/conf/net.properties
+$(CONF_DST_DIR)/net.properties: $(JDK_TOPDIR)/src/java.base/share/conf/net.properties
 	$(ECHO) $(LOG_INFO) Copying $(@F)
 	$(call install-file)
 
-TARGETS += $(LIB_DST_DIR)/net.properties
+TARGETS += $(CONF_DST_DIR)/net.properties
 
 ifeq ($(OPENJDK_TARGET_OS), solaris)
   $(LIB_DST_DIR)/sdp/sdp.conf.template: $(JDK_TOPDIR)/src/java.base/${OPENJDK_TARGET_OS_API_DIR}/conf/sdp/sdp.conf.template
