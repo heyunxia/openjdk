@@ -24,13 +24,16 @@
  */
 package jdk.internal.jimage;
 
-import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,6 +46,23 @@ public class ImageReader extends BasicImageReader {
     static final UTF8String ROOT_STRING   = new UTF8String("/");
     static final UTF8String META_INF_STRING = new UTF8String("META-INF");
     static final UTF8String PKG_MAP_STRING = new UTF8String("META-INF/package-to-module.properties");
+
+    /**
+     * The reader must use the underlying system file system provider, even if
+     * the default provider is configured to something else. This is to avoid
+     * recursive initialization issues trying to load the configured provider
+     * with the system class loader.
+     */
+    static final FileSystem FILE_SYSTEM;
+    static {
+        String s = System.getProperty("java.nio.file.spi.DefaultFileSystemProvider");
+        if (s == null) {
+            FILE_SYSTEM = FileSystems.getDefault();
+        } else {
+            FileSystemProvider provider = sun.nio.fs.DefaultFileSystemProvider.create();
+            FILE_SYSTEM = provider.getFileSystem(URI.create("file:///"));
+        }
+    }
 
     // attributes of the .jimage file. jimage file does not contain
     // attributes for the individual resources (yet). We use attributes
@@ -67,8 +87,8 @@ public class ImageReader extends BasicImageReader {
     @Override
     public synchronized void open() throws IOException {
         super.open();
-        imageFileAttrs = Files.readAttributes(
-                new File(imagePath).toPath(), BasicFileAttributes.class);
+        imageFileAttrs = Files.readAttributes(FILE_SYSTEM.getPath(imagePath),
+                                              BasicFileAttributes.class);
         packageMap = PackageModuleMap.readFrom(this);
     }
 

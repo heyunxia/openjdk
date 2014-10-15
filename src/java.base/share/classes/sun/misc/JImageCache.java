@@ -59,11 +59,14 @@ public class JImageCache {
             return jimage;
 
         // not in cache so need to open it
-        String s = url.toString();
-        if (!s.startsWith("jimage:"))
+        if (!url.getProtocol().equalsIgnoreCase("jimage"))
             throw new IOException("not a jimage URL");
-        s = "file" + s.substring(6);
-        jimage = new ImageReader(URI.create(s).getPath());
+
+        // URL -> file path String
+        String path = url.getFile().replace('/', File.separatorChar);
+        path = new File(sun.net.www.ParseUtil.decode(path)).getPath();
+
+        jimage = new ImageReader(path);
         jimage.open();
 
         // potential race with other threads opening the same URL
