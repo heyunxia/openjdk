@@ -78,10 +78,10 @@ endif
 
 ################################################################################
 
-$(LIB_DST_DIR)/sound.properties: $(JDK_TOPDIR)/src/java.desktop/share/conf/sound.properties
+$(CONF_DST_DIR)/sound.properties: $(JDK_TOPDIR)/src/java.desktop/share/conf/sound.properties
 	$(call install-file)
 
-TARGETS += $(LIB_DST_DIR)/sound.properties
+TARGETS += $(CONF_DST_DIR)/sound.properties
 
 ################################################################################
 #
