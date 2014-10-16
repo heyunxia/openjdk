@@ -162,7 +162,7 @@ policy.provider=sun.security.provider.PolicyFile
 
 # The default is to have a single system-wide policy file,
 # and a policy file in the user's home directory.
-policy.url.1=file:${java.home}/lib/security/java.policy
+policy.url.1=file:${java.home}/conf/security/java.policy
 policy.url.2=file:${user.home}/.java.policy
 
 # whether or not we expand properties in the policy file

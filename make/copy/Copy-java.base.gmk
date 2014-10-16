@@ -166,7 +166,7 @@ TARGETS += $(JVMCFG)
 ################################################################################
 
 POLICY_SRC := $(JDK_TOPDIR)/src/java.base/share/conf/security/java.policy
-POLICY_DST := $(LIB_DST_DIR)/security/java.policy
+POLICY_DST := $(CONF_DST_DIR)/security/java.policy
 
 POLICY_SRC_LIST :=
 
