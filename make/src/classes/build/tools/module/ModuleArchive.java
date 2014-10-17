@@ -68,7 +68,8 @@ public class ModuleArchive implements Archive {
             Files.walk(classes)
                     .sorted()
                     .filter(p -> !Files.isDirectory(p)
-                            && !classes.relativize(p).toString().startsWith("_the."))
+                            && !classes.relativize(p).toString().startsWith("_the.")
+                            && !classes.relativize(p).toString().equals("javac_state"))
                     .map(this::toResource)
                     .forEach(consumer::accept);
         } catch (IOException ioe) {
@@ -100,7 +101,8 @@ public class ModuleArchive implements Archive {
                 Files.walk(classes)
                         .sorted()
                         .filter(p -> !Files.isDirectory(p)
-                                && !classes.relativize(p).toString().startsWith("_the."))
+                                && !classes.relativize(p).toString().startsWith("_the.")
+                                && !classes.relativize(p).toString().equals("javac_state"))
                         .map(p -> toEntry(p, classes, Section.CLASSES))
                         .forEach(consumer::accept);
             if (cmds != null)
@@ -183,7 +185,7 @@ public class ModuleArchive implements Archive {
                 try (InputStream in = entry.getInputStream()) {
                     switch (section) {
                         case CLASSES:
-                            if (!filename.startsWith("_the."))
+                            if (!filename.startsWith("_the.") && !filename.equals("javac_state"))
                                 writeEntry(in);
                             break;
                         case LIBS:
