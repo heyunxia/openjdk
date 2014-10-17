@@ -207,7 +207,7 @@ $(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/_the.sa.jar.unpacked: $(HOTSPOT_DIST)
 	$(ECHO) $(LOG_INFO) Unzipping $(<F)
 	$(RM) -r $(@D)
 	$(MKDIR) -p $(@D)
-	$(CD) $(@D) && $(UNZIP) $< $(LOG_DEBUG)
+	$(CD) $(@D) && $(UNZIP) $< -x META-INF/MANIFEST.MF $(LOG_DEBUG)
         # We must move the service provider file out of the way so that
         # Gensrc-jdk.jdi.gmk can combine them.
 	$(MV) $(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/META-INF/services/com.sun.jdi.connect.Connector \
