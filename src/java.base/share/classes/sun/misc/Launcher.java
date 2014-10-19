@@ -54,10 +54,14 @@ import sun.net.www.ParseUtil;
  * This class is used by the system to launch the main application.
 Launcher */
 public class Launcher {
+
+    // ensure URLClassPath for boot loader is initialized first
+    static {
+        URLClassPath ucp = BootClassPathHolder.bcp;
+    }
+
     private static URLStreamHandlerFactory factory = new Factory();
     private static Launcher launcher = new Launcher();
-    private static String bootClassPath =
-        System.getProperty("sun.boot.class.path");
 
     public static Launcher getLauncher() {
         return launcher;
@@ -381,11 +385,12 @@ public class Launcher {
     private static class BootClassPathHolder {
         static final URLClassPath bcp;
         static {
-            URL[] urls;
-            if (bootClassPath != null) {
-                urls = AccessController.doPrivileged(
+            URL[] urls = AccessController.doPrivileged(
                     new PrivilegedAction<URL[]>() {
                         public URL[] run() {
+                            String bootClassPath = System.getProperty("sun.boot.class.path");
+                            if (bootClassPath == null)
+                                return new URL[0];
                             // Skip empty path in boot class path i.e. not default to use CWD
                             File[] classPath = getClassPath(bootClassPath, false);
                             int len = classPath.length;
@@ -405,9 +410,6 @@ public class Launcher {
                         }
                     }
                 );
-            } else {
-                urls = new URL[0];
-            }
             bcp = new URLClassPath(urls, factory);
         }
     }

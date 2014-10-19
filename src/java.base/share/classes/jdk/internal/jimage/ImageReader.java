@@ -68,7 +68,7 @@ public class ImageReader extends BasicImageReader {
     // attributes for the individual resources (yet). We use attributes
     // of the jimage file itself (creation, modification, access times).
     private volatile BasicFileAttributes imageFileAttrs;
-    private Map<String,String> packageMap;
+    private Map<String, String> packageMap;
 
     // directory management implementation
     private final Map<UTF8String, Node> nodes;
@@ -92,11 +92,27 @@ public class ImageReader extends BasicImageReader {
         packageMap = PackageModuleMap.readFrom(this);
     }
 
+    /**
+     * Opens the given file path as an image file, returning an {@code ImageReader}.
+     */
+    public static ImageReader open(String imagePath) throws IOException {
+        ImageReader reader = new ImageReader(imagePath);
+        reader.open();
+        return reader;
+    }
+
     @Override
     public synchronized void close() throws IOException {
         super.close();
         imageFileAttrs = null;
         clearNodes();
+    }
+
+    /**
+     * Return the module name that contains the given package name.
+     */
+    public String getModule(String pkg) {
+        return packageMap.get(pkg);
     }
 
      // jimage file does not store directory structure. We build nodes
@@ -425,16 +441,6 @@ public class ImageReader extends BasicImageReader {
         });
 
         return buf.toString().getBytes(StandardCharsets.UTF_8);
-    }
-
-    // Finds the module containing the given class file entry.
-    public String findModule(String entry) {
-        if (!entry.endsWith(".class")) {
-            return null;
-        }
-        int i = entry.lastIndexOf('/');
-        String pn = i > 0 ? entry.substring(0, i) : "";
-        return packageMap.get(pn);
     }
 
     public byte[] getResource(Resource rs) throws IOException {
