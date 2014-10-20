@@ -39,8 +39,8 @@ public class Basic {
     @DataProvider(name = "urls")
     public Object[][] createURLs() {
         Object[][] data = {
-            { "module:java.base"},
-            { "module:java.base@9.0"},
+            { "module:java.base" },
+            { "module:java.base@9.0" },
         };
         return data;
     }

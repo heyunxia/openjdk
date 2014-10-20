@@ -41,6 +41,7 @@ import java.net.URLConnection;
 import java.net.HttpURLConnection;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
+import java.nio.file.Path;
 import java.io.*;
 import java.security.AccessController;
 import java.security.AccessControlException;
@@ -1121,12 +1122,13 @@ public class URLClassPath {
             super(url);
 
             // get path to image file and check that it's in the runtime
-            String path = url.getFile().replace('/', File.separatorChar);
-            path = new File(ParseUtil.decode(path)).getPath();
-            if (!path.startsWith(JAVA_HOME))
+            String urlPath = url.getFile().replace('/', File.separatorChar);
+            Path path = new File(ParseUtil.decode(urlPath)).toPath();
+            Path home = new File(JAVA_HOME).toPath();
+            if (!path.startsWith(home))
                 throw new IOException(path + " not in runtime image");
 
-            this.jimage = ImageReader.open(path);
+            this.jimage = ImageReader.open(path.toString());
             this.index = NEXT_INDEX.getAndIncrement();
 
             // register with the jimage protocol handler

@@ -25,6 +25,7 @@
 
 package sun.net.www.protocol.jimage;
 
+import java.io.File;
 import java.io.FilePermission;
 import java.io.IOException;
 import java.io.InputStream;
@@ -136,7 +137,7 @@ public class JImageURLConnection extends URLConnection {
                 public String run() { return System.getProperty("java.home"); }
             };
             String home = AccessController.doPrivileged(pa);
-            p = new FilePermission(home, "read");
+            p = new FilePermission(home + File.separator + "-", "read");
             permission = p;
         }
         return p;
