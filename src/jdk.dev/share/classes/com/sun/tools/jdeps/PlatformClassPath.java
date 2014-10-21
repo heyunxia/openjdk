@@ -37,6 +37,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.jar.*;
+import java.util.stream.Collectors;
 
 import static com.sun.tools.jdeps.ClassFileReader.*;
 
@@ -45,11 +46,23 @@ import static com.sun.tools.jdeps.ClassFileReader.*;
  */
 class PlatformClassPath {
     private static List<Archive> modules;
-    static synchronized List<Archive> getArchives(Path mpath) throws IOException {
+    static synchronized List<Archive> getModules(Path mpath) throws IOException {
         if (modules == null) {
             initPlatformArchives(mpath);
         }
         return modules;
+    }
+
+    /**
+     * Returns JAR files in $java.home/lib.  This is for transition until
+     * all components are linked into jimage.
+     */
+    static List<Archive> getJarFiles() throws IOException {
+        Path home = Paths.get(System.getProperty("java.home"), "lib");
+        return Files.find(home, 1, (Path p, BasicFileAttributes attr)
+                              -> p.getFileName().toString().endsWith(".jar"))
+                    .map(Archive::getInstance)
+                    .collect(Collectors.toList());
     }
 
     /**
@@ -79,7 +92,8 @@ class PlatformClassPath {
                 mpath = home;
             }
         }
-        modules = mpath != null ? initModules(mpath) : initLegacyImage(home);
+        assert mpath != null;
+        modules = initModules(mpath);
         if (findModule("java.base") != null) {
             Profile.initProfiles(modules);
         }
@@ -266,209 +280,6 @@ class PlatformClassPath {
 
             public Iterable<ClassFile> getClassFiles() throws IOException {
                 return classes;
-            }
-        }
-    }
-
-    // -------------  legacy image support -----------------
-
-    private static List<Archive> initLegacyImage(Path home) throws IOException {
-        LegacyImageHelper helper = new LegacyImageHelper(home);
-        List<Archive> archives = new ArrayList<>(helper.nonPlatformArchives);
-        try (InputStream in = PlatformClassPath.class
-                .getResourceAsStream("resources/jdeps-modules.xml")) {
-            archives.addAll(ModulesXmlReader.load(helper, in));
-            return archives;
-        }
-    }
-
-    static class LegacyImageHelper implements ImageHelper {
-        private static final List<String> NON_PLATFORM_JARFILES =
-                Arrays.asList("alt-rt.jar", "jfxrt.jar", "ant-javafx.jar", "javafx-mx.jar");
-        final List<Archive> nonPlatformArchives = new ArrayList<>();
-        final List<JarFile> jarfiles = new ArrayList<>();
-        final Path home;
-
-        LegacyImageHelper(Path home) {
-            this.home = home;
-            try {
-                if (home.endsWith("jre")) {
-                    // jar files in <javahome>/jre/lib
-                    addJarFiles(home.resolve("lib"));
-                    if (home.getParent() != null) {
-                        // add tools.jar and other JDK jar files
-                        Path lib = home.getParent().resolve("lib");
-                        if (Files.exists(lib)) {
-                            addJarFiles(lib);
-                        }
-                    }
-                } else if (Files.exists(home.resolve("lib"))) {
-                    // add other JAR files
-                    addJarFiles(home.resolve("lib"));
-                } else {
-                    throw new RuntimeException("\"" + home + "\" not a JDK home");
-                }
-            } catch (IOException e) {
-                throw new Error(e);
-            }
-        }
-
-        public ClassFileReader getClassFileReader(String modulename, Set<String> packages) throws IOException {
-            return new ModuleClassReader(modulename, packages);
-        }
-
-        private void addJarFiles(final Path root) throws IOException {
-            final Path ext = root.resolve("ext");
-            Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
-                    throws IOException
-                {
-                    if (dir.equals(root) || dir.equals(ext)) {
-                        return FileVisitResult.CONTINUE;
-                    } else {
-                        // skip other cobundled JAR files
-                        return FileVisitResult.SKIP_SUBTREE;
-                    }
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path p, BasicFileAttributes attrs)
-                    throws IOException
-                {
-                    String fn = p.getFileName().toString();
-                    if (fn.endsWith(".jar")) {
-                        // JDK may cobundle with JavaFX that doesn't belong to any profile
-                        // Treat jfxrt.jar as regular Archive
-                        if (NON_PLATFORM_JARFILES.contains(fn)) {
-                            nonPlatformArchives.add(Archive.getInstance(p));
-                        } else {
-                            jarfiles.add(new JarFile(p.toFile()));
-                        }
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        }
-
-        /**
-         * ModuleClassFile reads classes for the specified module from the legacy image.
-         *
-         */
-        class ModuleClassReader extends JarFileReader {
-            private JarFile cachedJarFile = getJarFile(0);
-            private final Set<String> packages;
-            private final String module;
-            ModuleClassReader(String module, Set<String> packages) throws IOException {
-                super(home, null);
-                this.module = module;
-                this.packages = packages;
-            }
-
-            private boolean includes(String name) {
-                String cn = name.replace('/', '.');
-                int i = cn.lastIndexOf('.');
-                String pn = i > 0 ? cn.substring(0, i) : "";
-                return packages.contains(pn);
-            }
-
-            private JarEntry findJarEntry(JarFile jarfile, String entryName1, String entryName2) {
-                JarEntry e = jarfile.getJarEntry(entryName1);
-                if (e == null) {
-                    e = jarfile.getJarEntry(entryName2);
-                }
-                return e;
-            }
-
-            public String toString() {
-                return module + " " + packages.size() + " " + packages;
-            }
-
-            @Override
-            public ClassFile getClassFile(String name) throws IOException {
-                if (jarfiles.isEmpty() || !includes(name)) {
-                    return null;
-                }
-
-                if (name.indexOf('.') > 0) {
-                    int i = name.lastIndexOf('.');
-                    String entryName = name.replace('.', '/') + ".class";
-                    String innerClassName = entryName.substring(0, i) + "$"
-                            + entryName.substring(i + 1, entryName.length());
-                    JarEntry e = findJarEntry(cachedJarFile, entryName, innerClassName);
-                    if (e != null) {
-                        return readClassFile(cachedJarFile, e);
-                    }
-                    for (JarFile jf : jarfiles) {
-                        if (jf == cachedJarFile) {
-                            continue;
-                        }
-                        System.err.format("find jar entry %s at %s%n", entryName, jf);
-                        e = findJarEntry(jf, entryName, innerClassName);
-                        if (e != null) {
-                            cachedJarFile = jf;
-                            return readClassFile(jf, e);
-                        }
-                    }
-                } else {
-                    String entryName = name + ".class";
-                    JarEntry e = cachedJarFile.getJarEntry(entryName);
-                    if (e != null) {
-                        return readClassFile(cachedJarFile, e);
-                    }
-                    for (JarFile jf : jarfiles) {
-                        if (jf == cachedJarFile) {
-                            continue;
-                        }
-                        e = jf.getJarEntry(entryName);
-                        if (e != null) {
-                            cachedJarFile = jf;
-                            return readClassFile(jf, e);
-                        }
-                    }
-                }
-                return null;
-            }
-
-            @Override
-            public Iterable<ClassFile> getClassFiles() throws IOException {
-                final Iterator<ClassFile> iter = new ModuleClassIterator(this);
-                return new Iterable<ClassFile>() {
-                    public Iterator<ClassFile> iterator() {
-                        return iter;
-                    }
-                };
-            }
-
-            private JarFile getJarFile(int index) {
-                return index < jarfiles.size() ? jarfiles.get(index) : null;
-            }
-
-            class ModuleClassIterator extends JarFileIterator {
-                private int index;
-                ModuleClassIterator(ModuleClassReader reader) {
-                    super(reader);
-                    this.index = 0;
-                    this.jf = getJarFile(0);
-                    this.entries = jf != null ? jf.entries() : null;
-                    this.nextEntry = nextEntry();
-                }
-
-                @Override
-                protected JarEntry nextEntry() {
-                    while (jf != null) {
-                        while (entries.hasMoreElements()) {
-                            JarEntry e = entries.nextElement();
-                            String name = e.getName();
-                            if (name.endsWith(".class") && includes(name)) {
-                                return e;
-                            }
-                        }
-                        jf = getJarFile(++index);
-                        entries = jf != null ? jf.entries() : null;
-                    }
-                    return null;
-                }
             }
         }
     }

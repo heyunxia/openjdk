@@ -114,7 +114,7 @@ enum Profile {
     // for debugging
     public static void main(String[] args) throws IOException {
         // find platform modules
-        PlatformClassPath.getArchives(null);
+        PlatformClassPath.getModules(null);
         if (Profile.getProfileCount() == 0) {
             System.err.println("No profile is present in this JDK");
         }
