@@ -671,6 +671,12 @@ public class Locations {
             if (extdirsOpt != null) {
                 path.addDirectories(extdirsOpt);
             } else {
+                // Add lib/jfxrt.jar to the search path
+                String home = System.getProperty("java.home");
+                File jfxrt = new File(new File(home, "lib"), "jfxrt.jar");
+                if (jfxrt.exists()) {
+                    path.addFile(jfxrt, false);
+                }
                 path.addDirectories(System.getProperty("java.ext.dirs"), false);
             }
 
