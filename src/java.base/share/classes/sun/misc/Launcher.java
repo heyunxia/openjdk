@@ -155,7 +155,11 @@ public class Launcher {
                             for (int i = 0; i < len; i++) {
                                 MetaIndex.registerDirectory(dirs[i]);
                             }
-                            return new ExtClassLoader(jimage, dirs);
+
+                            File jfxrt = new File(new File(home, "lib"), "jfxrt.jar");
+                            File[] files = jfxrt.exists() ? new File[] {jimage, jfxrt}
+                                                          : new File[] {jimage};
+                            return new ExtClassLoader(files, dirs);
                         }
                     });
             } catch (java.security.PrivilegedActionException e) {
@@ -170,8 +174,8 @@ public class Launcher {
         /*
          * Creates a new ExtClassLoader for the specified directories.
          */
-        public ExtClassLoader(File jimage, File[] dirs) throws IOException {
-            super(getExtURLs(jimage, dirs), null, factory);
+        public ExtClassLoader(File[] files, File[] dirs) throws IOException {
+            super(getExtURLs(files, dirs), null, factory);
         }
 
         private static File[] getExtDirs() {
@@ -191,9 +195,11 @@ public class Launcher {
             return dirs;
         }
 
-        private static URL[] getExtURLs(File imageFile, File[] dirs) throws IOException {
+        private static URL[] getExtURLs(File[] fpaths, File[] dirs) throws IOException {
             List<URL> urls = new ArrayList<>();
-            urls.add(getFileURL(imageFile));
+            for (File f : fpaths) {
+                urls.add(getFileURL(f));
+            }
             for (int i = 0; i < dirs.length; i++) {
                 String[] files = dirs[i].list();
                 if (files != null) {
