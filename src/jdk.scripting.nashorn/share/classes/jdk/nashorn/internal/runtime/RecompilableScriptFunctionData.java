@@ -606,7 +606,7 @@ public final class RecompilableScriptFunctionData extends ScriptFunctionData imp
 
     MethodHandle lookupCodeMethod(final Class<?> codeClass, final MethodType targetType) {
         if (log.isEnabled()) {
-        log.info("Looking up ", DebugLogger.quote(name), " type=", targetType);
+            log.info("Looking up ", DebugLogger.quote(name), " type=", targetType);
         }
         return MH.findStatic(LOOKUP, codeClass, functionName, targetType);
     }
