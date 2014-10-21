@@ -58,9 +58,6 @@ public class T6893943 {
     void testCommand(String[] args, int expect_rc) throws Exception {
         System.err.println("Test command: " + Arrays.asList(args));
         File javaHome = new File(System.getProperty("java.home"));
-        if (javaHome.getName().equals("jre"))
-            javaHome = javaHome.getParentFile();
-
         List<String> command = new ArrayList<String>();
         command.add(new File(new File(javaHome, "bin"), "javah").getPath());
         command.add("-J-Xbootclasspath:" + System.getProperty("sun.boot.class.path"));
