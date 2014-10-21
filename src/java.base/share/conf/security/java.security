@@ -67,7 +67,7 @@
 #
 #ifdef solaris
 security.provider.tbd=com.oracle.security.ucrypto.UcryptoProvider ${java.home}/lib/security/ucrypto-solaris.cfg
-security.provider.tbd=sun.security.pkcs11.SunPKCS11 ${java.home}/lib/security/sunpkcs11-solaris.cfg
+security.provider.tbd=sun.security.pkcs11.SunPKCS11 ${java.home}/conf/security/sunpkcs11-solaris.cfg
 #endif
 security.provider.tbd=sun.security.provider.Sun
 security.provider.tbd=sun.security.rsa.SunRsaSign
