@@ -26,9 +26,8 @@
 package sun.misc;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.jar.JarFile;
-import sun.misc.JarIndex;
-import sun.misc.InvalidJarIndexException;
 import sun.net.www.ParseUtil;
 import java.util.zip.ZipEntry;
 import java.util.jar.JarEntry;
@@ -42,16 +41,20 @@ import java.net.URLConnection;
 import java.net.HttpURLConnection;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
+import java.nio.file.Path;
 import java.io.*;
 import java.security.AccessController;
 import java.security.AccessControlException;
 import java.security.CodeSigner;
 import java.security.Permission;
-import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
 import java.security.cert.Certificate;
-import sun.misc.FileURLMapper;
+
+import jdk.internal.jimage.ImageLocation;
+import jdk.internal.jimage.ImageReader;
+
 import sun.net.util.URLUtil;
+import sun.net.www.protocol.jimage.JImageURLConnection;
 
 /**
  * This class is used to maintain a search path of URLs for loading classes
@@ -60,12 +63,15 @@ import sun.net.util.URLUtil;
  * @author  David Connelly
  */
 public class URLClassPath {
-    final static String USER_AGENT_JAVA_VERSION = "UA-Java-Version";
-    final static String JAVA_VERSION;
+    private static final String USER_AGENT_JAVA_VERSION = "UA-Java-Version";
+    private static final String JAVA_HOME;
+    private static final String JAVA_VERSION;
     private static final boolean DEBUG;
     private static final boolean DISABLE_JAR_CHECKING;
 
     static {
+        JAVA_HOME = java.security.AccessController.doPrivileged(
+            new sun.security.action.GetPropertyAction("java.home"));
         JAVA_VERSION = java.security.AccessController.doPrivileged(
             new sun.security.action.GetPropertyAction("java.version"));
         DEBUG        = (java.security.AccessController.doPrivileged(
@@ -363,6 +369,10 @@ public class URLClassPath {
                             return new Loader(url);
                         }
                     } else {
+                        if (file != null && "file".equals(url.getProtocol())) {
+                            if (file.endsWith(".jimage"))
+                                return new JImageLoader(url);
+                        }
                         return new JarLoader(url, jarHandler, lmap);
                     }
                 }
@@ -1093,6 +1103,132 @@ public class URLClassPath {
                 return null;
             }
             return null;
+        }
+    }
+
+    /**
+     * A Loader of classes and resources from a jimage file located in the
+     * runtime image.
+     */
+    private static class JImageLoader
+        extends Loader implements JImageURLConnection.ResourceFinder
+    {
+        private static final AtomicInteger NEXT_INDEX = new AtomicInteger();
+
+        private final ImageReader jimage;
+        private final int index;
+
+        JImageLoader(URL url) throws IOException {
+            super(url);
+
+            // get path to image file and check that it's in the runtime
+            String urlPath = url.getFile().replace('/', File.separatorChar);
+            Path path = new File(ParseUtil.decode(urlPath)).toPath();
+            Path home = new File(JAVA_HOME).toPath();
+            if (!path.startsWith(home))
+                throw new IOException(path + " not in runtime image");
+
+            this.jimage = ImageReader.open(path.toString());
+            this.index = NEXT_INDEX.getAndIncrement();
+
+            // register with the jimage protocol handler
+            JImageURLConnection.register(this);
+        }
+
+        /**
+         * Maps the given resource name to a module.
+         */
+        private String nameToModule(String name) {
+            int pos = name.lastIndexOf('/');
+            if (pos > 0) {
+                String pkg = name.substring(0, pos);
+                String module = jimage.getModule(pkg);
+                if (module != null)
+                    return module;
+            }
+            // cannot map to module
+            return "UNNAMED" + index;
+        }
+
+        /**
+         * Constructs a URL for the resource name.
+         */
+        private URL toURL(String name) {
+            String module = nameToModule(name);
+            String encodedName = ParseUtil.encodePath(name, false);
+            try {
+                return new URL("jimage:/" + module + "/" + encodedName);
+            } catch (MalformedURLException e) {
+                throw new InternalError(e);
+            }
+        }
+
+        @Override
+        URL findResource(String name, boolean check) {
+            ImageLocation location = jimage.findLocation(name);
+            if (location == null)
+                return null;
+            URL url = toURL(name);
+            if (check) {
+                try {
+                    URLClassPath.check(url);
+                } catch (IOException | SecurityException e) {
+                    return null;
+                }
+            }
+            return url;
+        }
+
+        @Override
+        Resource getResource(String name, boolean check) {
+            ImageLocation location = jimage.findLocation(name);
+            if (location == null)
+                return null;
+            URL url = toURL(name);
+            if (check) {
+                try {
+                    URLClassPath.check(url);
+                } catch (IOException | SecurityException e) {
+                    return null;
+                }
+            }
+            return new Resource() {
+                @Override
+                public String getName() { return name; }
+                @Override
+                public URL getURL() { return url; }
+                @Override
+                public URL getCodeSourceURL() {
+                    try {
+                        return new URL("module:" + nameToModule(name));
+                    } catch (MalformedURLException e) {
+                        throw new InternalError(e);
+                    }
+                }
+                @Override
+                public InputStream getInputStream() throws IOException {
+                    byte[] resource = jimage.getResource(location);
+                    return new ByteArrayInputStream(resource);
+                }
+                public int getContentLength() {
+                    long size = location.getUncompressedSize();
+                    return (size > Integer.MAX_VALUE) ? -1 : (int)size;
+                }
+            };
+        }
+
+        @Override
+        public void close() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Resource find(String module, String name) throws IOException {
+            String m = nameToModule(name);
+            if (!m.equals(module))
+                return null;
+            // URLConnection will do the permission check
+            return getResource(name, false);
         }
     }
 }

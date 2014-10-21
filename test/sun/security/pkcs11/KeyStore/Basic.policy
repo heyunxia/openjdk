@@ -1,4 +1,4 @@
-grant codeBase "file:${java.home}/lib/ext/sunpkcs11.jar" {
+grant codeBase "module:jdk.crypto.pkcs11" {
         permission java.lang.RuntimePermission "accessClassInPackage.sun.security.*";
         permission java.lang.RuntimePermission "accessClassInPackage.sun.nio.ch";
         permission java.lang.RuntimePermission "loadLibrary.j2pkcs11";
