@@ -23,7 +23,7 @@
  * questions.
  */
 
-package sun.net.www.protocol.jimage;
+package sun.net.www.protocol.jrt;
 
 import java.io.File;
 import java.io.FilePermission;
@@ -45,7 +45,7 @@ import sun.net.www.ParseUtil;
  * URLConnection implementation that can be used to connect to resources
  * contained in the runtime image.
  */
-public class JImageURLConnection extends URLConnection {
+public class JavaRuntimeURLConnection extends URLConnection {
 
     /**
      * Finds resource {@code name} in module {@code module}.
@@ -85,26 +85,33 @@ public class JImageURLConnection extends URLConnection {
     // the permission to access resources in the runtime image, created lazily
     private static volatile Permission permission;
 
-    private static void fail(URL url) throws MalformedURLException {
-        throw new MalformedURLException(url + ": missing module or resource");
-    }
-
-    JImageURLConnection(URL url) throws IOException {
+    JavaRuntimeURLConnection(URL url) throws IOException {
         super(url);
         String path = url.getPath();
-        // URL path must be /$MODULE/$NAME for now
-        if (path.length() < 4)
-            fail(url);
-        int pos = path.indexOf('/', 1);
-        if (pos == -1)
-            fail(url);
-        this.module = path.substring(1, pos);
-        this.name = ParseUtil.decode(path.substring(pos+1));
+        if (path.length() == 0 || path.charAt(0) != '/')
+            throw new MalformedURLException(url + " missing path or /");
+        if (path.length() == 1) {
+            this.module = null;
+            this.name = null;
+        } else {
+            int pos = path.indexOf('/', 1);
+            if (pos == -1) {
+                this.module = path.substring(1);
+                this.name = null;
+            } else {
+                this.module = path.substring(1, pos);
+                this.name = ParseUtil.decode(path.substring(pos+1));
+            }
+        }
     }
 
     @Override
-    public void connect() throws IOException {
+    public synchronized void connect() throws IOException {
         if (!connected) {
+            if (name == null) {
+                String s = (module == null) ? "" : module;
+                throw new IOException("cannot connect to jrt:/" + s);
+            }
             resource = find(module, name);
             if (resource == null)
                 throw new IOException(module + "/" + name + " not found");

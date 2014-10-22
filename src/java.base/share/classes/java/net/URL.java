@@ -1109,7 +1109,7 @@ public final class URL implements java.io.Serializable {
 
             // ensure the core protocol handlers are loaded before setting
             // a custom URLStreamHandlerFactory
-            ensureHandlerLoaded("jimage", "module", "jar", "file");
+            ensureHandlersLoaded("jrt", "jar", "file");
 
             // safe publication of URLStreamHandlerFactory with volatile write
             factory = fac;
@@ -1227,7 +1227,7 @@ public final class URL implements java.io.Serializable {
     /**
      * Ensures that the given protocol handlers are loaded
      */
-    private static void ensureHandlerLoaded(String... protocols) {
+    private static void ensureHandlersLoaded(String... protocols) {
         for (String protocol: protocols) {
             getURLStreamHandler(protocol);
         }

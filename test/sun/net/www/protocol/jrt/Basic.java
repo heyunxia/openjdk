@@ -41,8 +41,8 @@ public class Basic {
     @DataProvider(name = "resources")
     public Object[][] resources() {
         Object[][] data = {
-            { "java/lang/Object.class",   "jimage:/java.base/java/lang/Object.class" },
-            { "java/awt/Component.class", "jimage:/java.desktop/java/awt/Component.class" },
+            { "java/lang/Object.class",   "jrt:/java.base/java/lang/Object.class" },
+            { "java/awt/Component.class", "jrt:/java.desktop/java/awt/Component.class" },
             { "jdk/internal/DoesNotExist", null },
         };
         return data;
@@ -61,8 +61,8 @@ public class Basic {
     @DataProvider(name = "urls")
     public Object[][] urls() {
         Object[][] data = {
-            { "jimage:/java.base/java/lang/Object.class",    true },
-            { "jimage:/java.desktop/java/lang/Object.class", false },
+            { "jrt:/java.base/java/lang/Object.class",    true },
+            { "jrt:/java.desktop/java/lang/Object.class", false },
         };
         return data;
     }

@@ -41,7 +41,6 @@ import java.net.URLConnection;
 import java.net.HttpURLConnection;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
-import java.nio.file.Path;
 import java.io.*;
 import java.security.AccessController;
 import java.security.AccessControlException;
@@ -54,7 +53,7 @@ import jdk.internal.jimage.ImageLocation;
 import jdk.internal.jimage.ImageReader;
 
 import sun.net.util.URLUtil;
-import sun.net.www.protocol.jimage.JImageURLConnection;
+import sun.net.www.protocol.jrt.JavaRuntimeURLConnection;
 
 /**
  * This class is used to maintain a search path of URLs for loading classes
@@ -1111,7 +1110,7 @@ public class URLClassPath {
      * runtime image.
      */
     private static class JImageLoader
-        extends Loader implements JImageURLConnection.ResourceFinder
+        extends Loader implements JavaRuntimeURLConnection.ResourceFinder
     {
         private static final AtomicInteger NEXT_INDEX = new AtomicInteger();
 
@@ -1123,16 +1122,23 @@ public class URLClassPath {
 
             // get path to image file and check that it's in the runtime
             String urlPath = url.getFile().replace('/', File.separatorChar);
-            Path path = new File(ParseUtil.decode(urlPath)).toPath();
-            Path home = new File(JAVA_HOME).toPath();
-            if (!path.startsWith(home))
-                throw new IOException(path + " not in runtime image");
 
-            this.jimage = ImageReader.open(path.toString());
+            File filePath = new File(ParseUtil.decode(urlPath));
+            File home = new File(JAVA_HOME);
+            File parent = filePath.getParentFile();
+            while (parent != null) {
+                if (parent.equals(home))
+                    break;
+                parent = parent.getParentFile();
+            }
+            if (parent == null)
+                throw new IOException(filePath + " not in runtime image");
+
+            this.jimage = ImageReader.open(filePath.toString());
             this.index = NEXT_INDEX.getAndIncrement();
 
             // register with the jimage protocol handler
-            JImageURLConnection.register(this);
+            JavaRuntimeURLConnection.register(this);
         }
 
         /**
@@ -1157,7 +1163,7 @@ public class URLClassPath {
             String module = nameToModule(name);
             String encodedName = ParseUtil.encodePath(name, false);
             try {
-                return new URL("jimage:/" + module + "/" + encodedName);
+                return new URL("jrt:/" + module + "/" + encodedName);
             } catch (MalformedURLException e) {
                 throw new InternalError(e);
             }
@@ -1200,7 +1206,7 @@ public class URLClassPath {
                 @Override
                 public URL getCodeSourceURL() {
                     try {
-                        return new URL("module:" + nameToModule(name));
+                        return new URL("jrt:/" + nameToModule(name));
                     } catch (MalformedURLException e) {
                         throw new InternalError(e);
                     }
