@@ -41,12 +41,12 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +65,7 @@ import java.util.stream.Collectors;
  *  --libs                  Location of native libraries
  *  --mods                  Comma separated list of module names
  *  --output                Location of the output path
+ *  --endian                Byte order of the target runtime; {little,big}
  */
 class ImageBuilder {
     static class BadArgs extends Exception {
@@ -300,23 +301,32 @@ class ImageBuilder {
                          .collect(Collectors.toSet());
         }
 
-        Set<String> resolve() {
-            Set<Module> result = new HashSet<>();
+        /** Returns the transitive closure, in topological order */
+        List<String> resolve() {
+            List<Module> result = new LinkedList<>();
             Set<Module> visited = new HashSet<>();
+            Set<Module> done = new HashSet<>();
             for (Module m : initialMods) {
                 if (!visited.contains(m))
-                    visit(m, visited, result);
+                    visit(m, visited, result, done);
             }
             return result.stream()
                          .map(m -> m.name())
-                         .collect(Collectors.toSet());
+                         .collect(Collectors.toList());
         }
 
-        private void visit(Module m, Set<Module> visited, Set<Module> result) {
-            if (visited.contains(m))
+        private void visit(Module m, Set<Module> visited,
+                           List<Module> result, Set<Module> done) {
+            if (visited.contains(m)) {
+                if (!done.contains(m))
+                    throw new IllegalArgumentException("Cyclic detected: " +
+                            m + " " + getModuleDependences(m));
                 return;
+            }
             visited.add(m);
-            getModuleDependences(m).stream().forEach(d -> visit(d, visited, result));
+            getModuleDependences(m).stream()
+                                   .forEach(d -> visit(d, visited, result, done));
+            done.add(m);
             result.add(m);
         }
 
@@ -335,7 +345,7 @@ class ImageBuilder {
         }
     }
 
-    private Set<String> resolve(Set<String> mods ) {
+    private List<String> resolve(Set<String> mods ) {
         return (new SimpleResolver(mods, moduleGraph)).resolve();
     }
 
@@ -355,8 +365,8 @@ class ImageBuilder {
     }
 
     private void createImage() throws IOException {
-        Set<String> modules = resolve(options.mods);
-        log.println("Resolved: " + modules.stream().collect(Collectors.joining(",")));
+        Collection<String> modules = resolve(options.mods);
+        log.println(modules.stream().collect(Collectors.joining(" ")));
         ImageFileHelper imageHelper = new ImageFileHelper(modules);
         imageHelper.createModularImage(options.output);
 
@@ -371,13 +381,13 @@ class ImageBuilder {
     }
 
     private class ImageFileHelper {
-        final Set<String> modules;
+        final Collection<String> modules;
         final Set<String> bootModules;
         final Set<String> extModules;
         final Set<String> appModules;
         final ImageModules imf;
 
-        ImageFileHelper(Set<String> modules) throws IOException {
+        ImageFileHelper(Collection<String> modules) throws IOException {
             this.modules = modules;
             this.bootModules = modulesFor(BOOT_MODULES).stream()
                      .filter(modules::contains)
