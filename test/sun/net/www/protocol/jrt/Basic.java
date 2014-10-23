@@ -98,4 +98,16 @@ public class Basic {
         int len = url.openConnection().getContentLength();
         assertTrue((exists && len > 0) || (!exists && len == -1));
     }
+
+    @Test(dataProvider = "urls")
+    public void testGetContent(String urlString, boolean exists) throws Exception {
+        URL url = new URL(urlString);
+        try {
+            Object obj = url.getContent();
+            assertTrue(obj != null);
+            if (!exists) fail("IOException expected");
+        } catch (IOException ioe) {
+            if (exists) fail("IOException not expected");
+        }
+    }
 }
