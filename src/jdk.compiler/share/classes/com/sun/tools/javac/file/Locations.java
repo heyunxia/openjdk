@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 import javax.tools.JavaFileManager;
@@ -699,12 +700,14 @@ public class Locations {
             // Return .jimage files if available
             Path libModules = Paths.get(home, "lib", "modules");
             if (Files.exists(libModules)) {
-                Collection<File> images = Files.list(libModules)
-                        .filter(f -> f.getFileName().toString().endsWith(".jimage"))
-                        .map(Path::toFile)
-                        .collect(Collectors.toList());
-                if (!images.isEmpty())
-                    return images;
+                try (Stream<Path> files = Files.list(libModules)) {
+                    Collection<File> images = files
+                            .filter(f -> f.getFileName().toString().endsWith(".jimage"))
+                            .map(Path::toFile)
+                            .collect(Collectors.toList());
+                    if (!images.isEmpty())
+                        return images;
+                }
             }
 
             // Temporary: if no .jimage files, return individual modules
