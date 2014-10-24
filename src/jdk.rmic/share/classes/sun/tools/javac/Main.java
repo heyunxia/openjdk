@@ -503,7 +503,7 @@ class Main implements Constants {
             for (Enumeration<String> e = v.elements() ; e.hasMoreElements() ;) {
                 File file = new File(e.nextElement());
                 try {
-                    env.parseFile(new ClassFile(file));
+                    env.parseFile(ClassFile.newClassFile(file));
                 } catch (FileNotFoundException ee) {
                     env.error(0, "cant.read", file.getPath());
                     exitStatus = EXIT_CMDERR;

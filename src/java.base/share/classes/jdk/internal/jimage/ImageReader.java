@@ -387,6 +387,8 @@ public class ImageReader extends BasicImageReader {
         Directory top = (Directory) nodes.get(name);
         if (top == null) {
             top = newDirectory(rootDir, name);
+            // support trailing '/' directory name as well
+            nodes.put(parent.substring(0, idx+1), top);
         }
         Directory last = top;
         while ((idx = parent.indexOf('/', idx + 1)) != -1) {
@@ -394,6 +396,8 @@ public class ImageReader extends BasicImageReader {
             Directory nextDir = (Directory) nodes.get(name);
             if (nextDir == null) {
                 nextDir = newDirectory(last, name);
+                // support trailing '/' directory name as well
+                nodes.put(parent.substring(0, idx+1), nextDir);
             }
             last = nextDir;
         }
