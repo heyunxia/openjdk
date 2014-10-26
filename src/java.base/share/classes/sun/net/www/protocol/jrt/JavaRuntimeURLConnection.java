@@ -57,7 +57,7 @@ public class JavaRuntimeURLConnection extends URLConnection {
     /**
      * The list of resource finders for jimages in the runtime image.
      */
-    private static List<ResourceFinder> finders = new CopyOnWriteArrayList<>();
+    private static final List<ResourceFinder> finders = new CopyOnWriteArrayList<>();
 
     /**
      * Called on behalf of the boot, extension and system class loaders to

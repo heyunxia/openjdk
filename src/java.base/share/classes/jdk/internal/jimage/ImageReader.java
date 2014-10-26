@@ -67,44 +67,40 @@ public class ImageReader extends BasicImageReader {
     // attributes of the .jimage file. jimage file does not contain
     // attributes for the individual resources (yet). We use attributes
     // of the jimage file itself (creation, modification, access times).
-    private volatile BasicFileAttributes imageFileAttrs;
-    private Map<String, String> packageMap;
+    private final BasicFileAttributes imageFileAttrs;
+    private final Map<String, String> packageMap;
 
     // directory management implementation
     private final Map<UTF8String, Node> nodes;
     private volatile Directory rootDir;
 
-    public ImageReader(String imagePath) {
-        super(imagePath);
-        this.nodes = Collections.synchronizedMap(new HashMap<>());
-    }
-
-    public ImageReader(String imagePath, ByteOrder byteOrder) {
+    ImageReader(String imagePath, ByteOrder byteOrder) throws IOException {
         super(imagePath, byteOrder);
+
+        this.imageFileAttrs = Files.readAttributes(FILE_SYSTEM.getPath(imagePath),
+                                                   BasicFileAttributes.class);
+        this.packageMap = PackageModuleMap.readFrom(this);
         this.nodes = Collections.synchronizedMap(new HashMap<>());
     }
 
-    @Override
-    public synchronized void open() throws IOException {
-        super.open();
-        imageFileAttrs = Files.readAttributes(FILE_SYSTEM.getPath(imagePath),
-                                              BasicFileAttributes.class);
-        packageMap = PackageModuleMap.readFrom(this);
+    ImageReader(String imagePath) throws IOException {
+        this(imagePath, ByteOrder.nativeOrder());
+    }
+
+    public static ImageReader open(String imagePath, ByteOrder byteOrder) throws IOException {
+        return new ImageReader(imagePath, byteOrder);
     }
 
     /**
      * Opens the given file path as an image file, returning an {@code ImageReader}.
      */
     public static ImageReader open(String imagePath) throws IOException {
-        ImageReader reader = new ImageReader(imagePath);
-        reader.open();
-        return reader;
+        return open(imagePath, ByteOrder.nativeOrder());
     }
 
     @Override
     public synchronized void close() throws IOException {
         super.close();
-        imageFileAttrs = null;
         clearNodes();
     }
 
