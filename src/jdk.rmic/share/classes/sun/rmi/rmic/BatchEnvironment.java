@@ -389,7 +389,8 @@ public class BatchEnvironment extends sun.tools.javac.BatchEnvironment {
                 /* File is an ordinay file  */
                 String arcname = file.toLowerCase();
                 if (! (arcname.endsWith(".zip") ||
-                       arcname.endsWith(".jar"))) {
+                       arcname.endsWith(".jar") ||
+                       arcname.endsWith(".jimage"))) {
                     /* File name don't have right extension */
 //                      if (warn)
 //                          log.warning(Position.NOPOS,

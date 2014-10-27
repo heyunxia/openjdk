@@ -33,10 +33,11 @@ import java.net.URLClassLoader;
 import java.net.MalformedURLException;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.StringTokenizer;
 import java.util.Set;
-import java.util.Vector;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
@@ -53,10 +54,14 @@ import sun.net.www.ParseUtil;
  * This class is used by the system to launch the main application.
 Launcher */
 public class Launcher {
+
+    // ensure URLClassPath for boot loader is initialized first
+    static {
+        URLClassPath ucp = BootClassPathHolder.bcp;
+    }
+
     private static URLStreamHandlerFactory factory = new Factory();
     private static Launcher launcher = new Launcher();
-    private static String bootClassPath =
-        System.getProperty("sun.boot.class.path");
 
     public static Launcher getLauncher() {
         return launcher;
@@ -129,8 +134,7 @@ public class Launcher {
          * create an ExtClassLoader. The ExtClassLoader is created
          * within a context that limits which files it can read
          */
-        public static ExtClassLoader getExtClassLoader() throws IOException
-        {
+        public static ExtClassLoader getExtClassLoader() throws IOException {
             final File[] dirs = getExtDirs();
 
             try {
@@ -141,11 +145,21 @@ public class Launcher {
                 return AccessController.doPrivileged(
                     new PrivilegedExceptionAction<ExtClassLoader>() {
                         public ExtClassLoader run() throws IOException {
+                            // ext modules linked into image
+                            String home = System.getProperty("java.home");
+                            File dir = new File(new File(home, "lib"), "modules");
+                            File jimage = new File(dir, "extmodules.jimage");
+
+                            // ext directories
                             int len = dirs.length;
                             for (int i = 0; i < len; i++) {
                                 MetaIndex.registerDirectory(dirs[i]);
                             }
-                            return new ExtClassLoader(dirs);
+
+                            File jfxrt = new File(new File(home, "lib"), "jfxrt.jar");
+                            File[] files = jfxrt.exists() ? new File[] {jimage, jfxrt}
+                                                          : new File[] {jimage};
+                            return new ExtClassLoader(files, dirs);
                         }
                     });
             } catch (java.security.PrivilegedActionException e) {
@@ -160,8 +174,8 @@ public class Launcher {
         /*
          * Creates a new ExtClassLoader for the specified directories.
          */
-        public ExtClassLoader(File[] dirs) throws IOException {
-            super(getExtURLs(dirs), null, factory);
+        public ExtClassLoader(File[] files, File[] dirs) throws IOException {
+            super(getExtURLs(files, dirs), null, factory);
         }
 
         private static File[] getExtDirs() {
@@ -181,8 +195,11 @@ public class Launcher {
             return dirs;
         }
 
-        private static URL[] getExtURLs(File[] dirs) throws IOException {
-            Vector<URL> urls = new Vector<URL>();
+        private static URL[] getExtURLs(File[] fpaths, File[] dirs) throws IOException {
+            List<URL> urls = new ArrayList<>();
+            for (File f : fpaths) {
+                urls.add(getFileURL(f));
+            }
             for (int i = 0; i < dirs.length; i++) {
                 String[] files = dirs[i].list();
                 if (files != null) {
@@ -194,9 +211,7 @@ public class Launcher {
                     }
                 }
             }
-            URL[] ua = new URL[urls.size()];
-            urls.copyInto(ua);
-            return ua;
+            return urls.toArray(new URL[0]);
         }
 
         /*
@@ -274,8 +289,18 @@ public class Launcher {
         public static ClassLoader getAppClassLoader(final ClassLoader extcl)
             throws IOException
         {
-            final String s = System.getProperty("java.class.path");
-            final File[] path = (s == null) ? new File[0] : getClassPath(s, true);
+            // modules linked into image are prepended to class path
+            String home = System.getProperty("java.home");
+            File dir = new File(new File(home, "lib"), "modules");
+            String jimage = new File(dir, "appmodules.jimage").getPath();
+
+            String cp = System.getProperty("java.class.path");
+            if (cp == null) {
+                cp = jimage;
+            } else {
+                cp = jimage + File.pathSeparator + cp;
+            }
+            final File[] path = getClassPath(cp, true);
 
             // Note: on bugid 4256530
             // Prior implementations of this doPrivileged() block supplied
@@ -287,9 +312,8 @@ public class Launcher {
             return AccessController.doPrivileged(
                 new PrivilegedAction<AppClassLoader>() {
                     public AppClassLoader run() {
-                    URL[] urls =
-                        (s == null) ? new URL[0] : pathToURLs(path);
-                    return new AppClassLoader(urls, extcl);
+                        URL[] urls = pathToURLs(path);
+                        return new AppClassLoader(urls, extcl);
                 }
             });
         }
@@ -320,8 +344,7 @@ public class Launcher {
         /**
          * allow any classes loaded from classpath to exit the VM.
          */
-        protected PermissionCollection getPermissions(CodeSource codesource)
-        {
+        protected PermissionCollection getPermissions(CodeSource codesource) {
             PermissionCollection perms = super.getPermissions(codesource);
             perms.add(new RuntimePermission("exitVM"));
             return perms;
@@ -368,11 +391,12 @@ public class Launcher {
     private static class BootClassPathHolder {
         static final URLClassPath bcp;
         static {
-            URL[] urls;
-            if (bootClassPath != null) {
-                urls = AccessController.doPrivileged(
+            URL[] urls = AccessController.doPrivileged(
                     new PrivilegedAction<URL[]>() {
                         public URL[] run() {
+                            String bootClassPath = System.getProperty("sun.boot.class.path");
+                            if (bootClassPath == null)
+                                return new URL[0];
                             // Skip empty path in boot class path i.e. not default to use CWD
                             File[] classPath = getClassPath(bootClassPath, false);
                             int len = classPath.length;
@@ -392,9 +416,6 @@ public class Launcher {
                         }
                     }
                 );
-            } else {
-                urls = new URL[0];
-            }
             bcp = new URLClassPath(urls, factory);
         }
     }

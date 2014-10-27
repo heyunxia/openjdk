@@ -163,6 +163,9 @@ javax/management/MBeanServer/OldMBeanServerTest.java            aix-all
 # 6988950
 demo/jvmti/compiledMethodLoad/CompiledMethodLoadTest.java	generic-all
 
+# 8059270
+jdk/asm/AsmSanity.java                                          generic-all
+
 ############################################################################
 
 # jdk_net
@@ -222,6 +225,9 @@ sun/security/pkcs11/ec/TestKeyFactory.java                      generic-all
 # 8051952: Unreachable.java test failing on Windows
 sun/security/krb5/auto/Unreachable.java                         windows-all,macosx-all
 
+# 8058849
+sun/security/krb5/config/dns.sh                                 generic-all
+
 # 6988842: 4 tests failing on Solaris 5.10
 sun/security/pkcs11/Secmod/AddPrivateKey.java                   solaris-all
 sun/security/pkcs11/ec/ReadCertificates.java                    solaris-all
@@ -256,11 +262,15 @@ com/sun/crypto/provider/Cipher/AES/CICO.java			generic-all
 # jdk_tools
 
 # Tests take too long, on sparcs see 7143279
-tools/pack200/CommandLineTests.java                             solaris-all,macosx-all
+# also see 8059906
+tools/pack200/CommandLineTests.java
 tools/pack200/Pack200Test.java                                  solaris-all,macosx-all
 
 # 8007410
 tools/launcher/FXLauncherTest.java                              linux-all
+
+# 8060005
+com/sun/tools/extcheck/TestExtcheckArgs.java                    generic-all
 
 ############################################################################
 

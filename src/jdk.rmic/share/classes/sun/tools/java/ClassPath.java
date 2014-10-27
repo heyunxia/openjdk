@@ -25,11 +25,20 @@
 
 package sun.tools.java;
 
-import java.util.Enumeration;
-import java.util.Hashtable;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.zip.*;
+import java.util.Enumeration;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.spi.FileSystemProvider;
 
 /**
  * This class is used to represent a class path, which can contain both
@@ -41,6 +50,38 @@ import java.util.zip.*;
  */
 public
 class ClassPath {
+    private static final String JIMAGE_EXT = ".jimage";
+    private static boolean jimageSupportEnabled;
+    static {
+        jimageSupportEnabled = false;
+        for (FileSystemProvider provider: FileSystemProvider.installedProviders()) {
+            if (provider.getScheme().equalsIgnoreCase("jimage")) {
+                jimageSupportEnabled = true;
+                break;
+            }
+        }
+    }
+
+    private static void checkJImageSupport() {
+        if (! jimageSupportEnabled) {
+            throw new RuntimeException("jimage support not enabled");
+        }
+    }
+
+    private FileSystem getFileSystem(Path p) {
+        FileSystem fs = fileSystems.get(p);
+        if (fs == null) {
+            try {
+                fs = FileSystems.newFileSystem(p, null);
+                fileSystems.put(p, fs);
+            } catch (IOException ioExp) {
+                throw new UncheckedIOException(ioExp);
+            }
+        }
+        return fs;
+    }
+    private final Map<Path,FileSystem> fileSystems = new HashMap<>();
+
     static final char dirSeparator = File.pathSeparatorChar;
 
     /**
@@ -110,22 +151,26 @@ class ClassPath {
                 j = len;
             }
             if (i == j) {
-                path[n] = new ClassPathEntry();
-                path[n++].dir = new File(".");
+                path[n++] = new DirClassPathEntry(new File("."));
             } else {
-                File file = new File(pathstr.substring(i, j));
+                String filename = pathstr.substring(i, j);
+                File file = new File(filename);
                 if (file.isFile()) {
-                    try {
-                        ZipFile zip = new ZipFile(file);
-                        path[n] = new ClassPathEntry();
-                        path[n++].zip = zip;
-                    } catch (ZipException e) {
-                    } catch (IOException e) {
-                        // Ignore exceptions, at least for now...
+                    if (filename.endsWith(JIMAGE_EXT)) {
+                        checkJImageSupport();
+                        FileSystem fs = getFileSystem(file.toPath());
+                        path[n++] = new JImageClassPathEntry(fs);
+                    } else {
+                        try {
+                            ZipFile zip = new ZipFile(file);
+                            path[n++] = new ZipClassPathEntry(zip);
+                        } catch (ZipException e) {
+                        } catch (IOException e) {
+                            // Ignore exceptions, at least for now...
+                        }
                     }
                 } else {
-                    path[n] = new ClassPathEntry();
-                    path[n++].dir = file;
+                    path[n++] = new DirClassPathEntry(file);
                 }
             }
         }
@@ -153,17 +198,21 @@ class ClassPath {
         for (String name : patharray) {
             File file = new File(name);
             if (file.isFile()) {
-                try {
-                    ZipFile zip = new ZipFile(file);
-                    path[n] = new ClassPathEntry();
-                    path[n++].zip = zip;
-                } catch (ZipException e) {
-                } catch (IOException e) {
-                    // Ignore exceptions, at least for now...
-                }
+                if (name.endsWith(JIMAGE_EXT)) {
+                    checkJImageSupport();
+                    FileSystem fs = getFileSystem(file.toPath());
+                    path[n++] = new JImageClassPathEntry(fs);
+                } else {
+                    try {
+                        ZipFile zip = new ZipFile(file);
+                        path[n++] = new ZipClassPathEntry(zip);
+                    } catch (ZipException e) {
+                    } catch (IOException e) {
+                        // Ignore exceptions, at least for now...
+                    }
+               }
             } else {
-                path[n] = new ClassPathEntry();
-                path[n++].dir = file;
+                path[n++] = new DirClassPathEntry(file);
             }
         }
         // Trim class path to exact size
@@ -202,29 +251,9 @@ class ClassPath {
             name = subdir;      // Note: isDirectory==true & basename==""
         }
         for (int i = 0; i < path.length; i++) {
-            if (path[i].zip != null) {
-                String newname = name.replace(File.separatorChar, '/');
-                ZipEntry entry = path[i].zip.getEntry(newname);
-                if (entry != null) {
-                    return new ClassFile(path[i].zip, entry);
-                }
-            } else {
-                File file = new File(path[i].dir.getPath(), name);
-                String list[] = path[i].getFiles(subdir);
-                if (isDirectory) {
-                    if (list.length > 0) {
-                        return new ClassFile(file);
-                    }
-                } else {
-                    for (int j = 0; j < list.length; j++) {
-                        if (basename.equals(list[j])) {
-                            // Don't bother checking !file.isDir,
-                            // since we only look for names which
-                            // cannot already be packages (foo.java, etc).
-                            return new ClassFile(file);
-                        }
-                    }
-                }
+            ClassFile cf = path[i].getFile(name, subdir, basename, isDirectory);
+            if (cf != null) {
+                return cf;
             }
         }
         return null;
@@ -236,27 +265,7 @@ class ClassPath {
     public Enumeration<ClassFile> getFiles(String pkg, String ext) {
         Hashtable<String, ClassFile> files = new Hashtable<>();
         for (int i = path.length; --i >= 0; ) {
-            if (path[i].zip != null) {
-                Enumeration<? extends ZipEntry> e = path[i].zip.entries();
-                while (e.hasMoreElements()) {
-                    ZipEntry entry = (ZipEntry)e.nextElement();
-                    String name = entry.getName();
-                    name = name.replace('/', File.separatorChar);
-                    if (name.startsWith(pkg) && name.endsWith(ext)) {
-                        files.put(name, new ClassFile(path[i].zip, entry));
-                    }
-                }
-            } else {
-                String[] list = path[i].getFiles(pkg);
-                for (int j = 0; j < list.length; j++) {
-                    String name = list[j];
-                    if (name.endsWith(ext)) {
-                        name = pkg + File.separatorChar + name;
-                        File file = new File(path[i].dir.getPath(), name);
-                        files.put(name, new ClassFile(file));
-                    }
-                }
-            }
+            path[i].fillFiles(pkg, ext, files);
         }
         return files.elements();
     }
@@ -266,9 +275,7 @@ class ClassPath {
      */
     public void close() throws IOException {
         for (int i = path.length; --i >= 0; ) {
-            if (path[i].zip != null) {
-                path[i].zip.close();
-            }
+            path[i].close();
         }
     }
 
@@ -281,34 +288,146 @@ class ClassPath {
 }
 
 /**
- * A class path entry, which can either be a directory or an open zip file.
+ * A class path entry, which can either be a directory or an open zip file or an open jimage filesystem.
  */
-class ClassPathEntry {
-    File dir;
-    ZipFile zip;
+abstract class ClassPathEntry {
+    abstract ClassFile getFile(String name, String subdir, String basename, boolean isDirectory);
+    abstract void fillFiles(String pkg, String ext, Hashtable<String, ClassFile> files);
+    abstract void close() throws IOException;
+}
 
-    Hashtable<String, String[]> subdirs = new Hashtable<>(29); // cache of sub-directory listings:
-    String[] getFiles(String subdir) {
+// a ClassPathEntry that represents a directory
+final class DirClassPathEntry extends ClassPathEntry {
+    private final File dir;
+
+    DirClassPathEntry(File dir) {
+        this.dir = dir;
+    }
+
+    private final Hashtable<String, String[]> subdirs = new Hashtable<>(29); // cache of sub-directory listings:
+    private String[] getFiles(String subdir) {
         String files[] = subdirs.get(subdir);
         if (files == null) {
-            // search the directory, exactly once
-            File sd = new File(dir.getPath(), subdir);
-            if (sd.isDirectory()) {
-                files = sd.list();
-                if (files == null) {
-                    // should not happen, but just in case, fail silently
-                    files = new String[0];
-                }
-                if (files.length == 0) {
-                    String nonEmpty[] = { "" };
-                    files = nonEmpty;
-                }
-            } else {
-                files = new String[0];
-            }
+            files = computeFiles(subdir);
             subdirs.put(subdir, files);
         }
         return files;
     }
 
+    private String[] computeFiles(String subdir) {
+        File sd = new File(dir.getPath(), subdir);
+        String[] files = null;
+        if (sd.isDirectory()) {
+            files = sd.list();
+            if (files == null) {
+                // should not happen, but just in case, fail silently
+                files = new String[0];
+            }
+            if (files.length == 0) {
+                String nonEmpty[] = { "" };
+                files = nonEmpty;
+            }
+        } else {
+            files = new String[0];
+        }
+        return files;
+    }
+
+    ClassFile getFile(String name,  String subdir, String basename, boolean isDirectory) {
+        File file = new File(dir.getPath(), name);
+        String list[] = getFiles(subdir);
+        if (isDirectory) {
+            if (list.length > 0) {
+                return ClassFile.newClassFile(file);
+            }
+        } else {
+            for (int j = 0; j < list.length; j++) {
+                if (basename.equals(list[j])) {
+                    // Don't bother checking !file.isDir,
+                    // since we only look for names which
+                    // cannot already be packages (foo.java, etc).
+                    return ClassFile.newClassFile(file);
+                }
+            }
+        }
+        return null;
+    }
+
+    void fillFiles(String pkg, String ext, Hashtable<String, ClassFile> files) {
+        String[] list = getFiles(pkg);
+        for (int j = 0; j < list.length; j++) {
+            String name = list[j];
+            if (name.endsWith(ext)) {
+                name = pkg + File.separatorChar + name;
+                File file = new File(dir.getPath(), name);
+                files.put(name, ClassFile.newClassFile(file));
+            }
+        }
+    }
+
+    void close() throws IOException {
+    }
+}
+
+// a ClassPathEntry that represents a .zip or a .jar file
+final class ZipClassPathEntry extends ClassPathEntry {
+    private final ZipFile zip;
+
+    ZipClassPathEntry(ZipFile zip) {
+        this.zip = zip;
+    }
+
+    void close() throws IOException {
+        zip.close();
+    }
+
+    ClassFile getFile(String name, String subdir, String basename, boolean isDirectory) {
+        String newname = name.replace(File.separatorChar, '/');
+        ZipEntry entry = zip.getEntry(newname);
+        return entry != null? ClassFile.newClassFile(zip, entry) : null;
+    }
+
+    void fillFiles(String pkg, String ext, Hashtable<String, ClassFile> files) {
+        Enumeration<? extends ZipEntry> e = zip.entries();
+        while (e.hasMoreElements()) {
+            ZipEntry entry = (ZipEntry)e.nextElement();
+            String name = entry.getName();
+            name = name.replace('/', File.separatorChar);
+            if (name.startsWith(pkg) && name.endsWith(ext)) {
+                files.put(name, ClassFile.newClassFile(zip, entry));
+            }
+        }
+    }
+}
+
+// a ClassPathEntry that represents a .jimage module file
+final class JImageClassPathEntry extends ClassPathEntry {
+    private final FileSystem fs;
+
+    JImageClassPathEntry(FileSystem fs) {
+        this.fs = fs;
+    }
+
+    void close() throws IOException {
+        fs.close();
+    }
+
+    ClassFile getFile(String name, String subdir, String basename, boolean isDirectory) {
+        return ClassFile.newClassFile(fs.getPath(name));
+    }
+
+    void fillFiles(String pkg, String ext, Hashtable<String, ClassFile> files) {
+        Path dir = fs.getPath(pkg);
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            for (Path p : stream) {
+                String name = p.toString();
+                name = name.replace('/', File.separatorChar);
+                if (name.startsWith(pkg) && name.endsWith(ext)) {
+                    files.put(name, ClassFile.newClassFile(p));
+                }
+            }
+        } catch (IOException ioExp) {
+            throw new UncheckedIOException(ioExp);
+        }
+    }
 }

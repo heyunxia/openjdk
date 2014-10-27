@@ -1,4 +1,4 @@
-grant codeBase "file:${java.home}/lib/ext/ucrypto.jar" {
+grant codeBase "jrt:/jdk.crypto.ucrypto" {
         permission java.lang.RuntimePermission "accessClassInPackage.sun.security.*";
         permission java.lang.RuntimePermission "accessClassInPackage.sun.nio.ch";
         permission java.lang.RuntimePermission "loadLibrary.j2ucrypto";
@@ -9,7 +9,7 @@ grant codeBase "file:${java.home}/lib/ext/ucrypto.jar" {
         permission java.io.FilePermission "${java.home}/lib/security/ucrypto-solaris.cfg", "read";
 };
 
-grant codeBase "file:${java.home}/lib/ext/sunec.jar" {
+grant codeBase "jrt:/jdk.crypto.ec" {
         permission java.lang.RuntimePermission "accessClassInPackage.sun.security.*";
         permission java.lang.RuntimePermission "loadLibrary.sunec";
         permission java.util.PropertyPermission "*", "read";
@@ -18,16 +18,7 @@ grant codeBase "file:${java.home}/lib/ext/sunec.jar" {
         permission java.security.SecurityPermission "removeProviderProperty.SunEC";
 };
 
-grant codeBase "file:${java.home}/lib/ext/sunjce_provider.jar" {
-        permission java.lang.RuntimePermission "accessClassInPackage.sun.misc";
-        permission java.lang.RuntimePermission "accessClassInPackage.sun.security.*";
-        permission java.util.PropertyPermission "*", "read";
-        permission java.security.SecurityPermission "putProviderProperty.SunJCE";
-        permission java.security.SecurityPermission "clearProviderProperties.SunJCE";
-        permission java.security.SecurityPermission "removeProviderProperty.SunJCE";
-};
-
-grant codeBase "file:${java.home}/lib/ext/sunpkcs11.jar" {
+grant codeBase "jrt:/jdk.crypto.pkcs11" {
         permission java.lang.RuntimePermission "accessClassInPackage.sun.security.*";
         permission java.lang.RuntimePermission "accessClassInPackage.sun.nio.ch";
         permission java.lang.RuntimePermission "loadLibrary.j2pkcs11";
@@ -41,7 +32,7 @@ grant codeBase "file:${java.home}/lib/ext/sunpkcs11.jar" {
         permission java.io.FilePermission "<<ALL FILES>>", "read";
 };
 
-grant codeBase "file:${java.home}/lib/ext/sunmscapi.jar" {
+grant codeBase "jrt:/jdk.crypto.mscapi" {
         Permission java.lang.RuntimePermission "accessClassInPackage.sun.security.*";
         permission java.lang.RuntimePermission "loadLibrary.sunmscapi";
         permission java.util.PropertyPermission "*", "read";

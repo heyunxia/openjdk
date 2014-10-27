@@ -718,7 +718,7 @@ class BatchEnvironment extends Environment implements ErrorConsumer {
 
                 // Couldn't find the source, try the one mentioned in the binary
                 if (bc.getSource() != null) {
-                    srcfile = new ClassFile(new File((String)bc.getSource()));
+                    srcfile = ClassFile.newClassFile(new File((String)bc.getSource()));
                     // Look for the source file
                     srcfile = pkg.getSourceFile(srcfile.getName());
                     if ((srcfile != null) && srcfile.exists()) {
@@ -863,7 +863,7 @@ class BatchEnvironment extends Environment implements ErrorConsumer {
                 }
                 if (srcfile == null) {
                     String fn = (String)c.getClassDefinition().getSource();
-                    srcfile = new ClassFile(new File(fn));
+                    srcfile = ClassFile.newClassFile(new File(fn));
                 }
             } else {
                 // Get a source file name from the package
