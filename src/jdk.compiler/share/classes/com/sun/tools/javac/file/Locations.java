@@ -654,12 +654,12 @@ public class Locations {
                     path.addFiles(systemClasses, false);
                 } else {
                     // fallback to the value of sun.boot.class.path
-                    String files = System.getProperty("sun.boot.class.path");
-                    path.addFiles(files, false);
-                    File rt_jar = new File("rt.jar");
-                    for (File file : getPathEntries(files)) {
+                String files = System.getProperty("sun.boot.class.path");
+                path.addFiles(files, false);
+                File rt_jar = new File("rt.jar");
+                for (File file : getPathEntries(files)) {
                         if (new File(file.getName()).equals(rt_jar))
-                            defaultBootClassPathRtJar = file;
+                        defaultBootClassPathRtJar = file;
                     }
                 }
             }
@@ -733,7 +733,7 @@ public class Locations {
         private void lazy() {
             if (searchPath == null) {
                 try {
-                    searchPath = Collections.unmodifiableCollection(computePath());
+                searchPath = Collections.unmodifiableCollection(computePath());
                 } catch (IOException e) {
                     // TODO: need better handling here, e.g. javac Abort?
                     throw new UncheckedIOException(e);
