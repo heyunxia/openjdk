@@ -260,7 +260,7 @@ class JImageTask {
                         return 0L;
                     }
 
-                    String localName = pathString.substring(chop);
+                    String localName = pathString.substring(chop).replace('\\','/');
 
                     File file = path.toFile();
                     long size = 0;
