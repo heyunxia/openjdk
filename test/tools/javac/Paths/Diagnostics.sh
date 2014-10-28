@@ -99,15 +99,16 @@ No Warning "$javac" ${TESTTOOLVMOPTS} -cp ".${PS}classes" Main.java
 Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path -cp ".${PS}classes"         Main.java
 Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-Xbootclasspath/p:classes" Main.java
 Warning "$javac" ${TESTTOOLVMOPTS} -Xlint      "-Xbootclasspath/a:classes" Main.java
-Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-endorseddirs" "classes"   Main.java
-Warning "$javac" ${TESTTOOLVMOPTS} -Xlint      "-extdirs"      "classes"   Main.java
+
+# Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-endorseddirs" "classes"   Main.java
+# Warning "$javac" ${TESTTOOLVMOPTS} -Xlint      "-extdirs"      "classes"   Main.java
 Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-Xbootclasspath:classes${PS}${BCP}" Main.java
 
 #----------------------------------------------------------------
 # No warning for missing elts in "system" paths
 #----------------------------------------------------------------
-No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Djava.endorsed.dirs=classes" Main.java
-No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Djava.ext.dirs=classes"      Main.java
+# No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Djava.endorsed.dirs=classes" Main.java
+# No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Djava.ext.dirs=classes"      Main.java
 No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Xbootclasspath/p:classes"    Main.java
 No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Xbootclasspath/a:classes"    Main.java
 No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Xbootclasspath:classes${PS}${BCP}" Main.java
@@ -117,8 +118,8 @@ No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-J-Xbootclasspath:classes${PS
 #----------------------------------------------------------------
 Sys mkdir classes
 No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path -cp ".${PS}classes"         Main.java
-No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-endorseddirs"   "classes" Main.java
-No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-extdirs"        "classes" Main.java
+# No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-endorseddirs"   "classes" Main.java
+# No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-extdirs"        "classes" Main.java
 No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-Xbootclasspath/p:classes" Main.java
 No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-Xbootclasspath/a:classes" Main.java
 No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint:path "-Xbootclasspath:classes${PS}${BCP}" Main.java
@@ -184,17 +185,17 @@ No Warning "$javac" ${TESTTOOLVMOPTS} -Xlint -Xbootclasspath/p:classesRefRef.jar
 #----------------------------------------------------------------
 # Class-Path attribute followed in extdirs or endorseddirs
 #----------------------------------------------------------------
-Sys mkdir jars
-Sys cp -p classesRefRef.jar jars/.
-   Warning "$javac" ${TESTTOOLVMOPTS} -Xlint -extdirs      jars Main.java
-   Warning "$javac" ${TESTTOOLVMOPTS} -Xlint -endorseddirs jars Main.java
+# Sys mkdir jars
+# Sys cp -p classesRefRef.jar jars/.
+#   Warning "$javac" ${TESTTOOLVMOPTS} -Xlint -extdirs      jars Main.java
+#   Warning "$javac" ${TESTTOOLVMOPTS} -Xlint -endorseddirs jars Main.java
 
 #----------------------------------------------------------------
 # Bad Jar file in extdirs and endorseddirs should not be ignored
 #----------------------------------------------------------------
-BadJarFile jars/classesRef.jar
-   Error "$javac" ${TESTTOOLVMOPTS} -Xlint -extdirs      jars Main.java
-   Error "$javac" ${TESTTOOLVMOPTS} -Xlint -endorseddirs jars Main.java
+# BadJarFile jars/classesRef.jar
+#   Error "$javac" ${TESTTOOLVMOPTS} -Xlint -extdirs      jars Main.java
+#   Error "$javac" ${TESTTOOLVMOPTS} -Xlint -endorseddirs jars Main.java
 
 Cleanup
 
