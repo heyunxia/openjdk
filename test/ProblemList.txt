@@ -327,4 +327,7 @@ sun/tools/jps/TestJpsJarRelative.java				generic-all
 # 8057732
 sun/jvmstat/monitor/MonitoredVm/MonitorVmStartTerminate.java    generic-all
 
+# 8060088
+com/sun/tracing/BasicWithSecurityMgr.java                       generic-all
+
 ############################################################################
