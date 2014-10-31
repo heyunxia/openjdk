@@ -321,7 +321,8 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         });
     }
 
-    private FileSystem getFileSystem(Path p) throws IOException {
+    // for now, we share *.jimage file systems between all instances of javac
+    private static synchronized FileSystem getFileSystem(Path p) throws IOException {
         FileSystem fs = fileSystems.get(p);
         if (fs == null) {
             fs = FileSystems.newFileSystem(p, null);
@@ -330,7 +331,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         return fs;
     }
 
-    private Map<Path,FileSystem> fileSystems = new HashMap<>();
+    private static final Map<Path,FileSystem> fileSystems = new HashMap<>();
 
     /**
      * Insert all files in subdirectory subdirectory of directory directory
@@ -673,6 +674,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             } catch (IOException ignore) {
             }
         }
+        /* FileSystems for *.jimage files are currently shared between all instances of javac.
         for (FileSystem fs: fileSystems.values()) {
             try {
                 fs.close();
@@ -680,6 +682,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             }
         }
         fileSystems.clear();
+        */
     }
 
     @DefinedBy(Api.COMPILER)
