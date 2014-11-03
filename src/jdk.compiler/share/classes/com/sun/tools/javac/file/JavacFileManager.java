@@ -568,17 +568,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
     /** Open a new zip file directory, and cache it.
      */
     private Archive openArchive(File zipFileName, boolean useOptimizedZip) throws IOException {
-        File origZipFileName = zipFileName;
         if (symbolFileEnabled && locations.isDefaultBootClassPathRtJar(zipFileName)) {
-            File file = zipFileName.getParentFile().getParentFile(); // ${java.home}
-            if (new File(file.getName()).equals(new File("jre")))
-                file = file.getParentFile();
-            // file == ${jdk.home}
-            for (String name : symbolFileLocation)
-                file = new File(file, name);
-            // file == ${jdk.home}/lib/ct.sym
-            if (file.exists())
-                zipFileName = file;
         }
 
         Archive archive;
@@ -617,28 +607,15 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
                 }
             }
 
-            if (origZipFileName == zipFileName) {
-                if (!useOptimizedZip) {
-                    archive = new ZipArchive(this, zdir);
-                } else {
-                    archive = new ZipFileIndexArchive(this,
-                                    zipFileIndexCache.getZipFileIndex(zipFileName,
-                                    null,
-                                    usePreindexedCache,
-                                    preindexCacheLocation,
-                                    options.isSet("writezipindexfiles")));
-                }
+            if (!useOptimizedZip) {
+                archive = new ZipArchive(this, zdir);
             } else {
-                if (!useOptimizedZip) {
-                    archive = new SymbolArchive(this, origZipFileName, zdir, symbolFilePrefix);
-                } else {
-                    archive = new ZipFileIndexArchive(this,
-                                    zipFileIndexCache.getZipFileIndex(zipFileName,
-                                    symbolFilePrefix,
-                                    usePreindexedCache,
-                                    preindexCacheLocation,
-                                    options.isSet("writezipindexfiles")));
-                }
+                archive = new ZipFileIndexArchive(this,
+                                zipFileIndexCache.getZipFileIndex(zipFileName,
+                                null,
+                                usePreindexedCache,
+                                preindexCacheLocation,
+                                options.isSet("writezipindexfiles")));
             }
         } catch (FileNotFoundException ex) {
             archive = new MissingArchive(zipFileName);
@@ -650,7 +627,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             archive = new MissingArchive(zipFileName);
         }
 
-        archives.put(origZipFileName, archive);
+        archives.put(zipFileName, archive);
         return archive;
     }
 
