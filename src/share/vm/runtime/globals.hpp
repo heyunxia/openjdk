@@ -1066,6 +1066,9 @@ class CommandLineFlags {
   product(bool, PrintWarnings, true,                                        \
           "Print JVM warnings to output stream")                            \
                                                                             \
+  product(bool, PrintExtDirsWarning, false,                                 \
+          "Print warning if the extension directory is non-empty")          \
+                                                                            \
   notproduct(uintx, WarnOnStalledSpinLock, 0,                               \
           "Print warnings for stalled SpinLocks")                           \
                                                                             \

@@ -115,7 +115,6 @@ exit_hook_t      Arguments::_exit_hook          = NULL;
 vfprintf_hook_t  Arguments::_vfprintf_hook      = NULL;
 
 
-SystemProperty *Arguments::_java_ext_dirs = NULL;
 SystemProperty *Arguments::_sun_boot_library_path = NULL;
 SystemProperty *Arguments::_java_library_path = NULL;
 SystemProperty *Arguments::_java_home = NULL;
@@ -124,6 +123,7 @@ SystemProperty *Arguments::_sun_boot_class_path = NULL;
 
 char* Arguments::_meta_index_path = NULL;
 char* Arguments::_meta_index_dir = NULL;
+char* Arguments::_ext_dirs = NULL;
 
 // Check if head of 'option' matches 'name', and sets 'tail' remaining part of option string
 
@@ -183,7 +183,6 @@ void Arguments::init_system_properties() {
   // Following are JVMTI agent writable properties.
   // Properties values are set to NULL and they are
   // os specific they are initialized in os::init_system_properties_values().
-  _java_ext_dirs = new SystemProperty("java.ext.dirs", NULL,  true);
   _sun_boot_library_path = new SystemProperty("sun.boot.library.path", NULL,  true);
   _java_library_path = new SystemProperty("java.library.path", NULL,  true);
   _java_home =  new SystemProperty("java.home", NULL,  true);
@@ -192,7 +191,6 @@ void Arguments::init_system_properties() {
   _java_class_path = new SystemProperty("java.class.path", "",  true);
 
   // Add to System Property list.
-  PropertyList_add(&_system_properties, _java_ext_dirs);
   PropertyList_add(&_system_properties, _sun_boot_library_path);
   PropertyList_add(&_system_properties, _java_library_path);
   PropertyList_add(&_system_properties, _java_home);
@@ -354,9 +352,6 @@ public:
   inline void add_suffix(const char* suffix);
   inline void reset_path(const char* base);
 
-  // Expand the jar/zip files in each directory listed by the given dirs
-  static const char* expand_paths(const char* dirs);
-
   inline const char* get_base()     const { return _items[_scp_base]; }
   inline const char* get_prefix()   const { return _items[_scp_prefix]; }
   inline const char* get_suffix()   const { return _items[_scp_suffix]; }
@@ -429,31 +424,6 @@ inline void SysClassPath::reset_path(const char* base) {
 
 //------------------------------------------------------------------------------
 
-const char* SysClassPath::expand_paths(const char* value) {
-  char dirs[JVM_MAXPATHLEN];
-  strncpy(dirs, value, strlen(value));
-  dirs[strlen(value)] = '\0';
-
-  const char* path = dirs;
-  char* expanded_path = NULL;
-  const char separator = *os::path_separator();
-  const char* const end = path + strlen(path);
-  while (path < end) {
-    const char* tmp_end = strchr(path, separator);
-    if (tmp_end == NULL) {
-      expanded_path = add_jars_to_path(expanded_path, path);
-      path = end;
-    } else {
-      char* dirpath = NEW_C_HEAP_ARRAY(char, tmp_end - path + 1, mtInternal);
-      memcpy(dirpath, path, tmp_end - path);
-      dirpath[tmp_end - path] = '\0';
-      expanded_path = add_jars_to_path(expanded_path, dirpath);
-      FREE_C_HEAP_ARRAY(char, dirpath, mtInternal);
-      path = tmp_end + 1;
-    }
-  }
-  return expanded_path;
-}
 
 // Combine the bootclasspath elements, some of which may be null, into a single
 // c-heap-allocated string.
@@ -3026,6 +2996,12 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
           "in modular form will be supported via the concept of upgradeable modules.\n");
         return JNI_EINVAL;
       }
+      if (match_option(option, "-Djava.ext.dirs=", &tail)) {
+        // abort if -Djava.ext.dirs is set
+        jio_fprintf(defaultStream::output_stream(),
+          "-Djava.ext.dirs is not supported.  Use -classpath instead.\n");
+        return JNI_EINVAL;
+      }
 
       if (!add_property(tail)) {
         return JNI_ENOMEM;
@@ -3472,17 +3448,76 @@ void Arguments::fix_appclasspath() {
   }
 }
 
+static bool has_jar_files(const char* directory) {
+  DIR* dir = os::opendir(directory);
+  if (dir == NULL) return false;
+
+  char dir_sep[2] = { '\0', '\0' };
+  size_t directory_len = strlen(directory);
+  const char fileSep = *os::file_separator();
+  if (directory[directory_len - 1] != fileSep) dir_sep[0] = fileSep;
+
+  struct dirent *entry;
+  char *dbuf = NEW_C_HEAP_ARRAY(char, os::readdir_buf_size(directory), mtInternal);
+  bool hasJarFile = false;
+  while (!hasJarFile && (entry = os::readdir(dir, (dirent *) dbuf)) != NULL) {
+    const char* name = entry->d_name;
+    const char* ext = name + strlen(name) - 4;
+    hasJarFile = ext > name && (os::file_name_strcmp(ext, ".jar") == 0);
+  }
+  FREE_C_HEAP_ARRAY(char, dbuf, mtInternal);
+  os::closedir(dir);
+  return hasJarFile ;
+}
+
+static void warn_non_empty_ext_dirs() {
+  const char* path = Arguments::get_ext_dirs();
+  const char separator = *os::path_separator();
+  const char* const end = path + strlen(path);
+  bool hasJarFiles = false;
+  while (!hasJarFiles && path < end) {
+    const char* tmp_end = strchr(path, separator);
+    if (tmp_end == NULL) {
+      hasJarFiles = has_jar_files(path);
+      path = end;
+    } else {
+      char* dirpath = NEW_C_HEAP_ARRAY(char, tmp_end - path + 1, mtInternal);
+      memcpy(dirpath, path, tmp_end - path);
+      dirpath[tmp_end - path] = '\0';
+      hasJarFiles = has_jar_files(dirpath);
+      FREE_C_HEAP_ARRAY(char, dirpath, mtInternal);
+      path = tmp_end + 1;
+    }
+  }
+  if (hasJarFiles) {
+    warning("Extension mechanism is not supported.  JAR files under "
+            "these directories are ignored:\n%s", Arguments::get_ext_dirs());
+  }
+}
+
 jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_required) {
   // check if the default lib/endorsed directory exists; if so, error
-  char endorseddir[JVM_MAXPATHLEN];
+  char path[JVM_MAXPATHLEN];
   const char* fileSep = os::file_separator();
-  sprintf(endorseddir, "%s%slib%sendorsed", Arguments::get_java_home(), fileSep, fileSep);
-  DIR* dir = os::opendir(endorseddir);
+  sprintf(path, "%s%slib%sendorsed", Arguments::get_java_home(), fileSep, fileSep);
+  DIR* dir = os::opendir(path);
   if (dir != NULL) {
     jio_fprintf(defaultStream::output_stream(),
       "JAVA_HOME/lib/endorsed is not supported. Endorsed standards and standalone APIs\n"
       "in modular form will be supported via the concept of upgradeable modules.\n");
     return JNI_ERR;
+  }
+
+  sprintf(path, "%s%slib%sext", Arguments::get_java_home(), fileSep, fileSep);
+  dir = os::opendir(path);
+  if (dir != NULL) {
+    jio_fprintf(defaultStream::output_stream(),
+      "JAVA_HOME/lib/ext is not supported; Use -classpath instead.\n.");
+    return JNI_ERR;
+  }
+
+  if (PrintExtDirsWarning) {
+    warn_non_empty_ext_dirs();
   }
 
   if (scp_assembly_required) {
