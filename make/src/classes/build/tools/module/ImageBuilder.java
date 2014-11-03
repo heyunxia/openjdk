@@ -366,7 +366,7 @@ class ImageBuilder {
 
     private void createImage() throws IOException {
         Collection<String> modules = resolve(options.mods);
-        log.println(modules.stream().collect(Collectors.joining(" ")));
+        log.print(modules.stream().collect(Collectors.joining(" ")));
         ImageFileHelper imageHelper = new ImageFileHelper(modules);
         imageHelper.createModularImage(options.output);
 
