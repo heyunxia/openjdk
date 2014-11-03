@@ -135,8 +135,6 @@ public class Launcher {
          * within a context that limits which files it can read
          */
         public static ExtClassLoader getExtClassLoader() throws IOException {
-            final File[] dirs = getExtDirs();
-
             try {
                 // Prior implementations of this doPrivileged() block supplied
                 // aa synthesized ACC via a call to the private method
@@ -150,16 +148,10 @@ public class Launcher {
                             File dir = new File(new File(home, "lib"), "modules");
                             File jimage = new File(dir, "extmodules.jimage");
 
-                            // ext directories
-                            int len = dirs.length;
-                            for (int i = 0; i < len; i++) {
-                                MetaIndex.registerDirectory(dirs[i]);
-                            }
-
                             File jfxrt = new File(new File(home, "lib"), "jfxrt.jar");
                             File[] files = jfxrt.exists() ? new File[] {jimage, jfxrt}
                                                           : new File[] {jimage};
-                            return new ExtClassLoader(files, dirs);
+                            return new ExtClassLoader(files);
                         }
                     });
             } catch (java.security.PrivilegedActionException e) {
@@ -174,88 +166,16 @@ public class Launcher {
         /*
          * Creates a new ExtClassLoader for the specified directories.
          */
-        public ExtClassLoader(File[] files, File[] dirs) throws IOException {
-            super(getExtURLs(files, dirs), null, factory);
+        public ExtClassLoader(File[] files) throws IOException {
+            super(getExtURLs(files), null, factory);
         }
 
-        private static File[] getExtDirs() {
-            String s = System.getProperty("java.ext.dirs");
-            File[] dirs;
-            if (s != null) {
-                StringTokenizer st =
-                    new StringTokenizer(s, File.pathSeparator);
-                int count = st.countTokens();
-                dirs = new File[count];
-                for (int i = 0; i < count; i++) {
-                    dirs[i] = new File(st.nextToken());
-                }
-            } else {
-                dirs = new File[0];
-            }
-            return dirs;
-        }
-
-        private static URL[] getExtURLs(File[] fpaths, File[] dirs) throws IOException {
+        private static URL[] getExtURLs(File[] files) throws IOException {
             List<URL> urls = new ArrayList<>();
-            for (File f : fpaths) {
+            for (File f : files) {
                 urls.add(getFileURL(f));
             }
-            for (int i = 0; i < dirs.length; i++) {
-                String[] files = dirs[i].list();
-                if (files != null) {
-                    for (int j = 0; j < files.length; j++) {
-                        if (!files[j].equals("meta-index")) {
-                            File f = new File(dirs[i], files[j]);
-                            urls.add(getFileURL(f));
-                        }
-                    }
-                }
-            }
             return urls.toArray(new URL[0]);
-        }
-
-        /*
-         * Searches the installed extension directories for the specified
-         * library name. For each extension directory, we first look for
-         * the native library in the subdirectory whose name is the value
-         * of the system property <code>os.arch</code>. Failing that, we
-         * look in the extension directory itself.
-         */
-        public String findLibrary(String name) {
-            final String libname = System.mapLibraryName(name);
-            URL[] urls = super.getURLs();
-            File prevDir = null;
-            for (int i = 0; i < urls.length; i++) {
-                // Get the ext directory from the URL
-                File dir = new File(urls[i].getPath()).getParentFile();
-                if (dir != null && !dir.equals(prevDir)) {
-                    // Look in architecture-specific subdirectory first
-                    // Read from the saved system properties to avoid deadlock
-                    final String arch = VM.getSavedProperty("os.arch");
-                    String pathname = AccessController.doPrivileged(
-                        new PrivilegedAction<String>() {
-                            public String run() {
-                                if (arch != null) {
-                                    File file = new File(new File(dir, arch), libname);
-                                    if (file.exists()) {
-                                        return file.getAbsolutePath();
-                                    }
-                                }
-                                // Then check the extension directory
-                                File file = new File(dir, libname);
-                                if (file.exists()) {
-                                    return file.getAbsolutePath();
-                                }
-                                return null;
-                            }
-                        });
-                    if (pathname != null) {
-                        return pathname;
-                    }
-                }
-                prevDir = dir;
-            }
-            return null;
         }
 
         private static AccessControlContext getContext(File[] dirs)

@@ -160,17 +160,15 @@ class BatchEnvironment extends Environment implements ErrorConsumer {
     static BatchEnvironment create(OutputStream out,
                                    String srcPathString,
                                    String classPathString,
-                                   String sysClassPathString,
-                                   String extDirsString){
+                                   String sysClassPathString) {
         ClassPath[] classPaths = classPaths(srcPathString, classPathString,
-                                            sysClassPathString, extDirsString);
+                                            sysClassPathString);
         return new BatchEnvironment(out, classPaths[0], classPaths[1]);
     }
 
     protected static ClassPath[] classPaths(String srcPathString,
                                             String classPathString,
-                                            String sysClassPathString,
-                                            String extDirsString) {
+                                            String sysClassPathString) {
         // Create our source classpath and our binary classpath
         ClassPath sourcePath;
         ClassPath binaryPath;
@@ -195,30 +193,6 @@ class BatchEnvironment extends Environment implements ErrorConsumer {
             }
         }
         appendPath(binaryPathBuffer, sysClassPathString);
-
-        if (extDirsString == null) {
-            extDirsString = System.getProperty("java.ext.dirs");
-        }
-        if (extDirsString != null) {
-            StringTokenizer st = new StringTokenizer(extDirsString,
-                                                     File.pathSeparator);
-            while (st.hasMoreTokens()) {
-                String dirName = st.nextToken();
-                File dir = new File(dirName);
-                if (!dirName.endsWith(File.separator)) {
-                    dirName += File.separator;
-                }
-                if (dir.isDirectory()) {
-                    String[] files = dir.list();
-                    for (int i = 0; i < files.length; ++i) {
-                        String name = files[i];
-                        if (name.endsWith(".jar")) {
-                            appendPath(binaryPathBuffer, dirName + name);
-                        }
-                    }
-                }
-            }
-        }
 
         appendPath(binaryPathBuffer, classPathString);
 

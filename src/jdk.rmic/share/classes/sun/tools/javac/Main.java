@@ -197,7 +197,6 @@ class Main implements Constants {
         String sourcePathArg = null;
         String classPathArg = null;
         String sysClassPathArg = null;
-        String extDirsArg = null;
         boolean verbosePath = false;
 
         String targetArg = null;
@@ -342,17 +341,6 @@ class Main implements Constants {
                     usage_error();
                     return false;  // Stop processing now
                 }
-            } else if (argv[i].equals("-extdirs")) {
-                if ((i + 1) < argv.length) {
-                    if (extDirsArg != null) {
-                        error("main.option.already.seen","-extdirs");
-                    }
-                    extDirsArg = argv[++i];
-                } else {
-                    error("main.option.requires.argument","-extdirs");
-                    usage_error();
-                    return false;  // Stop processing now
-                }
             } else if (argv[i].equals("-encoding")) {
                 if ((i + 1) < argv.length) {
                     if (encoding!=null)
@@ -475,8 +463,7 @@ class Main implements Constants {
         BatchEnvironment env = BatchEnvironment.create(out,
                                                        sourcePathArg,
                                                        classPathArg,
-                                                       sysClassPathArg,
-                                                       extDirsArg);
+                                                       sysClassPathArg);
         if (verbosePath) {
             output(getText("main.path.msg",
                            env.sourcePath.toString(),
