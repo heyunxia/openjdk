@@ -202,7 +202,10 @@ public class TestSearchPaths {
         setLocation(CLASS_PATH); // empty
         setLocation(SOURCE_PATH); // empty
 
-        for (int i = 1; i <= 10; i++) {
+        // FIXME: temporarily excluded endorseddirs and extdirs cases
+        // for (int i = 1; i <= 10; i++) {
+        int[] cases = new int[] { 1, 8, 9, 10};
+        for (int i : cases) {
             File classes = createDir(test + "/" + i + "/classes");
             File testJars = createDir(test + "/" + i + "/testJars");
             File testClasses = createDir(test + "/" + i + "/testClasses");
