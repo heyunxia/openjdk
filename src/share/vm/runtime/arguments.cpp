@@ -3503,7 +3503,7 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
   DIR* dir = os::opendir(path);
   if (dir != NULL) {
     jio_fprintf(defaultStream::output_stream(),
-      "JAVA_HOME/lib/endorsed is not supported. Endorsed standards and standalone APIs\n"
+      "<JAVA_HOME>/lib/endorsed is not supported. Endorsed standards and standalone APIs\n"
       "in modular form will be supported via the concept of upgradeable modules.\n");
     return JNI_ERR;
   }
@@ -3512,7 +3512,8 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
   dir = os::opendir(path);
   if (dir != NULL) {
     jio_fprintf(defaultStream::output_stream(),
-      "JAVA_HOME/lib/ext is not supported; Use -classpath instead.\n.");
+      "<JAVA_HOME>/lib/ext exists, extensions mechanism no longer supported; "
+      "Use -classpath instead.\n.");
     return JNI_ERR;
   }
 
