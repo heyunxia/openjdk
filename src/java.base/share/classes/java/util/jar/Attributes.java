@@ -573,7 +573,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
          * used for declaring dependencies on installed extensions.
          *
          * @deprecated Extension mechanism is no longer supported. Applets should
-         *             use {@link CLASS_PATH} instead.
+         *             use {@link #CLASS_PATH} instead.
          */
         @Deprecated
         public static final Name EXTENSION_LIST = new Name("Extension-List");
