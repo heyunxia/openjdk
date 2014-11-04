@@ -166,9 +166,6 @@ demo/jvmti/compiledMethodLoad/CompiledMethodLoadTest.java	generic-all
 # 8059270
 jdk/asm/AsmSanity.java                                          generic-all
 
-# 8062759
-javax/naming/spi/providers/InitialContextTest.java              generic-all
-
 ############################################################################
 
 # jdk_net
