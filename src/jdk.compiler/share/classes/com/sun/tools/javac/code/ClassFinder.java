@@ -26,8 +26,15 @@
 package com.sun.tools.javac.code;
 
 import java.io.*;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.regex.Pattern;
+
 import javax.lang.model.SourceVersion;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileManager;
@@ -40,6 +47,7 @@ import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.code.Scope.WriteableScope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.jvm.ClassReader;
+import com.sun.tools.javac.jvm.Profile;
 import com.sun.tools.javac.util.*;
 
 import static com.sun.tools.javac.code.Flags.*;
@@ -126,6 +134,18 @@ public class ClassFinder {
     protected Symbol currentOwner = null;
 
     /**
+     * The currently selected profile.
+     */
+    private final Profile profile;
+
+    /*
+     * Legacy name for the ability to suppress issues regarding
+     * proprietary and internal class.
+     * (Temporary, until more info is available from the module system.)
+     */
+    private final boolean useCtProps;
+
+    /**
      * Completer that delegates to the complete-method of this class.
      */
     private final Completer thisCompleter = new Completer() {
@@ -168,11 +188,113 @@ public class ClassFinder {
         preferSource = "source".equals(options.get("-Xprefer"));
         userPathsFirst = options.isSet(XXUSERPATHSFIRST);
 
-
         completionFailureName =
             options.isSet("failcomplete")
             ? names.fromString(options.get("failcomplete"))
             : null;
+
+        // Temporary, until more info is available from the module system.
+        JavaFileManager fm = context.get(JavaFileManager.class);
+        useCtProps = (fm instanceof BaseFileManager && ((BaseFileManager) fm).isDefaultBootClassPath())
+                && !options.isSet("ignore.symbol.file");
+        profile = Profile.instance(context);
+    }
+
+
+/************************************************************************
+ * Temporary ct.sym replacement
+ *
+ * The following code is a temporary substitute for the ct.sym mechanism
+ * used in JDK 6 thru JDK 8.
+ * This mechanism will eventually be superceded by the Jigsaw module system.
+ ***********************************************************************/
+
+    private static class SupplementaryInfo {
+        final boolean proprietary;
+        final boolean hidden;
+        final Profile minProfile;
+
+        SupplementaryInfo(boolean proprietary, boolean hidden, Profile minProfile) {
+            this.proprietary = proprietary;
+            this.hidden = hidden;
+            this.minProfile = minProfile;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder("SupplementaryInfo[");
+            boolean comma = false;
+            if (proprietary) {
+                sb.append("proprietary");
+                comma = true;
+            }
+            if (hidden) {
+                if (comma)
+                    sb.append(",");
+                sb.append("hidden");
+                comma = true;
+            }
+            if (minProfile != null) {
+                if (comma)
+                    sb.append(",");
+                sb.append(minProfile.name);
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+    }
+
+    private static final SupplementaryInfo DEFAULT_INFO
+            = new SupplementaryInfo((false), false, Profile.COMPACT1);
+
+    private SupplementaryInfo getSupplementaryInfo(ClassSymbol c) {
+        if (!useCtProps)
+            return DEFAULT_INFO;
+
+        if (supplementaryInfoMap == null)
+            supplementaryInfoMap = initSupplementaryInfo();
+
+        SupplementaryInfo info = supplementaryInfoMap.get(c.packge());
+        return (info == null) ? DEFAULT_INFO : info;
+    }
+
+    private Map<PackageSymbol, SupplementaryInfo> supplementaryInfoMap;
+
+    private Map<PackageSymbol, SupplementaryInfo> initSupplementaryInfo() {
+        try {
+            final String bundleName = "com.sun.tools.javac.resources.ct";
+            ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
+            Map<PackageSymbol, SupplementaryInfo> map = new HashMap<>();
+            Pattern ws = Pattern.compile("\\s+");
+            for (String key: bundle.keySet()) {
+                String[] attrs = ws.split(bundle.getString(key), 0);
+                if (key.endsWith(".*")) {
+                    Name packageName = names.fromString(key.substring(0, key.length() - 2));
+                    PackageSymbol p = syms.enterPackage(packageName);
+                    boolean proprietary = false;
+                    boolean hidden = false;
+                    Profile minProfile = null;
+                    for (String attr: attrs) {
+                        switch (attr) {
+                            case "proprietary":
+                                proprietary = true;
+                                break;
+                            case "hidden":
+                                hidden = true;
+                                break;
+                            default:
+                                minProfile = Profile.lookup(attr);
+                        }
+                    }
+                    map.put(p, new SupplementaryInfo(proprietary, hidden, minProfile));
+                } else {
+                    throw new Error("not supported");
+                }
+            }
+            return map;
+        } catch (MissingResourceException e) {
+            return Collections.emptyMap();
+        }
     }
 
 /************************************************************************
@@ -258,7 +380,22 @@ public class ClassFinder {
                     log.printVerbose("loading", currentClassFile.toString());
                 }
                 if (classfile.getKind() == JavaFileObject.Kind.CLASS) {
+                    SupplementaryInfo info = getSupplementaryInfo(c);
+                    if (info.hidden) {
+                        throw classFileNotFound(c);
+                    }
+
                     reader.readClassFile(c);
+
+                    if (info.proprietary) {
+                        c.flags_field |= PROPRIETARY;
+                    }
+
+                    if (profile != Profile.DEFAULT) {
+                        if (info.minProfile == null || info.minProfile.value > profile.value) {
+                            c.flags_field |= NOT_IN_PROFILE;
+                        }
+                    }
                 } else {
                     if (sourceCompleter != null) {
                         sourceCompleter.complete(c);
@@ -271,13 +408,15 @@ public class ClassFinder {
                 currentClassFile = previousClassFile;
             }
         } else {
-            JCDiagnostic diag =
-                diagFactory.fragment("class.file.not.found", c.flatname);
-            throw
-                newCompletionFailure(c, diag);
+            throw classFileNotFound(c);
         }
     }
     // where
+        private CompletionFailure classFileNotFound(ClassSymbol c) {
+            JCDiagnostic diag =
+                diagFactory.fragment("class.file.not.found", c.flatname);
+            return newCompletionFailure(c, diag);
+        }
         /** Static factory for CompletionFailure objects.
          *  In practice, only one can be used at a time, so we share one
          *  to reduce the expense of allocating new exception objects.
