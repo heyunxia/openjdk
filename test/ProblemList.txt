@@ -163,9 +163,6 @@ javax/management/MBeanServer/OldMBeanServerTest.java            aix-all
 # 6988950
 demo/jvmti/compiledMethodLoad/CompiledMethodLoadTest.java	generic-all
 
-# 8059270
-jdk/asm/AsmSanity.java                                          generic-all
-
 ############################################################################
 
 # jdk_net
