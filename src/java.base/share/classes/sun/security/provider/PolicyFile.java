@@ -77,7 +77,7 @@ import sun.net.www.ParseUtil;
  *   <i>auth.policy.url.1</i>, <i>auth.policy.url.2</i>, ...,
  *   <i>auth.policy.url.X</i>".  These properties are set
  *   in the Java security properties file, which is located in the file named
- *   &lt;JAVA_HOME&gt;/lib/security/java.security.
+ *   &lt;JAVA_HOME&gt;/conf/security/java.security.
  *   &lt;JAVA_HOME&gt; refers to the value of the java.home system property,
  *   and specifies the directory where the JRE is installed.
  *   Each property value specifies a <code>URL</code> pointing to a
@@ -318,7 +318,7 @@ public class PolicyFile extends java.security.Policy {
      *   you don't find one. Each of these specify a policy file.
      *
      *   if none of these could be loaded, use a builtin static policy
-     *      equivalent to the default lib/security/java.policy file.
+     *      equivalent to the default conf/security/java.policy file.
      *
      *   if the system property "java.policy" or "java.auth.policy" is defined
      * (which is the

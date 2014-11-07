@@ -182,6 +182,7 @@ jdk_launcher = \
 #
 core_tools = \
     tools \
+    jdk/internal/jimage \
     sun/tools/java \
     sun/tools/native2ascii \
     sun/tools/jrunscript
