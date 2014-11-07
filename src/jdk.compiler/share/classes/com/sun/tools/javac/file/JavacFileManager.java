@@ -88,6 +88,7 @@ import static com.sun.tools.javac.util.BaseFileManager.getKind;
  */
 public class JavacFileManager extends BaseFileManager implements StandardJavaFileManager {
 
+    @SuppressWarnings("cast")
     public static char[] toArray(CharBuffer buffer) {
         if (buffer.hasArray())
             return ((CharBuffer)buffer.compact().flip()).array();
@@ -144,6 +145,8 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         if (register)
             context.put(JavaFileManager.class, this);
         setContext(context);
+        if (System.getProperty("show.fm.open.close") != null)
+            System.err.println("JavacFileManager.open " + this.hashCode());
 
         jimageSupportEnabled = false;
         for (FileSystemProvider provider: FileSystemProvider.installedProviders()) {
@@ -610,16 +613,16 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
                 }
             }
 
-            if (!useOptimizedZip) {
-                archive = new ZipArchive(this, zdir);
-            } else {
-                archive = new ZipFileIndexArchive(this,
-                                zipFileIndexCache.getZipFileIndex(zipFileName,
-                                null,
-                                usePreindexedCache,
-                                preindexCacheLocation,
-                                options.isSet("writezipindexfiles")));
-            }
+                if (!useOptimizedZip) {
+                    archive = new ZipArchive(this, zdir);
+                } else {
+                    archive = new ZipFileIndexArchive(this,
+                                    zipFileIndexCache.getZipFileIndex(zipFileName,
+                                    null,
+                                    usePreindexedCache,
+                                    preindexCacheLocation,
+                                    options.isSet("writezipindexfiles")));
+                }
         } catch (FileNotFoundException ex) {
             archive = new MissingArchive(zipFileName);
         } catch (ZipFileIndex.ZipFormatException zfe) {
@@ -646,6 +649,8 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
      */
     @DefinedBy(Api.COMPILER)
     public void close() {
+        if (System.getProperty("show.fm.open.close") != null)
+            System.err.println("JavacFileManager.close " + this.hashCode());
         for (Iterator<Archive> i = archives.values().iterator(); i.hasNext(); ) {
             Archive a = i.next();
             i.remove();

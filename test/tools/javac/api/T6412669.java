@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -45,7 +45,7 @@ public class T6412669 extends AbstractProcessor {
         File testClasses = new File(System.getProperty("test.classes", "."));
 
         JavacTool tool = JavacTool.create();
-        StandardJavaFileManager fm = tool.getStandardFileManager(null, null, null);
+        try (StandardJavaFileManager fm = tool.getStandardFileManager(null, null, null)) {
         fm.setLocation(StandardLocation.CLASS_PATH, Arrays.asList(testClasses));
         Iterable<? extends JavaFileObject> files =
             fm.getJavaFileObjectsFromFiles(Arrays.asList(new File(testSrc, T6412669.class.getName()+".java")));
@@ -61,6 +61,7 @@ public class T6412669 extends AbstractProcessor {
         // verify we found an annotated element to exercise the SourcePositions API
         if (!out.contains("processing element"))
             throw new AssertionError("expected text not found in compilation output");
+    }
     }
 
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
