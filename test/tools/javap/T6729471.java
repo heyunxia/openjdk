@@ -25,7 +25,7 @@
 /*
  * @test
  * @bug 6729471
- * @summary javap does not output inner interfaces of an interface
+ * @summary javap should accept class files on the command line
  * @library /tools/lib
  * @build ToolBox
  * @run main T6729471
@@ -62,28 +62,24 @@ public class T6729471
                 "public static void main(java.lang.String...)");
 
         // jar url
-        File testJar = createJar("test.jar", "java.util.*");
-        try {
-            verify("jar:" + testJar.toURL() + "!/java/util/Map.class",
-                "public abstract boolean containsKey(java.lang.Object)");
-        } catch (MalformedURLException e) {
-            error(e.toString());
+        // Create a temp jar
+        ToolBox tb = new ToolBox();
+        tb.new JavacTask()
+          .sources("class Foo { public void sayHello() {} }")
+          .run();
+        String foo_jar = "foo.jar";
+        tb.new JarTask(foo_jar)
+          .files("Foo.class")
+          .run();
+        File foo_jarFile = new File(foo_jar);
+
+        // Verify
+            verify("jar:" + foo_jarFile.toURL() + "!/Foo.class",
+                "public void sayHello()");
         }
 
         if (errors > 0)
             throw new Error(errors + " found.");
-    }
-
-    File createJar(String name, String... paths) throws IOException {
-        JavaCompiler comp = ToolProvider.getSystemJavaCompiler();
-        try (JavaFileManager fm = comp.getStandardFileManager(null, null, null)) {
-            File f = new File(name);
-            ToolBox tb = new ToolBox();
-            tb.new JarTask(f.getPath())
-                .files(fm, StandardLocation.PLATFORM_CLASS_PATH, paths)
-                .run();
-            return f;
-        }
     }
 
     void verify(String className, String... expects) {
