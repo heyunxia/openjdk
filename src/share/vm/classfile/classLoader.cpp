@@ -453,7 +453,7 @@ void ClassPathImageEntry::compile_the_world(Handle loader, TRAPS) {
   }
 }
 
-bool ClassPathImageEntry::is_rt_jar() {
+bool ClassPathImageEntry::is_jrt() {
   return string_ends_with(name(), "bootmodules.jimage");
 }
 #endif
@@ -1482,7 +1482,7 @@ void ClassPathZipEntry::compile_the_world(Handle loader, TRAPS) {
   }
 }
 
-bool ClassPathZipEntry::is_rt_jar() {
+bool ClassPathZipEntry::is_jrt() {
   real_jzfile* zip = (real_jzfile*) _zip;
   int len = (int)strlen(zip->name);
   // Check whether zip name ends in "rt.jar"
