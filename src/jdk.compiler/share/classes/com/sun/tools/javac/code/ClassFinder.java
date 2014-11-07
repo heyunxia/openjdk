@@ -46,6 +46,7 @@ import static javax.tools.StandardLocation.*;
 import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.code.Scope.WriteableScope;
 import com.sun.tools.javac.code.Symbol.*;
+import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.jvm.Profile;
 import com.sun.tools.javac.util.*;
@@ -195,8 +196,15 @@ public class ClassFinder {
 
         // Temporary, until more info is available from the module system.
         JavaFileManager fm = context.get(JavaFileManager.class);
-        useCtProps = (fm instanceof BaseFileManager && ((BaseFileManager) fm).isDefaultBootClassPath())
-                && !options.isSet("ignore.symbol.file");
+        if (fm instanceof JavacFileManager) {
+            JavacFileManager jfm = (JavacFileManager) fm;
+            useCtProps = jfm.isDefaultBootClassPath() && jfm.isSymbolFileEnabled();
+        } else if (fm.getClass().getName().equals("com.sun.tools.sjavac.comp.SmartFileManager")) {
+            useCtProps = !options.isSet("ignore.symbol.file");
+        } else {
+            useCtProps = false;
+        }
+
         profile = Profile.instance(context);
     }
 

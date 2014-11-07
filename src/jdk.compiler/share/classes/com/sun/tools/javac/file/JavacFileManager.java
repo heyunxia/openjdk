@@ -64,7 +64,6 @@ import javax.tools.StandardJavaFileManager;
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
 import com.sun.tools.javac.file.RelativePath.RelativeFile;
 import com.sun.tools.javac.nio.PathFileObject;
-import com.sun.tools.javac.util.Assert;
 import com.sun.tools.javac.util.BaseFileManager;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.DefinedBy;
@@ -182,6 +181,10 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
      */
     public void setSymbolFileEnabled(boolean b) {
         symbolFileEnabled = b;
+    }
+
+    public boolean isSymbolFileEnabled() {
+        return symbolFileEnabled;
     }
 
     public JavaFileObject getFileForInput(String name) {
@@ -724,9 +727,12 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
     public boolean isSameFile(FileObject a, FileObject b) {
         nullCheck(a);
         nullCheck(b);
-        if (!(a instanceof BaseFileObject))
+        if (a instanceof PathFileObject && b instanceof PathFileObject)
+            return ((PathFileObject) a).isSameFile((PathFileObject) b);
+        // In time, we should phase out BaseFileObject in favor of PathFileObject
+        if (!(a instanceof BaseFileObject  || a instanceof PathFileObject))
             throw new IllegalArgumentException("Not supported: " + a);
-        if (!(b instanceof BaseFileObject))
+        if (!(b instanceof BaseFileObject || b instanceof PathFileObject))
             throw new IllegalArgumentException("Not supported: " + b);
         return a.equals(b);
     }
@@ -778,8 +784,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             if (a == null) {
                 if (fsInfo.isFile(file) && file.getName().endsWith(".jimage")) {
                     FileSystem fs = getFileSystem(file.toPath());
-                    Path fsRoot = fs.getRootDirectories().iterator().next();
-                    Path p = fsRoot.resolve(name.getPath());
+                    Path p = fs.getPath(name.getPath().replace("/", fs.getSeparator()));
                     if (Files.exists(p))
                         return PathFileObject.createJarPathFileObject(this, p);
                     continue;

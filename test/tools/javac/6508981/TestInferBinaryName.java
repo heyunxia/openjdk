@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,7 +26,8 @@
  * @bug 6508981
  * @summary cleanup file separator handling in JavacFileManager
  * (This test is specifically to test the new impl of inferBinaryName)
- * @build p.A
+ * @library /tools/lib
+ * @build ToolBox p.A
  * @run main TestInferBinaryName
  */
 
@@ -56,45 +57,67 @@ public class TestInferBinaryName {
     }
 
     void run() throws Exception {
-        //System.err.println(System.getProperties());
         testDirectory();
-        testZipArchive();
-        testZipFileIndexArchive();
-        testZipFileIndexArchive2();
+
+        File testJar = createJar();
+
+        testZipArchive(testJar);
+        testZipFileIndexArchive(testJar);
+        testZipFileIndexArchive2(testJar);
+
         if (errors > 0)
             throw new Exception(errors + " error found");
     }
 
+    File createJar() throws IOException {
+        File f = new File("test.jar");
+        try (JavaFileManager fm = new JavacFileManager(new Context(), false, null)) {
+            ToolBox tb = new ToolBox();
+            tb.new JarTask(f.getPath())
+                .files(fm, StandardLocation.PLATFORM_CLASS_PATH, "java.lang.*")
+                .run();
+        }
+        return f;
+    }
+
     void testDirectory() throws IOException {
         String testClassName = "p.A";
-        JavaFileManager fm =
-            getFileManager("test.classes", USE_ZIP_FILE_INDEX);
-        test("testDirectory",
-             fm, testClassName, "com.sun.tools.javac.file.RegularFileObject");
+        List<File> testClasses = Arrays.asList(new File(System.getProperty("test.classes")));
+        try (JavaFileManager fm =
+                getFileManager(testClasses, USE_ZIP_FILE_INDEX)) {
+            test("testDirectory",
+                fm, testClassName, "com.sun.tools.javac.file.RegularFileObject");
+        }
     }
 
-    void testZipArchive() throws IOException {
+    void testZipArchive(File testJar) throws IOException {
         String testClassName = "java.lang.String";
-        JavaFileManager fm =
-            getFileManager("sun.boot.class.path", DONT_USE_ZIP_FILE_INDEX);
-        test("testZipArchive",
-             fm, testClassName, "com.sun.tools.javac.file.ZipArchive$ZipFileObject");
+        List<File> path = Arrays.asList(testJar);
+        try (JavaFileManager fm =
+                getFileManager(path, DONT_USE_ZIP_FILE_INDEX)) {
+            test("testZipArchive",
+                 fm, testClassName, "com.sun.tools.javac.file.ZipArchive$ZipFileObject");
+        }
     }
 
-    void testZipFileIndexArchive() throws IOException {
+    void testZipFileIndexArchive(File testJar) throws IOException {
         String testClassName = "java.lang.String";
-        JavaFileManager fm =
-            getFileManager("sun.boot.class.path", USE_ZIP_FILE_INDEX);
-        test("testZipFileIndexArchive",
-             fm, testClassName, "com.sun.tools.javac.file.ZipFileIndexArchive$ZipFileIndexFileObject");
+        List<File> path = Arrays.asList(testJar);
+        try (JavaFileManager fm =
+                getFileManager(path, USE_ZIP_FILE_INDEX)) {
+            test("testZipFileIndexArchive",
+                 fm, testClassName, "com.sun.tools.javac.file.ZipFileIndexArchive$ZipFileIndexFileObject");
+        }
     }
 
-    void testZipFileIndexArchive2() throws IOException {
+    void testZipFileIndexArchive2(File testJar) throws IOException {
         String testClassName = "java.lang.String";
-        JavaFileManager fm =
-            getFileManager("sun.boot.class.path", USE_ZIP_FILE_INDEX);
-        test("testZipFileIndexArchive2",
-             fm, testClassName, "com.sun.tools.javac.file.ZipFileIndexArchive$ZipFileIndexFileObject");
+        List<File> path = Arrays.asList(testJar);
+        try (JavaFileManager fm =
+                getFileManager(path, USE_ZIP_FILE_INDEX)) {
+            test("testZipFileIndexArchive2",
+                 fm, testClassName, "com.sun.tools.javac.file.ZipFileIndexArchive$ZipFileIndexFileObject");
+        }
     }
 
     /**
@@ -122,7 +145,7 @@ public class TestInferBinaryName {
         System.err.println("OK");
     }
 
-    JavaFileManager getFileManager(String classpathProperty,
+    JavaFileManager getFileManager(List<File> path,
                                    boolean zipFileIndexKind)
             throws IOException {
         Context ctx = new Context();
@@ -131,7 +154,6 @@ public class TestInferBinaryName {
                 Boolean.toString(zipFileIndexKind == USE_ZIP_FILE_INDEX));
 
         JavacFileManager fm = new JavacFileManager(ctx, false, null);
-        List<File> path = getPath(System.getProperty(classpathProperty));
         fm.setLocation(CLASS_PATH, path);
         return fm;
     }

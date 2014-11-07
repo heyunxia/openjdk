@@ -63,8 +63,8 @@ import com.sun.tools.javac.util.DefinedBy.Api;
  *  deletion without notice.</b>
  */
 public abstract class PathFileObject implements JavaFileObject {
-    private BaseFileManager fileManager;
-    private Path path;
+    private final BaseFileManager fileManager;
+    private final Path path;
 
     /**
      * Create a PathFileObject within a directory, such that the binary name
