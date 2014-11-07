@@ -26,6 +26,9 @@
  * @test
  * @bug 6729471
  * @summary javap does not output inner interfaces of an interface
+ * @library /tools/lib
+ * @build ToolBox
+ * @run main T6729471
  */
 
 import java.io.*;
@@ -58,27 +61,29 @@ public class T6729471
         verify(new File(testClasses, "T6729471.class").toURI().toString(),
                 "public static void main(java.lang.String...)");
 
-        // jar url: rt.jar
-        File java_home = new File(System.getProperty("java.home"));
-        if (java_home.getName().equals("jre"))
-            java_home = java_home.getParentFile();
-        File rt_jar = new File(new File(new File(java_home, "jre"), "lib"), "rt.jar");
+        // jar url
+        File testJar = createJar("test.jar", "java.util.*");
         try {
-            verify("jar:" + rt_jar.toURL() + "!/java/util/Map.class",
+            verify("jar:" + testJar.toURL() + "!/java/util/Map.class",
                 "public abstract boolean containsKey(java.lang.Object)");
         } catch (MalformedURLException e) {
             error(e.toString());
         }
 
-        // Verify
-            verify("jar:" + foo_jarFile.toURL() + "!/Foo.class",
-                "public void sayHello()");
-        }
-        } else
-            System.err.println("warning: ct.sym not found");
-
         if (errors > 0)
             throw new Error(errors + " found.");
+    }
+
+    File createJar(String name, String... paths) throws IOException {
+        JavaCompiler comp = ToolProvider.getSystemJavaCompiler();
+        try (JavaFileManager fm = comp.getStandardFileManager(null, null, null)) {
+            File f = new File(name);
+            ToolBox tb = new ToolBox();
+            tb.new JarTask(f.getPath())
+                .files(fm, StandardLocation.PLATFORM_CLASS_PATH, paths)
+                .run();
+            return f;
+        }
     }
 
     void verify(String className, String... expects) {
