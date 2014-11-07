@@ -201,6 +201,8 @@ Thread::Thread() {
   // This initial value ==> never claimed.
   _oops_do_parity = 0;
 
+  _metadata_on_stack_buffer = NULL;
+
   // the handle mark links itself to last_handle_mark
   new HandleMark(this);
 
@@ -1287,6 +1289,7 @@ void WatcherThread::run() {
 
   this->record_stack_base_and_size();
   this->initialize_thread_local_storage();
+  this->set_native_thread_name(this->name());
   this->set_active_handles(JNIHandleBlock::allocate_block());
   while (!_should_terminate) {
     assert(watcher_thread() == Thread::current(), "thread consistency check");
