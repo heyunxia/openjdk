@@ -276,9 +276,6 @@ tools/pack200/Pack200Test.java                                  solaris-all,maco
 # 8007410
 tools/launcher/FXLauncherTest.java                              linux-all
 
-# 8060005
-com/sun/tools/extcheck/TestExtcheckArgs.java                    generic-all
-
 ############################################################################
 
 # jdk_jdi
