@@ -66,7 +66,7 @@
 # List of providers and their preference orders (see above):
 #
 #ifdef solaris
-security.provider.tbd=com.oracle.security.ucrypto.UcryptoProvider ${java.home}/lib/security/ucrypto-solaris.cfg
+security.provider.tbd=com.oracle.security.ucrypto.UcryptoProvider ${java.home}/conf/security/ucrypto-solaris.cfg
 security.provider.tbd=sun.security.pkcs11.SunPKCS11 ${java.home}/conf/security/sunpkcs11-solaris.cfg
 #endif
 security.provider.tbd=sun.security.provider.Sun
