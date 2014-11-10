@@ -3511,29 +3511,33 @@ static bool has_jar_files(const char* directory) {
   return hasJarFile ;
 }
 
-static void warn_non_empty_ext_dirs() {
-  const char* path = Arguments::get_ext_dirs();
+static int check_non_empty_dirs(const char* path) {
   const char separator = *os::path_separator();
   const char* const end = path + strlen(path);
-  bool hasJarFiles = false;
-  while (!hasJarFiles && path < end) {
+  int nonEmptyDirs = 0;
+  while (path < end) {
     const char* tmp_end = strchr(path, separator);
     if (tmp_end == NULL) {
-      hasJarFiles = has_jar_files(path);
+      if (has_jar_files(path)) {
+        nonEmptyDirs++;
+        jio_fprintf(defaultStream::output_stream(),
+          "Non-empty directory: %s\n", path);
+      }
       path = end;
     } else {
       char* dirpath = NEW_C_HEAP_ARRAY(char, tmp_end - path + 1, mtInternal);
       memcpy(dirpath, path, tmp_end - path);
       dirpath[tmp_end - path] = '\0';
-      hasJarFiles = has_jar_files(dirpath);
+      if (has_jar_files(dirpath)) {
+        nonEmptyDirs++;
+        jio_fprintf(defaultStream::output_stream(),
+          "Non-empty directory: %s\n", dirpath);
+      }
       FREE_C_HEAP_ARRAY(char, dirpath, mtInternal);
       path = tmp_end + 1;
     }
   }
-  if (hasJarFiles) {
-    warning("Extension mechanism is not supported.  JAR files under "
-            "these directories are ignored:\n%s", Arguments::get_ext_dirs());
-  }
+  return nonEmptyDirs;
 }
 
 jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_required) {
@@ -3541,6 +3545,18 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
   char path[JVM_MAXPATHLEN];
   const char* fileSep = os::file_separator();
   sprintf(path, "%s%slib%sendorsed", Arguments::get_java_home(), fileSep, fileSep);
+
+  if (CheckEndorsedAndExtDirs) {
+    int nonEmptyDirs = 0;
+    // check endorsed directory
+    nonEmptyDirs += check_non_empty_dirs(path);
+    // check the extension directories
+    nonEmptyDirs += check_non_empty_dirs(Arguments::get_ext_dirs());
+    if (nonEmptyDirs > 0) {
+      return JNI_ERR;
+    }
+  }
+
   DIR* dir = os::opendir(path);
   if (dir != NULL) {
     jio_fprintf(defaultStream::output_stream(),
@@ -3556,10 +3572,6 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
       "<JAVA_HOME>/lib/ext exists, extensions mechanism no longer supported; "
       "Use -classpath instead.\n.");
     return JNI_ERR;
-  }
-
-  if (PrintExtDirsWarning) {
-    warn_non_empty_ext_dirs();
   }
 
   if (scp_assembly_required) {
