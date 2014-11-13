@@ -611,16 +611,16 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
                 }
             }
 
-            if (!useOptimizedZip) {
-                archive = new ZipArchive(this, zdir);
-            } else {
-                archive = new ZipFileIndexArchive(this,
-                                zipFileIndexCache.getZipFileIndex(zipFileName,
-                                null,
-                                usePreindexedCache,
-                                preindexCacheLocation,
-                                options.isSet("writezipindexfiles")));
-            }
+                if (!useOptimizedZip) {
+                    archive = new ZipArchive(this, zdir);
+                } else {
+                    archive = new ZipFileIndexArchive(this,
+                                    zipFileIndexCache.getZipFileIndex(zipFileName,
+                                    null,
+                                    usePreindexedCache,
+                                    preindexCacheLocation,
+                                    options.isSet("writezipindexfiles")));
+                }
         } catch (FileNotFoundException ex) {
             archive = new MissingArchive(zipFileName);
         } catch (ZipFileIndex.ZipFormatException zfe) {
