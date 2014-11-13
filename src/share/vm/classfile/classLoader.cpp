@@ -411,7 +411,7 @@ const char* ClassPathImageEntry::name() {
 ClassFileStream* ClassPathImageEntry::open_stream(const char* name, TRAPS) {
   u1* buffer;
   u8 size;
-  _image->getResource(name, buffer, size);
+  _image->get_resource(name, buffer, size);
 
   if (buffer) {
     if (UsePerfData) {
