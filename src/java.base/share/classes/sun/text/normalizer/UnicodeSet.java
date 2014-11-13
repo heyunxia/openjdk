@@ -1867,4 +1867,3 @@ public class UnicodeSet implements UnicodeMatcher {
     public static final int IGNORE_SPACE = 1;
 
 }
-

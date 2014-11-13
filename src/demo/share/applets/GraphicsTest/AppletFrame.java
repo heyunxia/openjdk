@@ -108,4 +108,3 @@ class AppletFrame extends Frame {
         }
     }  // end handleEvent()
 }   // end class AppletFrame
-

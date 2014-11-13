@@ -46,4 +46,3 @@ public class GSSCaller {
         return "GSSCaller{" + name + '}';
     }
 }
-

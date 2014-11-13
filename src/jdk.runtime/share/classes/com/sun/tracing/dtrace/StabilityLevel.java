@@ -85,4 +85,3 @@ public enum StabilityLevel {
         this.encoding = encoding;
     }
 }
-

@@ -1058,4 +1058,3 @@ class SpinedBuffer<E>
         }
     }
 }
-

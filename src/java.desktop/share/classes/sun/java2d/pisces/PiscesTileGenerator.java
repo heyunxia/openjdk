@@ -249,4 +249,3 @@ final class PiscesTileGenerator implements AATileGenerator {
      */
     public void dispose() {}
 }
-

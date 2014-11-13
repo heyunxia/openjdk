@@ -92,4 +92,3 @@ public interface CipherData {
      */
     void setCipherReference(CipherReference reference) throws XMLEncryptionException;
 }
-

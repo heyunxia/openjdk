@@ -104,4 +104,3 @@ public abstract class BasicAuthenticator extends Authenticator {
      */
     public abstract boolean checkCredentials (String username, String password);
 }
-

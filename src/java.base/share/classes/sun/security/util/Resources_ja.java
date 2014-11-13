@@ -169,4 +169,3 @@ public class Resources_ja extends java.util.ListResourceBundle {
         return contents;
     }
 }
-

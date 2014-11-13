@@ -434,4 +434,3 @@ final class SignatureAndHashAlgorithm {
         }
     }
 }
-

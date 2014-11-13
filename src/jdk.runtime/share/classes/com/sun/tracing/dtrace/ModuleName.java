@@ -44,4 +44,3 @@ import java.lang.annotation.ElementType;
 public @interface ModuleName {
     String value();
 }
-

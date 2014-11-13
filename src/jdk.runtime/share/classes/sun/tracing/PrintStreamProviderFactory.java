@@ -117,4 +117,3 @@ class PrintStreamProbe extends ProbeSkeleton {
         provider.getStream().println(sb.toString());
     }
 }
-

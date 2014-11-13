@@ -117,4 +117,3 @@ public class PeerAddrChange extends PeerAddressChangeNotification
         return sb.toString();
     }
 }
-

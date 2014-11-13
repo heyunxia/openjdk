@@ -81,4 +81,3 @@ class NullProbe extends ProbeSkeleton {
     public void uncheckedTrigger(Object[] args) {
     }
 }
-

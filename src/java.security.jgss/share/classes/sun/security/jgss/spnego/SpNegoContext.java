@@ -1228,4 +1228,3 @@ public class SpNegoContext implements GSSContextSpi {
         }
     }
 }
-

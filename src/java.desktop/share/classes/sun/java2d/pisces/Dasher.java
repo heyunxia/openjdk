@@ -572,4 +572,3 @@ final class Dasher implements sun.awt.geom.PathConsumer2D {
         throw new InternalError("Dasher does not use a native consumer");
     }
 }
-
