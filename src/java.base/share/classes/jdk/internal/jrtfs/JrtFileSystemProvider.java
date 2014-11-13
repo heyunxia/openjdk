@@ -78,13 +78,6 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
     }
 
     @Override
-    public FileSystem newFileSystem(Path path, Map<String, ?> env)
-        throws IOException
-    {
-        return newFileSystem(path.toUri(), env);
-    }
-
-    @Override
     public Path getPath(URI uri) {
         String spec = uri.getSchemeSpecificPart();
         int sep = spec.indexOf("/");

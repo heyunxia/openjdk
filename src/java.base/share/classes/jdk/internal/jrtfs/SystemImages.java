@@ -25,9 +25,13 @@
 
 package jdk.internal.jrtfs;
 
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.CodeSource;
 
 final class SystemImages {
     private SystemImages() {}
@@ -36,10 +40,29 @@ final class SystemImages {
     static final Path extImagePath;
     static final Path appImagePath;
     static {
-        String javaHome = System.getProperty("java.home");
+        String javaHome = home();
         FileSystem fs = FileSystems.getDefault();
         bootImagePath = fs.getPath(javaHome, "lib", "modules", "bootmodules.jimage");
         extImagePath = fs.getPath(javaHome, "lib", "modules", "extmodules.jimage");
         appImagePath = fs.getPath(javaHome, "lib", "modules", "appmodules.jimage");
+    }
+
+    /**
+     * Returns the appropriate JDK home for this usage of the FileSystemProvider.
+     * When the CodeSource is null (null loader) then jrt:/ is the current runtime,
+     * otherwise the JDK home is located relative to jrt-fs.jar.
+     */
+    private static String home() {
+        CodeSource cs = SystemImages.class.getProtectionDomain().getCodeSource();
+        if (cs == null)
+            return System.getProperty("java.home");
+        URL url = cs.getLocation();
+        if (!url.getProtocol().equalsIgnoreCase("file"))
+            throw new RuntimeException(url + " loaded in unexpected way");
+        try {
+            return Paths.get(url.toURI()).getParent().toString();
+        } catch (URISyntaxException e) {
+            throw new InternalError(e);
+        }
     }
 }
