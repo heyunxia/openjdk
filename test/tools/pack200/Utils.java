@@ -555,7 +555,7 @@ class Utils {
         File BootModules = new File(ModuleDir, "bootmodules.jimage");
         List<String> cmdList = new ArrayList<>();
         cmdList.add(getJimageCmd());
-        cmdList.add("expand");
+        cmdList.add("extract");
         cmdList.add(BootModules.getAbsolutePath());
         cmdList.add("--dir");
         cmdList.add("out");
