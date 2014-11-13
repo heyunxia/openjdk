@@ -22,16 +22,15 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package jdk.internal.jimagefs;
+package jdk.internal.jrtfs;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.*;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.nio.file.AccessMode;
 import java.nio.file.ClosedFileSystemException;
 import java.nio.file.CopyOption;
@@ -71,30 +70,46 @@ import jdk.internal.jimage.ImageReader.Node;
 import jdk.internal.jimage.UTF8String;
 
 /**
- * A FileSystem built on a jimage file
+ * A FileSystem built on System jimage files.
  */
-final class ImageFileSystem extends FileSystem {
-
-    private final ImageFileSystemProvider provider;
-    private final Path imagePath;
-    private final ImageReader jimage;
-    private final ImagePath rootPath;
+final class JrtFileSystem extends FileSystem {
+    private static final Charset UTF_8 = Charset.forName("UTF-8");
+    private final JrtFileSystemProvider provider;
+    // System image readers
+    private final ImageReader bootImage;
+    private final ImageReader extImage;
+    private final ImageReader appImage;
+    // root path
+    private final JrtPath rootPath;
     private volatile boolean isOpen;
 
-    ImageFileSystem(ImageFileSystemProvider provider,
-            Path imagePath,
+    private static void checkExists(Path path) {
+        if (Files.notExists(path)) {
+            throw new FileSystemNotFoundException(path.toString());
+        }
+    }
+
+    // open a .jimage and build directory structure
+    private static ImageReader openImage(Path path) throws IOException {
+        ImageReader image = ImageReader.open(path.toString());
+        image.getRootDirectory();
+        return image;
+    }
+
+    JrtFileSystem(JrtFileSystemProvider provider,
             Map<String, ?> env)
             throws IOException {
         this.provider = provider;
-        this.imagePath = imagePath;
-        if (Files.notExists(imagePath)) {
-            throw new FileSystemNotFoundException(imagePath.toString());
-        }
-        // open image file
-        this.jimage = ImageReader.open(imagePath.toString());
-        // build directory structure
-        jimage.getRootDirectory();
-        rootPath = new ImagePath(this, new byte[]{'/'});
+        checkExists(SystemImages.bootImagePath);
+        checkExists(SystemImages.extImagePath);
+        checkExists(SystemImages.appImagePath);
+
+        // open image files
+        this.bootImage = openImage(SystemImages.bootImagePath);
+        this.extImage = openImage(SystemImages.extImagePath);
+        this.appImage = openImage(SystemImages.appImagePath);
+
+        rootPath = new JrtPath(this, new byte[]{'/'});
         isOpen = true;
     }
 
@@ -111,6 +126,11 @@ final class ImageFileSystem extends FileSystem {
     @Override
     public boolean isOpen() {
         return isOpen;
+    }
+
+    @Override
+    public void close() throws IOException {
+        throw new UnsupportedOperationException("close");
     }
 
     private void ensureOpen() throws IOException {
@@ -135,12 +155,12 @@ final class ImageFileSystem extends FileSystem {
         return pathArr;
     }
 
-    ImagePath getRootPath() {
+    JrtPath getRootPath() {
         return rootPath;
     }
 
     @Override
-    public ImagePath getPath(String first, String... more) {
+    public JrtPath getPath(String first, String... more) {
         String path;
         if (more.length == 0) {
             path = first;
@@ -157,7 +177,7 @@ final class ImageFileSystem extends FileSystem {
             }
             path = sb.toString();
         }
-        return new ImagePath(this, getBytes(path));
+        return new JrtPath(this, getBytes(path));
     }
 
     @Override
@@ -170,20 +190,20 @@ final class ImageFileSystem extends FileSystem {
         throw new UnsupportedOperationException();
     }
 
-    FileStore getFileStore(ImagePath path) {
-        return new ImageFileStore(path);
+    FileStore getFileStore(JrtPath path) {
+        return new JrtFileStore(path);
     }
 
     @Override
     public Iterable<FileStore> getFileStores() {
         ArrayList<FileStore> list = new ArrayList<>(1);
-        list.add(new ImageFileStore(new ImagePath(this, new byte[]{'/'})));
+        list.add(new JrtFileStore(new JrtPath(this, new byte[]{'/'})));
         return list;
     }
 
     private static final Set<String> supportedFileAttributeViews
             = Collections.unmodifiableSet(
-                    new HashSet<String>(Arrays.asList("basic", "jimage")));
+                    new HashSet<String>(Arrays.asList("basic", "jrt")));
 
     @Override
     public Set<String> supportedFileAttributeViews() {
@@ -192,11 +212,7 @@ final class ImageFileSystem extends FileSystem {
 
     @Override
     public String toString() {
-        return imagePath.toString();
-    }
-
-    Path getImageFile() {
-        return imagePath;
+        return "jrt:/";
     }
 
     private static final String GLOB_SYNTAX = "glob";
@@ -212,7 +228,7 @@ final class ImageFileSystem extends FileSystem {
         String input = syntaxAndInput.substring(pos + 1);
         String expr;
         if (syntax.equals(GLOB_SYNTAX)) {
-            expr = ImageUtils.toRegexPattern(input);
+            expr = JrtUtils.toRegexPattern(input);
         } else {
             if (syntax.equals(REGEX_SYNTAX)) {
                 expr = input;
@@ -226,76 +242,64 @@ final class ImageFileSystem extends FileSystem {
         return (Path path) -> pattern.matcher(path.toString()).matches();
     }
 
-    @Override
-    public void close() throws IOException {
-        if (!isOpen) {
-            return;
-        }
-
-        synchronized(this) {
-            jimage.close();
-            isOpen = false;
-        }
-
-        IOException ioe = null;
-        // clear all temp files created for FileChannels.
-        synchronized (tmppaths) {
-            for (Path p: tmppaths) {
-                try {
-                    AccessController.doPrivileged(
-                        (PrivilegedExceptionAction<Boolean>)() -> Files.deleteIfExists(p));
-                } catch (PrivilegedActionException e) {
-                    IOException x = (IOException)e.getException();
-                    if (ioe == null)
-                        ioe = x;
-                    else
-                        ioe.addSuppressed(x);
-                }
-            }
-        }
-        provider.removeFileSystem(imagePath, this);
-        if (ioe != null)
-           throw ioe;
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-        close();
-        super.finalize();
-    }
-
     final byte[] getBytes(String name) {
-        return name.getBytes(StandardCharsets.UTF_8);
+        return name.getBytes(UTF_8);
     }
 
     final String getString(byte[] name) {
-        return new String(name, StandardCharsets.UTF_8);
+        return new String(name, UTF_8);
     }
 
-    private Node checkNode(byte[] path) throws IOException {
-        ensureOpen();
-        Node node = jimage.findNode(path);
+    private static class NodeAndImage {
+        final Node node;
+        final ImageReader image;
+
+        NodeAndImage(Node node, ImageReader image) {
+            this.node = node; this.image = image;
+        }
+
+        byte[] getResource() throws IOException {
+            return image.getResource(node);
+        }
+    }
+
+    private NodeAndImage findNode(byte[] path) throws IOException {
+        ImageReader image = bootImage;
+        Node node = bootImage.findNode(path);
+        if (node == null) {
+            image = extImage;
+            node = extImage.findNode(path);
+        }
+        if (node == null) {
+            image = appImage;
+            node = appImage.findNode(path);
+        }
         if (node == null) {
             throw new NoSuchFileException(getString(path));
         }
-        return node;
+        return new NodeAndImage(node, image);
     }
 
-    private Node checkResource(byte[] path) throws IOException {
-        Node node = checkNode(path);
-        if (node.isDirectory()) {
+    private NodeAndImage checkNode(byte[] path) throws IOException {
+        ensureOpen();
+        return findNode(path);
+    }
+
+    private NodeAndImage checkResource(byte[] path) throws IOException {
+        NodeAndImage ni = checkNode(path);
+        if (ni.node.isDirectory()) {
             throw new FileSystemException(getString(path) + " is a directory");
         }
 
-        assert node.isResource() : "resource node expected here";
-        return node;
+        assert ni.node.isResource() : "resource node expected here";
+        return ni;
     }
 
     // package private helpers
-    ImageFileAttributes getFileAttributes(byte[] path)
+    JrtFileAttributes getFileAttributes(byte[] path)
             throws IOException {
-        Node node = checkNode(path);
-        return new ImageFileAttributes(node);
+        NodeAndImage ni = checkNode(path);
+        return new JrtFileAttributes(ni.node);
     }
 
     void setTimes(byte[] path, FileTime mtime, FileTime atime, FileTime ctime)
@@ -303,43 +307,77 @@ final class ImageFileSystem extends FileSystem {
         throw readOnly();
     }
 
-    boolean exists(byte[] path)
-            throws IOException {
+    boolean exists(byte[] path) throws IOException {
         ensureOpen();
-        return jimage.findNode(path) != null;
+        try {
+            findNode(path);
+        } catch (NoSuchFileException exp) {
+            return false;
+        }
+        return true;
     }
 
     boolean isDirectory(byte[] path)
             throws IOException {
         ensureOpen();
-        Node node = checkNode(path);
-        return node.isDirectory();
+        NodeAndImage ni = checkNode(path);
+        return ni.node.isDirectory();
     }
 
-    ImagePath toImagePath(String path) {
-        return toImagePath(getBytes(path));
+    JrtPath toJrtPath(String path) {
+        return toJrtPath(getBytes(path));
     }
 
-    ImagePath toImagePath(byte[] path) {
-        return new ImagePath(this, path);
+    JrtPath toJrtPath(byte[] path) {
+        return new JrtPath(this, path);
     }
 
     // returns the list of child paths of "path"
     Iterator<Path> iteratorOf(byte[] path,
             DirectoryStream.Filter<? super Path> filter)
             throws IOException {
-        Node node = checkNode(path);
-        if (!node.isDirectory()) {
+        NodeAndImage ni = checkNode(path);
+        if (!ni.node.isDirectory()) {
             throw new NotDirectoryException(getString(path));
         }
 
-        List<Node> childNodes = node.getChildren();
+        if (ni.node.isRootDir()) {
+            return rootDirIterator(path);
+        }
+
+        return nodesToIterator(toJrtPath(path), ni.node.getChildren());
+    }
+
+    private Iterator<Path> nodesToIterator(Path path, List<Node> childNodes) {
         List<Path> childPaths = new ArrayList<>(childNodes.size());
         childNodes.stream().forEach((child) -> {
-            childPaths.add(toImagePath(child.getNameString()));
+            childPaths.add(toJrtPath(child.getNameString()));
         });
-
         return childPaths.iterator();
+    }
+
+    private List<Node> rootChildren;
+    private static void addRootDirContent(List<Node> dest, List<Node> src) {
+        for (Node n : src) {
+            // only module directories at the top level. Filter other stuff!
+            if (n.isModuleDir()) {
+                dest.add(n);
+            }
+        }
+    }
+
+    private synchronized void initRootChildren(byte[] path) {
+        if (rootChildren == null) {
+            rootChildren = new ArrayList<>();
+            addRootDirContent(rootChildren, bootImage.findNode(path).getChildren());
+            addRootDirContent(rootChildren, extImage.findNode(path).getChildren());
+            addRootDirContent(rootChildren, appImage.findNode(path).getChildren());
+        }
+    }
+
+    private Iterator<Path> rootDirIterator(byte[] path) throws IOException {
+        initRootChildren(path);
+        return nodesToIterator(rootPath, rootChildren);
     }
 
     void createDirectory(byte[] dir, FileAttribute<?>... attrs)
@@ -377,38 +415,8 @@ final class ImageFileSystem extends FileSystem {
     // Returns an input stream for reading the contents of the specified
     // file entry.
     InputStream newInputStream(byte[] path) throws IOException {
-        final Node rs = checkResource(path);
-        return new ByteArrayInputStream(jimage.getResource(rs));
-    }
-
-    private final Set<Path> tmppaths = Collections.synchronizedSet(new HashSet<Path>());
-
-    // Creates a new empty temporary file in the same directory as the
-    // specified file.  A variant of Files.createTempFile.
-    private Path createTempFileInSameDirectoryAs(Path path)
-            throws IOException {
-        Path parent = path.toAbsolutePath().getParent();
-        Path dir = (parent == null) ? path.getFileSystem().getPath(".") : parent;
-        Path tmpPath = Files.createTempFile(dir, "imagefstmp", null);
-        tmppaths.add(tmpPath);
-        return tmpPath;
-    }
-
-    private Path getTempPathForEntry(byte[] path) throws IOException {
-        ensureOpen();
-        Path tmpPath = createTempFileInSameDirectoryAs(imagePath);
-        if (path != null) {
-            Node rs = checkResource(path);
-            try (InputStream is = newInputStream(path)) {
-                Files.copy(is, tmpPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-        }
-        return tmpPath;
-    }
-
-    private void removeTempPathForEntry(Path path) throws IOException {
-        Files.delete(path);
-        tmppaths.remove(path);
+        final NodeAndImage ni = checkResource(path);
+        return new ByteArrayInputStream(ni.getResource());
     }
 
     SeekableByteChannel newByteChannel(byte[] path,
@@ -421,8 +429,8 @@ final class ImageFileSystem extends FileSystem {
             throw readOnly();
         }
 
-        Node rs = checkResource(path);
-        byte[] buf = jimage.getResource(rs);
+        NodeAndImage ni = checkResource(path);
+        byte[] buf = ni.getResource();
         final ReadableByteChannel rbc
                 = Channels.newChannel(new ByteArrayInputStream(buf));
         final long size = buf.length;
@@ -478,129 +486,10 @@ final class ImageFileSystem extends FileSystem {
     }
 
     // Returns a FileChannel of the specified path.
-    //
-    // This implementation creates a temporary file on the default file system,
-    // copy the entry data into it if the entry exists, and then create a
-    // FileChannel on top of it.
     FileChannel newFileChannel(byte[] path,
             Set<? extends OpenOption> options,
             FileAttribute<?>... attrs)
             throws IOException {
-        checkOptions(options);
-        if (options.contains(StandardOpenOption.WRITE)
-            || options.contains(StandardOpenOption.APPEND)) {
-            throw readOnly();
-        }
-
-        Node rs = checkResource(path);
-        final Path tmpfile = getTempPathForEntry(path);
-        final FileChannel fch = tmpfile.getFileSystem()
-                .provider()
-                .newFileChannel(tmpfile, options, attrs);
-
-        return new FileChannel() {
-            @Override
-            public int write(ByteBuffer src) throws IOException {
-                return fch.write(src);
-            }
-
-            @Override
-            public long write(ByteBuffer[] srcs, int offset, int length)
-                    throws IOException {
-                return fch.write(srcs, offset, length);
-            }
-
-            @Override
-            public long position() throws IOException {
-                return fch.position();
-            }
-
-            @Override
-            public FileChannel position(long newPosition)
-                    throws IOException {
-                fch.position(newPosition);
-                return this;
-            }
-
-            @Override
-            public long size() throws IOException {
-                return fch.size();
-            }
-
-            @Override
-            public FileChannel truncate(long size)
-                    throws IOException {
-                fch.truncate(size);
-                return this;
-            }
-
-            @Override
-            public void force(boolean metaData)
-                    throws IOException {
-                fch.force(metaData);
-            }
-
-            @Override
-            public long transferTo(long position, long count,
-                    WritableByteChannel target)
-                    throws IOException {
-                return fch.transferTo(position, count, target);
-            }
-
-            @Override
-            public long transferFrom(ReadableByteChannel src,
-                    long position, long count)
-                    throws IOException {
-                return fch.transferFrom(src, position, count);
-            }
-
-            @Override
-            public int read(ByteBuffer dst) throws IOException {
-                return fch.read(dst);
-            }
-
-            @Override
-            public int read(ByteBuffer dst, long position)
-                    throws IOException {
-                return fch.read(dst, position);
-            }
-
-            @Override
-            public long read(ByteBuffer[] dsts, int offset, int length)
-                    throws IOException {
-                return fch.read(dsts, offset, length);
-            }
-
-            @Override
-            public int write(ByteBuffer src, long position)
-                    throws IOException {
-                return fch.write(src, position);
-            }
-
-            @Override
-            public MappedByteBuffer map(MapMode mode,
-                    long position, long size)
-                    throws IOException {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public FileLock lock(long position, long size, boolean shared)
-                    throws IOException {
-                return fch.lock(position, size, shared);
-            }
-
-            @Override
-            public FileLock tryLock(long position, long size, boolean shared)
-                    throws IOException {
-                return fch.tryLock(position, size, shared);
-            }
-
-            @Override
-            protected void implCloseChannel() throws IOException {
-                fch.close();
-                removeTempPathForEntry(tmpfile);
-            }
-        };
+        throw new UnsupportedOperationException("newFileChannel");
     }
 }
