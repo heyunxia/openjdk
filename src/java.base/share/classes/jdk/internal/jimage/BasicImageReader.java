@@ -168,9 +168,10 @@ public class BasicImageReader {
 
     private ByteBuffer getByteBuffer(long offset, long size) throws IOException {
         MappedByteBuffer buffer = preader.channel().map(FileChannel.MapMode.READ_ONLY, offset, size);
-        buffer.order(byteOrder);
-
-        return buffer.asReadOnlyBuffer();
+        // order is not copied into the readonly copy.
+        ByteBuffer readOnly = buffer.asReadOnlyBuffer();
+        readOnly.order(byteOrder);
+        return readOnly;
     }
 
     private int getRedirect(int index) {
