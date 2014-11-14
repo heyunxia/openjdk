@@ -26,9 +26,5 @@
 include GendataCommon.gmk
 
 include GendataFontConfig.gmk
-TARGETS += $(GENDATA_FONT_CONFIG)
 
 include GendataHtml32dtd.gmk
-TARGETS += $(GENDATA_HTML32DTD)
-
-$(TARGETS): $(BUILD_TOOLS_JDK)

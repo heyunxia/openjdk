@@ -96,5 +96,4 @@ $(SL_DATA_PKG_DIR)/_the.bifiles_th: $(BUILD_TOOLS) $(UNICODEDATA) $(BUILD_BREAKI
 	    -language th
 	$(TOUCH) $@
 
-
-BREAK_ITERATOR += $(BIFILES) $(BIFILES_TH)
+TARGETS += $(BIFILES) $(BIFILES_TH)

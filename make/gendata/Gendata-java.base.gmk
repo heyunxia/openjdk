@@ -29,13 +29,10 @@ include GendataCommon.gmk
 $(eval $(call IncludeCustomExtension, jdk, gendata/Gendata-java.base.gmk))
 
 include GendataBreakIterator.gmk
-TARGETS += $(BREAK_ITERATOR)
 
 include GendataTZDB.gmk
-TARGETS += $(GENDATA_TZDB)
 
 include GendataBlacklistedCerts.gmk
-TARGETS += $(GENDATA_BLACKLISTED_CERTS)
 
 include GendataPolicyJars.gmk
 
