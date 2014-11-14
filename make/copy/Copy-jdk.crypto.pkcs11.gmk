@@ -43,10 +43,3 @@ ifeq ($(OPENJDK_TARGET_OS), solaris)
 endif
 
 ################################################################################
-
-jdk.crypto.pkcs11: $(SECURITY_PKCS11_CONF_FILES)
-
-all: jdk.crypto.pkcs11
-
-.PHONY: all jdk.crypto.pkcs11
-
