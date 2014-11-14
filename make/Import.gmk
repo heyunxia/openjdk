@@ -203,18 +203,26 @@ endif
 
 ################################################################################
 
-$(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/_the.sa.jar.unpacked: $(HOTSPOT_DIST)/lib/sa-jdi.jar
+$(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/_the.sa.jar.unpacked: $(HOTSPOT_DIST)/lib/sa-jdi.jar \
+    $(SUPPORT_OUTPUTDIR)/gensrc/jdk.hotspot.agent/_the.sa.services
 	$(ECHO) $(LOG_INFO) Unzipping $(<F)
 	$(RM) -r $(@D)
 	$(MKDIR) -p $(@D)
 	$(CD) $(@D) && $(UNZIP) $< -x META-INF/MANIFEST.MF $(LOG_DEBUG)
         # We must move the service provider file out of the way so that
         # Gensrc-jdk.jdi.gmk can combine them.
+	$(MKDIR) -p $(SUPPORT_OUTPUTDIR)/gensrc/jdk.hotspot.agent
 	$(MV) $(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/META-INF/services/com.sun.jdi.connect.Connector \
-	    $(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/_the.sa.services
+	    $(SUPPORT_OUTPUTDIR)/gensrc/jdk.hotspot.agent/_the.sa.services
+	$(TOUCH) $(SUPPORT_OUTPUTDIR)/gensrc/jdk.hotspot.agent/_the.sa.services
 	$(TOUCH) $@
 
-SA_TARGETS += $(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/_the.sa.jar.unpacked
+# Declaring this dependency guarantees that _the.sa.services will be rebuilt
+# even if zip is already unpacked.
+$(SUPPORT_OUTPUTDIR)/gensrc/jdk.hotspot.agent/_the.sa.services: $(HOTSPOT_DIST)/lib/sa-jdi.jar
+
+SA_TARGETS += $(JDK_OUTPUTDIR)/modules/jdk.hotspot.agent/_the.sa.jar.unpacked \
+    $(SUPPORT_OUTPUTDIR)/gensrc/jdk.hotspot.agent/_the.sa.services
 
 ################################################################################
 
