@@ -68,7 +68,7 @@ BEANS_SRC = $(BEANS:%=$(JDK_TOPDIR)/src/java.desktop/share/classes/javax/swing/%
 
 # Dummy variable so far, in the old build system it was false by default
 SWINGBEAN_DEBUG_FLAG = false
-# GenDocletBeanInfo is compiled in Tools.gmk and picks up from $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes
+# GenDocletBeanInfo is compiled in Tools.gmk and picks up from $(BUILDTOOLS_OUTPUTDIR)/jdk_tools_classes
 # LocaleDataMetaInfo needs to be generated before running this to avoid confusing errors
 # in the build log.
 $(BEANINFO_OUTPUTDIR)/_the.generated_beaninfo: $(BEANS_SRC) \
@@ -83,9 +83,9 @@ $(BEANINFO_OUTPUTDIR)/_the.generated_beaninfo: $(BEANS_SRC) \
 	    -doclet build.tools.swingbeaninfo.GenDocletBeanInfo \
 	    -x $(SWINGBEAN_DEBUG_FLAG) -d $(BEANINFO_OUTPUTDIR)/javax/swing \
 	    -t $(DOCLET_DATA_DIR)/SwingBeanInfo.template \
-	    -docletpath $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes \
+	    -docletpath $(BUILDTOOLS_OUTPUTDIR)/jdk_tools_classes \
 	    -XDignore.symbol.file=true \
-	    -classpath $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes $(BEANS_SRC) $(LOG_INFO)
+	    -classpath $(BUILDTOOLS_OUTPUTDIR)/jdk_tools_classes $(BEANS_SRC) $(LOG_INFO)
         # Move the JTextComponent into its proper package directory.
 	$(MKDIR) -p $(BEANINFO_OUTPUTDIR)/javax/swing/text
 	$(MV) $(BEANINFO_OUTPUTDIR)/javax/swing/JTextComponentBeanInfo.java \
