@@ -287,3 +287,4 @@ final class Curve {
         };
     }
 }
+

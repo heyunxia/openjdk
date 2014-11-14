@@ -202,3 +202,4 @@ class BasicAuthentication extends AuthenticationInfo {
         return npath;
     }
 }
+

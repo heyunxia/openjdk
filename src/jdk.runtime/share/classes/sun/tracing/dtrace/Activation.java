@@ -104,3 +104,4 @@ class SystemResource extends WeakReference<Activation> {
         }
     }
 }
+

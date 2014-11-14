@@ -92,3 +92,4 @@ public interface CipherReference {
      */
     void setTransforms(Transforms transforms);
 }
+

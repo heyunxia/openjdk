@@ -270,3 +270,4 @@ class MacOSXPreferences extends AbstractPreferences {
         // nothing here - overridden sync() doesn't call this
     }
 }
+

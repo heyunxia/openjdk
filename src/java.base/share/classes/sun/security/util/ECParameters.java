@@ -233,3 +233,4 @@ public final class ECParameters extends AlgorithmParametersSpi {
         return namedCurve.toString();
     }
 }
+

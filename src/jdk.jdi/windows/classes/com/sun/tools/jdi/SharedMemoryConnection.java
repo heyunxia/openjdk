@@ -140,3 +140,4 @@ class SharedMemoryConnection extends Connection {
         }
     }
 }
+

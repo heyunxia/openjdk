@@ -243,3 +243,4 @@ public class NTLMAuthentication extends AuthenticationInfo {
         return result;
     }
 }
+

@@ -93,3 +93,4 @@ public class NTLMAuthSequence {
 
     private native byte[] getNextToken (long crdHandle, byte[] lastToken, Status returned);
 }
+

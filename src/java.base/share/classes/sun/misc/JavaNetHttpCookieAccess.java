@@ -41,3 +41,4 @@ public interface JavaNetHttpCookieAccess {
      */
     public String header(HttpCookie cookie);
 }
+

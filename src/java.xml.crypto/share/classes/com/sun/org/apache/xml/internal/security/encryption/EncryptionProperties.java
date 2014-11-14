@@ -84,3 +84,4 @@ public interface EncryptionProperties {
      */
     void removeEncryptionProperty(EncryptionProperty property);
 }
+

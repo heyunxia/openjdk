@@ -169,3 +169,4 @@ public class Resources_zh_CN extends java.util.ListResourceBundle {
         return contents;
     }
 }
+

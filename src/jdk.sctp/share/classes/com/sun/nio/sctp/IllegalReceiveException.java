@@ -50,3 +50,4 @@ public class IllegalReceiveException extends IllegalStateException {
         super(msg);
     }
 }
+

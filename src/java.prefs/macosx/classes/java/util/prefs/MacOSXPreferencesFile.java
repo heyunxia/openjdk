@@ -483,3 +483,4 @@ class MacOSXPreferencesFile {
     private static final native long currentHost();
     private static final native long anyHost();
 }
+

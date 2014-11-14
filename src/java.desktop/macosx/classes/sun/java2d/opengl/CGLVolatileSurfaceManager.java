@@ -147,3 +147,4 @@ public class CGLVolatileSurfaceManager extends VolatileSurfaceManager {
         }
     }
 }
+

@@ -49,3 +49,4 @@ public class AssociationImpl extends Association {
                  .toString();
     }
 }
+

@@ -127,3 +127,4 @@ public interface MBeanServerInterceptor extends MBeanServer {
     public ClassLoaderRepository getClassLoaderRepository();
 
 }
+

@@ -79,3 +79,4 @@ class DTraceProbe extends ProbeSkeleton {
         return this.parameters;
     }
 }
+

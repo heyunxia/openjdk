@@ -49,3 +49,4 @@ public class InvalidStreamException extends IllegalArgumentException {
         super(msg);
     }
 }
+
