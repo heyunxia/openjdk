@@ -43,7 +43,13 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
 
     public JrtFileSystemProvider() {
         try {
-            theFileSystem = new JrtFileSystem(this, null);
+            theFileSystem = new JrtFileSystem(this, null) {
+                @Override
+                public void close() throws IOException {
+                    // do not allow this shared/existing file system instance!
+                    throw new UnsupportedOperationException("close");
+                }
+            };
         } catch (IOException exp) {
             throw new UncheckedIOException(exp);
         }
@@ -74,7 +80,7 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
         throws IOException
     {
         checkUri(uri);
-        throw new FileSystemAlreadyExistsException();
+        return new JrtFileSystem(this, env);
     }
 
     @Override

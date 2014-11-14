@@ -34,9 +34,14 @@ import java.net.*;
 
 public class NewJrtFileSystem {
     public static void main(String[] args) throws Exception {
-        try {
-            FileSystem fs = FileSystems.newFileSystem(new URI("jrt:/"), null);
-            throw new AssertionError("expected FileSystemAlreadyExistsException");
-        } catch (FileSystemAlreadyExistsException ignored) {}
+        try (FileSystem fs = FileSystems.newFileSystem(URI.create("jrt:/"), null)) {
+             if (fs == FileSystems.getFileSystem(URI.create("jrt:/"))) {
+                 throw new AssertionError("expected an instance different from default instance");
+             }
+
+             if (! fs.provider().getScheme().equals("jrt")) {
+                 throw new AssertionError("'jrt' scheme expected here");
+             }
+        }
     }
 }

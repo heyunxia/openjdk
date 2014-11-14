@@ -72,13 +72,13 @@ import jdk.internal.jimage.UTF8String;
 /**
  * A FileSystem built on System jimage files.
  */
-final class JrtFileSystem extends FileSystem {
+class JrtFileSystem extends FileSystem {
     private static final Charset UTF_8 = Charset.forName("UTF-8");
     private final JrtFileSystemProvider provider;
     // System image readers
-    private final ImageReader bootImage;
-    private final ImageReader extImage;
-    private final ImageReader appImage;
+    private ImageReader bootImage;
+    private ImageReader extImage;
+    private ImageReader appImage;
     // root path
     private final JrtPath rootPath;
     private volatile boolean isOpen;
@@ -130,7 +130,33 @@ final class JrtFileSystem extends FileSystem {
 
     @Override
     public void close() throws IOException {
-        throw new UnsupportedOperationException("close");
+        cleanup();
+    }
+
+    @Override
+    protected void finalize() {
+        try {
+            cleanup();
+        } catch (IOException ignored) {}
+    }
+
+    // clean up this file system - called from finalize and close
+    private void cleanup() throws IOException {
+        if (!isOpen) {
+            return;
+        }
+
+        synchronized(this) {
+            isOpen = false;
+
+            // close all image readers and null out
+            bootImage.close();
+            extImage.close();
+            appImage.close();
+            bootImage = null;
+            extImage = null;
+            appImage = null;
+        }
     }
 
     private void ensureOpen() throws IOException {
