@@ -32,7 +32,7 @@ include JavaCompilation.gmk
 
 ################################################################################
 # The compileprops tools compiles a properties file into a resource bundle.
-TOOL_COMPILEPROPS_CMD := $(JAVA) -cp $(BUILDTOOLS_OUTPUTDIR)/langtools_bt_classes \
+TOOL_COMPILEPROPS_CMD := $(JAVA) -cp $(BUILDTOOLS_OUTPUTDIR)/langtools_tools_classes \
     compileproperties.CompileProperties -quiet
 
 
