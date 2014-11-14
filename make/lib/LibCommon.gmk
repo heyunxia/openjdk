@@ -23,8 +23,6 @@
 # questions.
 #
 
-default: all
-
 include $(SPEC)
 include MakeBase.gmk
 include NativeCompilation.gmk
@@ -53,18 +51,24 @@ endif
 # Find the default set of src dirs for a native library.
 # Param 1 - module name
 # Param 2 - library name
-FindSrcDirsForLib = $(call uniq, $(wildcard \
-    $(JDK_TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS)/native/lib$(strip $2) \
-    $(JDK_TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS_API_DIR)/native/lib$(strip $2) \
-    $(JDK_TOPDIR)/src/$(strip $1)/share/native/lib$(strip $2)))
+define FindSrcDirsForLib 
+  $(call uniq, $(wildcard \
+      $(JDK_TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS)/native/lib$(strip $2) \
+      $(JDK_TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS_API_DIR)/native/lib$(strip $2) \
+      $(JDK_TOPDIR)/src/$(strip $1)/share/native/lib$(strip $2)))
+endef
 
 ################################################################################
 # Find lib dir for module
 # Param 1 - module name
 ifeq ($(OPENJDK_TARGET_OS_API), posix)
-  FindLibDirForModule = $(SUPPORT_OUTPUTDIR)/modules_libs/$(strip $1)$(OPENJDK_TARGET_CPU_LIBDIR)
+  define FindLibDirForModule
+    $(SUPPORT_OUTPUTDIR)/modules_libs/$(strip $1)$(OPENJDK_TARGET_CPU_LIBDIR)
+  endef
 else
-  FindLibDirForModule = $(SUPPORT_OUTPUTDIR)/modules_libs/$(strip $1)
+  define FindLibDirForModule
+    $(SUPPORT_OUTPUTDIR)/modules_libs/$(strip $1)
+  endef
 endif
 
 ################################################################################
@@ -72,7 +76,9 @@ endif
 # Param 1 - module name
 # Param 2 - library name
 # Param 3 - subdir for library
-FindLib = $(call FindLibDirForModule, $(strip $1))$(strip $3)/$(LIBRARY_PREFIX)$(strip $2)$(SHARED_LIBRARY_SUFFIX)
+define FindLib
+  $(call FindLibDirForModule, $(strip $1))$(strip $3)/$(LIBRARY_PREFIX)$(strip $2)$(SHARED_LIBRARY_SUFFIX)
+endef
 
 ################################################################################
 # Define the header include flags needed to compile against it.

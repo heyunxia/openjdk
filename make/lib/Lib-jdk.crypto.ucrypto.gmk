@@ -23,8 +23,7 @@
 # questions.
 #
 
-include $(SPEC)
-include $(JDK_TOPDIR)/make/lib/LibCommon.gmk
+include LibCommon.gmk
 
 ################################################################################
 
