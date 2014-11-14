@@ -40,23 +40,13 @@ ifeq (, $(BUILD_TOOLS_JDK))
       SETUP := GENERATE_OLDBYTECODE, \
       ADD_JAVAC_FLAGS := "-Xbootclasspath/p:$(BUILDTOOLS_OUTPUTDIR)/interim_jimage_classes", \
       SRC := $(JDK_TOPDIR)/make/src/classes, \
-      BIN := $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes))
+      BIN := $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes, \
+      COPY := boot.modules ext.modules))
 endif
 
 $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes/build/tools/generatenimbus/resources/%.template: \
     $(JDK_TOPDIR)/src/java.desktop/share/classes/javax/swing/plaf/nimbus/%.template
 	$(call install-file)
-
-$(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes/build/tools/module/boot.modules: \
-    $(JDK_TOPDIR)/make/src/classes/build/tools/module/boot.modules
-	$(call install-file)
-
-$(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes/build/tools/module/ext.modules: \
-    $(JDK_TOPDIR)/make/src/classes/build/tools/module/ext.modules
-	$(call install-file)
-
-BUILD_TOOLS_JDK += $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes/build/tools/module/boot.modules
-BUILD_TOOLS_JDK += $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes/build/tools/module/ext.modules
 
 BUILD_TOOLS_JDK += $(foreach i, $(wildcard $(JDK_TOPDIR)/src/java.desktop/share/classes/javax/swing/plaf/nimbus/*.template), $(BUILDTOOLS_OUTPUTDIR)/jdk_bt_classes/build/tools/generatenimbus/resources/$(notdir $i))
 
