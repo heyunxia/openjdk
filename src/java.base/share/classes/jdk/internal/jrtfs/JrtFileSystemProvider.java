@@ -97,6 +97,7 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
 
     @Override
     public FileSystem getFileSystem(URI uri) {
+        checkUri(uri);
         return theFileSystem;
     }
 
