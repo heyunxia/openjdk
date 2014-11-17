@@ -25,17 +25,24 @@
 
 package com.sun.tools.javac.file;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -54,8 +61,9 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 
-import com.sun.tools.javac.file.RelativePath.RelativeFile;
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
+import com.sun.tools.javac.file.RelativePath.RelativeFile;
+import com.sun.tools.javac.nio.PathFileObject;
 import com.sun.tools.javac.util.BaseFileManager;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.DefinedBy;
@@ -63,7 +71,11 @@ import com.sun.tools.javac.util.DefinedBy.Api;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 
+import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
+
 import static javax.tools.StandardLocation.*;
+
+import static com.sun.tools.javac.util.BaseFileManager.getKind;
 
 /**
  * This class provides access to the source, class and other files
@@ -94,6 +106,9 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
 
     protected boolean mmappedIO;
     protected boolean symbolFileEnabled;
+
+    // for now, this is per instance; we may want to make it static final.
+    protected boolean jimageSupportEnabled;
 
     protected enum SortFiles implements Comparator<File> {
         FORWARD {
@@ -130,6 +145,14 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         if (register)
             context.put(JavaFileManager.class, this);
         setContext(context);
+
+        jimageSupportEnabled = false;
+        for (FileSystemProvider provider: FileSystemProvider.installedProviders()) {
+            if (provider.getScheme().equalsIgnoreCase("jimage")) {
+                jimageSupportEnabled = true;
+                break;
+            }
+        }
     }
 
     /**
@@ -159,6 +182,10 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
      */
     public void setSymbolFileEnabled(boolean b) {
         symbolFileEnabled = b;
+    }
+
+    public boolean isSymbolFileEnabled() {
+        return symbolFileEnabled;
     }
 
     public JavaFileObject getFileForInput(String name) {
@@ -250,6 +277,65 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         System.out.println(message);
     }
 
+    /**
+     * Insert all files in subdirectory subdirectory of image jimage
+     * which match fileKinds into resultList.
+     */
+    private void listImage(File jimage,
+                               RelativeDirectory subdirectory,
+                               Set<JavaFileObject.Kind> fileKinds,
+                               boolean recurse,
+                               ListBuffer<JavaFileObject> resultList) throws IOException {
+        if (!jimageSupportEnabled)
+            throw new IOException(".jimage file support not available");
+
+        FileSystem fs = getFileSystem(jimage.toPath());
+
+        Path fsRoot = fs.getRootDirectories().iterator().next();
+        String fsSep = fs.getSeparator();
+        // Note that (for now?) jimagefs does not support trailing '/' on directory names
+        Path packageDir = subdirectory.getPath().isEmpty() ? fsRoot
+                : fsRoot.resolve(subdirectory.getPath().replace("/", fsSep).replaceAll("/$", ""));
+        if (!Files.exists(packageDir))
+            return;
+
+        int maxDepth = (recurse ? Integer.MAX_VALUE : 1);
+        Set<FileVisitOption> opts = EnumSet.of(FOLLOW_LINKS);
+        Files.walkFileTree(packageDir, opts, maxDepth,
+                new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                Path name = dir.getFileName();
+                if (name == null || SourceVersion.isIdentifier(name.toString())) // JSR 292?
+                    return FileVisitResult.CONTINUE;
+                else
+                    return FileVisitResult.SKIP_SUBTREE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                if (attrs.isRegularFile() && fileKinds.contains(getKind(file.getFileName().toString()))) {
+                    JavaFileObject fe =
+                        PathFileObject.createJarPathFileObject(
+                            JavacFileManager.this, file);
+                    resultList.append(fe);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    // for now, we share *.jimage file systems between all instances of javac
+    private static synchronized FileSystem getFileSystem(Path p) throws IOException {
+        FileSystem fs = fileSystems.get(p);
+        if (fs == null) {
+            fs = FileSystems.newFileSystem(p, null);
+            fileSystems.put(p, fs);
+        }
+        return fs;
+    }
+
+    private static final Map<Path,FileSystem> fileSystems = new HashMap<>();
 
     /**
      * Insert all files in subdirectory subdirectory of directory directory
@@ -334,7 +420,21 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
                                ListBuffer<JavaFileObject> resultList) {
         Archive archive = archives.get(container);
         if (archive == null) {
-            // archives are not created for directories.
+            // archives are not created for directories or image files
+            if (fsInfo.isFile(container) && container.getName().endsWith(".jimage")) {
+                try {
+                    listImage(container,
+                            subdirectory,
+                            fileKinds,
+                            recurse,
+                            resultList);
+                } catch (IOException ex) {
+                    ex.printStackTrace(System.err);
+                    log.error("error.reading.file", container, getMessage(ex));
+                }
+                return;
+            }
+
             if  (fsInfo.isDirectory(container)) {
                 listDirectory(container,
                               subdirectory,
@@ -348,8 +448,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             try {
                 archive = openArchive(container);
             } catch (IOException ex) {
-                log.error("error.reading.file",
-                          container, getMessage(ex));
+                log.error("error.reading.file", container, getMessage(ex));
                 return;
             }
         }
@@ -473,17 +572,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
     /** Open a new zip file directory, and cache it.
      */
     private Archive openArchive(File zipFileName, boolean useOptimizedZip) throws IOException {
-        File origZipFileName = zipFileName;
         if (symbolFileEnabled && locations.isDefaultBootClassPathRtJar(zipFileName)) {
-            File file = zipFileName.getParentFile().getParentFile(); // ${java.home}
-            if (new File(file.getName()).equals(new File("jre")))
-                file = file.getParentFile();
-            // file == ${jdk.home}
-            for (String name : symbolFileLocation)
-                file = new File(file, name);
-            // file == ${jdk.home}/lib/ct.sym
-            if (file.exists())
-                zipFileName = file;
         }
 
         Archive archive;
@@ -522,7 +611,6 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
                 }
             }
 
-            if (origZipFileName == zipFileName) {
                 if (!useOptimizedZip) {
                     archive = new ZipArchive(this, zdir);
                 } else {
@@ -533,18 +621,6 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
                                     preindexCacheLocation,
                                     options.isSet("writezipindexfiles")));
                 }
-            } else {
-                if (!useOptimizedZip) {
-                    archive = new SymbolArchive(this, origZipFileName, zdir, symbolFilePrefix);
-                } else {
-                    archive = new ZipFileIndexArchive(this,
-                                    zipFileIndexCache.getZipFileIndex(zipFileName,
-                                    symbolFilePrefix,
-                                    usePreindexedCache,
-                                    preindexCacheLocation,
-                                    options.isSet("writezipindexfiles")));
-                }
-            }
         } catch (FileNotFoundException ex) {
             archive = new MissingArchive(zipFileName);
         } catch (ZipFileIndex.ZipFormatException zfe) {
@@ -555,7 +631,7 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             archive = new MissingArchive(zipFileName);
         }
 
-        archives.put(origZipFileName, archive);
+        archives.put(zipFileName, archive);
         return archive;
     }
 
@@ -576,9 +652,18 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             i.remove();
             try {
                 a.close();
-            } catch (IOException e) {
+            } catch (IOException ignore) {
             }
         }
+        /* FileSystems for *.jimage files are currently shared between all instances of javac.
+        for (FileSystem fs: fileSystems.values()) {
+            try {
+                fs.close();
+            } catch (IOException ignore) {
+            }
+        }
+        fileSystems.clear();
+        */
     }
 
     @DefinedBy(Api.COMPILER)
@@ -633,6 +718,8 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
 
         if (file instanceof BaseFileObject) {
             return ((BaseFileObject) file).inferBinaryName(path);
+        } else if (file instanceof PathFileObject) {
+            return ((PathFileObject) file).inferBinaryName(null);
         } else
             throw new IllegalArgumentException(file.getClass().getName());
     }
@@ -641,9 +728,12 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
     public boolean isSameFile(FileObject a, FileObject b) {
         nullCheck(a);
         nullCheck(b);
-        if (!(a instanceof BaseFileObject))
+        if (a instanceof PathFileObject && b instanceof PathFileObject)
+            return ((PathFileObject) a).isSameFile((PathFileObject) b);
+        // In time, we should phase out BaseFileObject in favor of PathFileObject
+        if (!(a instanceof BaseFileObject  || a instanceof PathFileObject))
             throw new IllegalArgumentException("Not supported: " + a);
-        if (!(b instanceof BaseFileObject))
+        if (!(b instanceof BaseFileObject || b instanceof PathFileObject))
             throw new IllegalArgumentException("Not supported: " + b);
         return a.equals(b);
     }
@@ -690,17 +780,23 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         if (path == null)
             return null;
 
-        for (File dir: path) {
-            Archive a = archives.get(dir);
+        for (File file: path) {
+            Archive a = archives.get(file);
             if (a == null) {
-                if (fsInfo.isDirectory(dir)) {
-                    File f = name.getFile(dir);
+                if (fsInfo.isFile(file) && file.getName().endsWith(".jimage")) {
+                    FileSystem fs = getFileSystem(file.toPath());
+                    Path p = fs.getPath(name.getPath().replace("/", fs.getSeparator()));
+                    if (Files.exists(p))
+                        return PathFileObject.createJarPathFileObject(this, p);
+                    continue;
+                } else if (fsInfo.isDirectory(file)) {
+                    File f = name.getFile(file);
                     if (f.exists())
                         return new RegularFileObject(this, f);
                     continue;
                 }
                 // Not a directory, create the archive
-                a = openArchive(dir);
+                a = openArchive(file);
             }
             // Process the archive
             if (a.contains(name)) {

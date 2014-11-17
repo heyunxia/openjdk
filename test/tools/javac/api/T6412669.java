@@ -44,43 +44,24 @@ public class T6412669 extends AbstractProcessor {
         File testSrc = new File(System.getProperty("test.src", "."));
         File testClasses = new File(System.getProperty("test.classes", "."));
 
-        // Determine location of necessary tools classes. Assume all in one place.
-        // Likely candidates are typically tools.jar (when testing JDK build)
-        // or build/classes or dist/javac.jar (when testing langtools, using -Xbootclasspath/p:)
-        File toolsClasses;
-        URL u = T6412669.class.getClassLoader().getResource("com/sun/source/util/JavacTask.class");
-        switch (u.getProtocol()) {
-            case "file":
-                toolsClasses = new File(u.toURI());
-                break;
-            case "jar":
-                String s = u.getFile(); // will be file:path!/entry
-                int sep = s.indexOf("!");
-                toolsClasses = new File(new URI(s.substring(0, sep)));
-                break;
-            default:
-                throw new AssertionError("Cannot locate tools classes");
-        }
-        //System.err.println("toolsClasses: " + toolsClasses);
-
         JavacTool tool = JavacTool.create();
         try (StandardJavaFileManager fm = tool.getStandardFileManager(null, null, null)) {
-            fm.setLocation(StandardLocation.CLASS_PATH, Arrays.asList(testClasses, toolsClasses));
-            Iterable<? extends JavaFileObject> files =
-                fm.getJavaFileObjectsFromFiles(Arrays.asList(new File(testSrc, T6412669.class.getName()+".java")));
-            String[] opts = { "-proc:only", "-processor", T6412669.class.getName()};
-            StringWriter sw = new StringWriter();
-            JavacTask task = tool.getTask(sw, fm, null, Arrays.asList(opts), null, files);
-            boolean ok = task.call();
-            String out = sw.toString();
-            if (!out.isEmpty())
-                System.err.println(out);
-            if (!ok)
-                throw new AssertionError("compilation of test program failed");
-            // verify we found an annotated element to exercise the SourcePositions API
-            if (!out.contains("processing element"))
-                throw new AssertionError("expected text not found in compilation output");
-        }
+        fm.setLocation(StandardLocation.CLASS_PATH, Arrays.asList(testClasses));
+        Iterable<? extends JavaFileObject> files =
+            fm.getJavaFileObjectsFromFiles(Arrays.asList(new File(testSrc, T6412669.class.getName()+".java")));
+        String[] opts = { "-proc:only", "-processor", T6412669.class.getName()};
+        StringWriter sw = new StringWriter();
+        JavacTask task = tool.getTask(sw, fm, null, Arrays.asList(opts), null, files);
+        boolean ok = task.call();
+        String out = sw.toString();
+        if (!out.isEmpty())
+            System.err.println(out);
+        if (!ok)
+            throw new AssertionError("compilation of test program failed");
+        // verify we found an annotated element to exercise the SourcePositions API
+        if (!out.contains("processing element"))
+            throw new AssertionError("expected text not found in compilation output");
+    }
     }
 
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {

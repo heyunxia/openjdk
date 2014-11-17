@@ -73,8 +73,6 @@ public class T5070898
     int runJavah() throws Exception {
         List<String> cmd = new ArrayList<String>();
         File java_home = new File(System.getProperty("java.home"));
-        if (java_home.getName().equals("jre"))
-            java_home = java_home.getParentFile();
         cmd.add(new File(new File(java_home, "bin"), "javah").getPath());
 
         // ensure we run with the same bootclasspath as this test,
