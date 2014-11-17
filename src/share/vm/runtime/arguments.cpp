@@ -3497,11 +3497,6 @@ static bool has_jar_files(const char* directory) {
   DIR* dir = os::opendir(directory);
   if (dir == NULL) return false;
 
-  char dir_sep[2] = { '\0', '\0' };
-  size_t directory_len = strlen(directory);
-  const char fileSep = *os::file_separator();
-  if (directory[directory_len - 1] != fileSep) dir_sep[0] = fileSep;
-
   struct dirent *entry;
   char *dbuf = NEW_C_HEAP_ARRAY(char, os::readdir_buf_size(directory), mtInternal);
   bool hasJarFile = false;
@@ -3566,6 +3561,7 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
     jio_fprintf(defaultStream::output_stream(),
       "<JAVA_HOME>/lib/endorsed is not supported. Endorsed standards and standalone APIs\n"
       "in modular form will be supported via the concept of upgradeable modules.\n");
+    os::closedir(dir);
     return JNI_ERR;
   }
 
@@ -3575,6 +3571,7 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
     jio_fprintf(defaultStream::output_stream(),
       "<JAVA_HOME>/lib/ext exists, extensions mechanism no longer supported; "
       "Use -classpath instead.\n.");
+    os::closedir(dir);
     return JNI_ERR;
   }
 
