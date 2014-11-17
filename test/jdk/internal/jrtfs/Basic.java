@@ -33,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Iterator;
@@ -171,7 +172,9 @@ public class Basic {
                 assertTrue(u.getScheme().equalsIgnoreCase("jrt"));
                 assertFalse(u.isOpaque());
                 assertTrue(u.getAuthority() == null);
-                assertEquals(u.getRawPath(), path.toAbsolutePath().toString());
+                assertEquals(u.getPath(), path.toAbsolutePath().toString());
+                Path p = Paths.get(u);
+                assertEquals(p, path);
             });
         }
     }

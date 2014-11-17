@@ -85,13 +85,18 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
 
     @Override
     public Path getPath(URI uri) {
-        String spec = uri.getSchemeSpecificPart();
-        int sep = spec.indexOf("/");
-        if (sep == -1)
-            throw new IllegalArgumentException("URI: "
-                + uri
-                + " does not contain path info ex. jrt:/BAR");
-        return getFileSystem(uri).getPath(spec.substring(sep + 1));
+        if (!uri.getScheme().equalsIgnoreCase(getScheme()))
+            throw new IllegalArgumentException("URI does not match this provider");
+        if (uri.getAuthority() != null)
+            throw new IllegalArgumentException("Authority component present");
+        if (uri.getQuery() != null)
+            throw new IllegalArgumentException("Query component present");
+        if (uri.getFragment() != null)
+            throw new IllegalArgumentException("Fragment component present");
+        String path = uri.getPath();
+        if (path == null || path.charAt(0) != '/')
+            throw new IllegalArgumentException("Invalid path component");
+        return theFileSystem.getPath(path);
     }
 
 
