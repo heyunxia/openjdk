@@ -139,4 +139,22 @@ public class Basic {
             assertTrue(stream.count() > 0L);
         }
     }
+
+    /**
+     * Test the URI of every file in the jrt file system
+     */
+    @Test
+    public void testToUri() throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        Path top = fs.getPath("/");
+        try (Stream<Path> stream = Files.walk(top)) {
+            stream.forEach(path -> {
+                URI u = path.toUri();
+                assertTrue(u.getScheme().equalsIgnoreCase("jrt"));
+                assertFalse(u.isOpaque());
+                assertTrue(u.getAuthority() == null);
+                assertEquals(u.getRawPath(), path.toAbsolutePath().toString());
+            });
+        }
+    }
 }

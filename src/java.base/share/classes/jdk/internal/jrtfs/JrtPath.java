@@ -164,7 +164,7 @@ final class JrtPath implements Path {
     @Override
     public URI toUri() {
         try {
-            return new URI("jrt:/",
+            return new URI("jrt",
                            jrtfs.getString(toAbsolutePath().path),
                            null);
         } catch (URISyntaxException ex) {
