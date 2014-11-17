@@ -116,11 +116,10 @@ public class Basic {
     @DataProvider(name = "knownDirectorues")
     private Object[][] knownDirectories() {
         return new Object[][] {
-            { "/"          },
-            { "/java"      },
-            { "/java/lang" },
-            { "java"       },
-            { "java/lang"  },
+            { "/"                    },
+            { "/java.base"           },
+            { "/java.base/java/lang" },
+            { "java.base/java/lang"  },
         };
     }
 
@@ -138,6 +137,25 @@ public class Basic {
         try (Stream<Path> stream = Files.walk(dir)) {
             assertTrue(stream.count() > 0L);
         }
+    }
+
+    @DataProvider(name = "topLevelPkgDirs")
+    private Object[][] topLevelPkgDirs() {
+        return new Object[][] {
+            { "/java/lang" },
+            { "java/lang"  },
+            { "/java/util" },
+            { "java/util"  },
+        };
+    }
+
+    @Test(dataProvider = "topLevelPkgDirs")
+    public void testNotExists(String path) throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        Path dir = fs.getPath(path);
+
+        // package directories should not be there at top level
+        assertTrue(Files.notExists(dir));
     }
 
     /**

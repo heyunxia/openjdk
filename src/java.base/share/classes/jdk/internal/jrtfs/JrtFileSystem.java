@@ -300,7 +300,7 @@ class JrtFileSystem extends FileSystem {
             image = appImage;
             node = appImage.findNode(path);
         }
-        if (node == null) {
+        if (node == null || node.isTopLevelPackageDir()) {
             throw new NoSuchFileException(getString(path));
         }
         return new NodeAndImage(node, image);
