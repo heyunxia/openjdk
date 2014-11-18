@@ -34,14 +34,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitOption;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,6 +49,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipFile;
@@ -70,8 +69,6 @@ import com.sun.tools.javac.util.DefinedBy;
 import com.sun.tools.javac.util.DefinedBy.Api;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
-
-import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 
 import static javax.tools.StandardLocation.*;
 
@@ -106,9 +103,6 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
 
     protected boolean mmappedIO;
     protected boolean symbolFileEnabled;
-
-    // for now, this is per instance; we may want to make it static final.
-    protected boolean jimageSupportEnabled;
 
     protected enum SortFiles implements Comparator<File> {
         FORWARD {
@@ -145,14 +139,6 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         if (register)
             context.put(JavaFileManager.class, this);
         setContext(context);
-
-        jimageSupportEnabled = false;
-        for (FileSystemProvider provider: FileSystemProvider.installedProviders()) {
-            if (provider.getScheme().equalsIgnoreCase("jimage")) {
-                jimageSupportEnabled = true;
-                break;
-            }
-        }
     }
 
     /**
@@ -278,64 +264,37 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
     }
 
     /**
-     * Insert all files in subdirectory subdirectory of image jimage
+     * Insert all files in a subdirectory of the platform image
      * which match fileKinds into resultList.
      */
-    private void listImage(File jimage,
-                               RelativeDirectory subdirectory,
+    private void listJRTImage(RelativeDirectory subdirectory,
                                Set<JavaFileObject.Kind> fileKinds,
                                boolean recurse,
                                ListBuffer<JavaFileObject> resultList) throws IOException {
-        if (!jimageSupportEnabled)
-            throw new IOException(".jimage file support not available");
-
-        FileSystem fs = getFileSystem(jimage.toPath());
-
-        Path fsRoot = fs.getRootDirectories().iterator().next();
-        String fsSep = fs.getSeparator();
-        // Note that (for now?) jimagefs does not support trailing '/' on directory names
-        Path packageDir = subdirectory.getPath().isEmpty() ? fsRoot
-                : fsRoot.resolve(subdirectory.getPath().replace("/", fsSep).replaceAll("/$", ""));
-        if (!Files.exists(packageDir))
-            return;
-
-        int maxDepth = (recurse ? Integer.MAX_VALUE : 1);
-        Set<FileVisitOption> opts = EnumSet.of(FOLLOW_LINKS);
-        Files.walkFileTree(packageDir, opts, maxDepth,
-                new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                Path name = dir.getFileName();
-                if (name == null || SourceVersion.isIdentifier(name.toString())) // JSR 292?
-                    return FileVisitResult.CONTINUE;
-                else
-                    return FileVisitResult.SKIP_SUBTREE;
+        JRTIndex.Entry entry = getJRTIndex().getEntry(subdirectory);
+        for (Path file: entry.files.values()) {
+            if (fileKinds.contains(getKind(file))) {
+                JavaFileObject fe
+                        = PathFileObject.createJRTPathFileObject(JavacFileManager.this, file);
+                resultList.append(fe);
             }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                if (attrs.isRegularFile() && fileKinds.contains(getKind(file.getFileName().toString()))) {
-                    JavaFileObject fe =
-                        PathFileObject.createJarPathFileObject(
-                            JavacFileManager.this, file);
-                    resultList.append(fe);
-                }
-                return FileVisitResult.CONTINUE;
-            }
-        });
-    }
-
-    // for now, we share *.jimage file systems between all instances of javac
-    private static synchronized FileSystem getFileSystem(Path p) throws IOException {
-        FileSystem fs = fileSystems.get(p);
-        if (fs == null) {
-            fs = FileSystems.newFileSystem(p, null);
-            fileSystems.put(p, fs);
         }
-        return fs;
+
+        if (recurse) {
+            for (RelativeDirectory rd: entry.subdirs) {
+                listJRTImage(rd, fileKinds, recurse, resultList);
+            }
+        }
     }
 
-    private static final Map<Path,FileSystem> fileSystems = new HashMap<>();
+    private synchronized JRTIndex getJRTIndex() throws IOException {
+        if (jrtIndex == null)
+            jrtIndex = JRTIndex.getSharedInstance();
+        return jrtIndex;
+    }
+
+    private JRTIndex jrtIndex;
+
 
     /**
      * Insert all files in subdirectory subdirectory of directory directory
@@ -420,11 +379,19 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
                                ListBuffer<JavaFileObject> resultList) {
         Archive archive = archives.get(container);
         if (archive == null) {
-            // archives are not created for directories or image files
-            if (fsInfo.isFile(container) && container.getName().endsWith(".jimage")) {
+            // Very temporary and obnoxious interim hack
+            if (container.getName().equals("bootmodules.jimage")) {
+                System.err.println("Warning: reference to bootmodules.jimage replaced by jrt:");
+                container = Locations.JRT_MARKER_FILE;
+            } else if (container.getName().endsWith(".jimage")) {
+                System.err.println("Warning: reference to " + container + " ignored");
+                return;
+            }
+
+            // archives are not created for directories or jrt: images
+            if (container == Locations.JRT_MARKER_FILE) {
                 try {
-                    listImage(container,
-                            subdirectory,
+                    listJRTImage(subdirectory,
                             fileKinds,
                             recurse,
                             resultList);
@@ -655,15 +622,13 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             } catch (IOException ignore) {
             }
         }
-        /* FileSystems for *.jimage files are currently shared between all instances of javac.
-        for (FileSystem fs: fileSystems.values()) {
+
+        if (jrtIndex != null) {
             try {
-                fs.close();
+                jrtIndex.close();
             } catch (IOException ignore) {
             }
         }
-        fileSystems.clear();
-        */
     }
 
     @DefinedBy(Api.COMPILER)
@@ -783,11 +748,12 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
         for (File file: path) {
             Archive a = archives.get(file);
             if (a == null) {
-                if (fsInfo.isFile(file) && file.getName().endsWith(".jimage")) {
-                    FileSystem fs = getFileSystem(file.toPath());
-                    Path p = fs.getPath(name.getPath().replace("/", fs.getSeparator()));
-                    if (Files.exists(p))
-                        return PathFileObject.createJarPathFileObject(this, p);
+                // archives are not created for directories or jrt: images
+                if (file == Locations.JRT_MARKER_FILE) {
+                    JRTIndex.Entry e = getJRTIndex().getEntry(name.dirname());
+                    Path p = e.files.get(name.basename());
+                    if (p != null)
+                        return PathFileObject.createJRTPathFileObject(this, p);
                     continue;
                 } else if (fsInfo.isDirectory(file)) {
                     File f = name.getFile(file);

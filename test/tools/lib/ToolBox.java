@@ -1599,6 +1599,11 @@ public class ToolBox {
          */
         private final Pattern jarEntry = Pattern.compile(".*!/(?:META-INF/sym/[^/]+/)?(.*)");
 
+        /*
+         * A jrt: URL is of the form  jrt:/module/package/file
+         */
+        private final Pattern jrtEntry = Pattern.compile("/([^/]+)/(.*)");
+
         private String guessPath(FileObject fo) {
             URI u = fo.toUri();
             switch (u.getScheme()) {
@@ -1609,10 +1614,10 @@ public class ToolBox {
                     }
                     break;
                 }
-                case "jimage": {  // TEMPORARY: the jarEntry is "good enough" for now
-                    Matcher m = jarEntry.matcher(u.getSchemeSpecificPart());
+                case "jrt": {
+                    Matcher m = jrtEntry.matcher(u.getSchemeSpecificPart());
                     if (m.matches()) {
-                        return m.group(1);
+                        return m.group(2);
                     }
                     break;
                 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -74,10 +74,6 @@ public class T5070898
         List<String> cmd = new ArrayList<String>();
         File java_home = new File(System.getProperty("java.home"));
         cmd.add(new File(new File(java_home, "bin"), "javah").getPath());
-
-        // ensure we run with the same bootclasspath as this test,
-        // in case this test is being run with -Xbootclasspath
-        cmd.add("-J-Xbootclasspath:" + System.getProperty("sun.boot.class.path"));
 
         cmd.add("JavahTest");
 

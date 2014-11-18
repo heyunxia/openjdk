@@ -100,6 +100,12 @@ public class Locations {
      */
     private boolean warn;
 
+    // Used by Locations(for now) to indicate that the PLATFORM_CLASS_PATH
+    // should use the jrt: file system.
+    // When Locations has been converted to use java.nio.file.Path,
+    // Locations can use Paths.get(URI.create("jrt:"))
+    static final File JRT_MARKER_FILE = new File("JRT_MARKER_FILE");
+
     public Locations() {
         initHandlers();
     }
@@ -654,12 +660,13 @@ public class Locations {
                     path.addFiles(systemClasses, false);
                 } else {
                     // fallback to the value of sun.boot.class.path
-                String files = System.getProperty("sun.boot.class.path");
-                path.addFiles(files, false);
-                File rt_jar = new File("rt.jar");
-                for (File file : getPathEntries(files)) {
-                        if (new File(file.getName()).equals(rt_jar))
-                        defaultBootClassPathRtJar = file;
+                    String files = System.getProperty("sun.boot.class.path");
+                    path.addFiles(files, false);
+                    File rt_jar = new File("rt.jar");
+                    for (File file : getPathEntries(files)) {
+                        if (new File(file.getName()).equals(rt_jar)) {
+                            defaultBootClassPathRtJar = file;
+                        }
                     }
                 }
             }
@@ -705,8 +712,9 @@ public class Locations {
                             .filter(f -> f.getFileName().toString().endsWith(".jimage"))
                             .map(Path::toFile)
                             .collect(Collectors.toList());
-                    if (!images.isEmpty())
-                        return images;
+                    if (!images.isEmpty()) {
+                        return Collections.singleton(JRT_MARKER_FILE);
+                    }
                 }
             }
 

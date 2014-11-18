@@ -95,6 +95,21 @@ public abstract class PathFileObject implements JavaFileObject {
     }
 
     /**
+     * Create a PathFileObject in a modular file system, such as jrt:, such that
+     * the binary name can be inferred from its position within the filesystem.
+     */
+    public static PathFileObject createJRTPathFileObject(BaseFileManager fileManager,
+            final Path path) {
+        return new PathFileObject(fileManager, path) {
+            @Override
+            public String inferBinaryName(Iterable<? extends Path> paths) {
+                // use subpath to ignore the leading component containing the module name
+                return toBinaryName(path.subpath(1, path.getNameCount()));
+            }
+        };
+    }
+
+    /**
      * Create a PathFileObject whose binary name can be inferred from the
      * relative path to a sibling.
      */
