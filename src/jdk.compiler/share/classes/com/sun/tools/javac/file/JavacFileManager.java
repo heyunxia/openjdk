@@ -539,9 +539,6 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
     /** Open a new zip file directory, and cache it.
      */
     private Archive openArchive(File zipFileName, boolean useOptimizedZip) throws IOException {
-        if (symbolFileEnabled && locations.isDefaultBootClassPathRtJar(zipFileName)) {
-        }
-
         Archive archive;
         try {
 

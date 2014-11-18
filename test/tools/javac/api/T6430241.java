@@ -73,9 +73,9 @@ public class T6430241 {
 
     void testCommandLine() throws Exception {
         testCommandLine(true);
-        testCommandLine(true,  "-Xbootclasspath/p:" + emptyDir);
+        testCommandLine(false, "-Xbootclasspath/p:" + emptyDir);
         testCommandLine(false, "-Xbootclasspath:" + bootClassPath);
-        testCommandLine(true, "-Xbootclasspath/a:" + emptyDir);
+        testCommandLine(false, "-Xbootclasspath/a:" + emptyDir);
         testCommandLine(false, "-XDignore.symbol.file");
         System.err.println();
     }
@@ -98,9 +98,9 @@ public class T6430241 {
 
     void testSimpleAPI() {
         testSimpleAPI(true);
-        testSimpleAPI(true,  "-Xbootclasspath/p:" + emptyDir);
+        testSimpleAPI(false, "-Xbootclasspath/p:" + emptyDir);
         testSimpleAPI(false, "-Xbootclasspath:" + bootClassPath);
-        testSimpleAPI(true,  "-Xbootclasspath/a:" + emptyDir);
+        testSimpleAPI(false, "-Xbootclasspath/a:" + emptyDir);
         testSimpleAPI(false, "-XDignore.symbol.file");
         System.err.println();
     }

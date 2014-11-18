@@ -127,12 +127,6 @@ public class Locations {
         return h.isDefault();
     }
 
-    boolean isDefaultBootClassPathRtJar(File file) {
-        BootClassPathLocationHandler h
-                = (BootClassPathLocationHandler) getHandler(PLATFORM_CLASS_PATH);
-        return h.isDefaultRtJar(file);
-    }
-
     public Collection<File> userClassPath() {
         return getLocation(CLASS_PATH);
     }
@@ -555,15 +549,9 @@ public class Locations {
         final Map<Option, String> optionValues = new EnumMap<>(Option.class);
 
         /**
-         * rt.jar as found on the default bootclasspath. If the user specified a bootclasspath, null
-         * is used.
+         * Is the bootclasspath the default?
          */
-        private File defaultBootClassPathRtJar = null;
-
-        /**
-         * Is bootclasspath the default?
-         */
-        private boolean isDefaultBootClassPath;
+        private boolean isDefault;
 
         BootClassPathLocationHandler() {
             super(StandardLocation.PLATFORM_CLASS_PATH,
@@ -576,12 +564,7 @@ public class Locations {
 
         boolean isDefault() {
             lazy();
-            return isDefaultBootClassPath;
-        }
-
-        boolean isDefaultRtJar(File file) {
-            lazy();
-            return file.equals(defaultBootClassPathRtJar);
+            return isDefault;
         }
 
         @Override
@@ -626,8 +609,7 @@ public class Locations {
             if (files == null) {
                 searchPath = null;  // reset to "uninitialized"
             } else {
-                defaultBootClassPathRtJar = null;
-                isDefaultBootClassPath = false;
+                isDefault = false;
                 SearchPath p = new SearchPath().addFiles(files, false);
                 searchPath = Collections.unmodifiableCollection(p);
                 optionValues.clear();
@@ -635,7 +617,6 @@ public class Locations {
         }
 
         SearchPath computePath() throws IOException {
-            defaultBootClassPathRtJar = null;
             SearchPath path = new SearchPath();
 
             String bootclasspathOpt = optionValues.get(BOOTCLASSPATH);
@@ -662,12 +643,6 @@ public class Locations {
                     // fallback to the value of sun.boot.class.path
                     String files = System.getProperty("sun.boot.class.path");
                     path.addFiles(files, false);
-                    File rt_jar = new File("rt.jar");
-                    for (File file : getPathEntries(files)) {
-                        if (new File(file.getName()).equals(rt_jar)) {
-                            defaultBootClassPathRtJar = file;
-                        }
-                    }
                 }
             }
 
@@ -688,8 +663,8 @@ public class Locations {
                 path.addDirectories(System.getProperty("java.ext.dirs"), false);
             }
 
-            isDefaultBootClassPath
-                    = (xbootclasspathPrependOpt == null)
+            isDefault =
+                       (xbootclasspathPrependOpt == null)
                     && (bootclasspathOpt == null)
                     && (xbootclasspathAppendOpt == null);
 
