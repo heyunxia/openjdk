@@ -33,6 +33,9 @@ import java.util.Enumeration;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.net.URI;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.FileSystem;
@@ -51,36 +54,9 @@ import java.nio.file.spi.FileSystemProvider;
 public
 class ClassPath {
     private static final String JIMAGE_EXT = ".jimage";
-    private static boolean jimageSupportEnabled;
-    static {
-        jimageSupportEnabled = false;
-        for (FileSystemProvider provider: FileSystemProvider.installedProviders()) {
-            if (provider.getScheme().equalsIgnoreCase("jimage")) {
-                jimageSupportEnabled = true;
-                break;
-            }
-        }
+    private FileSystem getJrtFileSystem() {
+        return FileSystems.getFileSystem(URI.create("jrt:/"));
     }
-
-    private static void checkJImageSupport() {
-        if (! jimageSupportEnabled) {
-            throw new RuntimeException("jimage support not enabled");
-        }
-    }
-
-    private FileSystem getFileSystem(Path p) {
-        FileSystem fs = fileSystems.get(p);
-        if (fs == null) {
-            try {
-                fs = FileSystems.newFileSystem(p, null);
-                fileSystems.put(p, fs);
-            } catch (IOException ioExp) {
-                throw new UncheckedIOException(ioExp);
-            }
-        }
-        return fs;
-    }
-    private final Map<Path,FileSystem> fileSystems = new HashMap<>();
 
     static final char dirSeparator = File.pathSeparatorChar;
 
@@ -146,6 +122,7 @@ class ClassPath {
         // Build the class path
         ClassPathEntry[] path = new ClassPathEntry[n+1];
         int len = pathstr.length();
+        boolean jrtAdded = false;
         for (i = n = 0; i < len; i = j + 1) {
             if ((j = pathstr.indexOf(dirSeparator, i)) == -1) {
                 j = len;
@@ -157,9 +134,10 @@ class ClassPath {
                 File file = new File(filename);
                 if (file.isFile()) {
                     if (filename.endsWith(JIMAGE_EXT)) {
-                        checkJImageSupport();
-                        FileSystem fs = getFileSystem(file.toPath());
-                        path[n++] = new JImageClassPathEntry(fs);
+                        if (jrtAdded) continue;
+                        FileSystem fs = getJrtFileSystem();
+                        path[n++] = new JrtClassPathEntry(fs);
+                        jrtAdded = true;
                     } else {
                         try {
                             ZipFile zip = new ZipFile(file);
@@ -195,13 +173,15 @@ class ClassPath {
         // Build the class path
         ClassPathEntry[] path = new ClassPathEntry[patharray.length];
         int n = 0;
+        boolean jrtAdded = false;
         for (String name : patharray) {
             File file = new File(name);
             if (file.isFile()) {
                 if (name.endsWith(JIMAGE_EXT)) {
-                    checkJImageSupport();
-                    FileSystem fs = getFileSystem(file.toPath());
-                    path[n++] = new JImageClassPathEntry(fs);
+                    if (jrtAdded) continue;
+                    FileSystem fs = getJrtFileSystem();
+                    path[n++] = new JrtClassPathEntry(fs);
+                    jrtAdded = true;
                 } else {
                     try {
                         ZipFile zip = new ZipFile(file);
@@ -400,24 +380,93 @@ final class ZipClassPathEntry extends ClassPathEntry {
     }
 }
 
-// a ClassPathEntry that represents a .jimage module file
-final class JImageClassPathEntry extends ClassPathEntry {
+// a ClassPathEntry that represents jrt file system
+final class JrtClassPathEntry extends ClassPathEntry {
     private final FileSystem fs;
+    // module directory paths in jrt fs
+    private final Set<Path> jrtModules;
+    // package name to package directory path mapping (lazily filled)
+    private final Map<String, Path> pkgDirs;
 
-    JImageClassPathEntry(FileSystem fs) {
+    JrtClassPathEntry(FileSystem fs) {
         this.fs = fs;
+        this.jrtModules = new LinkedHashSet<>();
+        this.pkgDirs = new HashMap<>();
+
+        // fill in module directories at the root dir
+        Path root = fs.getPath("/");
+        try {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(root)) {
+                for (Path entry: stream) {
+                    if (Files.isDirectory(entry))
+                        jrtModules.add(entry);
+                }
+            }
+        } catch (IOException ioExp) {
+            throw new UncheckedIOException(ioExp);
+        }
     }
 
     void close() throws IOException {
-        fs.close();
+    }
+
+    // from pkgName (internal separator '/') to it's Path in jrtfs
+    synchronized Path getPackagePath(String pkgName) throws IOException {
+        // check the cache first
+        if (pkgDirs.containsKey(pkgName)) {
+            return pkgDirs.get(pkgName);
+        }
+
+        for (Path modPath : jrtModules) {
+            Path pkgDir = fs.getPath(modPath.toString(), pkgName);
+            // check if package directory is under any of the known modules
+            if (Files.exists(pkgDir)) {
+                // it is a package directory only if contains atleast one .class file
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(pkgDir)) {
+                    for (Path p : stream) {
+                        if (Files.isRegularFile(p) && p.toString().endsWith(".class")) {
+                            // cache package-to-package dir mapping for future
+                            pkgDirs.put(pkgName, pkgDir);
+                            return pkgDir;
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // fully qualified (internal) class name to it's Path in jrtfs
+    Path getClassPath(String clsName) throws IOException {
+        int index = clsName.lastIndexOf('/');
+        if (index == -1) {
+            return null;
+        }
+        Path pkgPath = getPackagePath(clsName.substring(0, index));
+        return pkgPath == null? null : fs.getPath(pkgPath + "/" + clsName.substring(index + 1));
     }
 
     ClassFile getFile(String name, String subdir, String basename, boolean isDirectory) {
-        return ClassFile.newClassFile(fs.getPath(name));
+        try {
+            Path cp = getClassPath(name);
+            return cp == null? null : ClassFile.newClassFile(cp);
+        } catch (IOException ioExp) {
+            throw new UncheckedIOException(ioExp);
+        }
     }
 
     void fillFiles(String pkg, String ext, Hashtable<String, ClassFile> files) {
-        Path dir = fs.getPath(pkg);
+        Path dir;
+        try {
+            dir = getPackagePath(pkg);
+            if (dir == null) {
+                return;
+            }
+        } catch (IOException ioExp) {
+            throw new UncheckedIOException(ioExp);
+        }
+
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
             for (Path p : stream) {
                 String name = p.toString();

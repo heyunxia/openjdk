@@ -40,4 +40,3 @@ Files.walk(root).forEach(print);
 //Files.walk(dir).forEach(print);
 //var dir = fs.getPath("/jdk.zipfs/");
 //Files.walk(dir).forEach(print);
-fs.close();

@@ -146,7 +146,6 @@ TOOL_IMAGEBUILDER = $(JAVA_SMALL) -Xbootclasspath/p:$(BUILDTOOLS_OUTPUTDIR)/inte
 
 JIMAGE_PKGS := \
     jdk/internal/jimage \
-    jdk/internal/jimagefs \
     jdk/internal/jrtfs \
     #
 

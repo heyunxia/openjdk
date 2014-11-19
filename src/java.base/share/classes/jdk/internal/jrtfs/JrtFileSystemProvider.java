@@ -39,21 +39,9 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 public final class JrtFileSystemProvider extends FileSystemProvider {
-    private final FileSystem theFileSystem;
+    private volatile FileSystem theFileSystem;
 
-    public JrtFileSystemProvider() {
-        try {
-            theFileSystem = new JrtFileSystem(this, null) {
-                @Override
-                public void close() throws IOException {
-                    // do not allow this shared/existing file system instance!
-                    throw new UnsupportedOperationException("close");
-                }
-            };
-        } catch (IOException exp) {
-            throw new UncheckedIOException(exp);
-        }
-    }
+    public JrtFileSystemProvider() { }
 
     @Override
     public String getScheme() {
@@ -96,14 +84,35 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
         String path = uri.getPath();
         if (path == null || path.charAt(0) != '/')
             throw new IllegalArgumentException("Invalid path component");
-        return theFileSystem.getPath(path);
+        return getTheFileSystem().getPath(path);
     }
 
+    private FileSystem getTheFileSystem() {
+        FileSystem fs = this.theFileSystem;
+        if (fs == null) {
+            synchronized (this) {
+                fs = this.theFileSystem;
+                if (fs == null) {
+                    try {
+                        fs = new JrtFileSystem(this, null) {
+                            @Override public void close() {
+                                throw new UnsupportedOperationException();
+                            }
+                        };
+                    } catch (IOException ioe) {
+                        throw new InternalError(ioe);
+                    }
+                }
+                this.theFileSystem = fs;
+            }
+        }
+        return fs;
+    }
 
     @Override
     public FileSystem getFileSystem(URI uri) {
         checkUri(uri);
-        return theFileSystem;
+        return getTheFileSystem();
     }
 
     // Checks that the given file is a JrtPath
