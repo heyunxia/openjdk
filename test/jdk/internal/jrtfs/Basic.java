@@ -117,10 +117,12 @@ public class Basic {
     @DataProvider(name = "knownDirectorues")
     private Object[][] knownDirectories() {
         return new Object[][] {
-            { "/"                    },
-            { "/java.base"           },
-            { "/java.base/java/lang" },
-            { "java.base/java/lang"  },
+            { "/"                     },
+            { "/java.base"            },
+            { "/java.base/java/lang"  },
+            { "java.base/java/lang"   },
+            { "/java.base/java/lang/" },
+            { "java.base/java/lang/"  },
         };
     }
 
@@ -175,6 +177,18 @@ public class Basic {
                 assertEquals(u.getPath(), path.toAbsolutePath().toString());
                 Path p = Paths.get(u);
                 assertEquals(p, path);
+            });
+        }
+    }
+
+    @Test
+    public void testDirectoryNames() throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        Path top = fs.getPath("/");
+        // check that directory names do not have trailing '/' char
+        try (Stream<Path> stream = Files.walk(top)) {
+            stream.skip(1).filter(Files::isDirectory).forEach(path -> {
+                assertFalse(path.toString().endsWith("/"));
             });
         }
     }
