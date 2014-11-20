@@ -38,23 +38,30 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 import java.util.Set;
 
+import javax.tools.FileObject;
+
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
+import com.sun.tools.javac.jvm.Profile;
+import com.sun.tools.javac.nio.PathFileObject;
 import com.sun.tools.javac.util.Context;
 
 /**
  * A package-oriented index into the jrt: filesystem.
  */
-class JRTIndex {
+public class JRTIndex {
     /** Get a shared instance of the cache. */
     private static JRTIndex sharedInstance;
-    public synchronized static JRTIndex getSharedInstance() throws IOException {
+    public synchronized static JRTIndex getSharedInstance() {
         if (sharedInstance == null) {
-            sharedInstance = new JRTIndex() {
-                @Override
-                public void close() { }
-            };
+            try {
+                sharedInstance = new JRTIndex();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
         return sharedInstance;
     }
@@ -102,17 +109,70 @@ class JRTIndex {
          */
         final Set<RelativeDirectory> subdirs;
 
-        private Entry(Map<String, Path> files, Set<RelativeDirectory> subdirs) {
+        /**
+         * The info that used to be in ct.sym for classes in this package.
+         */
+        final CtSym ctSym;
+
+        private Entry(Map<String, Path> files, Set<RelativeDirectory> subdirs, CtSym ctSym) {
             this.files = files;
             this.subdirs = subdirs;
+            this.ctSym = ctSym;
         }
+    }
+
+    /**
+     * The info that used to be in ct.sym for classes in a package.
+     */
+    public static class CtSym {
+        /**
+         * The classes in this package are internal and not visible.
+         */
+        public final boolean hidden;
+        /**
+         * The classes in this package are proprietary and will generate a warning.
+         */
+        public final boolean proprietary;
+        /**
+         * The minimum profile in which classes in this package are available.
+         */
+        public final String minProfile;
+
+        CtSym(boolean hidden, boolean proprietary, String minProfile) {
+            this.hidden = hidden;
+            this.proprietary = proprietary;
+            this.minProfile = minProfile;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder("CtSym[");
+            boolean needSep = false;
+            if (hidden) {
+                sb.append("hidden");
+                needSep = true;
+            }
+            if (proprietary) {
+                if (needSep) sb.append(",");
+                sb.append("proprietary");
+                needSep = true;
+            }
+            if (minProfile != null) {
+                if (needSep) sb.append(",");
+                sb.append(minProfile);
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+
+        static final CtSym EMPTY = new CtSym(false, false, null);
     }
 
     /**
      * Create and initialize the index.
      */
     private JRTIndex() throws IOException {
-        jrtfs = FileSystems.newFileSystem(URI.create("jrt:/"), null);
+        jrtfs = FileSystems.getFileSystem(URI.create("jrt:/"));
         jrtModules = new LinkedHashSet<>();
         Path root = jrtfs.getPath("/");
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(root)) {
@@ -124,7 +184,11 @@ class JRTIndex {
         entries = new HashMap<>();
     }
 
-    synchronized Entry getEntry(RelativeDirectory rd) throws IOException {
+    public CtSym getCtSym(CharSequence packageName) throws IOException {
+        return getEntry(RelativeDirectory.forPackage(packageName)).ctSym;
+    }
+
+    public synchronized Entry getEntry(RelativeDirectory rd) throws IOException {
         SoftReference<Entry> ref = entries.get(rd);
         Entry e = (ref == null) ? null : ref.get();
         if (e == null) {
@@ -146,15 +210,55 @@ class JRTIndex {
                     }
                 }
             }
-            e = new Entry(Collections.unmodifiableMap(files), Collections.unmodifiableSet(subdirs));
+            e = new Entry(Collections.unmodifiableMap(files),
+                    Collections.unmodifiableSet(subdirs),
+                    getCtInfo(rd));
             entries.put(rd, new SoftReference<>(e));
         }
         return e;
     }
 
-    synchronized void close() throws IOException {
-        jrtfs.close();
-        jrtModules.clear();
-        entries.clear();
+    public boolean isInJRT(FileObject fo) {
+        if (fo instanceof PathFileObject) {
+            Path path = ((PathFileObject) fo).getPath();
+            return (path.getFileSystem() == jrtfs);
+        } else {
+            return false;
+        }
     }
+
+    private CtSym getCtInfo(RelativeDirectory dir) {
+        if (dir.path.isEmpty())
+            return CtSym.EMPTY;
+        // It's a side-effect of the default build rules that ct.properties
+        // ends up as a resource bundle.
+        if (ctBundle == null) {
+            final String bundleName = "com.sun.tools.javac.resources.ct";
+            ctBundle = ResourceBundle.getBundle(bundleName);
+        }
+        try {
+            String attrs = ctBundle.getString(dir.path.replace('/', '.') + '*');
+            boolean hidden = false;
+            boolean proprietary = false;
+            String minProfile = null;
+            for (String attr: attrs.split(" +", 0)) {
+                switch (attr) {
+                    case "hidden":
+                        hidden = true;
+                        break;
+                    case "proprietary":
+                        proprietary = true;
+                        break;
+                    default:
+                        minProfile = attr;
+                }
+            }
+            return new CtSym(hidden, proprietary, minProfile);
+        } catch (MissingResourceException e) {
+            return CtSym.EMPTY;
+        }
+
+    }
+
+    private ResourceBundle ctBundle;
 }
