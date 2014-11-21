@@ -26,30 +26,33 @@
 package com.sun.tools.javac.code;
 
 import java.io.*;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.MissingResourceException;
-import java.util.ResourceBundle;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import javax.lang.model.SourceVersion;
-import javax.tools.JavaFileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileManager.Location;
+import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 
-import static javax.tools.StandardLocation.*;
-
-import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.code.Scope.WriteableScope;
 import com.sun.tools.javac.code.Symbol.*;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.code.Symbol.Completer;
+import com.sun.tools.javac.code.Symbol.CompletionFailure;
+import com.sun.tools.javac.code.Symbol.PackageSymbol;
+import com.sun.tools.javac.code.Symbol.TypeSymbol;
+import com.sun.tools.javac.comp.Annotate;
+import com.sun.tools.javac.file.JRTIndex;
 import com.sun.tools.javac.file.JavacFileManager;
+import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
 import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.jvm.Profile;
 import com.sun.tools.javac.util.*;
+
+import static javax.tools.StandardLocation.*;
 
 import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.code.Kinds.Kind.*;
@@ -139,12 +142,12 @@ public class ClassFinder {
      */
     private final Profile profile;
 
-    /*
-     * Legacy name for the ability to suppress issues regarding
-     * proprietary and internal class.
-     * (Temporary, until more info is available from the module system.)
+    /**
+     * Use direct access to the JRTIndex to access the temporary
+     * replacement for the info that used to be in ct.sym.
+     * In time, this will go away and be replaced by the module system.
      */
-    private final boolean useCtProps;
+    private final JRTIndex jrtIndex;
 
     /**
      * Completer that delegates to the complete-method of this class.
@@ -195,6 +198,7 @@ public class ClassFinder {
             : null;
 
         // Temporary, until more info is available from the module system.
+        boolean useCtProps;
         JavaFileManager fm = context.get(JavaFileManager.class);
         if (fm instanceof JavacFileManager) {
             JavacFileManager jfm = (JavacFileManager) fm;
@@ -204,6 +208,7 @@ public class ClassFinder {
         } else {
             useCtProps = false;
         }
+        jrtIndex = useCtProps ? JRTIndex.getSharedInstance() : null;
 
         profile = Profile.instance(context);
     }
@@ -217,93 +222,42 @@ public class ClassFinder {
  * This mechanism will eventually be superceded by the Jigsaw module system.
  ***********************************************************************/
 
-    private static class SupplementaryInfo {
-        final boolean proprietary;
-        final boolean hidden;
-        final Profile minProfile;
-
-        SupplementaryInfo(boolean proprietary, boolean hidden, Profile minProfile) {
-            this.proprietary = proprietary;
-            this.hidden = hidden;
-            this.minProfile = minProfile;
+    /**
+     * Returns any extra flags for a class symbol.
+     * This information used to be provided using private annotations
+     * in the class file in ct.sym; in time, this information will be
+     * available from the module system.
+     */
+    long getSupplementaryFlags(ClassSymbol c) {
+        if (jrtIndex == null || !jrtIndex.isInJRT(c.classfile)) {
+            return 0;
         }
 
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder("SupplementaryInfo[");
-            boolean comma = false;
-            if (proprietary) {
-                sb.append("proprietary");
-                comma = true;
-            }
-            if (hidden) {
-                if (comma)
-                    sb.append(",");
-                sb.append("hidden");
-                comma = true;
-            }
-            if (minProfile != null) {
-                if (comma)
-                    sb.append(",");
-                sb.append(minProfile.name);
-            }
-            sb.append("]");
-            return sb.toString();
+        if (supplementaryFlags == null) {
+            supplementaryFlags = new HashMap<>();
         }
-    }
 
-    private static final SupplementaryInfo DEFAULT_INFO
-            = new SupplementaryInfo((false), false, Profile.COMPACT1);
-
-    private SupplementaryInfo getSupplementaryInfo(ClassSymbol c) {
-        if (!useCtProps)
-            return DEFAULT_INFO;
-
-        if (supplementaryInfoMap == null)
-            supplementaryInfoMap = initSupplementaryInfo();
-
-        SupplementaryInfo info = supplementaryInfoMap.get(c.packge());
-        return (info == null) ? DEFAULT_INFO : info;
-    }
-
-    private Map<PackageSymbol, SupplementaryInfo> supplementaryInfoMap;
-
-    private Map<PackageSymbol, SupplementaryInfo> initSupplementaryInfo() {
-        try {
-            final String bundleName = "com.sun.tools.javac.resources.ct";
-            ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
-            Map<PackageSymbol, SupplementaryInfo> map = new HashMap<>();
-            Pattern ws = Pattern.compile("\\s+");
-            for (String key: bundle.keySet()) {
-                String[] attrs = ws.split(bundle.getString(key), 0);
-                if (key.endsWith(".*")) {
-                    Name packageName = names.fromString(key.substring(0, key.length() - 2));
-                    PackageSymbol p = syms.enterPackage(packageName);
-                    boolean proprietary = false;
-                    boolean hidden = false;
-                    Profile minProfile = null;
-                    for (String attr: attrs) {
-                        switch (attr) {
-                            case "proprietary":
-                                proprietary = true;
-                                break;
-                            case "hidden":
-                                hidden = true;
-                                break;
-                            default:
-                                minProfile = Profile.lookup(attr);
-                        }
-                    }
-                    map.put(p, new SupplementaryInfo(proprietary, hidden, minProfile));
-                } else {
-                    throw new Error("not supported");
+        Long flags = supplementaryFlags.get(c.packge());
+        if (flags == null) {
+            long newFlags = 0;
+            try {
+                JRTIndex.CtSym ctSym = jrtIndex.getCtSym(c.packge().flatName());
+                Profile minProfile = Profile.DEFAULT;
+                if (ctSym.proprietary)
+                    newFlags |= PROPRIETARY;
+                if (ctSym.minProfile != null)
+                    minProfile = Profile.lookup(ctSym.minProfile);
+                if (profile != Profile.DEFAULT && minProfile.value > profile.value) {
+                    newFlags |= NOT_IN_PROFILE;
                 }
+            } catch (IOException ignore) {
             }
-            return map;
-        } catch (MissingResourceException e) {
-            return Collections.emptyMap();
+            supplementaryFlags.put(c.packge(), flags = newFlags);
         }
+        return flags;
     }
+
+    private Map<PackageSymbol, Long> supplementaryFlags;
 
 /************************************************************************
  * Loading Classes
@@ -388,22 +342,8 @@ public class ClassFinder {
                     log.printVerbose("loading", currentClassFile.toString());
                 }
                 if (classfile.getKind() == JavaFileObject.Kind.CLASS) {
-                    SupplementaryInfo info = getSupplementaryInfo(c);
-                    if (info.hidden) {
-                        throw classFileNotFound(c);
-                    }
-
                     reader.readClassFile(c);
-
-                    if (info.proprietary) {
-                        c.flags_field |= PROPRIETARY;
-                    }
-
-                    if (profile != Profile.DEFAULT) {
-                        if (info.minProfile == null || info.minProfile.value > profile.value) {
-                            c.flags_field |= NOT_IN_PROFILE;
-                        }
-                    }
+                    c.flags_field |= getSupplementaryFlags(c);
                 } else {
                     if (sourceCompleter != null) {
                         sourceCompleter.complete(c);
@@ -443,7 +383,7 @@ public class ClassFinder {
                 return result;
             }
         }
-        private CompletionFailure cachedCompletionFailure =
+        private final CompletionFailure cachedCompletionFailure =
             new CompletionFailure(null, (JCDiagnostic) null);
         {
             cachedCompletionFailure.setStackTrace(new StackTraceElement[0]);

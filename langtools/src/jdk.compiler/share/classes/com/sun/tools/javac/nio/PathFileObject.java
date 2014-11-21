@@ -163,7 +163,7 @@ public abstract class PathFileObject implements JavaFileObject {
      * Return the Path for this object.
      * @return the Path for this object.
      */
-    Path getPath() {
+    public Path getPath() {
         return path;
     }
 
