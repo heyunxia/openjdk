@@ -29,6 +29,7 @@
 
 import java.io.InputStream;
 import java.io.DataInputStream;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -114,15 +115,21 @@ public class Basic {
         }
     }
 
-    @DataProvider(name = "knownDirectorues")
+    @DataProvider(name = "knownDirectories")
     private Object[][] knownDirectories() {
         return new Object[][] {
             { "/"                     },
+            { "./"                    },
+            { "/."                    },
+            { "/./"                   },
+            { "/java.base/.."         },
+            { "/java.base/../"        },
+            { "/java.base/../."       },
             { "/java.base"            },
             { "/java.base/java/lang"  },
             { "java.base/java/lang"   },
             { "/java.base/java/lang/" },
-            { "java.base/java/lang/"  },
+            { "java.base/java/lang/"  }
         };
     }
 
@@ -190,6 +197,31 @@ public class Basic {
             stream.skip(1).filter(Files::isDirectory).forEach(path -> {
                 assertFalse(path.toString().endsWith("/"));
             });
+        }
+    }
+
+    @DataProvider(name = "pathPrefixs")
+    private Object[][] pathPrefixes() {
+        return new Object[][] {
+            { "/"                       },
+            { "java.base/java/lang"     },
+            { "./java.base/java/lang"   },
+            { "/java.base/java/lang"    },
+            { "/./java.base/java/lang"  },
+            { "java.base/java/lang/"    },
+            { "./java.base/java/lang/"  },
+            { "/./java.base/java/lang/" },
+        };
+    }
+
+    @Test(dataProvider = "pathPrefixes")
+    public void testParentInDirList(String dir) throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        Path base = fs.getPath(dir);
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(base)) {
+            for (Path entry: stream) {
+                assertTrue( entry.getParent().equals(base) );
+            }
         }
     }
 }

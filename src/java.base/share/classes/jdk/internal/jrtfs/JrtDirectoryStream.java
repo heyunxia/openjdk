@@ -36,6 +36,9 @@ import java.io.IOException;
 final class JrtDirectoryStream implements DirectoryStream<Path> {
     private final JrtFileSystem jrtfs;
     private final byte[] path;
+    // prefix to be used for children of this directory
+    // so that child path are reported relatively (if needed)
+    private final String childPrefix;
     private final DirectoryStream.Filter<? super Path> filter;
     private volatile boolean isClosed;
     private volatile Iterator<Path> itr;
@@ -46,10 +49,21 @@ final class JrtDirectoryStream implements DirectoryStream<Path> {
     {
         this.jrtfs = jrtPath.getFileSystem();
         this.path = jrtPath.getResolvedPath();
-        this.filter = filter;
         // sanity check
         if (!jrtfs.isDirectory(path))
             throw new NotDirectoryException(jrtPath.toString());
+
+        // absolute path and does not have funky chars in front like /./java.base
+        if (jrtPath.isAbsolute() && (path.length == jrtPath.getPathLength())) {
+            childPrefix = null;
+        } else {
+            // cases where directory content needs to modified with prefix
+            // like ./java.base, /./java.base, java.base and so on.
+            String dirName = jrtPath.toString();
+            int idx = dirName.indexOf(JrtFileSystem.getString(path).substring(1));
+            childPrefix = dirName.substring(0, idx);
+        }
+        this.filter = filter;
     }
 
     @Override
@@ -60,12 +74,11 @@ final class JrtDirectoryStream implements DirectoryStream<Path> {
             throw new IllegalStateException("Iterator has already been returned");
 
         try {
-            itr = jrtfs.iteratorOf(path, filter);
+            itr = jrtfs.iteratorOf(path, childPrefix, filter);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
         return new Iterator<Path>() {
-            private Path next;
             @Override
             public boolean hasNext() {
                 if (isClosed)
