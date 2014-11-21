@@ -119,6 +119,7 @@ public class Basic {
     private Object[][] knownDirectories() {
         return new Object[][] {
             { "/"                     },
+            { "."                     },
             { "./"                    },
             { "/."                    },
             { "/./"                   },
@@ -172,7 +173,7 @@ public class Basic {
      * Test the URI of every file in the jrt file system
      */
     @Test
-    public void testToUri() throws Exception {
+    public void testToAndFromUri() throws Exception {
         FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
         Path top = fs.getPath("/");
         try (Stream<Path> stream = Files.walk(top)) {
