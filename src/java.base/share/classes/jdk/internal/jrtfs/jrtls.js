@@ -34,9 +34,9 @@ var Paths = Java.type("java.nio.file.Paths");
 var URI = Java.type("java.net.URI");
 
 var fs = FileSystems.getFileSystem(new URI("jrt:/"));
-var root = fs.rootDirectories[0];
-Files.walk(root).forEach(print);
+//var root = fs.rootDirectories[0];
+//Files.walk(root).forEach(print);
 //var dir = fs.getPath("/java.base/java/lang");
 //Files.walk(dir).forEach(print);
-//var dir = fs.getPath("/jdk.zipfs/");
-//Files.walk(dir).forEach(print);
+var dir = fs.getPath("/jdk.zipfs/");
+Files.walk(dir).forEach(print);

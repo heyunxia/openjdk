@@ -226,7 +226,7 @@ public class ImageReader extends BasicImageReader {
         }
     }
 
-    // directory node - directory has full path name
+    // directory node - directory has full path name without '/' at end.
     public static final class Directory extends Node {
         private final List<Node> children;
 
@@ -328,9 +328,9 @@ public class ImageReader extends BasicImageReader {
         if (node != null) {
              return node;
         }
-        // try with '/' at the end
-        if (name.charAt(name.length() - 1) != '/') {
-            name = name.concat(ROOT_STRING);
+        // remove '/' at the end and try again
+        if (name.charAt(name.length() - 1) == '/') {
+            name = name.substring(0, name.length() - 1);
         }
         return nodes.get(name);
     }
@@ -381,7 +381,7 @@ public class ImageReader extends BasicImageReader {
             } else {
                 int idx = parent.lastIndexOf('/');
                 assert idx != -1 : "invalid parent string";
-                UTF8String name = ROOT_STRING.concat(parent.substring(0, idx + 1));
+                UTF8String name = ROOT_STRING.concat(parent.substring(0, idx));
                 dir = (Directory) nodes.get(name);
                 if (dir == null) {
                     // make all parent directories (as needed)
@@ -413,14 +413,14 @@ public class ImageReader extends BasicImageReader {
 
         int idx = parent.indexOf('/');
         assert idx != -1 : "invalid parent string";
-        UTF8String name = ROOT_STRING.concat(parent.substring(0, idx + 1));
+        UTF8String name = ROOT_STRING.concat(parent.substring(0, idx));
         Directory top = (Directory) nodes.get(name);
         if (top == null) {
             top = newDirectory(rootDir, name);
         }
         Directory last = top;
         while ((idx = parent.indexOf('/', idx + 1)) != -1) {
-            name = ROOT_STRING.concat(parent.substring(0, idx + 1));
+            name = ROOT_STRING.concat(parent.substring(0, idx));
             Directory nextDir = (Directory) nodes.get(name);
             if (nextDir == null) {
                 nextDir = newDirectory(last, name);
@@ -435,7 +435,7 @@ public class ImageReader extends BasicImageReader {
         assert rootDir != null;
 
         packageMap.entrySet().stream().sorted((x, y)->x.getKey().compareTo(y.getKey())).forEach((entry) -> {
-              UTF8String moduleName = new UTF8String("/" + entry.getValue() + "/");
+              UTF8String moduleName = new UTF8String("/" + entry.getValue());
               UTF8String fullName = moduleName.concat(new UTF8String(entry.getKey() + "/"));
               if (! nodes.containsKey(fullName)) {
                   Directory module = (Directory) nodes.get(moduleName);
@@ -446,8 +446,8 @@ public class ImageReader extends BasicImageReader {
                   int idx = -1;
                   Directory moduleSubDir = module;
                   while ((idx = pkgName.indexOf('/', idx + 1)) != -1) {
-                      UTF8String subPkg = pkgName.substring(0, idx + 1);
-                      UTF8String moduleSubDirName = moduleName.concat(subPkg);
+                      UTF8String subPkg = pkgName.substring(0, idx);
+                      UTF8String moduleSubDirName = moduleName.concat(ROOT_STRING, subPkg);
                       Directory tmp = (Directory) nodes.get(moduleSubDirName);
                       if (tmp == null) {
                           moduleSubDir = newDirectory(moduleSubDir, moduleSubDirName);
@@ -456,13 +456,13 @@ public class ImageReader extends BasicImageReader {
                       }
                   }
                   // copy pkgDir "resources"
-                  Directory pkgDir = (Directory) nodes.get(ROOT_STRING.concat(pkgName));
+                  Directory pkgDir = (Directory) nodes.get(ROOT_STRING.concat(pkgName.substring(0, pkgName.length() - 1)));
                   pkgDir.setIsTopLevelPackageDir();
                   for (Node child : pkgDir.getChildren()) {
                       if (child.isResource()) {
                           ImageLocation loc = child.getLocation();
                           BasicFileAttributes imageFileAttrs = child.getFileAttributes();
-                          UTF8String rsName = moduleName.concat(child.getName().substring(1));
+                          UTF8String rsName = moduleName.concat(child.getName());
                           Resource rs = new Resource(moduleSubDir, rsName, loc, imageFileAttrs);
                           nodes.put(rs.getName(), rs);
                       }
