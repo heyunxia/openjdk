@@ -316,22 +316,6 @@ public class ImageReader extends BasicImageReader {
 
     public synchronized Node findNode(UTF8String name) {
         buildRootDirectory();
-        Node node = nodes.get(name);
-        if (node != null) {
-             return node;
-        }
-        // Try with front '/'
-        if (name.length() > 0 && name.charAt(0) != '/') {
-            name = ROOT_STRING.concat(name);
-        }
-        node = nodes.get(name);
-        if (node != null) {
-             return node;
-        }
-        // remove '/' at the end and try again
-        if (name.charAt(name.length() - 1) == '/') {
-            name = name.substring(0, name.length() - 1);
-        }
         return nodes.get(name);
     }
 
@@ -368,7 +352,6 @@ public class ImageReader extends BasicImageReader {
         rootDir = new Directory(null, ROOT_STRING, imageFileAttributes());
         rootDir.setIsRootDir();
         nodes.put(rootDir.getName(), rootDir);
-        nodes.put(UTF8String.EMPTY_STRING, rootDir);
 
         ImageLocation[] locs = getAllLocations(true);
         for (ImageLocation loc : locs) {

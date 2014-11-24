@@ -34,7 +34,6 @@ import java.nio.charset.Charset;
 import java.nio.file.AccessMode;
 import java.nio.file.ClosedFileSystemException;
 import java.nio.file.CopyOption;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemException;
@@ -65,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import jdk.internal.jimage.ImageReader;
 import jdk.internal.jimage.ImageReader.Node;
 import jdk.internal.jimage.UTF8String;
@@ -268,11 +268,11 @@ class JrtFileSystem extends FileSystem {
         return (Path path) -> pattern.matcher(path.toString()).matches();
     }
 
-    final byte[] getBytes(String name) {
+    static byte[] getBytes(String name) {
         return name.getBytes(UTF_8);
     }
 
-    final String getString(byte[] name) {
+    static String getString(byte[] name) {
         return new String(name, UTF_8);
     }
 
@@ -358,9 +358,15 @@ class JrtFileSystem extends FileSystem {
         return new JrtPath(this, path);
     }
 
-    // returns the list of child paths of "path"
-    Iterator<Path> iteratorOf(byte[] path,
-            DirectoryStream.Filter<? super Path> filter)
+    /**
+     * returns the list of child paths of the given directory "path"
+     *
+     * @param path name of the directory whose content is listed
+     * @param childPrefix prefix added to returned children names - may be null
+              in which case absolute child paths are returned
+     * @return iterator for child paths of the given directory path
+     */
+    Iterator<Path> iteratorOf(byte[] path, String childPrefix)
             throws IOException {
         NodeAndImage ni = checkNode(path);
         if (!ni.node.isDirectory()) {
@@ -368,17 +374,23 @@ class JrtFileSystem extends FileSystem {
         }
 
         if (ni.node.isRootDir()) {
-            return rootDirIterator(path);
+            return rootDirIterator(path, childPrefix);
         }
 
-        return nodesToIterator(toJrtPath(path), ni.node.getChildren());
+        return nodesToIterator(toJrtPath(path), childPrefix, ni.node.getChildren());
     }
 
-    private Iterator<Path> nodesToIterator(Path path, List<Node> childNodes) {
-        List<Path> childPaths = new ArrayList<>(childNodes.size());
-        childNodes.stream().forEach((child) -> {
-            childPaths.add(toJrtPath(child.getNameString()));
-        });
+    private Iterator<Path> nodesToIterator(Path path, String childPrefix, List<Node> childNodes) {
+        List<Path> childPaths;
+        if (childPrefix == null) {
+            childPaths = childNodes.stream()
+                .map(child -> toJrtPath(child.getNameString()))
+                .collect(Collectors.toCollection(ArrayList::new));
+        } else {
+            childPaths = childNodes.stream()
+                .map(child -> toJrtPath(childPrefix + child.getNameString().substring(1)))
+                .collect(Collectors.toCollection(ArrayList::new));
+        }
         return childPaths.iterator();
     }
 
@@ -401,9 +413,9 @@ class JrtFileSystem extends FileSystem {
         }
     }
 
-    private Iterator<Path> rootDirIterator(byte[] path) throws IOException {
+    private Iterator<Path> rootDirIterator(byte[] path, String childPrefix) throws IOException {
         initRootChildren(path);
-        return nodesToIterator(rootPath, rootChildren);
+        return nodesToIterator(rootPath, childPrefix, rootChildren);
     }
 
     void createDirectory(byte[] dir, FileAttribute<?>... attrs)

@@ -31,20 +31,25 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.AccessController;
 import java.security.CodeSource;
+import java.security.PrivilegedAction;
 
 final class SystemImages {
     private SystemImages() {}
 
+    static final String RUNTIME_HOME;
     static final Path bootImagePath;
     static final Path extImagePath;
     static final Path appImagePath;
     static {
-        String javaHome = home();
+        PrivilegedAction<String> pa = SystemImages::findHome;
+        RUNTIME_HOME = AccessController.doPrivileged(pa);
+
         FileSystem fs = FileSystems.getDefault();
-        bootImagePath = fs.getPath(javaHome, "lib", "modules", "bootmodules.jimage");
-        extImagePath = fs.getPath(javaHome, "lib", "modules", "extmodules.jimage");
-        appImagePath = fs.getPath(javaHome, "lib", "modules", "appmodules.jimage");
+        bootImagePath = fs.getPath(RUNTIME_HOME, "lib", "modules", "bootmodules.jimage");
+        extImagePath = fs.getPath(RUNTIME_HOME, "lib", "modules", "extmodules.jimage");
+        appImagePath = fs.getPath(RUNTIME_HOME, "lib", "modules", "appmodules.jimage");
     }
 
     /**
@@ -52,10 +57,12 @@ final class SystemImages {
      * When the CodeSource is null (null loader) then jrt:/ is the current runtime,
      * otherwise the JDK home is located relative to jrt-fs.jar.
      */
-    private static String home() {
+    private static String findHome() {
         CodeSource cs = SystemImages.class.getProtectionDomain().getCodeSource();
         if (cs == null)
             return System.getProperty("java.home");
+
+        // assume loaded from $TARGETJDK/jrt-fs.jar
         URL url = cs.getLocation();
         if (!url.getProtocol().equalsIgnoreCase("file"))
             throw new RuntimeException(url + " loaded in unexpected way");

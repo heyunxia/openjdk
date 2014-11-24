@@ -165,7 +165,7 @@ final class JrtPath implements Path {
     public URI toUri() {
         try {
             return new URI("jrt",
-                           jrtfs.getString(toAbsolutePath().path),
+                           JrtFileSystem.getString(toAbsolutePath().path),
                            null);
         } catch (URISyntaxException ex) {
             throw new AssertionError(ex);
@@ -385,6 +385,7 @@ final class JrtPath implements Path {
 
     // resolved path for locating jrt entry inside the jrt file,
     // the result path does not contain ./ and .. components
+    // resolved bytes will always start with '/'
     private volatile byte[] resolved = null;
     byte[] getResolvedPath() {
         byte[] r = resolved;
@@ -393,8 +394,6 @@ final class JrtPath implements Path {
                 r = getResolved();
             else
                 r = toAbsolutePath().getResolvedPath();
-            if (r.length > 0 && r[0] == '/')
-                r = Arrays.copyOfRange(r, 1, r.length);
             resolved = r;
         }
         return resolved;
@@ -402,7 +401,7 @@ final class JrtPath implements Path {
 
     // removes redundant slashs, replace "\" to separator "/"
     // and check for invalid characters
-    private byte[] normalize(byte[] path) {
+    private static byte[] normalize(byte[] path) {
         if (path.length == 0)
             return path;
         byte prevC = 0;
@@ -413,14 +412,19 @@ final class JrtPath implements Path {
             if (c == (byte)'/' && prevC == '/')
                 return normalize(path, i - 1);
             if (c == '\u0000')
-                throw new InvalidPathException(jrtfs.getString(path),
+                throw new InvalidPathException(JrtFileSystem.getString(path),
                                                "Path: nul character not allowed");
             prevC = c;
         }
+
+        if (path.length > 1 && path[path.length - 1] == '/') {
+            return Arrays.copyOf(path, path.length - 1);
+        }
+
         return path;
     }
 
-    private byte[] normalize(byte[] path, int off) {
+    private static byte[] normalize(byte[] path, int off) {
         byte[] to = new byte[path.length];
         int n = 0;
         while (n < off) {
@@ -436,7 +440,7 @@ final class JrtPath implements Path {
             if (c == (byte)'/' && prevC == (byte)'/')
                 continue;
             if (c == '\u0000')
-                throw new InvalidPathException(jrtfs.getString(path),
+                throw new InvalidPathException(JrtFileSystem.getString(path),
                                                "Path: nul character not allowed");
             to[m++] = c;
             prevC = c;
@@ -455,6 +459,7 @@ final class JrtPath implements Path {
             if (c == (byte)'.')
                 return resolve0();
         }
+
         return path;
     }
 
@@ -505,7 +510,7 @@ final class JrtPath implements Path {
 
     @Override
     public String toString() {
-        return jrtfs.getString(path);
+        return JrtFileSystem.getString(path);
     }
 
     @Override
@@ -595,7 +600,12 @@ final class JrtPath implements Path {
     }
 
     /////////////////////////////////////////////////////////////////////
-    // Helpers for JrtFileSystemProvider
+    // Helpers for JrtFileSystemProvider and JrtFileSystem
+
+    int getPathLength() {
+        return path.length;
+    }
+
 
     void createDirectory(FileAttribute<?>... attrs)
         throws IOException
@@ -686,7 +696,7 @@ final class JrtPath implements Path {
         // each JrtFileSystem only has one root (as requested for now)
         if (exists())
             return jrtfs.getFileStore(this);
-        throw new NoSuchFileException(jrtfs.getString(path));
+        throw new NoSuchFileException(JrtFileSystem.getString(path));
     }
 
     boolean isSameFile(Path other) throws IOException {
@@ -745,7 +755,7 @@ final class JrtPath implements Path {
     }
 
     boolean exists() {
-        if (path.length == 1 && path[0] == '/')
+        if (isAbsolute())
             return true;
         try {
             return jrtfs.exists(getResolvedPath());

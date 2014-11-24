@@ -48,6 +48,19 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
         return "jrt";
     }
 
+    /**
+     * Need FilePermission ${java.home}/-", "read" to create or get jrt:/
+     */
+    private void checkPermission() {
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            String home = SystemImages.RUNTIME_HOME;
+            FilePermission perm =
+                new FilePermission(home + File.separator + "-", "read");
+            sm.checkPermission(perm);
+        }
+    }
+
     private void checkUri(URI uri) {
         if (!uri.getScheme().equalsIgnoreCase(getScheme()))
             throw new IllegalArgumentException("URI does not match this provider");
@@ -67,12 +80,14 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
     public FileSystem newFileSystem(URI uri, Map<String, ?> env)
         throws IOException
     {
+        checkPermission();
         checkUri(uri);
         return new JrtFileSystem(this, env);
     }
 
     @Override
     public Path getPath(URI uri) {
+        checkPermission();
         if (!uri.getScheme().equalsIgnoreCase(getScheme()))
             throw new IllegalArgumentException("URI does not match this provider");
         if (uri.getAuthority() != null)
@@ -88,6 +103,7 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
     }
 
     private FileSystem getTheFileSystem() {
+        checkPermission();
         FileSystem fs = this.theFileSystem;
         if (fs == null) {
             synchronized (this) {
@@ -111,6 +127,7 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
 
     @Override
     public FileSystem getFileSystem(URI uri) {
+        checkPermission();
         checkUri(uri);
         return getTheFileSystem();
     }

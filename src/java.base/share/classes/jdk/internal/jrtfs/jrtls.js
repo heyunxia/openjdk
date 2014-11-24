@@ -25,18 +25,15 @@
 
 /*
  * Usage: jjs jrtls.js
+ *
+ * Recursively list the content of / directory of the jrt fs.
  */
 
 // classes used
 var Files = Java.type("java.nio.file.Files");
 var FileSystems = Java.type("java.nio.file.FileSystems");
-var Paths = Java.type("java.nio.file.Paths");
 var URI = Java.type("java.net.URI");
 
-var fs = FileSystems.getFileSystem(new URI("jrt:/"));
-//var root = fs.rootDirectories[0];
-//Files.walk(root).forEach(print);
-//var dir = fs.getPath("/java.base/java/lang");
-//Files.walk(dir).forEach(print);
-var dir = fs.getPath("/jdk.zipfs/");
-Files.walk(dir).forEach(print);
+var fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+var root = fs.getPath('/');
+Files.walk(root).forEach(print);
