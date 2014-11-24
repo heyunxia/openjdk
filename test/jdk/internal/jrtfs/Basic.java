@@ -39,12 +39,14 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.stream.Stream;
 
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.assertFalse;
 
@@ -223,6 +225,150 @@ public class Basic {
             for (Path entry: stream) {
                 assertTrue( entry.getParent().equals(base) );
             }
+        }
+    }
+
+    @DataProvider(name = "dirStreamStringFilterData")
+    private Object[][] dirStreamStringFilterData() {
+        return new Object[][] {
+            { "/java.base/java/lang", "/reflect"      },
+            { "/java.base/java/lang", "/Object.class" },
+            { "/java.base/java/util", "/stream"       },
+            { "/java.base/java/util", "/List.class"   },
+        };
+    }
+
+    @Test(dataProvider = "dirStreamStringFilterData")
+    public void testDirectoryStreamStringFilter(String dir, String filter) throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        Path base = fs.getPath(dir);
+        try (DirectoryStream<Path> stream =
+                Files.newDirectoryStream(base, p->!p.toString().endsWith(filter))) {
+            for (Path entry: stream) {
+                assertFalse(entry.toString().contains(filter),
+                    "filtered path seen: " + filter);
+            }
+        }
+
+        // make sure without filter, we do see that matching entry!
+        boolean seen = false;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(base)) {
+            for (Path entry: stream) {
+                if (entry.toString().endsWith(filter)) {
+                    seen = true;
+                    break;
+                }
+            }
+        }
+
+        assertTrue(seen, "even without filter " + filter + " is missing");
+    }
+
+    @DataProvider(name = "dirStreamFilterData")
+    private Object[][] dirStreamFilterData() {
+        return new Object[][] {
+            {
+              "/",
+              (DirectoryStream.Filter<Path>)(Files::isDirectory),
+              "isDirectory"
+            },
+            {
+              "/java.base/java/lang",
+              (DirectoryStream.Filter<Path>)(Files::isRegularFile),
+              "isFile"
+            }
+        };
+    }
+
+    @Test(dataProvider = "dirStreamFilterData")
+    private void testDirectoryStreamFilter(String dir, DirectoryStream.Filter filter,
+            String name) throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        Path base = fs.getPath(dir);
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(base, filter)) {
+            for (Path entry: stream) {
+                assertTrue(filter.accept(entry), "filtered path seen: " + name);
+            }
+        }
+
+        // make sure without filter, we do see that matching entry!
+        boolean seen = false;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(base)) {
+            for (Path entry: stream) {
+                if (filter.accept(entry)) {
+                    seen = true;
+                    break;
+                }
+            }
+        }
+
+        assertTrue(seen, "even without filter " + name + " is missing");
+    }
+
+    @Test
+    private void testDirectoryStreamIterator() throws Exception {
+        // run the tests with null filter (no filter)
+        dirStreamIteratorTest(null);
+        // run the same tests with trivial "accept all" filter
+        dirStreamIteratorTest(p->true);
+        // two other non-trivial ones
+        dirStreamIteratorTest(Files::isDirectory);
+        dirStreamIteratorTest(Files::isRegularFile);
+    }
+
+    private void dirStreamIteratorTest(DirectoryStream.Filter<Path> filter)
+            throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        // This test assumes at least there are two elements in "java/lang"
+        // package with any filter passed. don't change to different path here!
+        Path dir = fs.getPath("/java.base/java/lang");
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter)) {
+            Iterator<Path> itr = stream.iterator();
+            itr.hasNext();
+            Path path1 = itr.next();
+            // missing second hasNext call
+            Path path2 = itr.next();
+            assertNotEquals(path1, path2);
+        }
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter)) {
+            Iterator<Path> itr = stream.iterator();
+            // no hasNext calls at all
+            Path path1 = itr.next();
+            Path path2 = itr.next();
+            assertNotEquals(path1, path2);
+        }
+
+        int numEntries = 0;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter)) {
+            Iterator<Path> itr = stream.iterator();
+            while (itr.hasNext()) {
+                numEntries++;
+                itr.next();
+            }
+
+            // reached EOF, next call should result in exception
+            try {
+                itr.next();
+                throw new AssertionError("should have thrown exception");
+            } catch (NoSuchElementException nsee) {
+                System.out.println("got NoSuchElementException as expected");
+            }
+        }
+
+        // redundant hasNext calls
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter)) {
+            Iterator<Path> itr = stream.iterator();
+            // any number of hasNext should definitely stay at first element
+            for (int i = 0; i < 2*numEntries; i++) {
+                itr.hasNext();
+            }
+
+            for (int j = 0; j < numEntries; j++) {
+                itr.next();
+            }
+            // exactly count number of entries!
+            assertFalse(itr.hasNext());
         }
     }
 }

@@ -34,7 +34,6 @@ import java.nio.charset.Charset;
 import java.nio.file.AccessMode;
 import java.nio.file.ClosedFileSystemException;
 import java.nio.file.CopyOption;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemException;
@@ -65,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import jdk.internal.jimage.ImageReader;
 import jdk.internal.jimage.ImageReader.Node;
 import jdk.internal.jimage.UTF8String;
@@ -364,11 +364,9 @@ class JrtFileSystem extends FileSystem {
      * @param path name of the directory whose content is listed
      * @param childPrefix prefix added to returned children names - may be null
               in which case absolute child paths are returned
-     * @param filter directory stream filter
      * @return iterator for child paths of the given directory path
      */
-    Iterator<Path> iteratorOf(byte[] path, String childPrefix,
-            DirectoryStream.Filter<? super Path> filter)
+    Iterator<Path> iteratorOf(byte[] path, String childPrefix)
             throws IOException {
         NodeAndImage ni = checkNode(path);
         if (!ni.node.isDirectory()) {
@@ -383,15 +381,15 @@ class JrtFileSystem extends FileSystem {
     }
 
     private Iterator<Path> nodesToIterator(Path path, String childPrefix, List<Node> childNodes) {
-        List<Path> childPaths = new ArrayList<>(childNodes.size());
+        List<Path> childPaths;
         if (childPrefix == null) {
-            childNodes.stream().forEach((child) -> {
-                childPaths.add(toJrtPath(child.getNameString()));
-            });
+            childPaths = childNodes.stream()
+                .map(child -> toJrtPath(child.getNameString()))
+                .collect(Collectors.toCollection(ArrayList::new));
         } else {
-            childNodes.stream().forEach((child) -> {
-                childPaths.add(toJrtPath(childPrefix + child.getNameString().substring(1)));
-            });
+            childPaths = childNodes.stream()
+                .map(child -> toJrtPath(childPrefix + child.getNameString().substring(1)))
+                .collect(Collectors.toCollection(ArrayList::new));
         }
         return childPaths.iterator();
     }

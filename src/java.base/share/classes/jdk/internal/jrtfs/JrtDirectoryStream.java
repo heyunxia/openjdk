@@ -27,6 +27,7 @@ package jdk.internal.jrtfs;
 
 import java.nio.file.DirectoryStream;
 import java.nio.file.ClosedDirectoryStreamException;
+import java.nio.file.DirectoryIteratorException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -74,23 +75,86 @@ final class JrtDirectoryStream implements DirectoryStream<Path> {
             throw new IllegalStateException("Iterator has already been returned");
 
         try {
-            itr = jrtfs.iteratorOf(path, childPrefix, filter);
+            itr = jrtfs.iteratorOf(path, childPrefix);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
         return new Iterator<Path>() {
+            /*
+             * next Path value to return from this iterator.
+             * null value means hasNext() not called yet
+             * or last hasNext() returned false or resulted
+             * in exception. If last hasNext() returned true,
+             * then this field has non-null value.
+             */
+            private Path next;
+
+            // get-and-clear and set-next by these methods
+            private Path getAndClearNext() {
+                assert next != null;
+                Path result = this.next;
+                this.next = null;
+                return result;
+            }
+
+            private void setNext(Path path) {
+                assert path != null;
+                this.next = path;
+            }
+
+            // if hasNext() returns true, 'next' field has non-null Path
             @Override
-            public boolean hasNext() {
-                if (isClosed)
+            public synchronized boolean hasNext() {
+                if (next != null) {
+                    return true;
+                }
+
+                if (isClosed) {
                     return false;
-                return itr.hasNext();
+                }
+
+                if (filter == null) {
+                    if (itr.hasNext()) {
+                        setNext(itr.next());
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    while (itr.hasNext()) {
+                        Path tmpPath = itr.next();
+                        try {
+                            if (filter.accept(tmpPath)) {
+                                setNext(tmpPath);
+                                return true;
+                            }
+                        } catch (IOException ioe) {
+                            throw new DirectoryIteratorException(ioe);
+                        }
+                    }
+
+                    return false;
+                }
             }
 
             @Override
             public synchronized Path next() {
-                if (isClosed)
+                if (next != null) {
+                    return getAndClearNext();
+                }
+
+                if (isClosed) {
                     throw new NoSuchElementException();
-                return itr.next();
+                }
+
+                if (next == null && itr.hasNext()) {
+                    // missing hasNext() between next() calls.
+                    if (hasNext()) {
+                        return getAndClearNext();
+                    }
+                }
+
+                throw new NoSuchElementException();
             }
 
             @Override
