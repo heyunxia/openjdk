@@ -55,28 +55,29 @@ public class T6725036 {
 
         File testJar = createJar("test.jar", "java.lang.*");
 
-        JarFile j = new JarFile(testJar);
-        JarEntry je = j.getJarEntry(TEST_ENTRY_NAME.getPath());
-        long jarEntryTime = je.getTime();
+        try (JarFile j = new JarFile(testJar)) {
+            JarEntry je = j.getJarEntry(TEST_ENTRY_NAME.getPath());
+            long jarEntryTime = je.getTime();
 
-        ZipFileIndexCache zfic = ZipFileIndexCache.getSharedInstance();
-        ZipFileIndex zfi = zfic.getZipFileIndex(testJar, null, false, null, false);
-        long zfiTime = zfi.getLastModified(TEST_ENTRY_NAME);
+            ZipFileIndexCache zfic = ZipFileIndexCache.getSharedInstance();
+            ZipFileIndex zfi = zfic.getZipFileIndex(testJar, null, false, null, false);
+            long zfiTime = zfi.getLastModified(TEST_ENTRY_NAME);
 
-        check(je, jarEntryTime, zfi + ":" + TEST_ENTRY_NAME.getPath(), zfiTime);
+            check(je, jarEntryTime, zfi + ":" + TEST_ENTRY_NAME.getPath(), zfiTime);
 
-        Context context = new Context();
-        JavacFileManager fm = new JavacFileManager(context, false, null);
-        ZipFileIndexArchive zfia = new ZipFileIndexArchive(fm, zfi);
-        JavaFileObject jfo =
-            zfia.getFileObject(TEST_ENTRY_NAME.dirname(),
-                                   TEST_ENTRY_NAME.basename());
-        long jfoTime = jfo.getLastModified();
+            Context context = new Context();
+            JavacFileManager fm = new JavacFileManager(context, false, null);
+            ZipFileIndexArchive zfia = new ZipFileIndexArchive(fm, zfi);
+            JavaFileObject jfo =
+                zfia.getFileObject(TEST_ENTRY_NAME.dirname(),
+                                       TEST_ENTRY_NAME.basename());
+            long jfoTime = jfo.getLastModified();
 
-        check(je, jarEntryTime, jfo, jfoTime);
+            check(je, jarEntryTime, jfo, jfoTime);
 
-        if (errors > 0)
-            throw new Exception(errors + " occurred");
+            if (errors > 0)
+                throw new Exception(errors + " occurred");
+        }
     }
 
     File createJar(String name, String... paths) throws IOException {
