@@ -68,7 +68,7 @@ $(eval $(call SetupJavaCompilation,BUILD_NASGEN, \
     SETUP := GENERATE_OLDBYTECODE, \
     SRC := $(NASGEN_SRC) $(ASM_SRC), \
     BIN := $(BUILDTOOLS_OUTPUTDIR)/nasgen_classes, \
-    ADD_JAVAC_FLAGS := -bootclasspath "$(BOOT_RTJAR)$(PATH_SEP)$(SUPPORT_OUTPUTDIR)/misc/jdk.scripting.nashorn/classes"))
+    ADD_JAVAC_FLAGS := -Xbootclasspath/p:"$(SUPPORT_OUTPUTDIR)/misc/jdk.scripting.nashorn/classes"))
 
 # Nasgen needs nashorn classes
 $(BUILD_NASGEN): $(BUILD_NASHORN)
