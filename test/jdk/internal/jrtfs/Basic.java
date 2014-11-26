@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
 import java.net.URI;
 import java.util.Collections;
@@ -390,5 +391,69 @@ public class Basic {
     public void testHiddenPathsNotExposed(String path) throws Exception {
         FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
         assertTrue(Files.notExists(fs.getPath(path)), path + " should not exist");
+    }
+
+    @DataProvider(name = "pathGlobPatterns")
+    private Object[][] pathGlobPatterns() {
+        return new Object[][] {
+            { "/*", "/java.base", true },
+            { "/*", "/java.base/java", false },
+            { "/j*", "/java.base", true },
+            { "/J*", "/java.base", false },
+            { "**.class", "/java.base/java/lang/Object.class", true },
+            { "**.java", "/java.base/java/lang/Object.class", false },
+            { "**java/*", "/java.base/java/lang", true },
+            { "**java/lang/ref*", "/java.base/java/lang/reflect", true },
+            { "**java/lang/ref*", "/java.base/java/lang/ref", true },
+            { "**java/lang/ref?", "/java.base/java/lang/ref", false },
+            { "**java/lang/{ref,refl*}", "/java.base/java/lang/ref", true },
+            { "**java/lang/{ref,refl*}", "/java.base/java/lang/reflect", true },
+            { "**java/[a-u]?*/*.class", "/java.base/java/util/Map.class", true },
+            { "**java/util/[a-z]*.class", "/java.base/java/util/TreeMap.class", false },
+        };
+    }
+
+    @Test(dataProvider = "pathGlobPatterns")
+    public void testGlobPathMatcher(String pattern, String path,
+            boolean expectMatch) throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        PathMatcher pm = fs.getPathMatcher("glob:" + pattern);
+        Path p = fs.getPath(path);
+        assertTrue(Files.exists(p), path);
+        assertTrue(!(pm.matches(p) ^ expectMatch),
+            p + (expectMatch? " should match " : " should not match ") +
+            pattern);
+    }
+
+    @DataProvider(name = "pathRegexPatterns")
+    private Object[][] pathRegexPatterns() {
+        return new Object[][] {
+            { "/.*", "/java.base", true },
+            { "/[^/]*", "/java.base/java", false },
+            { "/j.*", "/java.base", true },
+            { "/J.*", "/java.base", false },
+            { ".*\\.class", "/java.base/java/lang/Object.class", true },
+            { ".*\\.java", "/java.base/java/lang/Object.class", false },
+            { ".*java/.*", "/java.base/java/lang", true },
+            { ".*java/lang/ref.*", "/java.base/java/lang/reflect", true },
+            { ".*java/lang/ref.*", "/java.base/java/lang/ref", true },
+            { ".*/java/lang/ref.+", "/java.base/java/lang/ref", false },
+            { ".*/java/lang/(ref|refl.*)", "/java.base/java/lang/ref", true },
+            { ".*/java/lang/(ref|refl.*)", "/java.base/java/lang/reflect", true },
+            { ".*/java/[a-u]?.*/.*\\.class", "/java.base/java/util/Map.class", true },
+            { ".*/java/util/[a-z]*\\.class", "/java.base/java/util/TreeMap.class", false },
+        };
+    }
+
+    @Test(dataProvider = "pathRegexPatterns")
+    public void testRegexPathMatcher(String pattern, String path,
+            boolean expectMatch) throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        PathMatcher pm = fs.getPathMatcher("regex:" + pattern);
+        Path p = fs.getPath(path);
+        assertTrue(Files.exists(p), path);
+        assertTrue(!(pm.matches(p) ^ expectMatch),
+            p + (expectMatch? " should match " : " should not match ") +
+            pattern);
     }
 }
