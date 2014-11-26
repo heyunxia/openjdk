@@ -544,10 +544,9 @@ public class Attributes implements Map<Object,Object>, Cloneable {
 
         /**
          * <code>Name</code> object for <code>Class-Path</code>
-         * manifest attribute. Bundled extensions can use this attribute
-         * to find other JAR files containing needed classes.
-         * @see <a href="../../../../technotes/guides/extensions/spec.html#bundled">
-         *      Extensions Specification</a>
+         * manifest attribute.
+         * @see <a href="../../../../technotes/guides/jar/jar.html#classpath">
+         *      JAR file specification</a>
          */
         public static final Name CLASS_PATH = new Name("Class-Path");
 
@@ -563,33 +562,25 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Sealed</code> manifest attribute
          * used for sealing.
-         * @see <a href="../../../../technotes/guides/extensions/spec.html#sealing">
-         *      Extension Sealing</a>
+         * @see <a href="../../../../technotes/guides/jar/jar.html#sealing">
+         *      Package Sealing</a>
          */
         public static final Name SEALED = new Name("Sealed");
 
        /**
          * <code>Name</code> object for <code>Extension-List</code> manifest attribute
-         * used for declaring dependencies on installed extensions.
-         *
-         * @deprecated Extension mechanism is no longer supported. Applets should
-         *             use {@link #CLASS_PATH} instead.
+         * used for the extension mechanism that is no longer supported.
          */
-        @Deprecated
         public static final Name EXTENSION_LIST = new Name("Extension-List");
 
         /**
-         * <code>Name</code> object for <code>Extension-Name</code> manifest attribute
-         * used for declaring dependencies on installed extensions.
-         *
-         * @deprecated Extension mechanism is no longer supported.
+         * <code>Name</code> object for <code>Extension-Name</code> manifest attribute.
+         * used for the extension mechanism that is no longer supported.
          */
-        @Deprecated
         public static final Name EXTENSION_NAME = new Name("Extension-Name");
 
         /**
-         * <code>Name</code> object for <code>Extension-Name</code> manifest attribute
-         * used for declaring dependencies on installed extensions.
+         * <code>Name</code> object for <code>Extension-Installation</code> manifest attribute.
          *
          * @deprecated Extension mechanism is no longer supported.
          */
@@ -616,7 +607,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
 
         /**
          * <code>Name</code> object for <code>Implementation-Vendor-Id</code>
-         * manifest attribute used for package versioning.
+         * manifest attribute.
          *
          * @deprecated Extension mechanism is no longer supported.
          */
@@ -625,7 +616,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
 
        /**
          * <code>Name</code> object for <code>Implementation-URL</code>
-         * manifest attribute used for package versioning.
+         * manifest attribute.
          *
          * @deprecated Extension mechanism is no longer supported.
          */
