@@ -371,4 +371,24 @@ public class Basic {
             assertFalse(itr.hasNext());
         }
     }
+
+    @DataProvider(name = "hiddenPaths")
+    private Object[][] hiddenPaths() {
+        return new Object[][] {
+            { "/META-INF" },
+            { "/META-INF/services" },
+            { "/META-INF/services/java.nio.file.spi.FileSystemProvider" },
+            { "/java.base/packages.offsets" },
+            { "/java.instrument/packages.offsets" },
+            { "/jdk.zipfs/packages.offsets" },
+            { "/java/lang" },
+            { "/java/util" },
+        };
+    }
+
+    @Test(dataProvider = "hiddenPaths")
+    public void testHiddenPathsNotExposed(String path) throws Exception {
+        FileSystem fs = FileSystems.getFileSystem(URI.create("jrt:/"));
+        assertTrue(Files.notExists(fs.getPath(path)), path + " should not exist");
+    }
 }
