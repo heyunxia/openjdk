@@ -1116,7 +1116,7 @@ public class URLClassPath {
             String urlPath = url.getFile().replace('/', File.separatorChar);
 
             File filePath = new File(ParseUtil.decode(urlPath));
-            File home = new File(JAVA_HOME);
+            File home = new File(JAVA_HOME).getCanonicalFile();
             File parent = filePath.getParentFile();
             while (parent != null) {
                 if (parent.equals(home))
