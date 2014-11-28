@@ -86,7 +86,7 @@ static ReadEntry_t       ReadEntry          = NULL;
 static ReadMappedEntry_t ReadMappedEntry    = NULL;
 static GetNextEntry_t    GetNextEntry       = NULL;
 static canonicalize_fn_t CanonicalizeEntry  = NULL;
-static ZipInflateFully_t ZipInflateFully   = NULL;
+static ZipInflateFully_t ZipInflateFully    = NULL;
 static Crc32_t           Crc32              = NULL;
 
 // Globals
@@ -758,7 +758,7 @@ ClassPathEntry* ClassLoader::create_class_path_entry(const char *path, const str
     if (TraceClassLoading || TraceClassPaths) {
       tty->print_cr("[Opened %s]", path);
     }
-  } else  {
+  } else {
     // Directory
     new_entry = new ClassPathDirEntry(path);
     if (TraceClassLoading) {
@@ -886,7 +886,6 @@ void ClassLoader::load_zip_library() {
   GetNextEntry = CAST_TO_FN_PTR(GetNextEntry_t, os::dll_lookup(handle, "ZIP_GetNextEntry"));
   ZipInflateFully = CAST_TO_FN_PTR(ZipInflateFully_t, os::dll_lookup(handle, "ZIP_InflateFully"));
   Crc32        = CAST_TO_FN_PTR(Crc32_t, os::dll_lookup(handle, "ZIP_CRC32"));
-
 
   // ZIP_Close is not exported on Windows in JDK5.0 so don't abort if ZIP_Close is NULL
   if (ZipOpen == NULL || FindEntry == NULL || ReadEntry == NULL ||
@@ -1459,7 +1458,6 @@ void ClassPathDirEntry::compile_the_world(Handle loader, TRAPS) {
   tty->print_cr("CompileTheWorld : Skipped classes in %s", _dir);
   tty->cr();
 }
-
 
 bool ClassPathDirEntry::is_jrt() {
   return false;
