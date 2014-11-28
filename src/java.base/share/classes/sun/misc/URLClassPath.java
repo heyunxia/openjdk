@@ -1232,11 +1232,6 @@ public class URLClassPath {
         }
 
         @Override
-        public void close() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public Resource find(String module, String name) throws IOException {
             String m = nameToModule(name);
             if (!m.equals(module))
