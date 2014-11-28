@@ -26,18 +26,13 @@
 package sun.misc;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.FilePermission;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.MalformedURLException;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.StringTokenizer;
-import java.util.Set;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
@@ -47,8 +42,13 @@ import java.security.Permissions;
 import java.security.Permission;
 import java.security.ProtectionDomain;
 import java.security.CodeSource;
-import sun.security.util.SecurityConstants;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import sun.net.www.ParseUtil;
+import sun.security.util.SecurityConstants;
 
 /**
  * This class is used by the system to launch the main application.
