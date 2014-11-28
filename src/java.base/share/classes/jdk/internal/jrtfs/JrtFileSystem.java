@@ -300,7 +300,7 @@ class JrtFileSystem extends FileSystem {
             image = appImage;
             node = appImage.findNode(path);
         }
-        if (node == null || node.isTopLevelPackageDir()) {
+        if (node == null || node.isHidden()) {
             throw new NoSuchFileException(getString(path));
         }
         return new NodeAndImage(node, image);
@@ -384,10 +384,12 @@ class JrtFileSystem extends FileSystem {
         List<Path> childPaths;
         if (childPrefix == null) {
             childPaths = childNodes.stream()
+                .filter(Node::isVisible)
                 .map(child -> toJrtPath(child.getNameString()))
                 .collect(Collectors.toCollection(ArrayList::new));
         } else {
             childPaths = childNodes.stream()
+                .filter(Node::isVisible)
                 .map(child -> toJrtPath(childPrefix + child.getNameString().substring(1)))
                 .collect(Collectors.toCollection(ArrayList::new));
         }

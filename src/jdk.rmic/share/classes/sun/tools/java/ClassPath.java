@@ -449,6 +449,7 @@ final class JrtClassPathEntry extends ClassPathEntry {
 
     ClassFile getFile(String name, String subdir, String basename, boolean isDirectory) {
         try {
+            name = name.replace(File.separatorChar, '/');
             Path cp = getClassPath(name);
             return cp == null? null : ClassFile.newClassFile(cp);
         } catch (IOException ioExp) {

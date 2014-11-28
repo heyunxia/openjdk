@@ -66,7 +66,7 @@ function treeItemForPath(path) {
                 if (Files.isDirectory(childPath)) {
                     var subitem = treeItemForPath(childPath);
                 } else {
-		    var subitem = new TreeItem(childPath.toString());
+                    var subitem = new TreeItem(childPath.toString());
                 }
                 item.children.add(subitem);
             }
