@@ -33,6 +33,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -45,7 +46,6 @@ import java.util.Set;
 import javax.tools.FileObject;
 
 import com.sun.tools.javac.file.RelativePath.RelativeDirectory;
-import com.sun.tools.javac.jvm.Profile;
 import com.sun.tools.javac.nio.PathFileObject;
 import com.sun.tools.javac.util.Context;
 
@@ -76,6 +76,14 @@ public class JRTIndex {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static boolean isAvailable() {
+        for (FileSystemProvider p: FileSystemProvider.installedProviders()) {
+            if (p.getScheme().equals("jrt"))
+                return true;
+        }
+        return false;
     }
 
 
@@ -188,7 +196,7 @@ public class JRTIndex {
         return getEntry(RelativeDirectory.forPackage(packageName)).ctSym;
     }
 
-    public synchronized Entry getEntry(RelativeDirectory rd) throws IOException {
+    synchronized Entry getEntry(RelativeDirectory rd) throws IOException {
         SoftReference<Entry> ref = entries.get(rd);
         Entry e = (ref == null) ? null : ref.get();
         if (e == null) {

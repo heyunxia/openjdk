@@ -208,7 +208,7 @@ public class ClassFinder {
         } else {
             useCtProps = false;
         }
-        jrtIndex = useCtProps ? JRTIndex.getSharedInstance() : null;
+        jrtIndex = useCtProps && JRTIndex.isAvailable() ? JRTIndex.getSharedInstance() : null;
 
         profile = Profile.instance(context);
     }
