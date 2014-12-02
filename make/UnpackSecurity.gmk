@@ -54,7 +54,10 @@ endef
 $(SUPPORT_OUTPUTDIR)/_the.sec-bin.unzipped: $(SEC_FILES_ZIP)
 	$(call unzip-sec-file)
 
-$(SUPPORT_OUTPUTDIR)/_the.sec-windows-bin.unzipped: $(SEC_FILES_WIN_ZIP)
+# Trying to unzip both of the sec files at the same time may cause a race
+# when creating directories common to both files.
+$(SUPPORT_OUTPUTDIR)/_the.sec-windows-bin.unzipped: $(SEC_FILES_WIN_ZIP) \
+    | $(SUPPORT_OUTPUTDIR)/_the.sec-bin.unzipped
 	$(call unzip-sec-file)
 
 $(SUPPORT_OUTPUTDIR)/_the.jgss-windows-i586-bin.unzipped: $(JGSS_WIN32_FILES_ZIP)
