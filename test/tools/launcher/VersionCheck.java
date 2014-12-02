@@ -46,13 +46,16 @@ public class VersionCheck extends TestHelper {
         "java-rmi",
         "java-rmi.cgi",
         "java",
+        "javacpl",
         "javaw",
         "javaws",
         "jcontrol",
         "jmc",
         "jmc.ini",
+        "jp2launcher",
         "jvisualvm",
         "packager",
+        "ssvagent",
         "unpack200",
         "wsimport"
     };
@@ -79,6 +82,7 @@ public class VersionCheck extends TestHelper {
         "jps",
         "jrunscript",
         "jjs",
+        "jp2launcher",
         "jsadebugd",
         "jstack",
         "jstat",
@@ -99,6 +103,7 @@ public class VersionCheck extends TestHelper {
         "schemagen", // returns error code 127
         "serialver",
         "servertool",
+        "ssvagent",
         "tnameserv",
         "unpack200",
         "wsgen",
