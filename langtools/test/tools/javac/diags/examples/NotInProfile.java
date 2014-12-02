@@ -25,5 +25,5 @@
 // options: -profile compact1
 
 class NotInProfile {
-    Class<?> c = javax.sql.rowset.Predicate.class;
+    Class<?> c = java.awt.Frame.class;
 }

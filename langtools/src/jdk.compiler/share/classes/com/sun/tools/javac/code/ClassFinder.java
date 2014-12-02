@@ -219,7 +219,7 @@ public class ClassFinder {
  *
  * The following code is a temporary substitute for the ct.sym mechanism
  * used in JDK 6 thru JDK 8.
- * This mechanism will eventually be superceded by the Jigsaw module system.
+ * This mechanism will eventually be superseded by the Jigsaw module system.
  ***********************************************************************/
 
     /**

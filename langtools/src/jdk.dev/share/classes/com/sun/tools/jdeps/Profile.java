@@ -112,7 +112,7 @@ enum Profile {
         for (String n : m.requires().keySet()) {
             Module d = PlatformClassPath.findModule(n);
             if (d == null) {
-                throw new InternalError("module " + n + " requuired by " +
+                throw new InternalError("module " + n + " required by " +
                         m.name() + " doesn't exist");
             }
             modules.add(d);
