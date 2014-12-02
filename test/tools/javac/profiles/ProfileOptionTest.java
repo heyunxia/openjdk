@@ -106,7 +106,7 @@ public class ProfileOptionTest {
         for (Target t: Target.values()) {
             switch (t) {
                 case JDK1_1:
-                case JDK1_2: // no equivalent -source
+                case JDK1_2:
                 case JDK1_3:
                 case JDK1_4:
                 case JDK1_5: // not supported

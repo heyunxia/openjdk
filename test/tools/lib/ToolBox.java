@@ -240,7 +240,7 @@ public class ToolBox {
     public void createDirectories(String... paths) throws IOException {
         if (paths.length == 0)
             throw new IllegalArgumentException("no directories specified");
-        for (String p: paths)
+        for (String p : paths)
             Files.createDirectories(Paths.get(p));
     }
 
@@ -255,7 +255,7 @@ public class ToolBox {
     public void createDirectories(Path... paths) throws IOException {
         if (paths.length == 0)
             throw new IllegalArgumentException("no directories specified");
-        for (Path p: paths)
+        for (Path p : paths)
             Files.createDirectories(p);
     }
 
@@ -269,7 +269,7 @@ public class ToolBox {
     public void deleteFiles(String... files) throws IOException {
         if (files.length == 0)
             throw new IllegalArgumentException("no files specified");
-        for (String file: files)
+        for (String file : files)
             Files.delete(Paths.get(file));
     }
 
@@ -399,7 +399,7 @@ public class ToolBox {
     public void writeJavaFiles(Path dir, String... contents) throws IOException {
         if (contents.length == 0)
             throw new IllegalArgumentException("no content specified for any files");
-        for (String c: contents) {
+        for (String c : contents) {
             new JavaSource(c).write(dir);
         }
     }
@@ -1097,7 +1097,7 @@ public class ToolBox {
 
         private List<File> toFiles(String path) {
             List<File> result = new ArrayList<>();
-            for (String s: path.split(File.pathSeparator)) {
+            for (String s : path.split(File.pathSeparator)) {
                 if (!s.isEmpty())
                     result.add(new File(s));
             }
@@ -1115,7 +1115,7 @@ public class ToolBox {
             if (fileObjects == null)
                 return filesAsFileObjects;
             List<JavaFileObject> combinedList = new ArrayList<>();
-            for (JavaFileObject o: filesAsFileObjects)
+            for (JavaFileObject o : filesAsFileObjects)
                 combinedList.add(o);
             combinedList.addAll(fileObjects);
             return combinedList;
@@ -1424,7 +1424,7 @@ public class ToolBox {
          */
         public JarTask files(JavaFileManager fm, Location l, String... paths)
                 throws IOException {
-            for (String p: paths) {
+            for (String p : paths) {
                 if (p.endsWith(".**"))
                     addPackage(fm, l, p.substring(0, p.length() - 3), true);
                 else if (p.endsWith(".*"))
@@ -1437,7 +1437,7 @@ public class ToolBox {
 
         private void addPackage(JavaFileManager fm, Location l, String pkg, boolean recurse)
                 throws IOException {
-            for (JavaFileObject fo: fm.list(l, pkg, EnumSet.allOf(JavaFileObject.Kind.class), recurse)) {
+            for (JavaFileObject fo : fm.list(l, pkg, EnumSet.allOf(JavaFileObject.Kind.class), recurse)) {
                 fileObjects.add(fo);
             }
         }
@@ -1547,7 +1547,7 @@ public class ToolBox {
 
         private void writeFiles(JarOutputStream jos) throws IOException {
                 Path base = (baseDir == null) ? currDir : baseDir;
-                for (Path path: paths) {
+                for (Path path : paths) {
                     Files.walkFileTree(base.resolve(path), new SimpleFileVisitor<Path>() {
                         @Override
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
@@ -1574,7 +1574,7 @@ public class ToolBox {
         }
 
         private void writeFileObjects(JarOutputStream jos) throws IOException {
-            for (FileObject fo: fileObjects) {
+            for (FileObject fo : fileObjects) {
                 String p = guessPath(fo);
                 JarEntry e = new JarEntry(p);
                 jos.putNextEntry(e);

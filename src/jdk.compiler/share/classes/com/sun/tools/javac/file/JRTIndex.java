@@ -213,7 +213,7 @@ public class JRTIndex {
                             // TODO: consider issue of files with same name in different modules
                             files.put(name, entry);
                         } else if (Files.isDirectory(entry)) {
-                            subdirs.add(new RelativeDirectory(rd, entry.getFileName().toString()));
+                            subdirs.add(new RelativeDirectory(rd, name));
                         }
                     }
                 }

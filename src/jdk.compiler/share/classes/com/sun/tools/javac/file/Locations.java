@@ -617,6 +617,8 @@ public class Locations {
         }
 
         SearchPath computePath() throws IOException {
+            String java_home = System.getProperty("java.home");
+
             SearchPath path = new SearchPath();
 
             String bootclasspathOpt = optionValues.get(BOOTCLASSPATH);
@@ -636,7 +638,7 @@ public class Locations {
                 path.addFiles(bootclasspathOpt);
             } else {
                 // Standard system classes for this compiler's release.
-                Collection<File> systemClasses = systemClasses();
+                Collection<File> systemClasses = systemClasses(java_home);
                 if (systemClasses != null) {
                     path.addFiles(systemClasses, false);
                 } else {
@@ -655,8 +657,7 @@ public class Locations {
                 path.addDirectories(extdirsOpt);
             } else {
                 // Add lib/jfxrt.jar to the search path
-                String home = System.getProperty("java.home");
-                File jfxrt = new File(new File(home, "lib"), "jfxrt.jar");
+                File jfxrt = new File(new File(java_home, "lib"), "jfxrt.jar");
                 if (jfxrt.exists()) {
                     path.addFile(jfxrt, false);
                 }
@@ -677,17 +678,14 @@ public class Locations {
          *
          * @throws UncheckedIOException if an I/O errors occurs
          */
-        private Collection<File> systemClasses() throws IOException {
-            String home = System.getProperty("java.home");
+        private Collection<File> systemClasses(String java_home) throws IOException {
             // Return .jimage files if available
-            Path libModules = Paths.get(home, "lib", "modules");
+            Path libModules = Paths.get(java_home, "lib", "modules");
             if (Files.exists(libModules)) {
                 try (Stream<Path> files = Files.list(libModules)) {
-                    Collection<File> images = files
-                            .filter(f -> f.getFileName().toString().endsWith(".jimage"))
-                            .map(Path::toFile)
-                            .collect(Collectors.toList());
-                    if (!images.isEmpty()) {
+                    boolean haveJImageFiles =
+                            files.anyMatch(f -> f.getFileName().toString().endsWith(".jimage"));
+                    if (haveJImageFiles) {
                         return Collections.singleton(JRT_MARKER_FILE);
                     }
                 }
@@ -702,7 +700,7 @@ public class Locations {
             }
 
             // Exploded module image
-            Path modules = Paths.get(home, "modules");
+            Path modules = Paths.get(java_home, "modules");
             if (Files.isDirectory(modules.resolve("java.base"))) {
                 return Files.list(modules)
                             .map(Path::toFile)

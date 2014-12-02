@@ -46,22 +46,22 @@ public class T6412669 extends AbstractProcessor {
 
         JavacTool tool = JavacTool.create();
         try (StandardJavaFileManager fm = tool.getStandardFileManager(null, null, null)) {
-        fm.setLocation(StandardLocation.CLASS_PATH, Arrays.asList(testClasses));
-        Iterable<? extends JavaFileObject> files =
-            fm.getJavaFileObjectsFromFiles(Arrays.asList(new File(testSrc, T6412669.class.getName()+".java")));
-        String[] opts = { "-proc:only", "-processor", T6412669.class.getName()};
-        StringWriter sw = new StringWriter();
-        JavacTask task = tool.getTask(sw, fm, null, Arrays.asList(opts), null, files);
-        boolean ok = task.call();
-        String out = sw.toString();
-        if (!out.isEmpty())
-            System.err.println(out);
-        if (!ok)
-            throw new AssertionError("compilation of test program failed");
-        // verify we found an annotated element to exercise the SourcePositions API
-        if (!out.contains("processing element"))
-            throw new AssertionError("expected text not found in compilation output");
-    }
+            fm.setLocation(StandardLocation.CLASS_PATH, Arrays.asList(testClasses));
+            Iterable<? extends JavaFileObject> files =
+                fm.getJavaFileObjectsFromFiles(Arrays.asList(new File(testSrc, T6412669.class.getName()+".java")));
+            String[] opts = { "-proc:only", "-processor", T6412669.class.getName()};
+            StringWriter sw = new StringWriter();
+            JavacTask task = tool.getTask(sw, fm, null, Arrays.asList(opts), null, files);
+            boolean ok = task.call();
+            String out = sw.toString();
+            if (!out.isEmpty())
+                System.err.println(out);
+            if (!ok)
+                throw new AssertionError("compilation of test program failed");
+            // verify we found an annotated element to exercise the SourcePositions API
+            if (!out.contains("processing element"))
+                throw new AssertionError("expected text not found in compilation output");
+        }
     }
 
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {

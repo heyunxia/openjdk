@@ -70,7 +70,7 @@ public class T6877206 {
         checkCoverage("classes", foundClasses,
                 "RegularFileObject", "ZipFileIndexFileObject", "ZipFileObject");
 
-        // Verify that we hit the jar files we intended, specifically ct.sym as well as rt.jar
+        // Verify that we hit the jar files we intended
         checkCoverage("jar files", foundJars, "jar", "jar jar");
     }
 
