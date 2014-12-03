@@ -171,11 +171,12 @@ public class Launcher {
         }
 
         private static URL[] getExtURLs(File[] files) throws IOException {
-            List<URL> urls = new ArrayList<>();
-            for (File f : files) {
-                urls.add(getFileURL(f));
+            int len = files.length;
+            URL[] urls = new URL[len];
+            for (int i=0; i<len; i++) {
+                urls[i] = getFileURL(files[i]);
             }
-            return urls.toArray(new URL[0]);
+            return urls;
         }
 
         private static AccessControlContext getContext(File[] dirs)
