@@ -28,14 +28,7 @@
 # Generate files using the charsetmapping tool
 #
 CHARSET_DATA_DIR := $(JDK_TOPDIR)/make/data/charsetmapping
-
-###
-### Generate files using the charsetmapping tool
-###
-
-CHARSET_GENSRC_JAVA_DIR_CS := $(SUPPORT_OUTPUTDIR)/gensrc/jdk.charsets/sun/nio/cs/ext
 CHARSET_GENSRC_JAVA_DIR_BASE := $(SUPPORT_OUTPUTDIR)/gensrc/java.base/sun/nio/cs
-CHARSET_DONE_CS := $(CHARSET_GENSRC_JAVA_DIR_CS)/_the.charsetmapping
 CHARSET_DONE_BASE := $(CHARSET_GENSRC_JAVA_DIR_BASE)/_the.charsetmapping
 CHARSET_TEMPLATES := \
     $(CHARSET_DATA_DIR)/SingleByte-X.java.template \
@@ -49,6 +42,10 @@ $(CHARSET_DONE_BASE)-sbcs: $(CHARSET_DATA_DIR)/sbcs \
 
 GENSRC_JAVA_BASE += $(CHARSET_DONE_BASE)-sbcs
 
+################################################################################
+#
+# Generate the sun/nio/cs/StandardCharsets.java file
+#
 CHARSET_STANDARD_GENSRC_DIR := $(SUPPORT_OUTPUTDIR)/gensrc/java.base/_standardcharsets
 CHARSET_STANDARD_DATA := $(CHARSET_DATA_DIR)/standard-charsets
 CHARSET_STANDARD_JAVA :=  sun/nio/cs/StandardCharsets.java
