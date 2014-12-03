@@ -110,7 +110,7 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
                 fs = this.theFileSystem;
                 if (fs == null) {
                     try {
-                        fs = new JrtFileSystem(this, null) {
+                        this.theFileSystem = fs = new JrtFileSystem(this, null) {
                             @Override public void close() {
                                 throw new UnsupportedOperationException();
                             }
@@ -119,7 +119,6 @@ public final class JrtFileSystemProvider extends FileSystemProvider {
                         throw new InternalError(ioe);
                     }
                 }
-                this.theFileSystem = fs;
             }
         }
         return fs;
