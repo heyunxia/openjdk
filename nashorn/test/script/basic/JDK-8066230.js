@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  * 
  * This code is free software; you can redistribute it and/or modify it
@@ -22,33 +22,13 @@
  */
 
 /**
- * JDK-8059443: NPE when unboxing return values
- * 
- * NOTE: this test can only pass when running with a JDK where 
- * JDK-8060483 is also fixed (9b37 or later).
+ * JDK-8066230: Undefined object type assertion when computing TypeBounds
  *
  * @test
  * @run
  */
 
-var NullProvider = Java.type("jdk.nashorn.test.models.NullProvider");
-
-try {
-    if (!NullProvider.getBoolean()) { print("yay"); }
-    print(NullProvider.getLong() * (1 << 33));
-    print(NullProvider.getDouble() / 2.5);
-    print(NullProvider.getInteger() << 1);
-} catch (e if e instanceof java.lang.NullPointerException) {
-    var st = e.stackTrace;
-    if (st.length > 0 &&
-        st[0].className.equals("sun.invoke.util.ValueConversions")) {
-        // buggy JVM. ignore NPE and pass vacuously
-        // print to match .EXPECTED output
-        print("yay");
-        print(0);
-        print(0);
-        print(0);
-    } else {
-        throw e;
-    }
-}
+(function() { void null + 0; })();
+(function() { var x; x += void x; })();
+(function() { var a = true + x, x; })();
+print("SUCCESS");
