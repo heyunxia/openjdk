@@ -125,8 +125,8 @@ char* Arguments::_meta_index_path = NULL;
 char* Arguments::_meta_index_dir = NULL;
 char* Arguments::_ext_dirs = NULL;
 
-// Check if head of 'option' matches 'name', and sets 'tail' remaining part of option string
-
+// Check if head of 'option' matches 'name', and sets 'tail' to the remaining
+// part of the option string.
 static bool match_option(const JavaVMOption *option, const char* name,
                          const char** tail) {
   int len = (int)strlen(name);
@@ -136,6 +136,32 @@ static bool match_option(const JavaVMOption *option, const char* name,
   } else {
     return false;
   }
+}
+
+// Check if 'option' matches 'name'. No "tail" is allowed.
+static bool match_option(const JavaVMOption *option, const char* name) {
+  const char* tail = NULL;
+  bool result = match_option(option, name, &tail);
+  if (tail != NULL && *tail == '\0') {
+    return result;
+  } else {
+    return false;
+  }
+}
+
+// Return true if any of the strings in null-terminated array 'names' matches.
+// If tail_allowed is true, then the tail must begin with a colon; otherwise,
+// the option must match exactly.
+static bool match_option(const JavaVMOption* option, const char** names, const char** tail,
+  bool tail_allowed) {
+  for (/* empty */; *names != NULL; ++names) {
+    if (match_option(option, *names, tail)) {
+      if (**tail == '\0' || tail_allowed && **tail == ':') {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 static void logOption(const char* opt) {
@@ -417,7 +443,7 @@ inline void SysClassPath::add_suffix(const char* suffix) {
 inline void SysClassPath::reset_item_at(int index) {
   assert(index < _scp_nitems && index != _scp_base, "just checking");
   if (_items[index] != NULL) {
-    FREE_C_HEAP_ARRAY(char, _items[index], mtInternal);
+    FREE_C_HEAP_ARRAY(char, _items[index]);
     _items[index] = NULL;
   }
 }
@@ -490,7 +516,7 @@ SysClassPath::add_to_path(const char* path, const char* str, bool prepend) {
       cp_tmp += str_len;
       *cp_tmp = separator;
       memcpy(++cp_tmp, path, old_len + 1);      // copy the trailing null
-      FREE_C_HEAP_ARRAY(char, path, mtInternal);
+      FREE_C_HEAP_ARRAY(char, path);
     } else {
       cp = REALLOC_C_HEAP_ARRAY(char, path, len, mtInternal);
       char* cp_tmp = cp + old_len;
@@ -525,10 +551,10 @@ char* SysClassPath::add_jars_to_path(char* path, const char* directory) {
       char* jarpath = NEW_C_HEAP_ARRAY(char, directory_len + 2 + strlen(name), mtInternal);
       sprintf(jarpath, "%s%s%s", directory, dir_sep, name);
       path = add_to_path(path, jarpath, false);
-      FREE_C_HEAP_ARRAY(char, jarpath, mtInternal);
+      FREE_C_HEAP_ARRAY(char, jarpath);
     }
   }
-  FREE_C_HEAP_ARRAY(char, dbuf, mtInternal);
+  FREE_C_HEAP_ARRAY(char, dbuf);
   os::closedir(dir);
   return path;
 }
@@ -663,7 +689,7 @@ static bool set_numeric_flag(char* name, char* value, Flag::Flags origin) {
 static bool set_string_flag(char* name, const char* value, Flag::Flags origin) {
   if (!CommandLineFlags::ccstrAtPut(name, &value, origin))  return false;
   // Contract:  CommandLineFlags always returns a pointer that needs freeing.
-  FREE_C_HEAP_ARRAY(char, value, mtInternal);
+  FREE_C_HEAP_ARRAY(char, value);
   return true;
 }
 
@@ -687,10 +713,10 @@ static bool append_to_string_flag(char* name, const char* new_value, Flag::Flags
   }
   (void) CommandLineFlags::ccstrAtPut(name, &value, origin);
   // CommandLineFlags always returns a pointer that needs freeing.
-  FREE_C_HEAP_ARRAY(char, value, mtInternal);
+  FREE_C_HEAP_ARRAY(char, value);
   if (free_this_too != NULL) {
     // CommandLineFlags made its own copy, so I must delete my own temp. buffer.
-    FREE_C_HEAP_ARRAY(char, free_this_too, mtInternal);
+    FREE_C_HEAP_ARRAY(char, free_this_too);
   }
   return true;
 }
@@ -1222,10 +1248,8 @@ static void disable_adaptive_size_policy(const char* collector_name) {
 void Arguments::set_parnew_gc_flags() {
   assert(!UseSerialGC && !UseParallelOldGC && !UseParallelGC && !UseG1GC,
          "control point invariant");
-  assert(UseParNewGC, "Error");
-
-  // Turn off AdaptiveSizePolicy for parnew until it is complete.
-  disable_adaptive_size_policy("UseParNewGC");
+  assert(UseConcMarkSweepGC, "CMS is expected to be on here");
+  assert(UseParNewGC, "ParNew should always be used with CMS");
 
   if (FLAG_IS_DEFAULT(ParallelGCThreads)) {
     FLAG_SET_DEFAULT(ParallelGCThreads, Abstract_VM_Version::parallel_worker_threads());
@@ -1266,21 +1290,12 @@ void Arguments::set_parnew_gc_flags() {
 void Arguments::set_cms_and_parnew_gc_flags() {
   assert(!UseSerialGC && !UseParallelOldGC && !UseParallelGC, "Error");
   assert(UseConcMarkSweepGC, "CMS is expected to be on here");
-
-  // If we are using CMS, we prefer to UseParNewGC,
-  // unless explicitly forbidden.
-  if (FLAG_IS_DEFAULT(UseParNewGC)) {
-    FLAG_SET_ERGO(bool, UseParNewGC, true);
-  }
+  assert(UseParNewGC, "ParNew should always be used with CMS");
 
   // Turn off AdaptiveSizePolicy by default for cms until it is complete.
   disable_adaptive_size_policy("UseConcMarkSweepGC");
 
-  // In either case, adjust ParallelGCThreads and/or UseParNewGC
-  // as needed.
-  if (UseParNewGC) {
-    set_parnew_gc_flags();
-  }
+  set_parnew_gc_flags();
 
   size_t max_heap = align_size_down(MaxHeapSize,
                                     CardTableRS::ct_max_alignment_constraint());
@@ -1750,14 +1765,11 @@ void Arguments::set_gc_specific_flags() {
   // Set per-collector flags
   if (UseParallelGC || UseParallelOldGC) {
     set_parallel_gc_flags();
-  } else if (UseConcMarkSweepGC) { // Should be done before ParNew check below
+  } else if (UseConcMarkSweepGC) {
     set_cms_and_parnew_gc_flags();
-  } else if (UseParNewGC) {  // Skipped if CMS is set above
-    set_parnew_gc_flags();
   } else if (UseG1GC) {
     set_g1_gc_flags();
   }
-  check_deprecated_gcs();
   check_deprecated_gc_flags();
   if (AssumeMP && !UseSerialGC) {
     if (FLAG_IS_DEFAULT(ParallelGCThreads) && ParallelGCThreads == 1) {
@@ -2118,17 +2130,11 @@ bool Arguments::verify_MaxHeapFreeRatio(FormatBuffer<80>& err_msg, uintx max_hea
 // Check consistency of GC selection
 bool Arguments::check_gc_consistency_user() {
   check_gclog_consistency();
-  bool status = true;
   // Ensure that the user has not selected conflicting sets
-  // of collectors. [Note: this check is merely a user convenience;
-  // collectors over-ride each other so that only a non-conflicting
-  // set is selected; however what the user gets is not what they
-  // may have expected from the combination they asked for. It's
-  // better to reduce user confusion by not allowing them to
-  // select conflicting combinations.
+  // of collectors.
   uint i = 0;
   if (UseSerialGC)                       i++;
-  if (UseConcMarkSweepGC || UseParNewGC) i++;
+  if (UseConcMarkSweepGC)                i++;
   if (UseParallelGC || UseParallelOldGC) i++;
   if (UseG1GC)                           i++;
   if (i > 1) {
@@ -2136,26 +2142,30 @@ bool Arguments::check_gc_consistency_user() {
                 "Conflicting collector combinations in option list; "
                 "please refer to the release notes for the combinations "
                 "allowed\n");
-    status = false;
+    return false;
   }
-  return status;
-}
 
-void Arguments::check_deprecated_gcs() {
   if (UseConcMarkSweepGC && !UseParNewGC) {
-    warning("Using the DefNew young collector with the CMS collector is deprecated "
-        "and will likely be removed in a future release");
+    jio_fprintf(defaultStream::error_stream(),
+        "It is not possible to combine the DefNew young collector with the CMS collector.\n");
+    return false;
   }
 
   if (UseParNewGC && !UseConcMarkSweepGC) {
     // !UseConcMarkSweepGC means that we are using serial old gc. Unfortunately we don't
     // set up UseSerialGC properly, so that can't be used in the check here.
-    warning("Using the ParNew young collector with the Serial old collector is deprecated "
-        "and will likely be removed in a future release");
+    jio_fprintf(defaultStream::error_stream(),
+        "It is not possible to combine the ParNew young collector with the Serial old collector.\n");
+    return false;
   }
+
+  return true;
 }
 
 void Arguments::check_deprecated_gc_flags() {
+  if (FLAG_IS_CMDLINE(UseParNewGC)) {
+    warning("The UseParNewGC flag is deprecated and will likely be removed in a future release");
+  }
   if (FLAG_IS_CMDLINE(MaxGCMinorPauseMillis)) {
     warning("Using MaxGCMinorPauseMillis as minor pause goal is deprecated"
             "and will likely be removed in future release");
@@ -2262,7 +2272,7 @@ bool Arguments::check_vm_args_consistency() {
     FLAG_SET_DEFAULT(UseGCOverheadLimit, false);
   }
 
-  status = status && ArgumentsExt::check_gc_consistency_user();
+  status = status && check_gc_consistency_user();
   status = status && check_stack_pages();
 
   status = status && verify_percentage(CMSIncrementalSafetyFactor,
@@ -2542,21 +2552,6 @@ static const char* system_assertion_options[] = {
   "-dsa", "-esa", "-disablesystemassertions", "-enablesystemassertions", 0
 };
 
-// Return true if any of the strings in null-terminated array 'names' matches.
-// If tail_allowed is true, then the tail must begin with a colon; otherwise,
-// the option must match exactly.
-static bool match_option(const JavaVMOption* option, const char** names, const char** tail,
-  bool tail_allowed) {
-  for (/* empty */; *names != NULL; ++names) {
-    if (match_option(option, *names, tail)) {
-      if (**tail == '\0' || tail_allowed && **tail == ':') {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 bool Arguments::parse_uintx(const char* value,
                             uintx* uintx_arg,
                             uintx min_size) {
@@ -2798,16 +2793,16 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       }
 #endif // !INCLUDE_JVMTI
     // -Xnoclassgc
-    } else if (match_option(option, "-Xnoclassgc", &tail)) {
+    } else if (match_option(option, "-Xnoclassgc")) {
       FLAG_SET_CMDLINE(bool, ClassUnloading, false);
     // -Xconcgc
-    } else if (match_option(option, "-Xconcgc", &tail)) {
+    } else if (match_option(option, "-Xconcgc")) {
       FLAG_SET_CMDLINE(bool, UseConcMarkSweepGC, true);
     // -Xnoconcgc
-    } else if (match_option(option, "-Xnoconcgc", &tail)) {
+    } else if (match_option(option, "-Xnoconcgc")) {
       FLAG_SET_CMDLINE(bool, UseConcMarkSweepGC, false);
     // -Xbatch
-    } else if (match_option(option, "-Xbatch", &tail)) {
+    } else if (match_option(option, "-Xbatch")) {
       FLAG_SET_CMDLINE(bool, BackgroundCompilation, false);
     // -Xmn for compatibility with other JVM vendors
     } else if (match_option(option, "-Xmn", &tail)) {
@@ -2952,28 +2947,28 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
         }
         FLAG_SET_CMDLINE(uintx, IncreaseFirstTierCompileThresholdAt, (uintx)uint_IncreaseFirstTierCompileThresholdAt);
     // -green
-    } else if (match_option(option, "-green", &tail)) {
+    } else if (match_option(option, "-green")) {
       jio_fprintf(defaultStream::error_stream(),
                   "Green threads support not available\n");
           return JNI_EINVAL;
     // -native
-    } else if (match_option(option, "-native", &tail)) {
+    } else if (match_option(option, "-native")) {
           // HotSpot always uses native threads, ignore silently for compatibility
     // -Xsqnopause
-    } else if (match_option(option, "-Xsqnopause", &tail)) {
+    } else if (match_option(option, "-Xsqnopause")) {
           // EVM option, ignore silently for compatibility
     // -Xrs
-    } else if (match_option(option, "-Xrs", &tail)) {
+    } else if (match_option(option, "-Xrs")) {
           // Classic/EVM option, new functionality
       FLAG_SET_CMDLINE(bool, ReduceSignalUsage, true);
-    } else if (match_option(option, "-Xusealtsigs", &tail)) {
+    } else if (match_option(option, "-Xusealtsigs")) {
           // change default internal VM signals used - lower case for back compat
       FLAG_SET_CMDLINE(bool, UseAltSigs, true);
     // -Xoptimize
-    } else if (match_option(option, "-Xoptimize", &tail)) {
+    } else if (match_option(option, "-Xoptimize")) {
           // EVM option, ignore silently for compatibility
     // -Xprof
-    } else if (match_option(option, "-Xprof", &tail)) {
+    } else if (match_option(option, "-Xprof")) {
 #if INCLUDE_FPROF
       _has_profile = true;
 #else // INCLUDE_FPROF
@@ -2982,7 +2977,7 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       return JNI_ERR;
 #endif // INCLUDE_FPROF
     // -Xconcurrentio
-    } else if (match_option(option, "-Xconcurrentio", &tail)) {
+    } else if (match_option(option, "-Xconcurrentio")) {
       FLAG_SET_CMDLINE(bool, UseLWPSynchronization, true);
       FLAG_SET_CMDLINE(bool, BackgroundCompilation, false);
       FLAG_SET_CMDLINE(intx, DeferThrSuspendLoopCount, 1);
@@ -2990,13 +2985,13 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       FLAG_SET_CMDLINE(uintx, NewSizeThreadIncrease, 16 * K);  // 20Kb per thread added to new generation
 
       // -Xinternalversion
-    } else if (match_option(option, "-Xinternalversion", &tail)) {
+    } else if (match_option(option, "-Xinternalversion")) {
       jio_fprintf(defaultStream::output_stream(), "%s\n",
                   VM_Version::internal_vm_info_string());
       vm_exit(0);
 #ifndef PRODUCT
     // -Xprintflags
-    } else if (match_option(option, "-Xprintflags", &tail)) {
+    } else if (match_option(option, "-Xprintflags")) {
       CommandLineFlags::printFlags(tty, false);
       vm_exit(0);
 #endif
@@ -3030,29 +3025,29 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
 #endif
       }
     // -Xint
-    } else if (match_option(option, "-Xint", &tail)) {
+    } else if (match_option(option, "-Xint")) {
           set_mode_flags(_int);
     // -Xmixed
-    } else if (match_option(option, "-Xmixed", &tail)) {
+    } else if (match_option(option, "-Xmixed")) {
           set_mode_flags(_mixed);
     // -Xcomp
-    } else if (match_option(option, "-Xcomp", &tail)) {
+    } else if (match_option(option, "-Xcomp")) {
       // for testing the compiler; turn off all flags that inhibit compilation
           set_mode_flags(_comp);
     // -Xshare:dump
-    } else if (match_option(option, "-Xshare:dump", &tail)) {
+    } else if (match_option(option, "-Xshare:dump")) {
       FLAG_SET_CMDLINE(bool, DumpSharedSpaces, true);
       set_mode_flags(_int);     // Prevent compilation, which creates objects
     // -Xshare:on
-    } else if (match_option(option, "-Xshare:on", &tail)) {
+    } else if (match_option(option, "-Xshare:on")) {
       FLAG_SET_CMDLINE(bool, UseSharedSpaces, true);
       FLAG_SET_CMDLINE(bool, RequireSharedSpaces, true);
     // -Xshare:auto
-    } else if (match_option(option, "-Xshare:auto", &tail)) {
+    } else if (match_option(option, "-Xshare:auto")) {
       FLAG_SET_CMDLINE(bool, UseSharedSpaces, true);
       FLAG_SET_CMDLINE(bool, RequireSharedSpaces, false);
     // -Xshare:off
-    } else if (match_option(option, "-Xshare:off", &tail)) {
+    } else if (match_option(option, "-Xshare:off")) {
       FLAG_SET_CMDLINE(bool, UseSharedSpaces, false);
       FLAG_SET_CMDLINE(bool, RequireSharedSpaces, false);
     // -Xverify
@@ -3070,13 +3065,13 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
         return JNI_EINVAL;
       }
     // -Xdebug
-    } else if (match_option(option, "-Xdebug", &tail)) {
+    } else if (match_option(option, "-Xdebug")) {
       // note this flag has been used, then ignore
       set_xdebug_mode(true);
     // -Xnoagent
-    } else if (match_option(option, "-Xnoagent", &tail)) {
+    } else if (match_option(option, "-Xnoagent")) {
       // For compatibility with classic. HotSpot refuses to load the old style agent.dll.
-    } else if (match_option(option, "-Xboundthreads", &tail)) {
+    } else if (match_option(option, "-Xboundthreads")) {
       // Bind user level threads to kernel threads (Solaris only)
       FLAG_SET_CMDLINE(bool, UseBoundThreads, true);
     } else if (match_option(option, "-Xloggc:", &tail)) {
@@ -3106,14 +3101,14 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
                                      "check")) {
         return JNI_EINVAL;
       }
-    } else if (match_option(option, "vfprintf", &tail)) {
+    } else if (match_option(option, "vfprintf")) {
       _vfprintf_hook = CAST_TO_FN_PTR(vfprintf_hook_t, option->extraInfo);
-    } else if (match_option(option, "exit", &tail)) {
+    } else if (match_option(option, "exit")) {
       _exit_hook = CAST_TO_FN_PTR(exit_hook_t, option->extraInfo);
-    } else if (match_option(option, "abort", &tail)) {
+    } else if (match_option(option, "abort")) {
       _abort_hook = CAST_TO_FN_PTR(abort_hook_t, option->extraInfo);
     // -XX:+AggressiveHeap
-    } else if (match_option(option, "-XX:+AggressiveHeap", &tail)) {
+    } else if (match_option(option, "-XX:+AggressiveHeap")) {
 
       // This option inspects the machine and attempts to set various
       // parameters to be optimal for long-running, memory allocation
@@ -3204,11 +3199,11 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
 
     // Need to keep consistency of MaxTenuringThreshold and AlwaysTenure/NeverTenure;
     // and the last option wins.
-    } else if (match_option(option, "-XX:+NeverTenure", &tail)) {
+    } else if (match_option(option, "-XX:+NeverTenure")) {
       FLAG_SET_CMDLINE(bool, NeverTenure, true);
       FLAG_SET_CMDLINE(bool, AlwaysTenure, false);
       FLAG_SET_CMDLINE(uintx, MaxTenuringThreshold, markOopDesc::max_age + 1);
-    } else if (match_option(option, "-XX:+AlwaysTenure", &tail)) {
+    } else if (match_option(option, "-XX:+AlwaysTenure")) {
       FLAG_SET_CMDLINE(bool, NeverTenure, false);
       FLAG_SET_CMDLINE(bool, AlwaysTenure, true);
       FLAG_SET_CMDLINE(uintx, MaxTenuringThreshold, 0);
@@ -3227,17 +3222,17 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
         FLAG_SET_CMDLINE(bool, NeverTenure, false);
         FLAG_SET_CMDLINE(bool, AlwaysTenure, false);
       }
-    } else if (match_option(option, "-XX:+CMSPermGenSweepingEnabled", &tail) ||
-               match_option(option, "-XX:-CMSPermGenSweepingEnabled", &tail)) {
+    } else if (match_option(option, "-XX:+CMSPermGenSweepingEnabled") ||
+               match_option(option, "-XX:-CMSPermGenSweepingEnabled")) {
       jio_fprintf(defaultStream::error_stream(),
         "Please use CMSClassUnloadingEnabled in place of "
         "CMSPermGenSweepingEnabled in the future\n");
-    } else if (match_option(option, "-XX:+UseGCTimeLimit", &tail)) {
+    } else if (match_option(option, "-XX:+UseGCTimeLimit")) {
       FLAG_SET_CMDLINE(bool, UseGCOverheadLimit, true);
       jio_fprintf(defaultStream::error_stream(),
         "Please use -XX:+UseGCOverheadLimit in place of "
         "-XX:+UseGCTimeLimit in the future\n");
-    } else if (match_option(option, "-XX:-UseGCTimeLimit", &tail)) {
+    } else if (match_option(option, "-XX:-UseGCTimeLimit")) {
       FLAG_SET_CMDLINE(bool, UseGCOverheadLimit, false);
       jio_fprintf(defaultStream::error_stream(),
         "Please use -XX:-UseGCOverheadLimit in place of "
@@ -3247,13 +3242,13 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
     // are not to be documented.
     } else if (match_option(option, "-XX:MaxTLERatio=", &tail)) {
       // No longer used.
-    } else if (match_option(option, "-XX:+ResizeTLE", &tail)) {
+    } else if (match_option(option, "-XX:+ResizeTLE")) {
       FLAG_SET_CMDLINE(bool, ResizeTLAB, true);
-    } else if (match_option(option, "-XX:-ResizeTLE", &tail)) {
+    } else if (match_option(option, "-XX:-ResizeTLE")) {
       FLAG_SET_CMDLINE(bool, ResizeTLAB, false);
-    } else if (match_option(option, "-XX:+PrintTLE", &tail)) {
+    } else if (match_option(option, "-XX:+PrintTLE")) {
       FLAG_SET_CMDLINE(bool, PrintTLAB, true);
-    } else if (match_option(option, "-XX:-PrintTLE", &tail)) {
+    } else if (match_option(option, "-XX:-PrintTLE")) {
       FLAG_SET_CMDLINE(bool, PrintTLAB, false);
     } else if (match_option(option, "-XX:TLEFragmentationRatio=", &tail)) {
       // No longer used.
@@ -3269,17 +3264,17 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       FLAG_SET_CMDLINE(uintx, TLABSize, long_tlab_size);
     } else if (match_option(option, "-XX:TLEThreadRatio=", &tail)) {
       // No longer used.
-    } else if (match_option(option, "-XX:+UseTLE", &tail)) {
+    } else if (match_option(option, "-XX:+UseTLE")) {
       FLAG_SET_CMDLINE(bool, UseTLAB, true);
-    } else if (match_option(option, "-XX:-UseTLE", &tail)) {
+    } else if (match_option(option, "-XX:-UseTLE")) {
       FLAG_SET_CMDLINE(bool, UseTLAB, false);
-    } else if (match_option(option, "-XX:+DisplayVMOutputToStderr", &tail)) {
+    } else if (match_option(option, "-XX:+DisplayVMOutputToStderr")) {
       FLAG_SET_CMDLINE(bool, DisplayVMOutputToStdout, false);
       FLAG_SET_CMDLINE(bool, DisplayVMOutputToStderr, true);
-    } else if (match_option(option, "-XX:+DisplayVMOutputToStdout", &tail)) {
+    } else if (match_option(option, "-XX:+DisplayVMOutputToStdout")) {
       FLAG_SET_CMDLINE(bool, DisplayVMOutputToStderr, false);
       FLAG_SET_CMDLINE(bool, DisplayVMOutputToStdout, true);
-    } else if (match_option(option, "-XX:+ExtendedDTraceProbes", &tail)) {
+    } else if (match_option(option, "-XX:+ExtendedDTraceProbes")) {
 #if defined(DTRACE_ENABLED)
       FLAG_SET_CMDLINE(bool, ExtendedDTraceProbes, true);
       FLAG_SET_CMDLINE(bool, DTraceMethodProbes, true);
@@ -3291,7 +3286,7 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       return JNI_EINVAL;
 #endif // defined(DTRACE_ENABLED)
 #ifdef ASSERT
-    } else if (match_option(option, "-XX:+FullGCALot", &tail)) {
+    } else if (match_option(option, "-XX:+FullGCALot")) {
       FLAG_SET_CMDLINE(bool, FullGCALot, true);
       // disable scavenge before parallel mark-compact
       FLAG_SET_CMDLINE(bool, ScavengeBeforeFullGC, false);
@@ -3377,7 +3372,7 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
       }
       FLAG_SET_CMDLINE(uintx, MaxDirectMemorySize, max_direct_memory_size);
 #if !INCLUDE_MANAGEMENT
-    } else if (match_option(option, "-XX:+ManagementServer", &tail)) {
+    } else if (match_option(option, "-XX:+ManagementServer")) {
         jio_fprintf(defaultStream::error_stream(),
           "ManagementServer is not supported in this VM.\n");
         return JNI_ERR;
@@ -3473,7 +3468,7 @@ static bool has_jar_files(const char* directory) {
     const char* ext = name + strlen(name) - 4;
     hasJarFile = ext > name && (os::file_name_strcmp(ext, ".jar") == 0);
   }
-  FREE_C_HEAP_ARRAY(char, dbuf, mtInternal);
+  FREE_C_HEAP_ARRAY(char, dbuf);
   os::closedir(dir);
   return hasJarFile ;
 }
@@ -3500,7 +3495,7 @@ static int check_non_empty_dirs(const char* path) {
         jio_fprintf(defaultStream::output_stream(),
           "Non-empty directory: %s\n", dirpath);
       }
-      FREE_C_HEAP_ARRAY(char, dirpath, mtInternal);
+      FREE_C_HEAP_ARRAY(char, dirpath);
       path = tmp_end + 1;
     }
   }
@@ -3610,7 +3605,12 @@ jint Arguments::finalize_vm_init_args(SysClassPath* scp_p, bool scp_assembly_req
     }
   }
 
-  if (!ArgumentsExt::check_vm_args_consistency()) {
+  if (UseConcMarkSweepGC && FLAG_IS_DEFAULT(UseParNewGC) && !UseParNewGC) {
+    // CMS can only be used with ParNew
+    FLAG_SET_ERGO(bool, UseParNewGC, true);
+  }
+
+  if (!check_vm_args_consistency()) {
     return JNI_ERR;
   }
 
@@ -3807,23 +3807,23 @@ jint Arguments::parse(const JavaVMInitArgs* args) {
       settings_file_specified = true;
       continue;
     }
-    if (match_option(option, "-XX:+PrintVMOptions", &tail)) {
+    if (match_option(option, "-XX:+PrintVMOptions")) {
       PrintVMOptions = true;
       continue;
     }
-    if (match_option(option, "-XX:-PrintVMOptions", &tail)) {
+    if (match_option(option, "-XX:-PrintVMOptions")) {
       PrintVMOptions = false;
       continue;
     }
-    if (match_option(option, "-XX:+IgnoreUnrecognizedVMOptions", &tail)) {
+    if (match_option(option, "-XX:+IgnoreUnrecognizedVMOptions")) {
       IgnoreUnrecognizedVMOptions = true;
       continue;
     }
-    if (match_option(option, "-XX:-IgnoreUnrecognizedVMOptions", &tail)) {
+    if (match_option(option, "-XX:-IgnoreUnrecognizedVMOptions")) {
       IgnoreUnrecognizedVMOptions = false;
       continue;
     }
-    if (match_option(option, "-XX:+PrintFlagsInitial", &tail)) {
+    if (match_option(option, "-XX:+PrintFlagsInitial")) {
       CommandLineFlags::printFlags(tty, false);
       vm_exit(0);
     }
@@ -3849,7 +3849,7 @@ jint Arguments::parse(const JavaVMInitArgs* args) {
 
 
 #ifndef PRODUCT
-    if (match_option(option, "-XX:+PrintFlagsWithComments", &tail)) {
+    if (match_option(option, "-XX:+PrintFlagsWithComments")) {
       CommandLineFlags::printFlags(tty, true);
       vm_exit(0);
     }
@@ -4008,7 +4008,7 @@ jint Arguments::apply_ergo() {
   // Set heap size based on available physical memory
   set_heap_size();
 
-  set_gc_specific_flags();
+  ArgumentsExt::set_gc_specific_flags();
 
   // Initialize Metaspace flags and alignments
   Metaspace::ergo_initialize();
