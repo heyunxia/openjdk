@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,8 +21,23 @@
  * questions.
  */
 
-// key: compiler.warn.underscore.as.identifier
+/**
+ * @test
+ * @bug 8063052
+ * @summary Inference chokes on wildcard derived from method reference
+ * @compile MethodRef8.java
+ */
 
-class UnderscoreAsIdentifier {
-    String _ = null;
+public class MethodRef8 {
+    void test(Box<? extends Box<? extends Number>> b) {
+        Number n1 = b.map(Box::get).get();
+        Number n2 = b.<Number>map(Box::get).get();
+    }
+
+    interface Func<S,T> { T apply(S arg); }
+
+    interface Box<T> {
+        T get();
+        <R> Box<R> map(Func<T,R> f);
+    }
 }
