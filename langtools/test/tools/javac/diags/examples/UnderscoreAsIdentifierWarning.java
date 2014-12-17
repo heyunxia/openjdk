@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,15 +21,9 @@
  * questions.
  */
 
-/*
- * @test
- * @bug 8003280 8064365
- * @summary Add lambda tests
- *  spurious crashes when running in 'diamond finder' mode
- * @compile -XDfind=diamond DiamondFinder.java
- */
-import java.util.*;
+// key: compiler.warn.underscore.as.identifier
+// options: -source 8 -Xlint:-options
 
-class DiamondFinder {
-    Collection<String> f = new HashSet<String>(Arrays.asList("a"));
+class UnderscoreAsIdentifierWarning {
+    String _ = null;
 }
