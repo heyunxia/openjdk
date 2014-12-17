@@ -22,16 +22,14 @@
  */
 
 /**
- * JDK-8055762: Nashorn misses linker for netscape.javascript.JSObject instances
+ * JDK-8067136: BrowserJSObjectLinker does not handle call on JSObjects
  *
  * @test
  * @option -scripting
  * @run
  */
 
-// basic checks for special linkage for netscape.javascript.JSObject
-// instances. For this test, we just subclass that class rather than
-// involve actual browser script engine or javafx webkit objects.
+// call on netscape.javascript.JSObject
 
 function main() {
     var JSObject;
@@ -40,7 +38,7 @@ function main() {
     } catch (e) {
         if (e instanceof java.lang.ClassNotFoundException) {
             // pass vacuously by emitting the .EXPECTED file content
-            var str = readFully(__DIR__ + "JDK-8055762.js.EXPECTED");
+            var str = readFully(__DIR__ + "JDK-8067136.js.EXPECTED");
             print(str.substring(0, str.length - 1));
             return;
         } else{
@@ -54,34 +52,18 @@ function test(JSObject) {
     var obj = new (Java.extend(JSObject))() {
         getMember: function(name) {
             if (name == "func") {
-                return function(arg) {
-                    print("func called with " + arg);
+                return new (Java.extend(JSObject)) {
+                    call: function(n) {
+                        print("func called");
+                    }
                 }
             }
             return name.toUpperCase();
         },
 
-        getSlot: function(index) {
-            return index^2;
-        },
-
-        setMember: function(name, value) {
-            print(name + " set to " + value);
-        },
-
-        setSlot: function(index, value) {
-            print("[" + index + "] set to " + value);
-        }
     };
 
-    var a = "a";
-    print(obj["foo"]);
-    print(obj[a + "bc"]);
-    print(obj[2]);
-    obj.bar = 23;
-    obj[a + "bc"] = 23;
-    obj[3] = 23;
-    obj.func("hello");
+    obj.func();
 }
 
 main();
