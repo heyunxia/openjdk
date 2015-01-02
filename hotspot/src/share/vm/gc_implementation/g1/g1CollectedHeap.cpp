@@ -352,7 +352,7 @@ void YoungList::print() {
 }
 
 void G1RegionMappingChangedListener::reset_from_card_cache(uint start_idx, size_t num_regions) {
-  OtherRegionsTable::invalidate(start_idx, num_regions);
+  HeapRegionRemSet::invalidate_from_card_cache(start_idx, num_regions);
 }
 
 void G1RegionMappingChangedListener::on_commit(uint start_idx, size_t num_regions, bool zero_filled) {
@@ -4933,7 +4933,7 @@ private:
   }
 };
 
-Monitor* G1CodeCacheUnloadingTask::_lock = new Monitor(Mutex::leaf, "Code Cache Unload lock");
+Monitor* G1CodeCacheUnloadingTask::_lock = new Monitor(Mutex::leaf, "Code Cache Unload lock", false, Monitor::_safepoint_check_never);
 
 class G1KlassCleaningTask : public StackObj {
   BoolObjectClosure*                      _is_alive;
