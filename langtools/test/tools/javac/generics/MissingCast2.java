@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,18 +21,35 @@
  * questions.
  */
 
-// key: compiler.misc.non-static.cant.be.ref
-// key: compiler.err.invalid.mref
+/*
+ * @test
+ * @bug 8043741
+ * @summary VerifyError due to missing checkcast
+ * @author srikanth
+ *
+ * @compile  MissingCast2.java
+ * @run main MissingCast2
+ */
 
-class NonStaticCantBeRefFragment {
+import java.util.*;
 
-    interface SAM {
-        void m(Integer u);
-    }
-
-    void f(Integer i) { }
-
-    static void test() {
-        SAM s = NonStaticCantBeRefFragment::f;
-    }
+public class MissingCast2 {
+  public static void main(String[] args) {
+          new E();
+  }
 }
+
+class S<T> {
+    T t;
+}
+
+class C {
+    class I { };
+}
+
+class E extends S<C> {
+    {
+        t = new C();
+        t.new I() { };
+    }
+};

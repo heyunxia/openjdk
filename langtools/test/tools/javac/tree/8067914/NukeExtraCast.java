@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,12 +21,30 @@
  * questions.
  */
 
-// key: compiler.err.invalid.mref
-// key: compiler.misc.static.bound.mref
+/*
+ * @test
+ * @bug 8067914
+ * @summary Redunant type cast nodes in AST (follow up from JDK-8043741)
+ * @library /tools/lib
+ * @build ToolBox
+ * @run compile -XD-printsource T8067914.java
+ * @run main NukeExtraCast
+ */
 
-class StaticBoundMref {
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
-    Runnable r = new StaticBoundMref()::m;
+public class NukeExtraCast {
 
-    static void m() { }
+    public static void main(String[] args) throws Exception {
+        ToolBox tb = new ToolBox();
+        Path path1 = Paths.get(ToolBox.testClasses, "E.java");
+        List<String> file1 = tb.readAllLines(path1);
+
+        Path path2 = Paths.get(ToolBox.testSrc, "E.out");
+        List<String> file2 = tb.readAllLines(path2);
+        tb.checkEqual(file1, file2);
+    }
+
 }
