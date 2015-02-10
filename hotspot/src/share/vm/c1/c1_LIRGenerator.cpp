@@ -32,6 +32,7 @@
 #include "ci/ciArrayKlass.hpp"
 #include "ci/ciInstance.hpp"
 #include "ci/ciObjArray.hpp"
+#include "runtime/arguments.hpp"
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/stubRoutines.hpp"
 #include "runtime/vm_version.hpp"
@@ -1431,7 +1432,6 @@ void LIRGenerator::pre_barrier(LIR_Opr addr_opr, LIR_Opr pre_val,
       // No pre barriers
       break;
     case BarrierSet::ModRef:
-    case BarrierSet::Other:
       // No pre barriers
       break;
     default      :
@@ -1453,7 +1453,6 @@ void LIRGenerator::post_barrier(LIR_OprDesc* addr, LIR_OprDesc* new_val) {
       CardTableModRef_post_barrier(addr,  new_val);
       break;
     case BarrierSet::ModRef:
-    case BarrierSet::Other:
       // No post barriers
       break;
     default      :
@@ -3351,7 +3350,12 @@ void LIRGenerator::do_ProfileInvoke(ProfileInvoke* x) {
   if (!x->inlinee()->is_accessor()) {
     CodeEmitInfo* info = state_for(x, x->state(), true);
     // Notify the runtime very infrequently only to take care of counter overflows
-    increment_event_counter_impl(info, x->inlinee(), (1 << Tier23InlineeNotifyFreqLog) - 1, InvocationEntryBci, false, true);
+    int freq_log = Tier23InlineeNotifyFreqLog;
+    double scale;
+    if (_method->has_option_value("CompileThresholdScaling", scale)) {
+      freq_log = Arguments::scaled_freq_log(freq_log, scale);
+    }
+    increment_event_counter_impl(info, x->inlinee(), right_n_bits(freq_log), InvocationEntryBci, false, true);
   }
 }
 
@@ -3366,7 +3370,11 @@ void LIRGenerator::increment_event_counter(CodeEmitInfo* info, int bci, bool bac
     ShouldNotReachHere();
   }
   // Increment the appropriate invocation/backedge counter and notify the runtime.
-  increment_event_counter_impl(info, info->scope()->method(), (1 << freq_log) - 1, bci, backedge, true);
+  double scale;
+  if (_method->has_option_value("CompileThresholdScaling", scale)) {
+    freq_log = Arguments::scaled_freq_log(freq_log, scale);
+  }
+  increment_event_counter_impl(info, info->scope()->method(), right_n_bits(freq_log), bci, backedge, true);
 }
 
 void LIRGenerator::decrement_age(CodeEmitInfo* info) {
