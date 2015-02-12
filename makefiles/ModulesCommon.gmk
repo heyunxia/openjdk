@@ -1,0 +1,114 @@
+#
+# Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Oracle designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Oracle in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+#
+
+# Default target declared first
+default: all
+
+include $(SPEC)
+
+# Most, if not all of this will be moved elsewhere.
+
+# Temporary copy of contents from Defs-modules.gmk. Need to figure out where
+# this should be defined.
+MODULEPATH_DIR       := $(POSTMODULES_OUTPUTDIR)/modules
+SUBMODULES_DIR       := $(POSTMODULES_OUTPUTDIR)/submodules
+MODULEINFO_DIR       := $(POSTMODULES_OUTPUTDIR)/moduleinfo
+MODULEINFO_SRC       := $(MODULEINFO_DIR)/src
+MODULE_CLASSLIST_DIR := $(MODULEINFO_DIR)/classlist
+MODULES_LIST         := $(MODULE_CLASSLIST_DIR)/modules.list
+BASE_MODULE          := jdk.base
+JIGSAW_MODULE_LIB    := $(JDK_OUTPUTDIR)/lib/modules
+# idlj is grouped with the corba runtime
+IDLJ_MODULE          := jdk.corba
+
+# This needs to go into spec at least
+# RELEASE is JDK_VERSION and -MILESTONE if MILESTONE is set
+ifneq ($(MILESTONE),fcs)
+  MODULE_VERSION = ${JDK_MINOR_VERSION}-ea
+else
+  MODULE_VERSION = ${JDK_MINOR_VERSION}
+endif
+
+# Move to configure?
+# 
+# Minimize module library footprint. For now this applies to
+# both the JRE and JDK images that the build generates.
+#
+ifeq ($(MINIMIZE_MLIB_FOOTPRINT),true)
+    JMOD_CREATE_ARGS += -z
+    JMOD_INSTALL_ARGS += -G
+endif
+
+# Copy file to dir in submodules
+# Param 1: File to copy. Filter out the first word since only one is accepted and 
+#          for convenience in CompileNativeLibraries where the target variable often
+#          contains additional file names.
+# Param 2: Name of submodule
+# Param 3: Subdir in submodule to put file in.
+define copy-to-submodules
+SUBMODULES_COPY += $(SUBMODULES_DIR)/$(strip $2)/$(strip $3)/$$(notdir $$(firstword $1))
+$(SUBMODULES_DIR)/$(strip $2)/$(strip $3)/$$(notdir $$(firstword $1)): $$(firstword $1)
+	$$(install-file)
+endef
+
+# Modules for imports
+CORBA_MODULE             = jdk.corba
+JTA_MODULE               = jdk.jta
+XML_MODULE               = jdk.jaxp
+XERCES_MODULE            = jdk.jaxp
+XALAN_MODULE             = jdk.jaxp
+JAXWS_MODULE             = jdk.jaxws
+JX_ANNOTATION_MODULE     = jdk.jx.annotations
+RMIC_MODULE              = jdk.tools
+COMPILER_MODULE          = jdk.compiler
+JAVAC_MODULE             = jdk.devtools
+JAVAP_MODULE             = jdk.devtools
+JAVAH_MODULE             = jdk.devtools
+JAVADOC_MODULE           = jdk.devtools
+APT_MODULE               = jdk.apt
+MIRROR_MODULE            = jdk.mirror
+
+# idlj is grouped with the corba runtime
+IDLJ_MODULE              = jdk.corba
+
+JDK_BASE_MODULE          = jdk.base
+BASE_TOOLS_MODULE        = jdk.tools.base
+JRE_TOOLS_MODULE         = jdk.tools.jre
+TOOLS_MODULE             = jdk.tools
+JAXWS_TOOLS_MODULE       = jdk.tools.jaxws
+CORBA_TOOLS_MODULE       = jdk.corba
+RMI_TOOLS_MODULE         = jdk.rmi
+KERBEROS_TOOLS_MODULE    = jdk.kerberos
+
+# Modules for JDK only
+JDK_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.modules.list
+JRE_MODULES = $(MODULE_CLASSLIST_DIR)/jdk.jre.modules.list
+JDK_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/$(BASE_TOOLS_MODULE).modules.list
+JRE_BASE_MODULES = $(MODULE_CLASSLIST_DIR)/$(JDK_BASE_MODULE).modules.list
+
+# Classpath to use for Modularizer and compiling module-infos. Define it explicitly 
+# to keep track of exactly what goes on it.
+MODULARIZER_CLASSPATH := $(JDK_OUTPUTDIR)/classes$(PATH_SEP)$(NASHORN_DIST)/nashorn.jar$(PATH_SEP)$(JDK_OUTPUTDIR)/demo/nio/zipfs/zipfs.jar$(PATH_SEP)$(JDK_OUTPUTDIR)/lib/sa-jdi.jar$(PATH_SEP)$(POSTMODULES_OUTPUTDIR)/lib/security/US_export_policy.jar$(PATH_SEP)$(POSTMODULES_OUTPUTDIR)/lib/security/local_policy.jar
+

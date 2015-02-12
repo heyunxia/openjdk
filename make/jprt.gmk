@@ -1,0 +1,75 @@
+#
+# Copyright (c) 2006, 2012, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Oracle designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Oracle in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+#
+
+# JPRT rule to build this workspace
+
+JPRT_ARCHIVE_BUNDLE=$(ABS_OUTPUTDIR)/$(JPRT_BUILD_FLAVOR)-bundle.zip
+
+ifeq ($(PLATFORM),windows)
+  ZIPFLAGS=-q
+else
+  # store symbolic links as the link
+  ZIPFLAGS=-q -y
+endif
+
+JPRT_ARCHIVE_MODULES_BUNDLE=$(ABS_OUTPUTDIR)/$(DEFAULT_BUILD_FLAVOR)-modules-bundle.zip
+
+# jdk image to archive
+JPRT_ARCHIVE_IMAGE=jdk-module-image
+JPRT_BUILD_TARGETS = images
+ifdef BUILD_LEGACY
+  JPRT_ARCHIVE_IMAGE=j2sdk-image
+  JPRT_BUILD_TARGETS=legacy-images
+endif
+
+jprt_build_product:  all $(JPRT_BUILD_TARGETS)
+	( $(CD) $(OUTPUTDIR)/$(JPRT_ARCHIVE_IMAGE) && \
+	  $(ZIPEXE) $(ZIPFLAGS) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+ifndef BUILD_LEGACY
+	( $(CD) $(OUTPUTDIR) && \
+          $(ZIPEXE) $(ZIPFLAGS) -q -r $(JPRT_ARCHIVE_MODULES_BUNDLE) jre-base-image jigsaw-pkgs)
+endif
+
+jprt_build_fastdebug: fastdebug $(JPRT_BUILD_TARGETS)
+	( $(CD) $(OUTPUTDIR)/$(JPRT_ARCHIVE_IMAGE) && \
+	  $(ZIPEXE) $(ZIPFLAGS) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+ifndef BUILD_LEGACY
+	( $(CD) $(OUTPUTDIR) && \
+          $(ZIPEXE) $(ZIPFLAGS) -q -r $(JPRT_ARCHIVE_MODULES_BUNDLE) jre-base-image jigsaw-pkgs)
+endif
+
+jprt_build_debug: debug $(JPRT_BUILD_TARGETS)
+	( $(CD) $(OUTPUTDIR)/$(JPRT_ARCHIVE_IMAGE) && \
+	  $(ZIPEXE) $(ZIPFLAGS) -q -r $(JPRT_ARCHIVE_BUNDLE) . )
+ifndef BUILD_LEGACY
+	( $(CD) $(OUTPUTDIR) && \
+          $(ZIPEXE) $(ZIPFLAGS) -q -r $(JPRT_ARCHIVE_MODULES_BUNDLE) jre-base-image jigsaw-pkgs)
+endif
+
+#
+# Phonies to avoid accidents.
+#
+.PHONY: jprt_build_product jprt_build_fastdebug jprt_build_debug
+

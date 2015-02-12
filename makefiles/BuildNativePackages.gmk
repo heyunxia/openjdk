@@ -1,0 +1,93 @@
+#
+# Copyright 2010 Sun Microsystems, Inc.  All Rights Reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Sun designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Sun in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
+# CA 95054 USA or visit www.sun.com if you need additional information or
+# have any questions.
+#
+
+#
+# Generate jmod and debian packages for all jdk modules
+#
+PKGS = $(MODULEIMAGES_OUTPUTDIR)/jigsaw-pkgs
+JMOD_PKGS = $(PKGS)/jmod
+DEB_PKGS = $(PKGS)/deb
+
+## TODO: generate packages for modules that are modified
+##       instead of all modules
+$(PKGS)/%:
+	$(RM) -r $@
+	$(MKDIR) -p $@
+
+# Prepare to sign modules
+ifdef BUILD_SIGNED_MODULES
+  SIGNER_ARGS = --sign --keystore $(SIGNING_KEYSTORE) --signer $(SIGNING_ALIAS)
+  SIGNER_PW = "< $(SIGNING_PASSPHRASE)"
+else #BUILD_SIGNED_MODULES
+  SIGNER_ARGS =
+  SIGNER_PW =
+endif #BUILD_SIGNED_MODULES
+
+# Rules to generate jmod packages
+#
+jmod-pkgs: $(JMOD_PKGS)
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
+           $(CD)  $(MODULEPATH_DIR)/$$m && \
+              (if [ -d bin ] ; then \
+                   NATCMD="-natcmd bin" ; \
+               fi ; \
+               if [ -d lib ] ; then \
+                   NATLIB="-natlib lib" ; \
+               fi ; \
+               if [ -d etc ] ; then \
+                   CONFIG="-config etc" ; \
+               fi ; \
+               $(BUILD_JPKG) -v -m classes \
+   	          $$NATCMD $$NATLIB $$CONFIG $(SIGNER_ARGS) \
+                  -d $(JMOD_PKGS) jmod $$m $(SIGNER_PW)) || exit 1 ; \
+	done
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
+
+# Rules to generate debian packages
+#
+JIGSAW_IMAGE = $(MODULEIMAGES_OUTPUTDIR)/tmp/jigsaw-image
+DEB_MROOT=/usr/local/jigsaw
+deb-pkgs: $(DEB_PKGS)
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	$(RM) -r $(JIGSAW_IMAGE)
+	for m in `$(NAWK) '{print $$1}' $(MODULES_LIST)` ; do \
+	   $(MKDIR) -p $(JIGSAW_IMAGE)/$$m/$(DEB_MROOT); \
+	   for d in bin lib include ; do \
+	       if [ -d $(MODULEPATH_DIR)/$$m/$$d ] ; then \
+	           $(CP) -rf $(MODULEPATH_DIR)/$$m/$$d $(JIGSAW_IMAGE)/$$m/$(DEB_MROOT) ; \
+	       fi ; \
+	   done ; \
+           (ISZ=$$(expr $$(du -s $(MODULEPATH_DIR)/$$m | cut -f1)); \
+            $(BUILD_JPKG) -v -m $(MODULEPATH_DIR)/$$m/classes \
+	         -i $(JIGSAW_IMAGE)/$$m \
+                 --java-home /usr/local/jigsaw \
+                 -L /usr/local/jigsaw/lib/modules \
+                 -n 'Jigsaw Team' -e 'jigsaw-dev@openjdk.java.net' \
+                 -s "Jigsaw JDK 8 $$m module" --installed-size $$ISZ \
+                 -d $(DEB_PKGS) deb $$m) ; \
+	done
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
+

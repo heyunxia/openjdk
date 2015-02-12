@@ -1,0 +1,67 @@
+#
+# Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Oracle designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Oracle in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+#
+
+# Default target declared first
+default: all
+
+include ModulesCommon.gmk
+include MakeBase.gmk
+include JavaCompilation.gmk
+include Setup.gmk
+include ModulesTools.gmk
+
+all: $(MODULES_LIST)
+
+# TODO: Move to makefiles dir at some point
+MODULES_CONFIG      := $(JDK_TOPDIR)/make/modules/modules.config
+MODULES_GROUP       := $(JDK_TOPDIR)/make/modules/modules.group
+MODULES_PROPERTIES  := $(JDK_TOPDIR)/make/modules/modules.properties
+DEP_CONFIG          := $(JDK_TOPDIR)/make/modules/jdk.depconfig
+OPTIONAL_DEP_CONFIG := $(JDK_TOPDIR)/make/modules/optional.depconfig
+
+# Run class analyzer to analyze the jdk.  For incremental build,
+# only recompiled classes are parsed.  module-info.java source
+# files for all or just the updated modules are generated.
+$(MODULES_LIST): $(MODULES_CONFIG) $(MODULES_GROUP) \
+                 $(MODULES_PROPERTIES) \
+                 $(DEP_CONFIG) $(OPTIONAL_DEP_CONFIG) \
+                 $(CLASSANALYZER)
+	@$(ECHO) ">>>Making "$@" @ `$(DATE)` ..."
+	$(RM) -rf $(JIGSAW_MODULE_LIB)
+	$(RM) -rf $(MODULEINFO_DIR)
+	$(RM) -rf $(MODULEPATH_DIR)
+	$(RM) -rf $(MODULES_TEMPDIR)
+	$(TOOL_CLASSANALYZER) \
+                -classpath "$(MODULARIZER_CLASSPATH)" \
+                -config $(MODULES_CONFIG) \
+                -config $(MODULES_GROUP) \
+                -depconfig $(DEP_CONFIG) \
+                -depconfig $(OPTIONAL_DEP_CONFIG) \
+                -properties $(MODULES_PROPERTIES) \
+                -version $(MODULE_VERSION) \
+                -base $(BASE_MODULE) \
+                -output $(MODULE_CLASSLIST_DIR) \
+                -moduleinfo $(MODULEINFO_SRC)
+	@$(ECHO) ">>>Finished making "$@" @ `$(DATE)` ..."
