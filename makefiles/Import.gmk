@@ -1,0 +1,208 @@
+#
+# Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+# DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+# This code is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 2 only, as
+# published by the Free Software Foundation.  Oracle designates this
+# particular file as subject to the "Classpath" exception as provided
+# by Oracle in the LICENSE file that accompanied this code.
+#
+# This code is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# version 2 for more details (a copy is included in the LICENSE file that
+# accompanied this code).
+#
+# You should have received a copy of the GNU General Public License version
+# 2 along with this work; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+# or visit www.oracle.com if you need additional information or have any
+# questions.
+#
+
+default: all
+
+include $(SPEC)
+include MakeBase.gmk
+
+#######
+
+IMPORT_TARGET_FILES :=
+
+IMPORT_CLASSES := CORBA JAXP JAXWS LANGTOOLS
+IMPORT_SOURCES := CORBA JAXP JAXWS LANGTOOLS
+# Only Corba has binaries
+IMPORT_BINARIES := CORBA
+
+#######
+
+# Put the libraries here. Different locations for different target apis.
+ifeq ($(OPENJDK_TARGET_OS_API),posix)
+    INSTALL_LIBRARIES_HERE:=$(JDK_OUTPUTDIR)/lib$(OPENJDK_TARGET_CPU_LIBDIR)
+else
+    INSTALL_LIBRARIES_HERE:=$(JDK_OUTPUTDIR)/bin
+endif
+
+include HotspotSetup.gmk
+
+#######
+
+#
+# jar xf/unzip fails when executing them all in parallel
+#   introduce artificial dependency (_DEP) buuhhh 
+
+define ImportClasses
+$1_CLASSES_DEP := $$(IMPORT_TARGET_CLASSES)
+IMPORT_TARGET_CLASSES += $(JDK_OUTPUTDIR)/classes/_the.$1.classes.imported
+
+$(JDK_OUTPUTDIR)/classes/_the.$1.classes.imported : $$($1_DIST)/lib/classes.jar $$($1_CLASSES_DEP)
+	$(ECHO) Importing $1 classes.jar
+	$(MKDIR) -p $$(@D)
+	$(RM) $$@ $$@.tmp
+	($(CD) $$(@D) && $(JAR) xvf $$< > $$@.tmp)
+	$(MV) $$@.tmp $$@
+endef
+
+define ImportSources
+$1_SOURCES_DEP := $$(IMPORT_TARGET_SOURCES)
+IMPORT_TARGET_SOURCES += $(JDK_OUTPUTDIR)/impsrc/_the.$1.src.imported
+
+$(JDK_OUTPUTDIR)/impsrc/_the.$1.src.imported : $$($1_DIST)/lib/src.zip $$($1_SOURCES_DEP)
+	$(ECHO) Importing $1 src.zip
+	$(MKDIR) -p $$(@D)
+	$(RM) $$@ $$@.tmp
+	($(CD) $$(@D) && $(JAR) xvf $$< > $$@.tmp)
+	$(MV) $$@.tmp $$@
+endef
+
+define ImportBinaries
+$1_BINARIES_DEP := $$(IMPORT_TARGET_BINARIES)
+IMPORT_TARGET_BINARIES += $(JDK_OUTPUTDIR)/_the.$1.binaries.imported
+
+$(JDK_OUTPUTDIR)/_the.$1.binaries.imported : $$($1_DIST)/lib/bin.zip $$($1_BINARIES_DEP)
+	$(ECHO) Importing $1 bin.zip
+	$(MKDIR) -p $$(@D)
+	$(RM) $$@ $$@.tmp
+	($(CD) $$(@D) && $(JAR) xvf $$< > $$@.tmp)
+	$(MV) $$@.tmp $$@
+endef
+
+#######
+
+$(foreach I,$(IMPORT_CLASSES), $(eval $(call ImportClasses,$I)))
+$(foreach I,$(IMPORT_SOURCES), $(eval $(call ImportSources,$I)))
+$(foreach I,$(IMPORT_BINARIES), $(eval $(call ImportBinaries,$I)))
+
+IMPORT_TARGET_FILES += $(IMPORT_TARGET_CLASSES) $(IMPORT_TARGET_SOURCES) $(IMPORT_TARGET_BINARIES)
+
+#######
+
+#
+# Import hotspot
+#
+
+define link-file-in-parent-dir
+	$(MKDIR) -p $(@D)
+	$(RM) $@
+	$(LN) -s ../$(@F) $@
+endef
+
+IMPORT_TARGET_FILES += $(HOTSPOT_LIBRARIES) $(SAJDI_JAR) $(SAJDI_LIBRARIES)
+
+$(JDK_OUTPUTDIR)/lib/%: $(HOTSPOT_DIST)/lib/%
+	$(install-file)
+
+$(INSTALL_LIBRARIES_HERE)/%: $(HOTSPOT_LIB_DIR)/%
+	$(install-file)
+
+$(INSTALL_LIBRARIES_HERE)/server/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
+	$(link-file-in-parent-dir)
+
+$(INSTALL_LIBRARIES_HERE)/server/%.debuginfo : $(INSTALL_LIBRARIES_HERE)/%.debuginfo
+	$(link-file-in-parent-dir)
+
+$(INSTALL_LIBRARIES_HERE)/server/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
+	$(MKDIR) -p $(@D)
+	$(RM) $@
+	$(RM) $@.tmp $(basename $@).debuginfo
+	$(LN) -s ../$(basename $(@F)).debuginfo $(basename $@).debuginfo
+	$(CD) $(@D) && $(ZIP) -q -y $@.tmp $(basename $(@F)).debuginfo
+	$(RM) $(basename $@).debuginfo
+	$(MV) $@.tmp $@
+
+$(INSTALL_LIBRARIES_HERE)/client/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
+	$(link-file-in-parent-dir)
+
+$(INSTALL_LIBRARIES_HERE)/client/%.debuginfo : $(INSTALL_LIBRARIES_HERE)/%.debuginfo
+	$(link-file-in-parent-dir)
+
+$(INSTALL_LIBRARIES_HERE)/client/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
+	$(MKDIR) -p $(@D)
+	$(RM) $@
+	$(RM) $@.tmp $(basename $@).debuginfo
+	$(LN) -s ../$(basename $(@F)).debuginfo $(basename $@).debuginfo
+	$(CD) $(@D) && $(ZIP) -q -y $@.tmp $(basename $(@F)).debuginfo
+	$(RM) $(basename $@).debuginfo
+	$(MV) $@.tmp $@
+
+$(INSTALL_LIBRARIES_HERE)/minimal/%$(SHARED_LIBRARY_SUFFIX) : $(INSTALL_LIBRARIES_HERE)/%$(SHARED_LIBRARY_SUFFIX)
+	$(link-file-in-parent-dir)
+
+$(INSTALL_LIBRARIES_HERE)/minimal/%.debuginfo : $(INSTALL_LIBRARIES_HERE)/%.debuginfo
+	$(link-file-in-parent-dir)
+
+$(INSTALL_LIBRARIES_HERE)/minimal/%.diz : $(INSTALL_LIBRARIES_HERE)/%.diz
+	$(MKDIR) -p $(@D)
+	$(RM) $@
+	$(RM) $@.tmp $(basename $@).debuginfo
+	$(LN) -s ../$(basename $(@F)).debuginfo $(basename $@).debuginfo
+	$(CD) $(@D) && $(ZIP) -q -y $@.tmp $(basename $(@F)).debuginfo
+	$(RM) $(basename $@).debuginfo
+	$(MV) $@.tmp $@
+
+##########################################################################################
+# Unpack the binary distributions of the crypto classes if they exist.
+SEC_FILES_ZIP:=$(JDK_TOPDIR)/make/tools/crypto/sec-bin.zip
+SEC_FILES_WIN_ZIP:=$(JDK_TOPDIR)/make/tools/crypto/sec-windows-bin.zip
+JGSS_WIN32_FILES_ZIP:=$(JDK_TOPDIR)/make/tools/crypto/jgss-windows-i586-bin.zip
+JGSS_WIN64_FILES_ZIP:=$(JDK_TOPDIR)/make/tools/crypto/jgss-windows-x64-bin.zip
+
+define unzip-sec-file
+	$(ECHO) Unzipping $(<F)
+	$(MKDIR) -p $(@D)
+	$(RM) $@
+	($(CD) $(JDK_OUTPUTDIR) && $(UNZIP) $< > $@.tmp)
+	$(MV) $@.tmp $@
+endef
+
+$(JDK_OUTPUTDIR)/classes/_the.sec-bin.unzipped: $(SEC_FILES_ZIP)
+	$(call unzip-sec-file)
+
+$(JDK_OUTPUTDIR)/classes/_the.sec-windows-bin.unzipped: $(SEC_FILES_WIN_ZIP)
+	$(call unzip-sec-file)
+
+$(JDK_OUTPUTDIR)/classes/_the.jgss-windows-i586-bin.unzipped: $(JGSS_WIN32_FILES_ZIP)
+	$(call unzip-sec-file)
+
+$(JDK_OUTPUTDIR)/classes/_the.jgss-windows-x64-bin.unzipped: $(JGSS_WIN64_FILES_ZIP)
+	$(call unzip-sec-file)
+
+ifneq ($(wildcard $(SEC_FILES_ZIP)),)
+  IMPORT_TARGET_FILES += $(JDK_OUTPUTDIR)/classes/_the.sec-bin.unzipped
+  ifeq ($(OPENJDK_TARGET_OS),windows)
+    IMPORT_TARGET_FILES += $(JDK_OUTPUTDIR)/classes/_the.sec-windows-bin.unzipped
+    ifeq ($(OPENJDK_TARGET_CPU),x86)
+      IMPORT_TARGET_FILES += $(JDK_OUTPUTDIR)/classes/_the.jgss-windows-i586-bin.unzipped
+    endif
+    ifeq ($(OPENJDK_TARGET_CPU),x86_64)
+      IMPORT_TARGET_FILES += $(JDK_OUTPUTDIR)/classes/_the.jgss-windows-x64-bin.unzipped
+    endif
+  endif
+endif
+
+##########################################################################################
+
+all: $(IMPORT_TARGET_FILES)
