@@ -82,6 +82,7 @@ public class Attr extends JCTree.Visitor {
     final Log log;
     final Symtab syms;
     final Resolve rs;
+    final Operators operators;
     final Infer infer;
     final Analyzer analyzer;
     final DeferredAttr deferredAttr;
@@ -115,6 +116,7 @@ public class Attr extends JCTree.Visitor {
         log = Log.instance(context);
         syms = Symtab.instance(context);
         rs = Resolve.instance(context);
+        operators = Operators.instance(context);
         chk = Check.instance(context);
         flow = Flow.instance(context);
         memberEnter = MemberEnter.instance(context);
@@ -1467,7 +1469,7 @@ public class Attr extends JCTree.Visitor {
          *  @param thentype The type of the expression's then-part.
          *  @param elsetype The type of the expression's else-part.
          */
-        private Type condType(DiagnosticPosition pos,
+        Type condType(DiagnosticPosition pos,
                                Type thentype, Type elsetype) {
             // If same type, that is the result
             if (types.isSameType(thentype, elsetype))
@@ -2142,7 +2144,7 @@ public class Attr extends JCTree.Visitor {
 
         JCTree.Tag optag = NULLCHK;
         JCUnary tree = make.at(arg.pos).Unary(optag, arg);
-        tree.operator = syms.nullcheck;
+        tree.operator = operators.resolveUnary(arg, optag, arg.type);
         tree.type = arg.type;
         return tree;
     }
@@ -2353,7 +2355,7 @@ public class Attr extends JCTree.Visitor {
 
             @Override
             public Type visitClassType(ClassType t, DiagnosticPosition pos) {
-                return t.isCompound() ?
+                return t.isIntersection() ?
                         visitIntersectionClassType((IntersectionClassType)t, pos) : t;
             }
 
@@ -2384,8 +2386,7 @@ public class Attr extends JCTree.Visitor {
                     }
                     supertypes.append(i.tsym.type);
                 }
-                IntersectionClassType notionalIntf =
-                        (IntersectionClassType)types.makeCompoundType(supertypes.toList());
+                IntersectionClassType notionalIntf = types.makeIntersectionType(supertypes.toList());
                 notionalIntf.allparams_field = targs.toList();
                 notionalIntf.tsym.flags_field |= INTERFACE;
                 return notionalIntf.tsym;
@@ -2903,18 +2904,10 @@ public class Attr extends JCTree.Visitor {
         Type owntype = attribTree(tree.lhs, env, varAssignmentInfo);
         Type operand = attribExpr(tree.rhs, env);
         // Find operator.
-        Symbol operator = tree.operator = rs.resolveBinaryOperator(
-            tree.pos(), tree.getTag().noAssignOp(), env,
-            owntype, operand);
-
+        Symbol operator = tree.operator = operators.resolveBinary(tree, tree.getTag().noAssignOp(), owntype, operand);
         if (operator.kind == MTH &&
                 !owntype.isErroneous() &&
                 !operand.isErroneous()) {
-            chk.checkOperator(tree.pos(),
-                              (OperatorSymbol)operator,
-                              tree.getTag().noAssignOp(),
-                              owntype,
-                              operand);
             chk.checkDivZero(tree.rhs.pos(), operator, operand);
             chk.checkCastable(tree.rhs.pos(),
                               operator.type.getReturnType(),
@@ -2930,9 +2923,7 @@ public class Attr extends JCTree.Visitor {
             : chk.checkNonVoid(tree.arg.pos(), attribExpr(tree.arg, env));
 
         // Find operator.
-        Symbol operator = tree.operator =
-            rs.resolveUnaryOperator(tree.pos(), tree.getTag(), env, argtype);
-
+        Symbol operator = tree.operator = operators.resolveUnary(tree, tree.getTag(), argtype);
         Type owntype = types.createErrorType(tree.type);
         if (operator.kind == MTH &&
                 !argtype.isErroneous()) {
@@ -2957,22 +2948,13 @@ public class Attr extends JCTree.Visitor {
         Type left = chk.checkNonVoid(tree.lhs.pos(), attribExpr(tree.lhs, env));
         Type right = chk.checkNonVoid(tree.lhs.pos(), attribExpr(tree.rhs, env));
         // Find operator.
-        Symbol operator = tree.operator =
-            rs.resolveBinaryOperator(tree.pos(), tree.getTag(), env, left, right);
-
+        Symbol operator = tree.operator = operators.resolveBinary(tree, tree.getTag(), left, right);
         Type owntype = types.createErrorType(tree.type);
         if (operator.kind == MTH &&
                 !left.isErroneous() &&
                 !right.isErroneous()) {
             owntype = operator.type.getReturnType();
-            // This will figure out when unboxing can happen and
-            // choose the right comparison operator.
-            int opc = chk.checkOperator(tree.lhs.pos(),
-                                        (OperatorSymbol)operator,
-                                        tree.getTag(),
-                                        left,
-                                        right);
-
+            int opc = ((OperatorSymbol)operator).opcode;
             // If both arguments are constants, fold them.
             if (left.constValue() != null && right.constValue() != null) {
                 Type ctype = cfolder.fold2(opc, left, right);
@@ -2985,8 +2967,7 @@ public class Attr extends JCTree.Visitor {
             // castable to each other, (JLS 15.21).  Note: unboxing
             // comparisons will not have an acmp* opc at this point.
             if ((opc == ByteCodes.if_acmpeq || opc == ByteCodes.if_acmpne)) {
-                if (!types.isEqualityComparable(left, right,
-                                                new Warner(tree.pos()))) {
+                if (!types.isCastable(left, right, new Warner(tree.pos()))) {
                     log.error(tree.pos(), "incomparable.types", left, right);
                 }
             }
@@ -3965,7 +3946,7 @@ public class Attr extends JCTree.Visitor {
         } else if (bounds.length() == 1) {
             return bounds.head.type;
         } else {
-            Type owntype = types.makeCompoundType(TreeInfo.types(bounds));
+            Type owntype = types.makeIntersectionType(TreeInfo.types(bounds));
             // ... the variable's bound is a class type flagged COMPOUND
             // (see comment for TypeVar.bound).
             // In this case, generate a class tree that represents the

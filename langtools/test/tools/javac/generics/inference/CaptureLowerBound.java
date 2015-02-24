@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,8 +21,22 @@
  * questions.
  */
 
-// key: compiler.err.incomparable.types
+/*
+ * @test
+ * @bug 8039214
+ * @summary Capture variable as an inference variable's lower bound
+ * @compile CaptureLowerBound.java
+ */
 
-class X {
-    boolean b = (this == "");
+public class CaptureLowerBound {
+
+    interface I<X1,X2> {}
+    static class C<T> implements I<T,T> {}
+
+    <X> void m(I<? extends X, X> arg) {}
+
+    void test(C<?> arg) {
+      m(arg);
+    }
+
 }

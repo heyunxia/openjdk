@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,8 +21,24 @@
  * questions.
  */
 
-// key: compiler.err.incomparable.types
+/*
+ * @test
+ * @bug 8039214
+ * @summary Nested generic methods that work on wildcard-parameterized types
+ * @compile NestedWildcards.java
+ */
 
-class X {
-    boolean b = (this == "");
+public class NestedWildcards {
+
+    public static void test(Box<String> b) {
+        foo(bar(b));
+    }
+    private static <X> Box<? extends X> foo(Box<? extends X> ts) {
+        return null;
+    }
+    public static <Y> Box<? extends Y> bar(Box<? extends Y> language) {
+        return null;
+    }
+
+    interface Box<T> {}
 }

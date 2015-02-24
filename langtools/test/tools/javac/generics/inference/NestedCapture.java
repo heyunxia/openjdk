@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,8 +21,24 @@
  * questions.
  */
 
-// key: compiler.err.incomparable.types
+/*
+ * @test
+ * @bug 8039214
+ * @summary Capture variable passed through multiple levels of nested inference
+ * @compile NestedCapture.java
+ */
 
-class X {
-    boolean b = (this == "");
+abstract class NestedCapture {
+  interface List<T> {}
+  abstract <T> List<T> copyOf(List<? extends T> lx);
+  abstract <E> List<E> filter(List<E> lx);
+
+  <U> void test1(List<U> lx) {
+    copyOf(filter(lx));
+  }
+
+  void test2(List<?> lx) {
+    copyOf(filter(lx));
+  }
+
 }
