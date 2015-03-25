@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,31 +23,17 @@
 
 /*
  * @test
- * @bug 7001086
- * @summary Test Non-frame warning.
- * @author Bhavesh Patel
- * @library ../lib
- * @build JavadocTester
- * @run main TestNonFrameWarning
+ * @bug 8049238
+ * @summary Checks Signature attribute for enum.
+ * @library /tools/lib /tools/javac/lib ../lib
+ * @build TestBase TestResult InMemoryFileManager ToolBox
+ * @build EnumTest Driver ExpectedSignature ExpectedSignatureContainer
+ * @run main Driver EnumTest
  */
 
-public class TestNonFrameWarning extends JavadocTester {
-
-    public static void main(String... args) throws Exception {
-        TestNonFrameWarning tester = new TestNonFrameWarning();
-        tester.runTests();
-    }
-
-    @Test
-    void test() {
-        javadoc("-d", "out",
-                "-sourcepath", testSrc,
-                "pkg");
-        checkExit(Exit.OK);
-
-        checkOutput("index.html", true,
-                "<p>This document is designed to be viewed using the frames feature. "
-                + "If you see this message, you are using a non-frame-capable web client. "
-                + "Link to <a href=\"pkg/package-summary.html\">Non-frame version</a>.</p>");
-    }
+@ExpectedSignature(descriptor = "EnumTest", signature = "Ljava/lang/Enum<LEnumTest;>;")
+public enum EnumTest {;
+    // see 8026480
+    @ExpectedSignature(descriptor = "<init>(java.lang.String, int)", signature = "()V")
+    private EnumTest() {}
 }
