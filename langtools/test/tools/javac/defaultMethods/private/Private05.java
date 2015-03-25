@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,31 +23,28 @@
 
 /*
  * @test
- * @bug 7001086
- * @summary Test Non-frame warning.
- * @author Bhavesh Patel
- * @library ../lib
- * @build JavadocTester
- * @run main TestNonFrameWarning
+ * @bug    8071453
+ * @author sadayapalam
+ * @summary Execution test for private interface methods (instance and static)
  */
 
-public class TestNonFrameWarning extends JavadocTester {
+public interface Private05 {
 
-    public static void main(String... args) throws Exception {
-        TestNonFrameWarning tester = new TestNonFrameWarning();
-        tester.runTests();
+    private static String staticPrivate() {
+        return "static private";
     }
 
-    @Test
-    void test() {
-        javadoc("-d", "out",
-                "-sourcepath", testSrc,
-                "pkg");
-        checkExit(Exit.OK);
+    private String instancePrivate() {
+        return "instance private";
+    }
 
-        checkOutput("index.html", true,
-                "<p>This document is designed to be viewed using the frames feature. "
-                + "If you see this message, you are using a non-frame-capable web client. "
-                + "Link to <a href=\"pkg/package-summary.html\">Non-frame version</a>.</p>");
+    public static void main(String [] args) {
+        String result  = staticPrivate();
+        if (!result.equals("static private"))
+            throw new AssertionError("Incorrect result for static private interface method");
+        Private05 pvt = new Private05() {};
+        result = pvt.instancePrivate();
+        if (!result.equals("instance private"))
+            throw new AssertionError("Incorrect result for instance private interface method");
     }
 }

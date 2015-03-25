@@ -232,8 +232,7 @@ public class Resolve {
             }
         }
         String key = success ? "verbose.resolve.multi" : "verbose.resolve.multi.1";
-        List<Type> argtypes2 = Type.map(argtypes,
-                    deferredAttr.new RecoveryDeferredTypeMap(AttrMode.SPECULATIVE, bestSoFar, currentResolutionContext.step));
+        List<Type> argtypes2 = argtypes.map(deferredAttr.new RecoveryDeferredTypeMap(AttrMode.SPECULATIVE, bestSoFar, currentResolutionContext.step));
         JCDiagnostic main = diags.note(log.currentSource(), dpos, key, name,
                 site.tsym, mostSpecificPos, currentResolutionContext.step,
                 methodArguments(argtypes2),
@@ -1791,8 +1790,7 @@ public class Resolve {
                                 !t.hasTag(TYPEVAR)) {
                             return null;
                         }
-                        while (t.hasTag(TYPEVAR))
-                            t = t.getUpperBound();
+                        t = types.skipTypeVars(t, false);
                         if (seen.contains(t.tsym)) {
                             //degenerate case in which we have a circular
                             //class hierarchy - because of ill-formed classfiles
@@ -2260,7 +2258,7 @@ public class Resolve {
                         (typeargtypes == null || !Type.isErroneous(typeargtypes));
         }
         public List<Type> getArgumentTypes(ResolveError errSym, Symbol accessedSym, Name name, List<Type> argtypes) {
-            return Type.map(argtypes, new ResolveDeferredRecoveryMap(AttrMode.SPECULATIVE, accessedSym, currentResolutionContext.step));
+            return argtypes.map(new ResolveDeferredRecoveryMap(AttrMode.SPECULATIVE, accessedSym, currentResolutionContext.step));
         }
     };
 
@@ -2656,11 +2654,9 @@ public class Resolve {
                                   InferenceContext inferenceContext,
                                   ReferenceChooser referenceChooser) {
 
-        site = types.capture(site);
+        //step 1 - bound lookup
         ReferenceLookupHelper boundLookupHelper = makeReferenceLookupHelper(
                 referenceTree, site, name, argtypes, typeargtypes, VARARITY);
-
-        //step 1 - bound lookup
         Env<AttrContext> boundEnv = env.dup(env.tree, env.info.dup());
         MethodResolutionContext boundSearchResolveContext = new MethodResolutionContext();
         boundSearchResolveContext.methodCheck = methodCheck;
@@ -3044,9 +3040,13 @@ public class Resolve {
      */
     class MethodReferenceLookupHelper extends ReferenceLookupHelper {
 
+        /** The original method reference lookup site. */
+        Type originalSite;
+
         MethodReferenceLookupHelper(JCMemberReference referenceTree, Name name, Type site,
                 List<Type> argtypes, List<Type> typeargtypes, MethodResolutionPhase maxPhase) {
-            super(referenceTree, name, site, argtypes, typeargtypes, maxPhase);
+            super(referenceTree, name, types.skipTypeVars(site, true), argtypes, typeargtypes, maxPhase);
+            this.originalSite = site;
         }
 
         @Override
@@ -3062,7 +3062,7 @@ public class Resolve {
                         (argtypes.head.hasTag(NONE) ||
                         types.isSubtypeUnchecked(inferenceContext.asUndetVar(argtypes.head), site))) {
                     return new UnboundMethodReferenceLookupHelper(referenceTree, name,
-                            site, argtypes, typeargtypes, maxPhase);
+                            originalSite, argtypes, typeargtypes, maxPhase);
                 } else {
                     return new ReferenceLookupHelper(referenceTree, name, site, argtypes, typeargtypes, maxPhase) {
                         @Override
@@ -3114,7 +3114,7 @@ public class Resolve {
             super(referenceTree, name, site, argtypes.tail, typeargtypes, maxPhase);
             if (site.isRaw() && !argtypes.head.hasTag(NONE)) {
                 Type asSuperSite = types.asSuper(argtypes.head, site.tsym);
-                this.site = types.capture(asSuperSite);
+                this.site = types.skipTypeVars(asSuperSite, true);
             }
         }
 

@@ -81,6 +81,7 @@ import com.sun.source.util.DocTreePathScanner;
 import com.sun.source.util.TreePath;
 import com.sun.tools.doclint.HtmlTag.AttrKind;
 import com.sun.tools.javac.tree.DocPretty;
+import com.sun.tools.javac.util.Assert;
 import com.sun.tools.javac.util.DefinedBy;
 import com.sun.tools.javac.util.DefinedBy.Api;
 import com.sun.tools.javac.util.StringUtils;
@@ -137,13 +138,13 @@ public class Checker extends DocTreePathScanner<Void, Void> {
     // <editor-fold defaultstate="collapsed" desc="Top level">
 
     Checker(Env env) {
-        env.getClass();
-        this.env = env;
+        this.env = Assert.checkNonNull(env);
         tagStack = new LinkedList<>();
         implicitHeaderLevel = env.implicitHeaderLevel;
     }
 
     public Void scan(DocCommentTree tree, TreePath p) {
+        env.initTypes();
         env.setCurrent(p, tree);
 
         boolean isOverridingMethod = !env.currOverriddenMethods.isEmpty();

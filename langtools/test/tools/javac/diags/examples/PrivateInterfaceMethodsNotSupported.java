@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,10 +21,10 @@
  * questions.
  */
 
-package pkg;
+// key: compiler.err.private.intf.methods.not.supported.in.source
+// key: compiler.warn.source.no.bootclasspath
+// options: -source 8
 
-/**
- * Source file for C
- */
-public class C {
+interface PrivateInterfaceMethodsNotSupported {
+    private void foo() {}
 }
