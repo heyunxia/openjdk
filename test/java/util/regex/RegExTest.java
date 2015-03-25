@@ -32,9 +32,10 @@
  * 6358731 6178785 6284152 6231989 6497148 6486934 6233084 6504326 6635133
  * 6350801 6676425 6878475 6919132 6931676 6948903 6990617 7014645 7039066
  * 7067045 7014640 7189363 8007395 8013252 8013254 8012646 8023647 6559590
- * 8027645 8035076 8039124 8035975
+ * 8027645 8035076 8039124 8035975 8074678
  */
 
+import java.util.function.Function;
 import java.util.regex.*;
 import java.util.Random;
 import java.io.*;
@@ -137,6 +138,7 @@ public class RegExTest {
         wordSearchTest();
         hitEndTest();
         toMatchResultTest();
+        toMatchResultTest2();
         surrogatesInClassTest();
         removeQEQuotingTest();
         namedGroupCaptureTest();
@@ -291,24 +293,26 @@ public class RegExTest {
     }
 
     private static void nullArgumentTest() {
-        check(new Runnable() { public void run() { Pattern.compile(null); }});
-        check(new Runnable() { public void run() { Pattern.matches(null, null); }});
-        check(new Runnable() { public void run() { Pattern.matches("xyz", null);}});
-        check(new Runnable() { public void run() { Pattern.quote(null);}});
-        check(new Runnable() { public void run() { Pattern.compile("xyz").split(null);}});
-        check(new Runnable() { public void run() { Pattern.compile("xyz").matcher(null);}});
+        check(() -> Pattern.compile(null));
+        check(() -> Pattern.matches(null, null));
+        check(() -> Pattern.matches("xyz", null));
+        check(() -> Pattern.quote(null));
+        check(() -> Pattern.compile("xyz").split(null));
+        check(() -> Pattern.compile("xyz").matcher(null));
 
         final Matcher m = Pattern.compile("xyz").matcher("xyz");
         m.matches();
-        check(new Runnable() { public void run() { m.appendTail((StringBuffer)null);}});
-        check(new Runnable() { public void run() { m.appendTail((StringBuilder)null);}});
-        check(new Runnable() { public void run() { m.replaceAll(null);}});
-        check(new Runnable() { public void run() { m.replaceFirst(null);}});
-        check(new Runnable() { public void run() { m.appendReplacement((StringBuffer)null, null);}});
-        check(new Runnable() { public void run() { m.appendReplacement((StringBuilder)null, null);}});
-        check(new Runnable() { public void run() { m.reset(null);}});
-        check(new Runnable() { public void run() { Matcher.quoteReplacement(null);}});
-        //check(new Runnable() { public void run() { m.usePattern(null);}});
+        check(() -> m.appendTail((StringBuffer) null));
+        check(() -> m.appendTail((StringBuilder)null));
+        check(() -> m.replaceAll((String) null));
+        check(() -> m.replaceAll((Function<MatchResult, String>)null));
+        check(() -> m.replaceFirst((String)null));
+        check(() -> m.replaceFirst((Function<MatchResult, String>) null));
+        check(() -> m.appendReplacement((StringBuffer)null, null));
+        check(() -> m.appendReplacement((StringBuilder)null, null));
+        check(() -> m.reset(null));
+        check(() -> Matcher.quoteReplacement(null));
+        //check(() -> m.usePattern(null));
 
         report("Null Argument");
     }
@@ -366,6 +370,47 @@ public class RegExTest {
         if (mr2.start() != matcherStart2)
             failCount++;
         report("toMatchResult is a copy");
+    }
+
+    private static void checkExpectedISE(Runnable test) {
+        try {
+            test.run();
+            failCount++;
+        } catch (IllegalStateException x) {
+        } catch (IndexOutOfBoundsException xx) {
+            failCount++;
+        }
+    }
+
+    private static void checkExpectedIOOE(Runnable test) {
+        try {
+            test.run();
+            failCount++;
+        } catch (IndexOutOfBoundsException x) {}
+    }
+
+    // This is for bug 8074678
+    // Test the result of toMatchResult throws ISE if no match is availble
+    private static void toMatchResultTest2() throws Exception {
+        Matcher matcher = Pattern.compile("nomatch").matcher("hello world");
+        matcher.find();
+        MatchResult mr = matcher.toMatchResult();
+
+        checkExpectedISE(() -> mr.start());
+        checkExpectedISE(() -> mr.start(2));
+        checkExpectedISE(() -> mr.end());
+        checkExpectedISE(() -> mr.end(2));
+        checkExpectedISE(() -> mr.group());
+        checkExpectedISE(() -> mr.group(2));
+
+        matcher = Pattern.compile("(match)").matcher("there is a match");
+        matcher.find();
+        MatchResult mr2 = matcher.toMatchResult();
+        checkExpectedIOOE(() -> mr2.start(2));
+        checkExpectedIOOE(() -> mr2.end(2));
+        checkExpectedIOOE(() -> mr2.group(2));
+
+        report("toMatchResult2 appropriate exceptions");
     }
 
     // This is for bug 5013885

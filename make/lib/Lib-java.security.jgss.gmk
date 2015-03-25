@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2015, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -73,6 +73,8 @@ ifneq ($(BUILD_CRYPTO), no)
   endif
 
   ifneq ($(BUILD_LIBKRB5_NAME), )
+    # libosxkrb5 needs to call deprecated krb5 APIs so that java
+    # can use the native credentials cache.
     $(eval $(call SetupNativeCompilation,BUILD_LIBKRB5, \
         LIBRARY := $(BUILD_LIBKRB5_NAME), \
         OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
@@ -82,6 +84,7 @@ ifneq ($(BUILD_CRYPTO), no)
         CFLAGS := $(CFLAGS_JDKLIB) \
             $(addprefix -I, $(BUILD_LIBKRB5_SRC)) \
             -I$(SUPPORT_OUTPUTDIR)/headers/java.security.jgss, \
+        DISABLED_WARNINGS_clang := deprecated-declarations, \
         LDFLAGS := $(LDFLAGS_JDKLIB) \
             $(call SET_SHARED_LIBRARY_ORIGIN), \
         LDFLAGS_SUFFIX := $(BUILD_LIBKRB5_LIBS), \
