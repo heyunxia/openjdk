@@ -292,11 +292,13 @@ public final class Matcher implements MatchResult {
 
         @Override
         public int start() {
+            checkMatch();
             return first;
         }
 
         @Override
         public int start(int group) {
+            checkMatch();
             if (group < 0 || group > groupCount)
                 throw new IndexOutOfBoundsException("No group " + group);
             return groups[group * 2];
@@ -304,11 +306,13 @@ public final class Matcher implements MatchResult {
 
         @Override
         public int end() {
+            checkMatch();
             return last;
         }
 
         @Override
         public int end(int group) {
+            checkMatch();
             if (group < 0 || group > groupCount)
                 throw new IndexOutOfBoundsException("No group " + group);
             return groups[group * 2 + 1];
@@ -321,16 +325,24 @@ public final class Matcher implements MatchResult {
 
         @Override
         public String group() {
+            checkMatch();
             return group(0);
         }
 
         @Override
         public String group(int group) {
+            checkMatch();
             if (group < 0 || group > groupCount)
                 throw new IndexOutOfBoundsException("No group " + group);
             if ((groups[group*2] == -1) || (groups[group*2+1] == -1))
                 return null;
             return text.subSequence(groups[group * 2], groups[group * 2 + 1]).toString();
+        }
+
+        private void checkMatch() {
+            if (first < 0)
+                throw new IllegalStateException("No match found");
+
         }
     }
 
@@ -1183,7 +1195,7 @@ public final class Matcher implements MatchResult {
      *
      * <p> Given the regular expression <tt>dog</tt>, the input
      * <tt>"zzzdogzzzdogzzz"</tt>, and the function
-     * <tt>mr -> mr.group().toUpperCase()</tt>, an invocation of this method on
+     * {@code mr -> mr.group().toUpperCase()}, an invocation of this method on
      * a matcher for that expression would yield the string
      * <tt>"zzzDOGzzzDOGzzz"</tt>.
      *
@@ -1405,7 +1417,7 @@ public final class Matcher implements MatchResult {
      *
      * <p> Given the regular expression <tt>dog</tt>, the input
      * <tt>"zzzdogzzzdogzzz"</tt>, and the function
-     * <tt>mr -> mr.group().toUpperCase()</tt>, an invocation of this method on
+     * {@code mr -> mr.group().toUpperCase()}, an invocation of this method on
      * a matcher for that expression would yield the string
      * <tt>"zzzDOGzzzdogzzz"</tt>.
      *

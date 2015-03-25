@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -694,16 +694,6 @@ final class HttpsClient extends HttpClient
             throws SSLPeerUnverifiedException
     {
         return session.getPeerCertificates();
-    }
-
-    /**
-     * Returns the X.509 certificate chain with which the server
-     * authenticated itself, or null if the server did not authenticate.
-     */
-    javax.security.cert.X509Certificate [] getServerCertificateChain()
-            throws SSLPeerUnverifiedException
-    {
-        return session.getPeerCertificateChain();
     }
 
     /**

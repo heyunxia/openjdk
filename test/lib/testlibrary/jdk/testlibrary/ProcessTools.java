@@ -24,6 +24,8 @@
 package jdk.testlibrary;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
@@ -34,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -88,24 +91,12 @@ public final class ProcessTools {
                                        ProcessBuilder processBuilder,
                                        Consumer<String> consumer)
     throws IOException {
-        Process p = null;
         try {
-            p = startProcess(
-                name,
-                processBuilder,
-                line -> {
-                    if (consumer != null) {
-                        consumer.accept(line);
-                    }
-                    return false;
-                },
-                -1,
-                TimeUnit.NANOSECONDS
-            );
+            return startProcess(name, processBuilder, consumer, null, -1, TimeUnit.NANOSECONDS);
         } catch (InterruptedException | TimeoutException e) {
-            // can't ever happen
+            // will never happen
+            throw new RuntimeException(e);
         }
-        return p;
     }
 
     /**
@@ -134,6 +125,38 @@ public final class ProcessTools {
                                        long timeout,
                                        TimeUnit unit)
     throws IOException, InterruptedException, TimeoutException {
+        return startProcess(name, processBuilder, null, linePredicate, timeout, unit);
+    }
+
+    /**
+     * <p>Starts a process from its builder.</p>
+     * <span>The default redirects of STDOUT and STDERR are started</span>
+     * <p>
+     * It is possible to wait for the process to get to a warmed-up state
+     * via {@linkplain Predicate} condition on the STDOUT and monitor the
+     * in-streams via the provided {@linkplain Consumer}
+     * </p>
+     * @param name The process name
+     * @param processBuilder The process builder
+     * @param lineConsumer  The {@linkplain Consumer} the lines will be forwarded to
+     * @param linePredicate The {@linkplain Predicate} to use on the STDOUT
+     *                      Used to determine the moment the target app is
+     *                      properly warmed-up.
+     *                      It can be null - in that case the warmup is skipped.
+     * @param timeout The timeout for the warmup waiting; -1 = no wait; 0 = wait forever
+     * @param unit The timeout {@linkplain TimeUnit}
+     * @return Returns the initialized {@linkplain Process}
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws TimeoutException
+     */
+    public static Process startProcess(String name,
+                                       ProcessBuilder processBuilder,
+                                       final Consumer<String> lineConsumer,
+                                       final Predicate<String> linePredicate,
+                                       long timeout,
+                                       TimeUnit unit)
+    throws IOException, InterruptedException, TimeoutException {
         System.out.println("["+name+"]:" + processBuilder.command().stream().collect(Collectors.joining(" ")));
         Process p = processBuilder.start();
         StreamPumper stdout = new StreamPumper(p.getInputStream());
@@ -141,6 +164,18 @@ public final class ProcessTools {
 
         stdout.addPump(new LineForwarder(name, System.out));
         stderr.addPump(new LineForwarder(name, System.err));
+        if (lineConsumer != null) {
+            StreamPumper.LinePump pump = new StreamPumper.LinePump() {
+                @Override
+                protected void processLine(String line) {
+                    lineConsumer.accept(line);
+                }
+            };
+            stdout.addPump(pump);
+            stderr.addPump(pump);
+        }
+
+
         CountDownLatch latch = new CountDownLatch(1);
         if (linePredicate != null) {
             StreamPumper.LinePump pump = new StreamPumper.LinePump() {
@@ -156,8 +191,8 @@ public final class ProcessTools {
         } else {
             latch.countDown();
         }
-        Future<Void> stdoutTask = stdout.process();
-        Future<Void> stderrTask = stderr.process();
+        final Future<Void> stdoutTask = stdout.process();
+        final Future<Void> stderrTask = stderr.process();
 
         try {
             if (timeout > -1) {
@@ -184,7 +219,7 @@ public final class ProcessTools {
             throw e;
         }
 
-        return p;
+        return new ProcessImpl(p, stdoutTask, stderrTask);
     }
 
     /**
@@ -403,5 +438,85 @@ public final class ProcessTools {
         OutputAnalyzer analyzer = ProcessTools.executeProcess(pb);
         System.out.println(analyzer.getOutput());
         return analyzer;
+    }
+
+    private static class ProcessImpl extends Process {
+
+        private final Process p;
+        private final Future<Void> stdoutTask;
+        private final Future<Void> stderrTask;
+
+        public ProcessImpl(Process p, Future<Void> stdoutTask, Future<Void> stderrTask) {
+            this.p = p;
+            this.stdoutTask = stdoutTask;
+            this.stderrTask = stderrTask;
+        }
+
+        @Override
+        public OutputStream getOutputStream() {
+            return p.getOutputStream();
+        }
+
+        @Override
+        public InputStream getInputStream() {
+            return p.getInputStream();
+        }
+
+        @Override
+        public InputStream getErrorStream() {
+            return p.getErrorStream();
+        }
+
+        @Override
+        public int waitFor() throws InterruptedException {
+            int rslt = p.waitFor();
+            waitForStreams();
+            return rslt;
+        }
+
+        @Override
+        public int exitValue() {
+            return p.exitValue();
+        }
+
+        @Override
+        public void destroy() {
+            p.destroy();
+        }
+
+        @Override
+        public long getPid() {
+            return p.getPid();
+        }
+
+        @Override
+        public boolean isAlive() {
+            return p.isAlive();
+        }
+
+        @Override
+        public Process destroyForcibly() {
+            return p.destroyForcibly();
+        }
+
+        @Override
+        public boolean waitFor(long timeout, TimeUnit unit) throws InterruptedException {
+            boolean rslt = p.waitFor(timeout, unit);
+            if (rslt) {
+                waitForStreams();
+            }
+            return rslt;
+        }
+
+        private void waitForStreams() throws InterruptedException {
+            try {
+                stdoutTask.get();
+            } catch (ExecutionException e) {
+            }
+            try {
+                stderrTask.get();
+            } catch (ExecutionException e) {
+            }
+        }
     }
 }
