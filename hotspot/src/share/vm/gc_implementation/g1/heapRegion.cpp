@@ -162,7 +162,7 @@ void HeapRegion::hr_clear(bool par, bool clear_space, bool locked) {
          "we should have already filtered out humongous regions");
   assert(_end == orig_end(),
          "we should have already filtered out humongous regions");
-  assert(!_in_collection_set,
+  assert(!in_collection_set(),
          err_msg("Should not clear heap region %u in the collection set", hrm_index()));
 
   set_allocation_context(AllocationContext::system());
@@ -193,7 +193,7 @@ void HeapRegion::par_clear() {
   HeapRegionRemSet* hrrs = rem_set();
   hrrs->clear();
   CardTableModRefBS* ct_bs =
-                   (CardTableModRefBS*)G1CollectedHeap::heap()->barrier_set();
+    barrier_set_cast<CardTableModRefBS>(G1CollectedHeap::heap()->barrier_set());
   ct_bs->clear(MemRegion(bottom(), end()));
 }
 
@@ -262,7 +262,6 @@ HeapRegion::HeapRegion(uint hrm_index,
     _hrm_index(hrm_index),
     _allocation_context(AllocationContext::system()),
     _humongous_start_region(NULL),
-    _in_collection_set(false),
     _next_in_special_set(NULL),
     _evacuation_failed(false),
     _prev_marked_bytes(0), _next_marked_bytes(0), _gc_efficiency(0.0),
@@ -325,9 +324,8 @@ void HeapRegion::note_self_forwarding_removal_start(bool during_initial_mark,
 void HeapRegion::note_self_forwarding_removal_end(bool during_initial_mark,
                                                   bool during_conc_mark,
                                                   size_t marked_bytes) {
-  assert(0 <= marked_bytes && marked_bytes <= used(),
-         err_msg("marked: "SIZE_FORMAT" used: "SIZE_FORMAT,
-                 marked_bytes, used()));
+  assert(marked_bytes <= used(),
+         err_msg("marked: "SIZE_FORMAT" used: "SIZE_FORMAT, marked_bytes, used()));
   _prev_top_at_mark_start = top();
   _prev_marked_bytes = marked_bytes;
 }
@@ -643,13 +641,9 @@ public:
   // _vo == UseNextMarking -> use "next" marking information,
   // _vo == UseMarkWord    -> use mark word from object header.
   VerifyLiveClosure(G1CollectedHeap* g1h, VerifyOption vo) :
-    _g1h(g1h), _bs(NULL), _containing_obj(NULL),
-    _failures(false), _n_failures(0), _vo(vo)
-  {
-    BarrierSet* bs = _g1h->barrier_set();
-    if (bs->is_a(BarrierSet::CardTableModRef))
-      _bs = (CardTableModRefBS*)bs;
-  }
+    _g1h(g1h), _bs(barrier_set_cast<CardTableModRefBS>(g1h->barrier_set())),
+    _containing_obj(NULL), _failures(false), _n_failures(0), _vo(vo)
+  { }
 
   void set_containing_obj(oop obj) {
     _containing_obj = obj;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -255,9 +255,6 @@ class Thread: public ThreadShadow {
   jlong _allocated_bytes;                       // Cumulative number of bytes allocated on
                                                 // the Java heap
 
-  // Thread-local buffer used by MetadataOnStackMark.
-  MetadataOnStackBuffer* _metadata_on_stack_buffer;
-
   TRACE_DATA _trace_data;                       // Thread-local data for tracing
 
   ThreadExt _ext;
@@ -478,7 +475,7 @@ class Thread: public ThreadShadow {
   void nmethods_do(CodeBlobClosure* cf);
 
   // jvmtiRedefineClasses support
-  void metadata_do(void f(Metadata*));
+  void metadata_handles_do(void f(Metadata*));
 
   // Used by fast lock support
   virtual bool is_lock_owned(address adr) const;
@@ -493,9 +490,6 @@ class Thread: public ThreadShadow {
   // Sets this thread as starting thread. Returns failure if thread
   // creation fails due to lack of memory, too many threads etc.
   bool set_as_starting_thread();
-
-  void set_metadata_on_stack_buffer(MetadataOnStackBuffer* buffer) { _metadata_on_stack_buffer = buffer; }
-  MetadataOnStackBuffer* metadata_on_stack_buffer() const          { return _metadata_on_stack_buffer; }
 
 protected:
   // OS data associated with the thread
@@ -667,6 +661,7 @@ class NamedThread: public Thread {
   ~NamedThread();
   // May only be called once per thread.
   void set_name(const char* format, ...)  ATTRIBUTE_PRINTF(2, 3);
+  void initialize_named_thread();
   virtual bool is_Named_thread() const { return true; }
   virtual char* name() const { return _name == NULL ? (char*)"Unknown Thread" : _name; }
   JavaThread *processed_thread() { return _processed_thread; }
@@ -701,7 +696,8 @@ class WatcherThread: public Thread {
   static WatcherThread* _watcher_thread;
 
   static bool _startable;
-  volatile static bool _should_terminate; // updated without holding lock
+  // volatile due to at least one lock-free read
+  volatile static bool _should_terminate;
 
   os::WatcherThreadCrashProtection* _crash_protection;
  public:
@@ -1913,6 +1909,7 @@ class Threads: AllStatic {
 
   // RedefineClasses support
   static void metadata_do(void f(Metadata*));
+  static void metadata_handles_do(void f(Metadata*));
 
 #ifdef ASSERT
   static bool is_vm_complete() { return _vm_complete; }

@@ -227,31 +227,7 @@ bool os::have_special_privileges() {
 #endif
 
 // Cpu architecture string
-#if   defined(ZERO)
-static char cpu_arch[] = ZERO_LIBARCH;
-#elif defined(IA64)
-static char cpu_arch[] = "ia64";
-#elif defined(IA32)
-static char cpu_arch[] = "i386";
-#elif defined(AMD64)
-static char cpu_arch[] = "amd64";
-#elif defined(ARM)
-static char cpu_arch[] = "arm";
-#elif defined(PPC32)
-static char cpu_arch[] = "ppc";
-#elif defined(PPC64)
-static char cpu_arch[] = "ppc64";
-#elif defined(SPARC)
-  #ifdef _LP64
-static char cpu_arch[] = "sparcv9";
-  #else
-static char cpu_arch[] = "sparc";
-  #endif
-#elif defined(AARCH64)
-static char cpu_arch[] = "aarch64";
-#else
-  #error Add appropriate cpu_arch setting
-#endif
+static char cpu_arch[] = HOTSPOT_LIB_ARCH;
 
 
 // pid_t gettid()
@@ -3296,7 +3272,7 @@ size_t os::Linux::find_large_page_size() {
 
 #ifndef ZERO
   large_page_size = IA32_ONLY(4 * M) AMD64_ONLY(2 * M) IA64_ONLY(256 * M) SPARC_ONLY(4 * M)
-                     ARM_ONLY(2 * M) PPC_ONLY(4 * M) AARCH64_ONLY(2 * M);
+                     ARM32_ONLY(2 * M) PPC_ONLY(4 * M) AARCH64_ONLY(2 * M);
 #endif // ZERO
 
   FILE *fp = fopen("/proc/meminfo", "r");
@@ -3756,14 +3732,14 @@ char* os::pd_attempt_reserve_memory_at(size_t bytes, char* requested_addr) {
       // Does this overlap the block we wanted? Give back the overlapped
       // parts and try again.
 
-      size_t top_overlap = requested_addr + (bytes + gap) - base[i];
-      if (top_overlap >= 0 && top_overlap < bytes) {
+      ptrdiff_t top_overlap = requested_addr + (bytes + gap) - base[i];
+      if (top_overlap >= 0 && (size_t)top_overlap < bytes) {
         unmap_memory(base[i], top_overlap);
         base[i] += top_overlap;
         size[i] = bytes - top_overlap;
       } else {
-        size_t bottom_overlap = base[i] + bytes - requested_addr;
-        if (bottom_overlap >= 0 && bottom_overlap < bytes) {
+        ptrdiff_t bottom_overlap = base[i] + bytes - requested_addr;
+        if (bottom_overlap >= 0 && (size_t)bottom_overlap < bytes) {
           unmap_memory(requested_addr, bottom_overlap);
           size[i] = bytes - bottom_overlap;
         } else {
@@ -6027,11 +6003,11 @@ int os::get_core_path(char* buffer, size_t bufferSize) {
   }
 
   if (strlen(core_pattern) == 0) {
-    return 0;
+    return -1;
   }
 
   char *pid_pos = strstr(core_pattern, "%p");
-  size_t written;
+  int written;
 
   if (core_pattern[0] == '/') {
     written = jio_snprintf(buffer, bufferSize, core_pattern);
@@ -6040,8 +6016,7 @@ int os::get_core_path(char* buffer, size_t bufferSize) {
 
     const char* p = get_current_directory(cwd, PATH_MAX);
     if (p == NULL) {
-      assert(p != NULL, "failed to get current directory");
-      return 0;
+      return -1;
     }
 
     if (core_pattern[0] == '|') {
@@ -6053,8 +6028,11 @@ int os::get_core_path(char* buffer, size_t bufferSize) {
     }
   }
 
-  if ((written >= 0) && (written < bufferSize)
-            && (pid_pos == NULL) && (core_pattern[0] != '|')) {
+  if (written < 0) {
+    return -1;
+  }
+
+  if (((size_t)written < bufferSize) && (pid_pos == NULL) && (core_pattern[0] != '|')) {
     int core_uses_pid_file = ::open("/proc/sys/kernel/core_uses_pid", O_RDONLY);
 
     if (core_uses_pid_file != -1) {
@@ -6062,7 +6040,7 @@ int os::get_core_path(char* buffer, size_t bufferSize) {
       ssize_t ret = ::read(core_uses_pid_file, &core_uses_pid, 1);
       ::close(core_uses_pid_file);
 
-      if (core_uses_pid == '1'){
+      if (core_uses_pid == '1') {
         jio_snprintf(buffer + written, bufferSize - written,
                                           ".%d", current_process_id());
       }

@@ -203,8 +203,6 @@ Thread::Thread() {
   // This initial value ==> never claimed.
   _oops_do_parity = 0;
 
-  _metadata_on_stack_buffer = NULL;
-
   // the handle mark links itself to last_handle_mark
   new HandleMark(this);
 
@@ -776,7 +774,8 @@ void Thread::nmethods_do(CodeBlobClosure* cf) {
   // no nmethods in a generic thread...
 }
 
-void Thread::metadata_do(void f(Metadata*)) {
+void Thread::metadata_handles_do(void f(Metadata*)) {
+  // Only walk the Handles in Thread.
   if (metadata_handles() != NULL) {
     for (int i = 0; i< metadata_handles()->length(); i++) {
       f(metadata_handles()->at(i));
@@ -1161,6 +1160,10 @@ void NamedThread::set_name(const char* format, ...) {
   va_end(ap);
 }
 
+void NamedThread::initialize_named_thread() {
+  set_native_thread_name(name());
+}
+
 void NamedThread::print_on(outputStream* st) const {
   st->print("\"%s\" ", name());
   Thread::print_on(st);
@@ -1197,7 +1200,14 @@ WatcherThread::WatcherThread() : Thread(), _crash_protection(NULL) {
 }
 
 int WatcherThread::sleep() const {
+  // The WatcherThread does not participate in the safepoint protocol
+  // for the PeriodicTask_lock because it is not a JavaThread.
   MutexLockerEx ml(PeriodicTask_lock, Mutex::_no_safepoint_check_flag);
+
+  if (_should_terminate) {
+    // check for termination before we do any housekeeping or wait
+    return 0;  // we did not sleep.
+  }
 
   // remaining will be zero if there are no tasks,
   // causing the WatcherThread to sleep until a task is
@@ -1211,8 +1221,9 @@ int WatcherThread::sleep() const {
 
   jlong time_before_loop = os::javaTimeNanos();
 
-  for (;;) {
-    bool timedout = PeriodicTask_lock->wait(Mutex::_no_safepoint_check_flag, remaining);
+  while (true) {
+    bool timedout = PeriodicTask_lock->wait(Mutex::_no_safepoint_check_flag,
+                                            remaining);
     jlong now = os::javaTimeNanos();
 
     if (remaining == 0) {
@@ -1253,7 +1264,7 @@ void WatcherThread::run() {
   this->initialize_thread_local_storage();
   this->set_native_thread_name(this->name());
   this->set_active_handles(JNIHandleBlock::allocate_block());
-  while (!_should_terminate) {
+  while (true) {
     assert(watcher_thread() == Thread::current(), "thread consistency check");
     assert(watcher_thread() == this, "thread consistency check");
 
@@ -1289,6 +1300,11 @@ void WatcherThread::run() {
       }
     }
 
+    if (_should_terminate) {
+      // check for termination before posting the next tick
+      break;
+    }
+
     PeriodicTask::real_time_tick(time_waited);
   }
 
@@ -1319,27 +1335,19 @@ void WatcherThread::make_startable() {
 }
 
 void WatcherThread::stop() {
-  // Get the PeriodicTask_lock if we can. If we cannot, then the
-  // WatcherThread is using it and we don't want to block on that lock
-  // here because that might cause a safepoint deadlock depending on
-  // what the current WatcherThread tasks are doing.
-  bool have_lock = PeriodicTask_lock->try_lock();
+  {
+    // Follow normal safepoint aware lock enter protocol since the
+    // WatcherThread is stopped by another JavaThread.
+    MutexLocker ml(PeriodicTask_lock);
+    _should_terminate = true;
 
-  _should_terminate = true;
-  OrderAccess::fence();  // ensure WatcherThread sees update in main loop
-
-  if (have_lock) {
     WatcherThread* watcher = watcher_thread();
     if (watcher != NULL) {
-      // If we managed to get the lock, then we should unpark the
-      // WatcherThread so that it can see we want it to stop.
+      // unpark the WatcherThread so it can see that it should terminate
       watcher->unpark();
     }
-
-    PeriodicTask_lock->unlock();
   }
 
-  // it is ok to take late safepoints here, if needed
   MutexLocker mu(Terminator_lock);
 
   while (watcher_thread() != NULL) {
@@ -1359,9 +1367,7 @@ void WatcherThread::stop() {
 }
 
 void WatcherThread::unpark() {
-  MutexLockerEx ml(PeriodicTask_lock->owned_by_self()
-                   ? NULL
-                   : PeriodicTask_lock, Mutex::_no_safepoint_check_flag);
+  assert(PeriodicTask_lock->owned_by_self(), "PeriodicTask_lock required");
   PeriodicTask_lock->notify();
 }
 
@@ -2706,7 +2712,6 @@ void JavaThread::nmethods_do(CodeBlobClosure* cf) {
 }
 
 void JavaThread::metadata_do(void f(Metadata*)) {
-  Thread::metadata_do(f);
   if (has_last_Java_frame()) {
     // Traverse the execution stack to call f() on the methods in the stack
     for (StackFrameStream fst(this); !fst.is_done(); fst.next()) {
@@ -3558,8 +3563,8 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
   }
 
   {
-    MutexLockerEx ml(PeriodicTask_lock, Mutex::_no_safepoint_check_flag);
-    // Make sure the watcher thread can be started by WatcherThread::start()
+    MutexLocker ml(PeriodicTask_lock);
+    // Make sure the WatcherThread can be started by WatcherThread::start()
     // or by dynamic enrollment.
     WatcherThread::make_startable();
     // Start up the WatcherThread if there are any periodic tasks
@@ -4095,6 +4100,21 @@ void Threads::metadata_do(void f(Metadata*)) {
   ALL_JAVA_THREADS(p) {
     p->metadata_do(f);
   }
+}
+
+class ThreadHandlesClosure : public ThreadClosure {
+  void (*_f)(Metadata*);
+ public:
+  ThreadHandlesClosure(void f(Metadata*)) : _f(f) {}
+  virtual void do_thread(Thread* thread) {
+    thread->metadata_handles_do(_f);
+  }
+};
+
+void Threads::metadata_handles_do(void f(Metadata*)) {
+  // Only walk the Handles in Thread.
+  ThreadHandlesClosure handles_closure(f);
+  threads_do(&handles_closure);
 }
 
 void Threads::deoptimized_wrt_marked_nmethods() {

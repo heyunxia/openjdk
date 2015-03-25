@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1999, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1999, 2015, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -176,21 +176,13 @@ ARCHFLAG/aarch64 =
 ARCHFLAG/ia64    =
 ARCHFLAG/sparc   = -m32 -mcpu=v9
 ARCHFLAG/sparcv9 = -m64 -mcpu=v9
-ARCHFLAG/arm     =  -fsigned-char
 ARCHFLAG/zero    = $(ZERO_ARCHFLAG)
-ifndef E500V2
-ARCHFLAG/ppc     =  -mcpu=powerpc
-endif
 ARCHFLAG/ppc64   =  -m64
 
 CFLAGS     += $(ARCHFLAG)
 AOUT_FLAGS += $(ARCHFLAG)
 LFLAGS     += $(ARCHFLAG)
 ASFLAGS    += $(ARCHFLAG)
-
-ifdef E500V2
-CFLAGS += -DE500V2
-endif
 
 # Use C++ Interpreter
 ifdef CC_INTERP
@@ -222,6 +214,11 @@ ifeq ($(USE_CLANG),)
   # conversions which might affect the values. Only enable it in earlier versions.
   ifeq "$(shell expr \( $(CC_VER_MAJOR) \> 4 \) \| \( \( $(CC_VER_MAJOR) = 4 \) \& \( $(CC_VER_MINOR) \>= 3 \) \))" "0"
     WARNING_FLAGS += -Wconversion
+  endif  
+  ifeq "$(shell expr \( $(CC_VER_MAJOR) \> 4 \) \| \( \( $(CC_VER_MAJOR) = 4 \) \& \( $(CC_VER_MINOR) \>= 8 \) \))" "1"
+    # This flag is only known since GCC 4.3. Gcc 4.8 contains a fix so that with templates no
+    # warnings are issued: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=11856
+    WARNING_FLAGS += -Wtype-limits
   endif
 endif
 
@@ -391,3 +388,5 @@ endif
 ifndef USE_SUNCC
   CFLAGS += -fno-omit-frame-pointer
 endif
+
+-include $(HS_ALT_MAKE)/linux/makefiles/gcc.make

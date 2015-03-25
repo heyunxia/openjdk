@@ -487,7 +487,6 @@ typedef CompactHashtable<Symbol*, char>       SymbolCompactHashTable;
                                                                                                                                      \
   unchecked_nonstatic_field(ageTable,          sizes,                                         sizeof(ageTable::sizes))               \
                                                                                                                                      \
-  nonstatic_field(BarrierSet,                  _kind,                                         BarrierSet::Name)                      \
   nonstatic_field(BlockOffsetTable,            _bottom,                                       HeapWord*)                             \
   nonstatic_field(BlockOffsetTable,            _end,                                          HeapWord*)                             \
                                                                                                                                      \
@@ -2585,7 +2584,6 @@ typedef CompactHashtable<Symbol*, char>       SymbolCompactHashTable;
   /**********************/                                                \
   /* frame              */                                                \
   /**********************/                                                \
-  NOT_ZERO(PPC64_ONLY(declare_constant(frame::abi_minframe_size)))        \
   NOT_ZERO(PPC64_ONLY(declare_constant(frame::entry_frame_locals_size)))  \
                                                                           \
   NOT_ZERO(X86_ONLY(declare_constant(frame::entry_frame_call_wrapper_offset)))      \
