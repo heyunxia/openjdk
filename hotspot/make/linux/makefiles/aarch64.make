@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2004, 2012, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -24,10 +24,9 @@
 
 # The copied fdlibm routines in sharedRuntimeTrig.o must not be optimized
 OPT_CFLAGS/sharedRuntimeTrig.o = $(OPT_CFLAGS/NOOPT)
+# The copied fdlibm routines in sharedRuntimeTrans.o must not be optimized
+OPT_CFLAGS/sharedRuntimeTrans.o = $(OPT_CFLAGS/NOOPT)
+# Must also specify if CPU is little endian
+CFLAGS += -DVM_LITTLE_ENDIAN
 
-# Must also specify if CPU is big endian
-CFLAGS += -DVM_BIG_ENDIAN
-
-ifdef E500V2
-ASFLAGS += -Wa,-mspe -Wa,--defsym -Wa,E500V2=1 
-endif
+CFLAGS += -D_LP64=1

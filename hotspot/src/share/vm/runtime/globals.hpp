@@ -52,6 +52,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "globals_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch64
+# include "globals_aarch64.hpp"
+#endif
 #ifdef TARGET_OS_FAMILY_linux
 # include "globals_linux.hpp"
 #endif
@@ -91,6 +94,9 @@
 #ifdef TARGET_OS_ARCH_linux_ppc
 # include "globals_linux_ppc.hpp"
 #endif
+#ifdef TARGET_OS_ARCH_linux_aarch64
+# include "globals_linux_aarch64.hpp"
+#endif
 #ifdef TARGET_OS_ARCH_aix_ppc
 # include "globals_aix_ppc.hpp"
 #endif
@@ -110,8 +116,8 @@
 #ifdef TARGET_ARCH_arm
 # include "c1_globals_arm.hpp"
 #endif
-#ifdef TARGET_ARCH_ppc
-# include "c1_globals_ppc.hpp"
+#ifdef TARGET_ARCH_aarch64
+# include "c1_globals_aarch64.hpp"
 #endif
 #ifdef TARGET_OS_FAMILY_linux
 # include "c1_globals_linux.hpp"
@@ -128,6 +134,9 @@
 #ifdef TARGET_OS_FAMILY_bsd
 # include "c1_globals_bsd.hpp"
 #endif
+#ifdef TARGET_ARCH_ppc
+# include "c1_globals_ppc.hpp"
+#endif
 #endif
 #ifdef COMPILER2
 #ifdef TARGET_ARCH_x86
@@ -141,6 +150,9 @@
 #endif
 #ifdef TARGET_ARCH_ppc
 # include "c2_globals_ppc.hpp"
+#endif
+#ifdef TARGET_ARCH_aarch64
+# include "c2_globals_aarch64.hpp"
 #endif
 #ifdef TARGET_OS_FAMILY_linux
 # include "c2_globals_linux.hpp"
@@ -1068,9 +1080,6 @@ class CommandLineFlags {
   notproduct(bool, ProfilerCheckIntervals, false,                           \
           "Collect and print information on spacing of profiler ticks")     \
                                                                             \
-  develop(bool, PrintJVMWarnings, false,                                    \
-          "Print warnings for unimplemented JVM functions")                 \
-                                                                            \
   product(bool, PrintWarnings, true,                                        \
           "Print JVM warnings to output stream")                            \
                                                                             \
@@ -1194,10 +1203,6 @@ class CommandLineFlags {
   develop(bool, UsePthreads, false,                                         \
           "Use pthread-based instead of libthread-based synchronization "   \
           "(SPARC only)")                                                   \
-                                                                            \
-  product(bool, AdjustConcurrency, false,                                   \
-          "Call thr_setconcurrency at thread creation time to avoid "       \
-          "LWP starvation on MP systems (for Solaris Only)")                \
                                                                             \
   product(bool, ReduceSignalUsage, false,                                   \
           "Reduce the use of OS signals in Java and/or the VM")             \
@@ -1544,11 +1549,6 @@ class CommandLineFlags {
                                                                             \
   product(uintx, ParallelGCBufferWastePct, 10,                              \
           "Wasted fraction of parallel allocation buffer")                  \
-                                                                            \
-  diagnostic(bool, ParallelGCRetainPLAB, false,                             \
-          "Retain parallel allocation buffers across scavenges; "           \
-          "it is disabled because this currently conflicts with "           \
-          "parallel card scanning under certain conditions.")               \
                                                                             \
   product(uintx, TargetPLABWastePct, 10,                                    \
           "Target wasted space in last buffer as percent of overall "       \
@@ -2088,9 +2088,6 @@ class CommandLineFlags {
                                                                             \
   product(uintx, AdaptiveSizeThroughPutPolicy, 0,                           \
           "Policy for changing generation size for throughput goals")       \
-                                                                            \
-  product(uintx, AdaptiveSizePausePolicy, 0,                                \
-          "Policy for changing generation size for pause goals")            \
                                                                             \
   develop(bool, PSAdjustTenuredGenForMinorPause, false,                     \
           "Adjust tenured generation to achieve a minor pause goal")        \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -67,7 +67,6 @@
 #if INCLUDE_ALL_GCS
 #include "gc_implementation/concurrentMarkSweep/concurrentMarkSweepThread.hpp"
 #include "gc_implementation/parallelScavenge/psScavenge.hpp"
-#include "gc_implementation/parallelScavenge/psScavenge.inline.hpp"
 #endif // INCLUDE_ALL_GCS
 #ifdef COMPILER1
 #include "c1/c1_Compiler.hpp"
@@ -422,9 +421,11 @@ void before_exit(JavaThread * thread) {
     os::infinite_sleep();
   }
 
-  // Terminate watcher thread - must before disenrolling any periodic task
-  if (PeriodicTask::num_tasks() > 0)
+  // Stop the WatcherThread. We do this before disenrolling various
+  // PeriodicTasks to reduce the likelihood of races.
+  if (PeriodicTask::num_tasks() > 0) {
     WatcherThread::stop();
+  }
 
   // Print statistics gathered (profiling ...)
   if (Arguments::has_profile()) {

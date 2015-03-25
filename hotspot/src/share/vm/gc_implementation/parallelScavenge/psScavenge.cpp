@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -105,7 +104,7 @@ public:
 
     // Weak refs may be visited more than once.
     if (PSScavenge::should_scavenge(p, _to_space)) {
-      PSScavenge::copy_and_push_safe_barrier<T, /*promote_immediately=*/false>(_promotion_manager, p);
+      _promotion_manager->copy_and_push_safe_barrier<T, /*promote_immediately=*/false>(p);
     }
   }
   virtual void do_oop(oop* p)       { PSKeepAliveClosure::do_oop_work(p); }
@@ -866,9 +865,7 @@ void PSScavenge::initialize() {
                            NULL);                      // header provides liveness info
 
   // Cache the cardtable
-  BarrierSet* bs = Universe::heap()->barrier_set();
-  assert(bs->kind() == BarrierSet::CardTableModRef, "Wrong barrier set kind");
-  _card_table = (CardTableExtension*)bs;
+  _card_table = barrier_set_cast<CardTableExtension>(heap->barrier_set());
 
   _counters = new CollectorCounters("PSScavenge", 0);
 }

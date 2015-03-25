@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -549,7 +549,7 @@ CMSCollector::CMSCollector(ConcurrentMarkSweepGeneration* cmsGen,
       FLAG_SET_DEFAULT(ConcGCThreads, (ParallelGCThreads + 3)/4);
     }
     if (ConcGCThreads > 1) {
-      _conc_workers = new YieldingFlexibleWorkGang("Parallel CMS Threads",
+      _conc_workers = new YieldingFlexibleWorkGang("CMS Thread",
                                  ConcGCThreads, true);
       if (_conc_workers == NULL) {
         warning("GC/CMS: _conc_workers allocation failure: "
@@ -869,7 +869,7 @@ void ConcurrentMarkSweepGeneration::compute_new_size_free_list() {
       if (prev_level >= 0) {
         size_t prev_size = 0;
         GenCollectedHeap* gch = GenCollectedHeap::heap();
-        Generation* prev_gen = gch->_gens[prev_level];
+        Generation* prev_gen = gch->get_gen(prev_level);
         prev_size = prev_gen->capacity();
           gclog_or_tty->print_cr("  Younger gen size "SIZE_FORMAT,
                                  prev_size/1000);
